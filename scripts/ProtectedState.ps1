@@ -18,11 +18,25 @@ function Initialize-PrivateDirectory {
         throw 'PRIVATE_DIRECTORY_REPARSE_POINT'
     }
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-    $acl = New-Object Security.AccessControl.DirectorySecurity
+    # Read/write the access section only: re-opening an existing directory must
+    # not request the SACL privilege (SeSecurityPrivilege).
+    $directory = Get-Item -LiteralPath $fullPath
+    if ($PSVersionTable.PSEdition -eq 'Core') {
+        $acl = [IO.FileSystemAclExtensions]::GetAccessControl($directory, [Security.AccessControl.AccessControlSections]::Access)
+    } else {
+        $acl = $directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Access)
+    }
     $acl.SetAccessRuleProtection($true, $false)
+    foreach ($existingRule in @($acl.Access)) {
+        if ($null -ne $existingRule) { $null = $acl.RemoveAccessRuleSpecific($existingRule) }
+    }
     $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.AddAccessRule($rule)
-    Set-Acl -LiteralPath $fullPath -AclObject $acl
+    if ($PSVersionTable.PSEdition -eq 'Core') {
+        [IO.FileSystemAclExtensions]::SetAccessControl($directory, $acl)
+    } else {
+        $directory.SetAccessControl($acl)
+    }
 }
 
 function Save-ProtectedBundle {

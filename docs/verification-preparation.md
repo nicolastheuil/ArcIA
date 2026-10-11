@@ -38,3 +38,20 @@ sûr déclaratif doit être implémenté par les futurs services. Paquets apt et
 dépendances transitives ne constituent pas encore un lock de release avec hashes.
 Les scripts refusent l'adoption/migration d'un cluster existant ; la reprise réelle
 d'une interruption doit être testée sur les VM de qualification.
+# Complément VMware — 11 octobre 2026
+
+Trois VM arcia-k3s-01/02/03 créées et allumées sur la cible vCenter saisie localement.
+Source Debian generic amd64 20261001-2618, SHA512 vérifié, VMDK streamOptimized
+converti avec qemu-img 10.2.1, import puis bootstrap NoCloud exécutés.
+
+Vérification via API VMware authentifiée avec pin accepté localement : 3/3 tools
+actifs, Debian 13 déclaré, IP/hostname attendus, 8 vCPU/32 Gio/150 Gio, PVSCSI,
+VMXNET3 et disk.EnableUUID conformes. UUID/MAC distincts, 3/3 SSH en écoute,
+trois ESXi distincts et règle d'anti-affinité active après réconciliation DRS.
+Les détails privés restent DPAPI locaux ; aucun identifiant ni accès en Git.
+
+48 tests Python passés sous Linux, y compris TLS synthétique réel, intégrité
+image/cache, ISO NoCloud relu, refus de règle de placement étrangère. Tests Windows
+DPAPI/ACL/remplacement atomique passés, scripts parsés, JSON Schema/YAML/Ansible
+syntaxe et gate sans SSH passés. Le test réel n'est pas un test HA/K3s : aucun
+SSH authentifié, contrôle machine-id, horloge Linux, CSI ou rebuild exécuté.

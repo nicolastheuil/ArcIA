@@ -11,6 +11,9 @@ Statut commun : **sources vérifiées ; aucune qualification sur cible**.
 | CloudNativePG | v1.30.1 | Qualification sur K3s, image PG/pgvector, failover |
 | Hermes | v0.21.6 | Digest, UID/GID, s6, wizard, Desktop/OIDC et SQLite |
 | CPI, ingress, OmniRoute | Non résolus | Inventaire et qualification nécessaires |
+| pyvmomi | 9.1.1.0 | Wheel SHA256 vérifiée ; inventaire vCenter en cours |
+| Debian generic amd64 | 20261001-2618 | SHA512 vérifié, conversion VMDK exécutée ; tools et boot VMware restants |
+| qemu-img | 10.2.1 | Conversion locale ; compatibilité import VMware à vérifier |
 
 K3s 1.37 est disponible mais n'est pas retenu automatiquement : les notes CSI 3.7
 indiquent Kubernetes 1.33 à 1.35. CNPG 1.30 documente 1.34 à 1.36 et ne garantit
@@ -20,6 +23,9 @@ pas les distributions autres que Kubernetes vanilla. L'intersection documentaire
 Sources :
 
 - [K3s release précise](https://github.com/k3s-io/k3s/releases/tag/v1.35.9%2Bk3s1)
+- [SDK VMware](https://github.com/vmware/pyvmomi)
+- [Debian image et SHA512SUMS](https://cloud.debian.org/images/cloud/trixie/20261001-2618/)
+- [open-vm-tools Debian](https://packages.debian.org/trixie/open-vm-tools)
 - [SHA256 officiels amd64](https://github.com/k3s-io/k3s/releases/download/v1.35.9%2Bk3s1/sha256sum-amd64.txt)
 - [K3s HA](https://docs.k3s.io/datastore/ha-embedded)
 - [K3s prérequis et ports](https://docs.k3s.io/installation/requirements)

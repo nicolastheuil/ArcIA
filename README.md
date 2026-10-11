@@ -3,8 +3,8 @@
 Préparation du harness de plateforme Hermes pour trois VM Debian 13 / K3s sur
 VMware, avec stockage partagé. Dépôt : **nicolastheuil/arcia-harness**, privé.
 
-**État : préparation codée et contrôlée localement ; VM à créer ; aucun cluster
-déployé. Les services métier Hermes/Entra/Teams/VPN/coffres/DLP restent à développer
+**État : trois VM Debian 13 créées, allumées et vérifiées via VMware ; aucun cluster
+K3s déployé. Les services métier Hermes/Entra/Teams/VPN/coffres/DLP restent à développer
 et qualifier. Ce dépôt n'est pas encore une release installable.**
 
 Le socle contient : spécification des VM, wizard Windows DPAPI à ACL restreinte,
@@ -32,6 +32,10 @@ Les tests n'accèdent à aucun environnement client. Les gates bloquent l'exempl
 synthétique avant SSH et l'installation réelle tant que les prérequis manquent.
 
 ## Suite du déploiement
+
+La cible confirmée est vCenter / cluster ESXi ; l'image Debian est à préparer.
+Le formulaire `scripts/Connect-VMware.ps1 -PromptFingerprint` permet une acceptation
+locale du certificat et un inventaire chiffré. Voir [le runbook VMware](docs/runbooks/vcenter.md).
 
 Créer les trois VM selon infra/vmware/vm-spec.yaml, identifier réseau/endpoints
 avec bascule et stockage VMware. Saisir les paramètres dans le wizard local,

@@ -11,8 +11,8 @@ Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
 | PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Codé ; exécution distante non testée |
 | PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
 | PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
-| PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | VM à créer ; spécification préparée |
-| PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | Inventaire attendu |
+| PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Trois Debian 13 créées/allumées ; ressources, tools, réseau, UUID/MAC et SSH en écoute vérifiés ; clés hôte/machine-id/NTP Linux restants |
+| PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | Connexion/inventaire validés ; trois ESXi distincts et anti-affinité vérifiés ; CSI/CPI non qualifiés |
 | PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | Qualification attendue |
 | L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | À coder/qualifier après inventaire |
 | L0-02 | 0 | Hermes synthétique, Desktop, OIDC, Entra et Teams | À développer et tester |

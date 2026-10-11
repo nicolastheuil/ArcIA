@@ -11,6 +11,10 @@ kubeconfig*
 .env.*
 !.env.example
 private/
+secrets/
+*.vmdk
+*.qcow2
+*.iso
 inventory.private.*
 group_vars/private*
 .venv/

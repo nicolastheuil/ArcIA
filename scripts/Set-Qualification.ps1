@@ -25,7 +25,7 @@ try {
     $validation = $bundle | & python (Join-Path $PSScriptRoot 'harness.py') validate --stdin
     if ($LASTEXITCODE -ne 0) { throw 'QUALIFICATION_VALIDATION_FAILED' }
     Save-ProtectedBundle -Path $temporaryPath -Bundle $bundle
-    [IO.File]::Replace($temporaryPath, $bundlePath, $null)
+    [IO.File]::Replace($temporaryPath, $bundlePath, [NullString]::Value)
     Write-Host 'QUALIFICATION_RECORDED_LOCALLY; NO_DEPLOYMENT'
 } catch {
     Write-Host 'QUALIFICATION_BLOCKED'
