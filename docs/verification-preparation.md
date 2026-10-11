@@ -4,8 +4,8 @@
 
 | Contrôle | Résultat |
 |---|---|
-| Python 3.14.7, unittest | 28 tests synthétiques réussis |
-| PowerShell, quatre scripts | Parse sans erreur |
+| Python 3.14.4 WSL, unittest | 78 tests synthétiques réussis (dernier lot) |
+| PowerShell, tous les scripts | Parse sans erreur |
 | ProtectedState, DPAPI et ACL | Roundtrip réussi, canari absent du fichier chiffré, ACL restreinte |
 | ProtectedState, refus | Écrasement existant et chemin dans le workspace refusés |
 | JSON Schema draft 2020-12 | Schéma et fixture valides |
@@ -26,7 +26,7 @@ commit résolu sur leurs tags officiels. Aucun runner avec route vers les client
 
 ## Non exécuté
 
-Préflight de VM réelle, application Kubernetes et admission serveur, installation
+Application Kubernetes et admission serveur, installation
 K3s, idempotence sur cible, CSI/CPI, propriété unique/fencing, bascule PG et endpoints,
 Desktop/OIDC/Teams, coffres, assainissement, tunnels/kill switch, sauvegarde chiffrée
 et rebuild neuf. Aucune release installable ou disponibilité garantie.
@@ -75,3 +75,42 @@ clé changée/dupliquée, challenge périmé, erreur privée, identité clonée,
 des clés au rattrapage et absence de reboot avant confirmation du média. Syntaxe
 PowerShell, DPAPI/ACL et validation structurelle restent contrôlés. K3s/CPI/CSI,
 endpoints, services métier, disponibilité et rebuild restent non déployés/non testés.
+
+## Complément fondations et DNS — 11 octobre 2026
+
+Lecture réelle du vCenter/ESXi 9.1.1 : datastore vSAN accessible aux trois hôtes,
+au moins 1 Tio libre lors du relevé, dix policies compatibles PBM. Depuis les trois
+VM : TCP SSH entre pairs, routes, MTU >=1500, TLS GitHub/registry, certificat
+vCenter approuvé et absence de chevauchement Pod/Service avec les routes IPv4
+visibles. Le poste Windows ne présente pas non plus de conflit sur ses routes.
+Ces mesures ne qualifient ni les futurs VPN, ni les flux K3s, ni les VIP.
+
+Les deux FQDN ne correspondaient pas encore aux IP réservées. Le défaut local de
+paramétrage DCOM est corrigé et testé sous Windows PowerShell 5.1. La tentative
+suivante en lecture seule retourne 0x80070005 avant lecture des zones : accès DCOM
+refusé, aucune création DNS effectuée. Un package local privé sans credentials est
+prêt pour exécution sur le serveur DNS désigné. Aucun droit/firewall AD modifié.
+L'ouverture initiale d'Explorateur n'était pas visible ; la fenêtre dédiée et le
+chemin physique MSIX permettent d'accéder au package. L'ingénieur confirme ensuite
+la création. Les requêtes directes vérifient les IP réservées, puis la purge des
+caches négatifs systemd permet la résolution exacte sur les trois VM.
+
+Le compte SSO local arcia-cpi-csi a été créé, propriété vérifiée par journal et
+description liée à l'opération. Une inspection après refactorisation vérifie
+qu'il existe toujours. Client public épinglé, quatre hashes contrôlés, TLS SHA256
+sur les endpoints SSO ; mot de passe généré selon policy relevée, sans changement
+de policy. Quatre rôles et dix grants du compte sont vérifiés. Quatre autres
+grants de groupe avec propagation à la racine sont conservés sans modification,
+origine non établie. Aucun rôle existant n'est édité ; ses privilèges exacts sont
+revérifiés. Le défaut était le vmFolder racine du datacenter, alias d'entité complexe :
+le grant manquant est appliqué au datacenter sans propagation. Une session technique
+vérifie les droits attendus et les refus d'arrêt/suppression des VM et de modification
+de disque d'une VM extérieure. La seconde vérification n'ajoute aucun grant.
+Aucun test de volume CSI ni installation K3s.
+
+78 tests Python réussis. Tests Windows : DPAPI/ACL ; sélection de zone et refus
+de conflits DNS ; création et readback simulés, rejeu sans écriture, refus d'une
+autre cible et d'un provider défaillant ; options DCOM chiffrées ; secrets SSO
+conformes aux bornes de policy ; certificat accepté/changé/absent. Les tests DNS
+simulés n'accèdent à aucun serveur et ne prouvent pas les droits AD réels.
+Quatre manifests CPI/CSI et neuf images sont épinglés, hashes vérifiés localement.

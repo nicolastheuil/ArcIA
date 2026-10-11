@@ -92,6 +92,7 @@ class PreparationTests(unittest.TestCase):
         self.reject("PRIVATE_NODES_REQUIRED")
 
     def test_plan_remains_closed_and_does_not_expose_token(self):
+        self.lock['components']['vsphere_cpi']['image_digest'] = None
         p = harness.plan(self.config, self.lock)
         self.assertFalse(p["installation_ready"])
         self.assertFalse(p["release_ready"])

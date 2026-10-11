@@ -4,7 +4,8 @@ Préparation du harness de plateforme Hermes pour trois VM Debian 13 / K3s sur
 VMware, avec stockage partagé. Dépôt : **nicolastheuil/arcia-harness**, privé.
 
 **État : trois VM Debian 13 créées et allumées ; VMware, empreintes SSH hors bande
-et préflight Linux vérifiés sur les trois nœuds ; aucun cluster
+et préflight Linux vérifiés sur les trois nœuds ; DNS des endpoints vérifiés 3/3,
+compte SSO dédié et droits effectifs bornés vérifiés ; aucun cluster
 K3s déployé. Les services métier Hermes/Entra/Teams/VPN/coffres/DLP restent à développer
 et qualifier. Ce dépôt n'est pas encore une release installable.**
 

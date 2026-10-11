@@ -3,12 +3,12 @@
 ## État et destination
 
 Destination confirmée : **nicolastheuil/arcia-harness**, privé. Les trois VM
-sont à créer. Cette livraison prépare le socle ; aucun cluster ou service métier
+Debian 13 sont créées et vérifiées via SSH strict et sudo. Cette livraison prépare le socle ; aucun cluster ou service métier
 n'est installé et aucune HA n'est annoncée. Voir docs/etat-reprise.md et backlog.
 
-## 1. Créer les VM désignées
+## 1. Vérifier les VM désignées
 
-Appliquer `infra/vmware/vm-spec.yaml` dans l'infrastructure VMware retenue :
+La configuration déployée correspond à `infra/vmware/vm-spec.yaml` :
 trois Debian 13 amd64, chacune 8 vCPU / 32 Gio / 150 Gio système, NIC vmxnet3,
 open-vm-tools, UUID de disque exposé (`disk.enableUUID=TRUE`). Le stockage partagé
 proposé est 1 Tio, à ajuster aux bases répliquées et sauvegardes.
@@ -16,8 +16,9 @@ proposé est 1 Tio, à ajuster aux bases répliquées et sauvegardes.
 Répartir sur des ESXi distincts si disponibles ; relever les domaines de panne
 dans l'inventaire protégé. Cloner une image Debian propre, jamais une VM K3s
 enrôlée. Vérifier UUID VMware, MAC, hostname, machine-id et clés hôte uniques.
-Configurer DNS, heure synchronisée, SSH personnel et sudo ; relever les empreintes
-depuis la console VMware et les confirmer dans known_hosts hors bande.
+DNS des sources officielles, NTP, SSH personnel et sudo sont vérifiés. Les empreintes
+ont été validées hors bande via VMware Tools/vCenter avec challenges de l'opération.
+Ne pas remplacer cette confiance par un simple ssh-keyscan.
 
 Le contrôleur Ansible est Linux/WSL (Ansible ne s'exécute pas nativement sous
 Windows). Le wizard utilise les chemins SSH Windows pour le préflight ; le rendu
@@ -33,9 +34,13 @@ de contenu privé dans le chat :
 
 ```powershell
 python scripts/harness.py doctor
-powershell -NoProfile -File scripts/Configure-Local.ps1
+powershell -NoProfile -File scripts/Inspect-Foundation.ps1 -Network
 powershell -NoProfile -File scripts/Prepare-Local.ps1 -Action plan
 ```
+
+Pour ce déploiement, `Configure-Foundation.ps1` a déjà repris les VM, la confiance
+SSH et les policies compatibles PBM dans `instance.dpapi`. Ne relancer aucun wizard
+de création de configuration et ne pas régénérer le token.
 
 Le wizard écrit `%LOCALAPPDATA%\ArcIA-Harness\instance.dpapi`, chiffré pour le
 compte Windows courant, ACL restreinte, hors OneDrive et Git. Il n'est à lancer
@@ -56,8 +61,9 @@ la preuve mesurée doit exister et être revue. Aucun gate n'a été validé ici
   et disponibilité des domaines de panne. Résoudre les images et sidecars par digest.
 - Définir l'endpoint API privé et le futur HTTPS avec bascule, puis vérifier le
   routage et les probes sans supposer qu'un NAT sur une seule VM assure la HA.
-- Comparer les CIDR Pods/Services à tous les réseaux entreprise, VPN et clients
-  connus. Les valeurs d'exemple ne sont pas des choix de réseau approuvés.
+- Comparer les CIDR Pods/Services aux réseaux connus et routes actuellement visibles.
+  Les futurs réseaux entreprise/VPN/clients restent inconnus ; leur activation exige
+  le futur contrôle de routes/isolation/kill switch. Aucun inventaire réputé exhaustif.
 - Faire approuver/appliquer les flux firewall sur les réseaux privés : API
   6443/TCP ; etcd 2379–2380/TCP entre serveurs ; VXLAN 8472/UDP entre nœuds ;
   kubelet 10250/TCP selon usages. Recenser DNS/NTP/SSH et les sorties artefacts.
@@ -88,8 +94,9 @@ cd infra/ansible
 /protected/validation-venv/bin/ansible-playbook -i /protected/inventory.private.json site.yml
 ```
 
-Le playbook bloque le rendu actuel : cibles non établies, gates pending, CPI non
-épinglé. La première installation est une qualification synthétique safe-mode,
+Le playbook bloque le rendu actuel : gates pending, DNS/endpoints et permissions
+techniques non qualifiés. Les sources CPI/CSI sont épinglées mais non installées.
+La première installation est une qualification synthétique safe-mode,
 pas un lancement métier. Installer ensuite CPI/CSI/ingress qualifiés. Les logs
 Ansible contiennent les noms d'hôtes : ils restent locaux protégés, jamais bruts
 dans Git ou le chat. Aucun kubeconfig administrateur n'est rapatrié par ces scripts.

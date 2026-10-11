@@ -10,10 +10,11 @@ Statut commun : **sources vérifiées ; aucune qualification sur cible**.
 | vSphere CSI | v3.7.3 | Matrice vCenter/ESXi, compte minimum, sidecars et digests |
 | CloudNativePG | v1.30.1 | Qualification sur K3s, image PG/pgvector, failover |
 | Hermes | v0.21.6 | Digest, UID/GID, s6, wizard, Desktop/OIDC et SQLite |
-| CPI, ingress, OmniRoute | Non résolus | Inventaire et qualification nécessaires |
-| pyvmomi | 9.1.1.0 | Wheel SHA256 vérifiée ; inventaire vCenter en cours |
-| Debian generic amd64 | 20261001-2618 | SHA512 vérifié, conversion VMDK exécutée ; tools et boot VMware restants |
-| qemu-img | 10.2.1 | Conversion locale ; compatibilité import VMware à vérifier |
+| CPI | v1.35.1 | Source et image fixées ; compte technique et qualification sur cible restants |
+| ingress, OmniRoute | Non résolus | Qualification nécessaire |
+| pyvmomi | 9.1.1.0 | Wheel SHA256 vérifiée ; inventaire vCenter/PBM exécuté |
+| Debian generic amd64 | 20261001-2618 | SHA512, conversion, import, boot, tools et préflight Linux vérifiés sur trois VM |
+| qemu-img | 10.2.1 | Conversion locale et import VMware exécutés |
 
 K3s 1.37 est disponible mais n'est pas retenu automatiquement : les notes CSI 3.7
 indiquent Kubernetes 1.33 à 1.35. CNPG 1.30 documente 1.34 à 1.36 et ne garantit
@@ -31,12 +32,17 @@ Sources :
 - [K3s prérequis et ports](https://docs.k3s.io/installation/requirements)
 - [K3s airgap](https://docs.k3s.io/installation/airgap)
 - [CSI releases et matrice 3.7](https://github.com/kubernetes-sigs/vsphere-csi-driver/releases)
+- [CPI v1.35.1](https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.35.1)
 - [CNPG compatibilité](https://cloudnative-pg.io/docs/1.28/supported_releases/)
 - [Hermes source épinglée](https://github.com/NousResearch/hermes-agent/tree/818c13be1dc4fd28987e1e881a9408224afd4535)
 - [Hermes Docker](https://hermes-agent.nousresearch.com/docs/user-guide/docker)
 - [Volumes et RWOP](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
 
 Le bootstrap bloque les composants non qualifiés. Les digests manquants restent
-null. Relever les images et sidecars réellement déployés, conserver leurs artefacts
+null. Les sources CPI/CSI et neuf images sont désormais épinglées sous
+`deploy/vendor/vmware`, sans déploiement. vCenter/ESXi 9.1.1 et vSAN ont été
+inventoriés ; la compatibilité runtime reste à qualifier. La documentation
+Broadcom détaillée a retourné HTTP403 pendant ce lot. Relever les images et
+sidecars réellement déployés, conserver leurs artefacts
 et SBOM, vérifier signatures/provenance avant une release. Les paquets Debian,
 le contrôleur Ansible et les dépendances métier restent à verrouiller.

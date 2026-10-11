@@ -19,7 +19,7 @@
       "version": "v3.7.3",
       "revision": "27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34",
       "source": "https://github.com/kubernetes-sigs/vsphere-csi-driver/releases/tag/v3.7.3",
-      "image_digest": null,
+      "image_digest": "sha256:86f7673fd46484b456c16eed0d4f6c4372fdf1b66c8c513b85c76c54ee3af966",
       "status": "source_verified_not_qualified"
     },
     "cloudnative_pg": {
@@ -37,9 +37,136 @@
       "image_digest": null,
       "status": "source_verified_not_qualified"
     },
-    "vsphere_cpi": {"version": null, "image_digest": null, "status": "pending_vmware_inventory"},
-    "ingress": {"version": null, "image_digest": null, "status": "pending_endpoint_design"},
-    "postgres_pgvector": {"version": null, "image_digest": null, "status": "pending_image_qualification"},
-    "omniroute": {"source": "https://github.com/diegosouzapw/OmniRoute", "version": null, "image_digest": null, "status": "pending_qualification"}
+    "vsphere_cpi": {
+      "version": "v1.35.1",
+      "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
+      "source": "https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.35.1",
+      "image_digest": "sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79",
+      "image_repository": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere",
+      "status": "source_verified_not_qualified"
+    },
+    "ingress": {
+      "version": null,
+      "image_digest": null,
+      "status": "pending_endpoint_design"
+    },
+    "postgres_pgvector": {
+      "version": null,
+      "image_digest": null,
+      "status": "pending_image_qualification"
+    },
+    "omniroute": {
+      "source": "https://github.com/diegosouzapw/OmniRoute",
+      "version": null,
+      "image_digest": null,
+      "status": "pending_qualification"
+    }
+  },
+  "vmware_foundation": {
+    "sources": {
+      "cpi-daemonset.yaml": {
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/vsphere-cloud-controller-manager-ds.yaml",
+        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
+        "upstream_sha256": "92d87efcd0d748820b044c46654cbe1c913efea40f6c1d5de54d9d95d6788dd0",
+        "rendered_sha256": "20ae26dbf44ab4973f65e4a8006fe79f10dd8bd20139b2a94fea00158fb9d21d"
+      },
+      "cpi-roles.yaml": {
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/cloud-controller-manager-roles.yaml",
+        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
+        "upstream_sha256": "92a414fde0b2e2446edd62ca9ef99f1780defbc5f7d998885caef166438c8531",
+        "rendered_sha256": "92a414fde0b2e2446edd62ca9ef99f1780defbc5f7d998885caef166438c8531"
+      },
+      "cpi-bindings.yaml": {
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
+        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
+        "upstream_sha256": "18bf94e1afd09224fbd5a891b0a79b2d80785d9984fae95cea881cdb7f0f33cc",
+        "rendered_sha256": "18bf94e1afd09224fbd5a891b0a79b2d80785d9984fae95cea881cdb7f0f33cc"
+      },
+      "csi-driver.yaml": {
+        "url": "https://raw.githubusercontent.com/kubernetes-sigs/vsphere-csi-driver/27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34/manifests/vanilla/vsphere-csi-driver.yaml",
+        "revision": "27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34",
+        "upstream_sha256": "594c5769f14de0bd89309edca0c15e29efb73bd7e727833965e0ee41dac38531",
+        "rendered_sha256": "67eb498a4d19f2ec96df27c01d531203aeaa8ae4726037f3945699ccbbb74908"
+      }
+    },
+    "images": [
+      {
+        "source": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere:v1.35.1",
+        "digest": "sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79",
+        "pinned": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere@sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79"
+      },
+      {
+        "source": "registry.k8s.io/csi-vsphere/driver:v3.7.3",
+        "digest": "sha256:86f7673fd46484b456c16eed0d4f6c4372fdf1b66c8c513b85c76c54ee3af966",
+        "pinned": "registry.k8s.io/csi-vsphere/driver@sha256:86f7673fd46484b456c16eed0d4f6c4372fdf1b66c8c513b85c76c54ee3af966"
+      },
+      {
+        "source": "registry.k8s.io/csi-vsphere/syncer:v3.7.3",
+        "digest": "sha256:1839a45587bc931ccf813498f750afca160b7c2777052985387da76f5ba0a787",
+        "pinned": "registry.k8s.io/csi-vsphere/syncer@sha256:1839a45587bc931ccf813498f750afca160b7c2777052985387da76f5ba0a787"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/csi-attacher:v4.9.0",
+        "digest": "sha256:5aaefc24f315b182233c8b6146077f8c32e274d864cb03c632206e78bd0302da",
+        "pinned": "registry.k8s.io/sig-storage/csi-attacher@sha256:5aaefc24f315b182233c8b6146077f8c32e274d864cb03c632206e78bd0302da"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.13.0",
+        "digest": "sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d",
+        "pinned": "registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/csi-provisioner:v4.0.1",
+        "digest": "sha256:bf5a235b67d8aea00f5b8ec24d384a2480e1017d5458d8a63b361e9eeb1608a9",
+        "pinned": "registry.k8s.io/sig-storage/csi-provisioner@sha256:bf5a235b67d8aea00f5b8ec24d384a2480e1017d5458d8a63b361e9eeb1608a9"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/csi-resizer:v1.12.0",
+        "digest": "sha256:ab774734705a906561e15b67f6a96538f3ad520335d636f793aaafe87a3b5200",
+        "pinned": "registry.k8s.io/sig-storage/csi-resizer@sha256:ab774734705a906561e15b67f6a96538f3ad520335d636f793aaafe87a3b5200"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/csi-snapshotter:v8.2.0",
+        "digest": "sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784",
+        "pinned": "registry.k8s.io/sig-storage/csi-snapshotter@sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784"
+      },
+      {
+        "source": "registry.k8s.io/sig-storage/livenessprobe:v2.15.0",
+        "digest": "sha256:2c5f9dc4ea5ac5509d93c664ae7982d4ecdec40ca7b0638c24e5b16243b8360f",
+        "pinned": "registry.k8s.io/sig-storage/livenessprobe@sha256:2c5f9dc4ea5ac5509d93c664ae7982d4ecdec40ca7b0638c24e5b16243b8360f"
+      }
+    ],
+    "qualification_status": "not_deployed_not_qualified"
+  },
+  "sso_admin_client": {
+    "status": "source_pinned_not_qualified",
+    "files": [
+      {
+        "url": "https://raw.githubusercontent.com/vmware/PowerCLI-Example-Scripts/097172029b710036232f3937dd7c04bbb6a760ad/Modules/VMware.vSphere.SsoAdmin/net45/VMware.vSphere.LsClient.dll",
+        "sha256": "3026314ba6ebf3bbb5eacdd4a60d59749634f9e08dcdf04cd91b10c5e511bbcc",
+        "name": "VMware.vSphere.LsClient.dll"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/vmware/PowerCLI-Example-Scripts/097172029b710036232f3937dd7c04bbb6a760ad/Modules/VMware.vSphere.SsoAdmin/net45/VMware.vSphere.SsoAdminClient.dll",
+        "sha256": "dfa426d9631aab7a14bffb2fd15ab1973c3cf9470129beb13b928c3aa0faf6c6",
+        "name": "VMware.vSphere.SsoAdminClient.dll"
+      },
+      {
+        "sha256": "f1f498a2776064a38f55e39b9175d41ae1929e064e3f7eb68dbfe9fc5f36fe84",
+        "archive_member": "lib/net45/VMware.Binding.Sts.dll",
+        "download_sha256": "e3305b573fb847344c18fbab9518d8f9a887421e091899d1a3d7c0f004c94e79",
+        "name": "VMware.Binding.Sts.dll",
+        "url": "https://raw.githubusercontent.com/vmware/PowerCLI-Example-Scripts/097172029b710036232f3937dd7c04bbb6a760ad/Modules/VMware.vSphere.SsoAdmin/src/VMware.vSphere.SsoAdmin.Client/packages/VMware.Binding.Sts.12.0.0.15939652.nupkg"
+      },
+      {
+        "sha256": "4806508a6fc9c8a6926e1b003d82ab9f7cbf74e343bbd07761470351f4c98123",
+        "archive_member": "lib/net45/VMware.Binding.WsTrust.dll",
+        "download_sha256": "78c727f3d2753146578406aff3a4febcd7868584484ebf3e8c26c679d107ab58",
+        "name": "VMware.Binding.WsTrust.dll",
+        "url": "https://raw.githubusercontent.com/vmware/PowerCLI-Example-Scripts/097172029b710036232f3937dd7c04bbb6a760ad/Modules/VMware.vSphere.SsoAdmin/src/VMware.vSphere.SsoAdmin.Client/packages/VMware.Binding.WsTrust.12.0.0.15939652.nupkg"
+      }
+    ],
+    "repository": "vmware/PowerCLI-Example-Scripts",
+    "revision": "097172029b710036232f3937dd7c04bbb6a760ad"
   }
 }

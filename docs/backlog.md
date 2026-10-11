@@ -12,9 +12,10 @@ Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
 | PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
 | PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
 | PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Vérifié : trois Debian 13, clés SSH hors bande conservées, sudo, identités Linux uniques, DNS/NTP, ressources, tools, cgroups, swap absent et TUN ; K3s non installé |
-| PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | Connexion/inventaire validés ; trois ESXi distincts et anti-affinité vérifiés ; CSI/CPI non qualifiés |
-| PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | Qualification attendue |
-| L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | À coder/qualifier après inventaire |
+| PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | vCenter/ESXi 9.1.1 ; vSAN partagé, dix policies compatibles PBM ; compte SSO créé ; quatre rôles, dix objets, droits effectifs positifs/négatifs vérifiés ; CPI/CSI non qualifiés |
+| PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | Paramètres chiffrés ; VIP retenue ; routes visibles sans recouvrement ; DNS Windows AD créés par l'ingénieur, vérifiés 3/3 après purge cache ; test VIP et ports K3s attendus ; réseaux futurs inconnus |
+| L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | CPI 1.35.1 et CSI 3.7.3 : quatre manifests et neuf images épinglés ; non déployés ; autres composants à préparer |
+| L0-07 | 0 | Contrôle de routes à chaque connexion VPN, refus des conflits, isolation et kill switch | À développer avant activation d'un VPN client ; aucun inventaire futur réputé exhaustif |
 | L0-02 | 0 | Hermes synthétique, Desktop, OIDC, Entra et Teams | À développer et tester |
 | L0-03 | 0 | Policy serveur, sanitizer complet, sortie unique mock | À développer et tester |
 | L0-04 | 0 | Launcher typé, VPN personnel synthétique, kill switch/reaper | À développer et tester |

@@ -1,0 +1,21 @@
+{
+  "status": "scoped_effective_privileges_verified_csi_runtime_not_qualified",
+  "scope": "designated_vcenter_block_volumes_only",
+  "identity": "operation_owned_local_sso_service_account_created",
+  "roles": [
+    {"name": "ArcIA-CNS-Search-Policy", "scope": "vcenter_root", "propagate": false,
+     "privileges": ["System.Read", "Cns.Searchable", "StorageProfile.View"]},
+    {"name": "ArcIA-CNS-Datastore", "scope": "selected_datastore", "propagate": false,
+     "privileges": ["System.Read", "Datastore.AllocateSpace", "Datastore.FileManagement"]},
+    {"name": "ArcIA-CNS-Node", "scope": "three_owned_node_vms", "propagate": false,
+     "privileges": ["System.Read", "VirtualMachine.Config.AddExistingDisk", "VirtualMachine.Config.AddRemoveDevice"]},
+    {"name": "ReadOnly", "scope": "designated_inventory_objects_and_ancestors", "propagate": false,
+     "privileges": ["System.Read", "System.View", "System.Anonymous"]}
+  ],
+  "excluded": ["administrator", "vm_creation_deletion", "guest_operations", "vm_power", "host_configuration", "file_services"],
+  "qualification": ["review_against_current_vendor_requirements", "query_effective_privileges", "cpi_provider_ids", "csi_create_attach_detach_expand_delete_synthetic_volume", "negative_test_outside_designated_scope"],
+  "references": [
+    "https://github.com/kubernetes-sigs/vsphere-csi-driver/blob/27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34/pkg/csi/service/common/authmanager.go",
+    "https://techdocs.broadcom.com/us/en/vmware-cis/vsphere/container-storage-plugin/3-0/getting-started-with-vmware-vsphere-container-storage-plug-in-3-0/vsphere-container-storage-plug-in-deployment.html"
+  ]
+}
