@@ -8,12 +8,12 @@ Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
 | PREP-02 | Préparation | ADR, versions officielles, rôle et reprise | Codé/documenté |
 | PREP-03 | Préparation | Wizard DPAPI, validation stricte, rendu privé | Codé ; tests synthétiques locaux |
 | PREP-04 | Préparation | Préflight SSH sans mutation et sans sorties brutes | Vérifié sur les trois VM via SSH strict et sudo ; preuves détaillées protégées |
-| PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Codé ; exécution distante non testée |
+| PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Codé avec contrôleur WSL protégé ; exécution distante à suivre |
 | PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
 | PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
 | PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Vérifié : trois Debian 13, clés SSH hors bande conservées, sudo, identités Linux uniques, DNS/NTP, ressources, tools, cgroups, swap absent et TUN ; K3s non installé |
 | PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | vCenter/ESXi 9.1.1 ; vSAN partagé, dix policies compatibles PBM ; compte SSO créé ; quatre rôles, dix objets, droits effectifs positifs/négatifs vérifiés ; CPI/CSI non qualifiés |
-| PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | Paramètres chiffrés ; VIP retenue ; routes visibles sans recouvrement ; DNS Windows AD créés par l'ingénieur, vérifiés 3/3 après purge cache ; test VIP et ports K3s attendus ; réseaux futurs inconnus |
+| PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | DNS vérifiés 3/3 ; 54/54 ports et 12/12 contrôles transport VIP avec bascule/retrait qualifiés ; API K3s réelle à tester ; réseaux futurs inconnus |
 | L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | CPI 1.35.1 et CSI 3.7.3 : quatre manifests et neuf images épinglés ; non déployés ; autres composants à préparer |
 | L0-07 | 0 | Contrôle de routes à chaque connexion VPN, refus des conflits, isolation et kill switch | À développer avant activation d'un VPN client ; aucun inventaire futur réputé exhaustif |
 | L0-02 | 0 | Hermes synthétique, Desktop, OIDC, Entra et Teams | À développer et tester |

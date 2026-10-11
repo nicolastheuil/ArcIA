@@ -168,5 +168,20 @@
     ],
     "repository": "vmware/PowerCLI-Example-Scripts",
     "revision": "097172029b710036232f3937dd7c04bbb6a760ad"
+  },
+  "node_vip": {
+    "implementation": "keepalived_unicast_no_vmac",
+    "source": "https://github.com/acassen/keepalived/tree/v2.3.3",
+    "packages": {
+      "keepalived": {
+        "version": "1:2.3.3-1",
+        "sha256": "bc252a7ac4f12b1fa9f1f36d578c9cfcbed4ce4bf5388f11d43fda7abafadfcd"
+      },
+      "iputils-arping": {
+        "version": "3:20240905-3",
+        "sha256": "62b43662c665da578200684e518086808828de9ca7373c856698f07091c787b5"
+      }
+    },
+    "status": "pinned_not_installed"
   }
 }

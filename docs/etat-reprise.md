@@ -1,5 +1,26 @@
 # État de reprise — 11 octobre 2026
 
+## Dernière progression : VIP et bootstrap
+
+Keepalived et arping installés sur les trois VM avec versions/SHA256 fixés.
+54/54 flux K3s directionnels vérifiés ; 12/12 contrôles VIP API/HTTPS avant/après
+bascule du propriétaire. Propriétaire unique, nopreempt et retrait sans API saine
+vérifiés. Listeners temporaires arrêtés ; aucune modification de firewall/VMAC.
+Voir ADR 0007 pour le périmètre synthétique, distinct de HA K3s/CSI/production.
+83 tests Python passent sous Linux ; les tests de sonde Linux s'exécutent sous WSL.
+Le contrôleur Ansible protégé est codé ; K3s n'est pas encore installé à ce point.
+
+Formulaire Configure-Integrations ouvert, sauvegarde partielle DPAPI reçue :
+champs Teams et Passbolt présents, non qualifiés. Entra, TLS, OpenRouter et
+récupération restent à renseigner/qualifier ; aucune valeur dans ce fichier.
+Ne pas redemander les décisions ni les champs déjà enregistrés. Continuer le socle.
+
+Ordre de reprise : Qualify-Preinstallation.ps1 vérifie les preuves privées de
+l'opération ; Invoke-ClusterFoundation.ps1 -Action install_k3s exécute le rôle
+Ansible existant via le contrôleur WSL protégé. Puis vérifier l'API réelle/VIP,
+déployer CPI/CSI et qualifier des volumes synthétiques avant les bases et Hermes.
+La certification éditeur vSphere et la recette/rebuild restent des limites explicites.
+
 ## Décisions utilisateur
 
 - Publier en privé sur le compte **nicolastheuil**, dépôt **arcia-harness**.
