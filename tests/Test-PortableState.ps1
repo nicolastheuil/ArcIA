@@ -21,7 +21,9 @@ try{
     $destination=Join-Path $sandbox 'restored'
     $null=Import-PortableState $archive $destination (Split-Path $PSScriptRoot -Parent) $password
     $restored=(Read-ProtectedBundle (Join-Path $destination 'instance.dpapi'))|ConvertFrom-Json
-    if($restored.token -ne 'synthetic-token' -or $restored.path -ne (Join-Path $destination 'identity') -or
+    # Windows short/long aliases may differ textually while naming the same file.
+    if($restored.token -ne 'synthetic-token' -or
+        [ArcIAPortablePaths]::Resolve($restored.path) -ne [ArcIAPortablePaths]::Resolve((Join-Path $destination 'identity')) -or
         -not (Test-Path -LiteralPath $restored.external) -or [IO.File]::ReadAllText($restored.external) -ne 'SYNTHETIC_REFERENCE_NOT_A_KEY'){throw 'RESTORE_OR_PATH_REBIND_FAILED'}
     $overwriteRejected=$false;try{$null=Import-PortableState $archive $destination (Split-Path $PSScriptRoot -Parent) $password}catch{$overwriteRejected=$true}
     if(-not $overwriteRejected){throw 'EXISTING_STATE_OVERWRITTEN'}
