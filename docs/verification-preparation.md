@@ -54,4 +54,24 @@ Les détails privés restent DPAPI locaux ; aucun identifiant ni accès en Git.
 image/cache, ISO NoCloud relu, refus de règle de placement étrangère. Tests Windows
 DPAPI/ACL/remplacement atomique passés, scripts parsés, JSON Schema/YAML/Ansible
 syntaxe et gate sans SSH passés. Le test réel n'est pas un test HA/K3s : aucun
-SSH authentifié, contrôle machine-id, horloge Linux, CSI ou rebuild exécuté.
+SSH authentifié, contrôle machine-id, horloge Linux, CSI ou rebuild exécuté dans ce lot VMware initial.
+
+## Complément SSH/Linux — 11 octobre 2026
+
+Les trois clés publiques hôte Ed25519 sont validées hors bande par l'API vCenter
+approuvée et VMware Tools, avec challenges distincts. La réconciliation du lecteur
+CD virtuel est codée et journalisée ; les clés hôte ont été conservées. Après les
+redémarrages, les trois VM restent démarrées, conformes et sur trois ESXi distincts
+avec anti-affinité. La vérification VMware et le préflight SSH sont séparés.
+
+Connexions SSH strictes et sudo exécutés avec succès. Checks 3/3 : Debian 13 amd64,
+ressources et espace libre, cgroups v2, NTP synchronisé, DNS des sources officielles,
+swap absent, support TUN, VMware Tools et cloud-init terminé. Machine-id et UUID
+Linux valides et uniques. Aucune valeur d'identité ou adresse privée dans le rapport.
+Le DNS contrôlé est une résolution, pas une recette des téléchargements HTTPS.
+
+62 tests synthétiques Python sous Linux, dont les refus de confiance réseau seule,
+clé changée/dupliquée, challenge périmé, erreur privée, identité clonée, conservation
+des clés au rattrapage et absence de reboot avant confirmation du média. Syntaxe
+PowerShell, DPAPI/ACL et validation structurelle restent contrôlés. K3s/CPI/CSI,
+endpoints, services métier, disponibilité et rebuild restent non déployés/non testés.

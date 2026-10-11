@@ -32,7 +32,7 @@ def verify(payload, enforce_placement=False):
             'hardware_matching_count':0,'debian13_reported_count':0,'ssh_listening_count':0,
             'distinct_host_count':len({vm.runtime.host._moId for vm in nodes}),
             'uuid_mac_unique':False,'deployed':False,'k3s_installed':False,
-            'ssh_host_keys_verified':False}
+            'ssh_validation_in_separate_preflight':True}
         result['anti_affinity_configured']=any(isinstance(rule,vim.cluster.AntiAffinityRuleSpec) and rule.enabled
             and rule.name=='arcia-k3s-separate-esxi' and set(rule.vm)==set(nodes) for rule in (cluster.configurationEx.rule or []))
         uuids=[]; macs=[]

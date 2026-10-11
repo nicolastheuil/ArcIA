@@ -96,6 +96,40 @@ VM existantes sont refusées, la reprise nécessite réconciliation de l'état p
 Ne pas supprimer ou adopter une VM existante pour faire passer le préflight.
 
 La vérification distingue création/allumage, ressources, tools, OS déclaré,
-réseau, UUID/MAC et répartition. Les clés hôte SSH et machine-id nécessitent encore
-une vérification hors bande et le préflight Linux avant K3s. Aucun CSI, stockage
+réseau, UUID/MAC et répartition. Les clés hôte SSH et machine-id sont contrôlés
+séparément par le préflight ci-dessous. Aucun CSI, stockage
 persistant de plateforme ou endpoint HA n'est qualifié par ces seuls contrôles.
+
+## Valider l'accès SSH et Linux
+
+Le bootstrap actuel publie la clé hôte publique Ed25519 et un challenge propre à
+la VM via VMware Tools. Aucun secret dans cette variable guestinfo. Après une
+nouvelle création avec cette version, collecter la preuve sans redémarrage :
+
+```powershell
+pwsh -NoProfile -File scripts/Test-NodeAccess.ps1 -CollectHostKeys
+pwsh -NoProfile -File scripts/Test-NodeAccess.ps1 -ValidateOnly
+```
+
+La première commande lit les challenges dans le résultat chiffré du déploiement,
+vérifie les VM de l'opération via le vCenter approuvé puis enregistre la confiance
+SSH en DPAPI. La seconde utilise uniquement cette confiance, un known_hosts
+individuel et la clé personnelle. Elle exécute la sonde en lecture seule par sudo.
+Le statut sûr est `ssh-preflight-status.json` ; aucune sortie distante brute.
+La sonde DNS vérifie la résolution, pas les téléchargements HTTPS/registre.
+
+Pour les seules VM vierges créées avant cet ajout, `-PublishHostKeys` met à jour
+NoCloud en conservant les clés hôte, contrôle le CD connecté, puis redémarre chaque
+VM successivement. L'intention est enregistrée avant l'appel ; une seconde
+exécution collecte seulement les preuves, sans rejouer le changement. Ne jamais
+utiliser ce rattrapage sur un nœud déjà enrôlé. `-StatusOnly` relève les compteurs
+de réconciliation ; `-RepairDisconnectedSeed` est réservé au défaut constaté et
+journalisé du lecteur client ATAPI avant la correction, pas à un retry générique.
+
+La capture console/OCR (`-DiscoverOnly`, PowerShell Windows classique requis)
+reste une aide locale ; elle n'accepte que la clé/empreinte exacte observée sur
+le canal vCenter. Un simple keyscan ou une console illisible ne valide pas SSH.
+
+Exécution du 11 octobre : trois preuves hors bande, trois connexions SSH/sudo et
+tous les checks Linux réussis, clés hôte conservées, machine-id/UUID distincts.
+Voir ADR 0005. K3s reste soumis aux gates réseau, endpoints et CPI/CSI.

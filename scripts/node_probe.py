@@ -21,6 +21,15 @@ clock = subprocess.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value
                        capture_output=True, text=True, timeout=10)
 tun = subprocess.run(["modinfo", "tun"], capture_output=True, timeout=10)
 swap_lines = read("/proc/swaps").splitlines()
+dns_working = True
+for domain in ("snapshot.debian.org", "github.com", "registry.k8s.io"):
+    try:
+        lookup = subprocess.run(["getent", "ahosts", domain], capture_output=True, timeout=6)
+        if lookup.returncode != 0 or not lookup.stdout:
+            dns_working = False
+    except (OSError, subprocess.TimeoutExpired):
+        dns_working = False
+tools = subprocess.run(["systemctl", "is-active", "open-vm-tools"], capture_output=True, timeout=10)
 checks = {
     "root_probe": os.geteuid() == 0,
     "debian_13": os_release.get("ID", "").strip('"') == "debian" and
@@ -35,6 +44,9 @@ checks = {
     "vmware_detected": "vmware" in read("/sys/class/dmi/id/sys_vendor").lower(),
     "swap_disabled": len(swap_lines) <= 1,
     "tun_supported": Path("/dev/net/tun").exists() or tun.returncode == 0,
+    "dns_official_sources": dns_working,
+    "cloud_init_finished": Path("/var/lib/cloud/instance/boot-finished").is_file(),
+    "vmware_tools_active": tools.returncode == 0,
 }
 print(json.dumps({"checks": checks, "machine_id": read("/etc/machine-id"),
                   "product_uuid": read("/sys/class/dmi/id/product_uuid")}))

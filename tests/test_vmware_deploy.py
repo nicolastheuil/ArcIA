@@ -42,12 +42,13 @@ class DeploymentInputTests(unittest.TestCase):
             deploy.validate_target(self.target)
 
     def test_bootstrap_has_unique_metadata_and_no_password_auth(self):
-        contents=deploy.seed_contents(self.target,1,'ssh-ed25519 SYNTHETIC','unique-instance','02:00:00:00:00:01')
+        instance='12345678-1234-1234-1234-123456789abc'
+        contents=deploy.seed_contents(self.target,1,'ssh-ed25519 SYNTHETIC',instance,'02:00:00:00:00:01')
         user=json.loads(contents['user-data'].split('\n',1)[1])
         self.assertFalse(user['ssh_pwauth'])
         self.assertTrue(user['ssh_deletekeys'])
         self.assertEqual(user['hostname'],'arcia-k3s-02')
-        self.assertEqual(json.loads(contents['meta-data'])['instance-id'],'unique-instance')
+        self.assertEqual(json.loads(contents['meta-data'])['instance-id'],instance)
         self.assertEqual(json.loads(contents['network-config'])['ethernets']['arcia0']['match']['macaddress'],'02:00:00:00:00:01')
 
     def test_ovf_contains_fixed_resources_and_no_private_config(self):
@@ -72,7 +73,7 @@ class DeploymentInputTests(unittest.TestCase):
     def test_nocloud_iso_can_be_read_back(self):
         import io
         import pycdlib
-        contents=deploy.seed_contents(self.target,0,'ssh-ed25519 SYNTHETIC','iid-test','02:00:00:00:00:01')
+        contents=deploy.seed_contents(self.target,0,'ssh-ed25519 SYNTHETIC','12345678-1234-1234-1234-123456789abc','02:00:00:00:00:01')
         image=deploy.make_seed(contents)
         iso=pycdlib.PyCdlib(); iso.open_fp(io.BytesIO(image))
         try:

@@ -7,11 +7,11 @@ Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
 | PREP-01 | Préparation | Lire intégralement les sources, inventorier poste et fichiers | Vérifié localement |
 | PREP-02 | Préparation | ADR, versions officielles, rôle et reprise | Codé/documenté |
 | PREP-03 | Préparation | Wizard DPAPI, validation stricte, rendu privé | Codé ; tests synthétiques locaux |
-| PREP-04 | Préparation | Préflight SSH sans mutation et sans sorties brutes | Codé ; VM non testées |
+| PREP-04 | Préparation | Préflight SSH sans mutation et sans sorties brutes | Vérifié sur les trois VM via SSH strict et sudo ; preuves détaillées protégées |
 | PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Codé ; exécution distante non testée |
 | PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
 | PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
-| PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Trois Debian 13 créées/allumées ; ressources, tools, réseau, UUID/MAC et SSH en écoute vérifiés ; clés hôte/machine-id/NTP Linux restants |
+| PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Vérifié : trois Debian 13, clés SSH hors bande conservées, sudo, identités Linux uniques, DNS/NTP, ressources, tools, cgroups, swap absent et TUN ; K3s non installé |
 | PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | Connexion/inventaire validés ; trois ESXi distincts et anti-affinité vérifiés ; CSI/CPI non qualifiés |
 | PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | Qualification attendue |
 | L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | À coder/qualifier après inventaire |

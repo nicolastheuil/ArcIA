@@ -24,6 +24,16 @@ NAMES = ('arcia-k3s-01', 'arcia-k3s-02', 'arcia-k3s-03')
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def host_key_publication_command(challenge):
+    if not isinstance(challenge, str) or not re.fullmatch(r'[a-f0-9-]{36}', challenge):
+        raise Invalid('HOST_KEY_CHALLENGE_INVALID')
+    code = ("import json,subprocess;from pathlib import Path;"
+            "key=' '.join(Path('/etc/ssh/ssh_host_ed25519_key.pub').read_text().split()[:2]);"
+            "proof=json.dumps({'challenge':"+repr(challenge)+",'public_key':key},separators=(',',':'));"
+            "subprocess.run(['/usr/bin/vmtoolsd','--cmd','info-set guestinfo.arcia.ssh-key-proof '+proof],check=True)")
+    return ['/usr/bin/python3', '-c', code]
+
+
 def validate_target(target):
     required = {'schema_version','cluster_id','datastore_id','network_id','folder_id','addresses',
                 'gateway','dns','ntp','ssh_user','ssh_public_key_path'}
@@ -87,6 +97,7 @@ def seed_contents(target, index, public_key, instance_id, nic_mac):
             'packages':[['open-vm-tools',lock['open_vm_tools_version']]],
             'ntp':{'enabled':True,'servers':target['ntp']},
             'runcmd':[['systemctl','enable','--now','open-vm-tools'],
+                      host_key_publication_command(instance_id),
                       ['sh','-c','test -x /usr/bin/vmtoolsd && mkdir -p /var/lib/arcia && touch /var/lib/arcia/bootstrap-ready']]}
     network = {'version':2, 'ethernets':{'arcia0':{'match':{'macaddress':nic_mac},'set-name':'arcia0','dhcp4':False,'dhcp6':False,
         'addresses':[target['addresses'][index]],'routes':[{'to':'default','via':target['gateway']}],
@@ -302,7 +313,9 @@ def deploy(payload, created, plan_only=False):
             disks[0].capacityInKB=150*1024**2
             changes=[vim.vm.device.VirtualDeviceSpec(operation='edit',device=disks[0])]
             # Seed is uploaded through vCenter using the accepted vCenter identity.
-            seed=make_seed(seed_contents(target,index,public_key,str(uuid.uuid4()),nics[0].macAddress))
+            instance_id=str(uuid.uuid4())
+            seed=make_seed(seed_contents(target,index,public_key,instance_id,nics[0].macAddress))
+            created[-1]['host_key_challenge']=instance_id
             directory=vm.config.files.vmPathName.split('] ',1)[1].rsplit('/',1)[0]
             relative=directory+'/arcia-seed.iso'
             dc_path=[]; node=datacenter
@@ -318,7 +331,8 @@ def deploy(payload, created, plan_only=False):
                 backing=vim.vm.device.VirtualCdrom.IsoBackingInfo(fileName=f'[{datastore.name}] {relative}'),
                 connectable=vim.vm.device.VirtualDevice.ConnectInfo(startConnected=True,allowGuestControl=False,connected=True))
             changes.append(vim.vm.device.VirtualDeviceSpec(operation='add',device=cd))
-            config=vim.vm.ConfigSpec(deviceChange=changes,extraConfig=[vim.option.OptionValue(key='disk.EnableUUID',value='TRUE')])
+            config=vim.vm.ConfigSpec(deviceChange=changes,extraConfig=[vim.option.OptionValue(key='disk.EnableUUID',value='TRUE'),
+                vim.option.OptionValue(key='guestinfo.arcia.ssh-key-proof',value='pending:'+instance_id)])
             wait_task(vm.ReconfigVM_Task(config)); wait_task(vm.PowerOnVM_Task(host=host))
             created[-1]['state']='powered_on_boot_unverified'
         own_nodes=[vim.VirtualMachine(record['id'],session._stub) for record in created]

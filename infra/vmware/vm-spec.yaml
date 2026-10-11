@@ -1,6 +1,6 @@
 # VM resources applied; platform shared persistent storage remains unqualified.
 schema_version: 1
-status: vm_resources_boot_network_and_placement_verified
+status: vm_resources_placement_ssh_and_linux_preflight_verified
 operating_system: debian-13-amd64
 nodes:
   - arcia-k3s-01
