@@ -2,6 +2,12 @@
 
 ## Arrêt demandé et handoff final
 
+Sauvegarde transportable vérifiée dans secrets/local/arcia-private.arciap,
+exclue de Git (86 fichiers / 44 bundles DPAPI / un fichier référencé).
+Clé : 1Password personnel, entrée « ArcIA Platform Encryption Key ».
+Procédure complète : docs/runbooks/transfert-second-pc.md. Copier ce sous-dossier
+avec le projet ; le clone Git seul ne contient pas l'archive privée.
+
 Voir [handoff-2026-10-11.md](handoff-2026-10-11.md), référence prioritaire de reprise.
 Le bootstrap K3s a été tenté : premier nœud préparé mais service en échec
 (`k3s-server` introuvable dans PATH, cause à diagnostiquer), nœuds 2/3 non installés.

@@ -36,6 +36,8 @@ jobs:
           }
       - shell: pwsh
         run: ./tests/Test-ProtectedState.ps1
+      - shell: pwsh
+        run: ./tests/Test-PortableState.ps1
       - shell: powershell
         run: ./tests/Test-DnsPlan.ps1
       - shell: powershell

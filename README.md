@@ -46,6 +46,10 @@ avec bascule et le stockage VMware. Saisir les paramètres complémentaires dans
 qualifier CPI/CSI/versions, puis passer les gates avant le bootstrap. La recette
 de panne d'un nœud et le rebuild sûr sur cluster neuf restent obligatoires.
 
-Les valeurs privées sont conservées hors Git et hors OneDrive. Les secrets passent
-par les programmes locaux protégés ; aucun collage dans le chat. DPAPI protège le
-bootstrap Windows, sans remplacer SOPS/age et la récupération externe à construire.
+L'état opérationnel privé est conservé hors Git/OneDrive. À la demande de l'utilisateur,
+sa **sauvegarde portable chiffrée** est dans `secrets/local/arcia-private.arciap`,
+exclue de Git et copiée avec le dossier de travail. Clé : **1Password personnel,
+entrée « ArcIA Platform Encryption Key »**. Voir [sauvegarde et restauration sur
+le second PC](docs/runbooks/transfert-second-pc.md). Les programmes protégés
+rechiffrent les bundles pour le nouveau compte Windows ; aucun secret dans le chat.
+La sauvegarde de fichiers ne remplace pas la recette de reprise d'un cluster actif.

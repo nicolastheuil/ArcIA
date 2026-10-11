@@ -123,4 +123,3 @@ Intégrations DPAPI relues sans exposition des valeurs : Teams, Passbolt et
 OpenRouter enregistrés. Arrêt K3s appartenant à l'opération vérifié, sans suppression
 de données ; trois Keepalived actifs, zéro VIP sans API saine. Le démarrage K3s
 reste en échec sur le premier nœud : voir docs/handoff-2026-10-11.md.
-

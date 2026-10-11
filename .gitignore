@@ -1,4 +1,5 @@
-# Private configuration must live outside this workspace and OneDrive.
+# Plaintext operational state stays outside the workspace. The user-authorized
+# portable encrypted checkpoint in secrets/local is also excluded from Git.
 *.dpapi
 *.age
 *.key
@@ -12,6 +13,9 @@ kubeconfig*
 !.env.example
 private/
 secrets/
+*.arciap
+*.arciap.previous
+*.part
 *.vmdk
 *.qcow2
 *.iso

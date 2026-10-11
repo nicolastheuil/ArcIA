@@ -27,7 +27,8 @@ def install_k3s(payload,target,nodes,base):
     files['scripts/node_probe.py']=(ROOT/'scripts/node_probe.py').read_text()
     data={'files':files,'inventory':inventory,'identity':identity.read_text(),
           'known_hosts':(root/'known_hosts.arcia').read_text()}
-    process=subprocess.run(['wsl.exe','-e','/home/nicolas/.local/share/arcia-validation/bin/python','-c',
+    process=subprocess.run(['wsl.exe','-e','/bin/sh','-c',
+        'exec "$HOME/.local/share/arcia-validation/bin/python" -c "$1"','arcia-controller',
         (ROOT/'scripts/wsl_ansible.py').read_text()],input=json.dumps(data).encode(),capture_output=True,timeout=5100)
     if process.returncode: raise ValueError('PROTECTED_LINUX_CONTROLLER_FAILED')
     result=json.loads(process.stdout)
