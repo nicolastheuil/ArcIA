@@ -1,6 +1,32 @@
 # Portable encrypted checkpoints. PowerShell 7.4+ / .NET 8+, no secret stdout.
 Add-Type -AssemblyName System.Security
 Add-Type -AssemblyName System.IO.Compression
+if(-not ('ArcIAPortablePaths' -as [type])){
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+public static class ArcIAPortablePaths {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern SafeFileHandle CreateFile(string path, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    static extern uint GetFinalPathNameByHandle(SafeFileHandle file, StringBuilder path, uint length, uint flags);
+    public static string Resolve(string path) {
+        using(var handle=CreateFile(path,0,7,IntPtr.Zero,3,0x02000000,IntPtr.Zero)) {
+            if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
+            var buffer=new StringBuilder(32768);
+            uint count=GetFinalPathNameByHandle(handle,buffer,(uint)buffer.Capacity,0);
+            if(count==0 || count>=buffer.Capacity) throw new Win32Exception(Marshal.GetLastWin32Error());
+            string result=buffer.ToString();
+            if(result.StartsWith(@"\\?\UNC\",StringComparison.OrdinalIgnoreCase)) return @"\\"+result.Substring(8);
+            return result.StartsWith(@"\\?\",StringComparison.OrdinalIgnoreCase) ? result.Substring(4) : result;
+        }
+    }
+}
+'@
+}
 
 function Get-PortableDigest([byte[]]$Bytes){
     return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($Bytes)).ToLowerInvariant()
@@ -75,14 +101,9 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
     $sourceRoot=[IO.Path]::GetFullPath($Source).TrimEnd('\')
     $files=@(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Force|Where-Object {$_.Extension -ne '.lock'})
     if(-not $files.Count -or ($files|Measure-Object Length -Sum).Sum -gt 900MB){throw 'PORTABLE_SOURCE_SIZE_INVALID'}
-    $physicalRoot=([IO.DirectoryInfo]::new($sourceRoot)).FullName
-    # Resolve MSIX path through the same Python runtime used by protected workers.
-    $python=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation/venv/Scripts/python.exe'
-    if(Test-Path -LiteralPath $python){
-        $resolved=& $python -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' $sourceRoot
-        if($LASTEXITCODE -eq 0 -and $resolved){$physicalRoot=[string]$resolved}
-    }
-    $records=[Collections.Generic.List[object]]::new();$references=@{};$originals=@{}
+    $physicalRoot=[ArcIAPortablePaths]::Resolve($sourceRoot)
+    $included=@{};foreach($file in $files){$included[[ArcIAPortablePaths]::Resolve($file.FullName)]=[IO.Path]::GetRelativePath($sourceRoot,$file.FullName).Replace('\','/')}
+    $records=[Collections.Generic.List[object]]::new();$references=@{};$referenceMappings=@{};$originals=@{}
     $memory=[IO.MemoryStream]::new();$zip=[IO.Compression.ZipArchive]::new($memory,[IO.Compression.ZipArchiveMode]::Create,$true)
     try{
         foreach($file in $files){
@@ -95,11 +116,12 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
                 $parsed=[Text.Encoding]::UTF8.GetString($bytes)|ConvertFrom-Json -AsHashtable
                 foreach($value in @(Get-PortableStrings $parsed)){
                     # Local file references only; never follow UNC shares or query client systems.
-                    if($value -match '^[A-Za-z]:[\\/]' -and [IO.File]::Exists($value) -and
-                       -not $value.StartsWith($sourceRoot+'\',[StringComparison]::OrdinalIgnoreCase) -and
-                       -not $value.StartsWith($physicalRoot+'\',[StringComparison]::OrdinalIgnoreCase)){
+                    if($value -match '^[A-Za-z]:[\\/]' -and [IO.File]::Exists($value)){
+                        $canonical=[ArcIAPortablePaths]::Resolve($value)
+                        if($included.ContainsKey($canonical)){$referenceMappings[$value]=$included[$canonical];continue}
                         $extension=[IO.Path]::GetExtension($value);if($extension -notmatch '^\.[a-zA-Z0-9]{1,8}$'){$extension='.bin'}
                         $references[$value]='references/'+(Get-PortableDigest ([Text.Encoding]::UTF8.GetBytes($value)))+$extension
+                        $referenceMappings[$value]=$references[$value]
                     }
                 }
             }
@@ -115,7 +137,7 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
             $records.Add(@{name=$references[$reference];size=$bytes.Length;sha256=(Get-PortableDigest $bytes);dpapi=$false});[Array]::Clear($bytes)
         }
         $manifest=@{schema_version=1;private_root=$sourceRoot;physical_root=$physicalRoot;workspace=[IO.Path]::GetFullPath($Workspace);
-            created_at=[DateTime]::UtcNow.ToString('o');files=@($records.ToArray());references=$references}
+            created_at=[DateTime]::UtcNow.ToString('o');files=@($records.ToArray());references=$referenceMappings}
         $entry=$zip.CreateEntry('__arcia_manifest.json');$writer=[IO.StreamWriter]::new($entry.Open(),[Text.UTF8Encoding]::new($false))
         try{$writer.Write(($manifest|ConvertTo-Json -Depth 60 -Compress))}finally{$writer.Dispose()}
     }finally{$zip.Dispose()}
