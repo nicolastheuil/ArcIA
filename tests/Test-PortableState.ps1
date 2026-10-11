@@ -12,7 +12,10 @@ try{
     $password=[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
     $archive=Join-Path $sandbox 'test.arciap'
     $result=Export-PortableState $source (Split-Path $PSScriptRoot -Parent) $archive $password
-    if($result.file_count -ne 3 -or $result.rebound_dpapi_count -ne 1){throw 'EXPORT_COUNT_FAILED'}
+    if($result.file_count -ne 3 -or $result.rebound_dpapi_count -ne 1){
+        Write-Output ('SYNTHETIC_EXPORT_FILES='+$result.file_count+'; DPAPI='+$result.rebound_dpapi_count+'; REFERENCES='+$result.referenced_file_count)
+        throw 'EXPORT_COUNT_FAILED'
+    }
     $wrongRejected=$false;try{$null=Read-PortableArchive $archive 'incorrect-password-1234'}catch{$wrongRejected=$true}
     if(-not $wrongRejected){throw 'WRONG_PASSWORD_ACCEPTED'}
     $destination=Join-Path $sandbox 'restored'

@@ -139,7 +139,7 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
             [IO.File]::Replace($temporary,$Archive,$previous)
         }else{Move-Item -LiteralPath $temporary -Destination $Archive}
         return @{status='verified';code='PORTABLE_ARCHIVE_CREATED_AND_VERIFIED';file_count=$records.Count;
-            rebound_dpapi_count=@($records|Where-Object dpapi).Count;referenced_file_count=$references.Count;portable_across_windows_accounts=$true}
+            rebound_dpapi_count=@($records|Where-Object {$_.dpapi -eq $true}).Count;referenced_file_count=$references.Count;portable_across_windows_accounts=$true}
     }finally{$memory.Dispose();if($temporary -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary}}
 }
 function Import-PortableState([string]$Archive,[string]$Destination,[string]$Workspace,[string]$Password){
