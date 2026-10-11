@@ -1,5 +1,15 @@
 # État de reprise — 11 octobre 2026
 
+## Arrêt demandé et handoff final
+
+Voir [handoff-2026-10-11.md](handoff-2026-10-11.md), référence prioritaire de reprise.
+Le bootstrap K3s a été tenté : premier nœud préparé mais service en échec
+(`k3s-server` introuvable dans PATH, cause à diagnostiquer), nœuds 2/3 non installés.
+Le service appartenant à l'opération est arrêté/désactivé, sans suppression de données.
+Keepalived actif 3/3, zéro VIP attribuée sans API saine. Aucun déploiement planifié.
+Choix récents : auth locale, Entra différé, TLS auto-signé. Teams/Passbolt/OpenRouter
+enregistrés en DPAPI, non qualifiés. Identités/token/VM/journaux existants à conserver.
+
 ## Dernière progression : VIP et bootstrap
 
 Keepalived et arping installés sur les trois VM avec versions/SHA256 fixés.

@@ -8,7 +8,7 @@ Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
 | PREP-02 | Préparation | ADR, versions officielles, rôle et reprise | Codé/documenté |
 | PREP-03 | Préparation | Wizard DPAPI, validation stricte, rendu privé | Codé ; tests synthétiques locaux |
 | PREP-04 | Préparation | Préflight SSH sans mutation et sans sorties brutes | Vérifié sur les trois VM via SSH strict et sudo ; preuves détaillées protégées |
-| PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Codé avec contrôleur WSL protégé ; exécution distante à suivre |
+| PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Exécuté ; premier serveur préparé puis échec k3s-server/PATH ; arrêt contrôlé pour handoff, cause à corriger avant reprise |
 | PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
 | PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
 | PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Vérifié : trois Debian 13, clés SSH hors bande conservées, sudo, identités Linux uniques, DNS/NTP, ressources, tools, cgroups, swap absent et TUN ; K3s non installé |

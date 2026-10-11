@@ -121,11 +121,40 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
+    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)
     if action=='install_k3s': return install_k3s(payload,target,nodes,base)
     if action in ('install_vip','qualify_vip','inspect_vip'): return vip_operation(payload,target,nodes,base)
     script = (ROOT/'scripts/node_foundation.py').read_bytes()
+    if action=='pause_k3s':
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text())
+        inventory=harness.render(payload['instance']['config'],payload['instance']['k3s_token'],lock)
+        hosts=inventory['all']['children']['k3s_servers']['hosts']
+        results=[guest(target,n,base,script,{'action':'stop_owned_k3s','version':lock['components']['k3s']['version'],
+            'config':list(hosts.values())[i]['hermes_k3s_config']},root=True) for i,n in enumerate(nodes)]
+        passed=all(r['stopped'] for r in results)
+        return {'private':{'operation_id':operation,'nodes':results},'safe':{'status':'paused' if passed else 'blocked',
+            'code':'OWNED_K3S_STOPPED_FOR_HANDOFF' if passed else 'K3S_PAUSE_FAILED','active_service_count':0 if passed else None,
+            'owned_installation_count':sum(r['owned_installation_present'] for r in results),'data_removed':False}}
+    if action=='inspect_k3s':
+        results=[guest(target,n,base,script,{'action':'inspect_k3s'},root=True) for n in nodes]
+        patterns={'flag provided but not defined':'UNSUPPORTED_FLAG','failed to find memory cgroup':'MEMORY_CGROUP_MISSING',
+            'failed to validate server configuration':'CONFIGURATION_INVALID','address already in use':'PORT_ALREADY_BOUND',
+            'failed to get CA certs':'JOIN_CA_UNREACHABLE','no space left':'DISK_FULL','permission denied':'PERMISSION_DENIED',
+            'invalid CIDR':'CIDR_INVALID','failed to resolve':'DNS_RESOLUTION_FAILED','datastore':'DATASTORE_RELATED',
+            'incorrect cluster flag':'CLUSTER_FLAG_MISMATCH','not found':'FILE_OR_COMMAND_NOT_FOUND',
+            'not permitted':'OPERATION_NOT_PERMITTED','unknown flag':'UNSUPPORTED_FLAG'}
+        safe=[]
+        for index,r in enumerate(results,1):
+            safe.append({'node':'N'+str(index),'binary_present':r['binary_present'],'config_present':r['config_present'],
+                'active':'ActiveState=active' in r['unit'],'known_error_codes':sorted({code for pattern,code in patterns.items() if pattern.casefold() in r['journal'].casefold()}),
+                'exit_status':int(re.search(r'^ExecMainStatus=(\d+)$',r['unit'],re.M)[1]) if re.search(r'^ExecMainStatus=(\d+)$',r['unit'],re.M) else None,
+                'binary_version_matches':json.loads((ROOT/'versions.lock.yaml').read_text())['components']['k3s']['version'] in r['version'],
+                'missing_standard_commands':[name for name in ('sh','bash','iptables','ip6tables','ip','nft','tar','gzip','zstd','pigz','mount','umount','nsenter','unshare','modprobe','lsmod','which','hostname','getent','find','awk','sed','grep','containerd','runc','containerd-shim-runc-v2','k3s-server','file','touch','k3s')
+                    if re.search(r'exec:.*?[\\"]'+re.escape(name)+r'[\\"].*?(?:not found|PATH)',r['journal'])],
+                'failure_components':[term for term in ('iptables','ip6tables','modprobe','containerd','cgroup','etcd','flannel','zstd','pigz','kubelet','127.0.0.1','systemd','token-file','config.yaml','cluster-init','PATH','swap')
+                    if any(term.casefold() in line.casefold() for line in r['journal'].splitlines() if any(level in line.casefold() for level in ('fatal','error','not found','failed')))]})
+        return {'private':{'operation_id':operation,'nodes':results},'safe':{'status':'inspected','code':'K3S_SERVICES_INSPECTED','nodes':safe}}
     if action == 'qualify_ports':
         challenge=secrets.token_hex(32)
         common={'operation_id':operation,'nodes':[n['address'] for n in nodes],

@@ -114,3 +114,13 @@ autre cible et d'un provider défaillant ; options DCOM chiffrées ; secrets SSO
 conformes aux bornes de policy ; certificat accepté/changé/absent. Les tests DNS
 simulés n'accèdent à aucun serveur et ne prouvent pas les droits AD réels.
 Quatre manifests CPI/CSI et neuf images sont épinglés, hashes vérifiés localement.
+# Vérification finale du handoff du 11 octobre 2026
+
+83 tests Python sous Linux passent. Compilation Python, syntaxe PowerShell,
+schéma/YAML, hashes VMware, syntaxe Ansible et refus de cible synthétique avant
+SSH vérifiés. Contrôleur WSL temporaire nettoyé (zéro dossier restant).
+Intégrations DPAPI relues sans exposition des valeurs : Teams, Passbolt et
+OpenRouter enregistrés. Arrêt K3s appartenant à l'opération vérifié, sans suppression
+de données ; trois Keepalived actifs, zéro VIP sans API saine. Le démarrage K3s
+reste en échec sur le premier nœud : voir docs/handoff-2026-10-11.md.
+

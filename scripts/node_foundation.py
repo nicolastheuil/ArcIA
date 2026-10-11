@@ -7,6 +7,7 @@ import socket
 import subprocess
 import time
 import uuid
+import hashlib
 
 
 def run(args, timeout=30):
@@ -35,6 +36,35 @@ def inspect(values):
     return {'interface': interface, 'package_candidates': candidates, 'package_sha256':hashes,
         'k3s_present': Path('/usr/local/bin/k3s').exists(), 'ports_occupied': listeners,
         'keepalived_configuration_present': Path('/etc/keepalived/keepalived.conf').exists()}
+
+
+def inspect_k3s(values):
+    output={}
+    for name,args in {
+        'unit':['/usr/bin/systemctl','show','k3s','-p','ActiveState','-p','SubState','-p','Result','-p','ExecMainStatus'],
+        'journal':['/usr/bin/journalctl','-u','k3s','-n','160','--no-pager','-o','cat'],
+        'version':['/usr/local/bin/k3s','--version'],
+    }.items():
+        if name=='version' and not Path(args[0]).is_file(): output[name]='';continue
+        result=subprocess.run(args,capture_output=True,timeout=20)
+        output[name]=result.stdout.decode(errors='replace')+result.stderr.decode(errors='replace')
+    output['binary_present']=Path('/usr/local/bin/k3s').is_file()
+    output['config_present']=Path('/etc/rancher/k3s/config.yaml').is_file()
+    return output
+
+
+def stop_owned_k3s(values):
+    directory=Path('/etc/rancher/k3s')
+    if not (directory/'arcia-owner.json').is_file(): return {'owned_installation_present':False,'stopped':True}
+    owner=json.loads((directory/'arcia-owner.json').read_text())
+    config=json.loads((directory/'config.yaml').read_text())
+    token=(directory/'cluster-token').read_text().strip()
+    if (owner.get('format')!=1 or owner.get('version')!=values['version'] or config!=values['config'] or
+            hashlib.sha256(token.encode()).hexdigest()!=owner.get('token_sha256')):
+        raise ValueError('K3S_OWNER_OR_CONFIGURATION_CONFLICT')
+    run(['/usr/bin/systemctl','disable','--now','k3s'])
+    active=subprocess.run(['/usr/bin/systemctl','is-active','k3s'],capture_output=True).stdout.strip()==b'active'
+    return {'owned_installation_present':True,'stopped':not active,'enabled':False,'data_removed':False}
 
 
 def qualification_paths(values):
@@ -94,6 +124,6 @@ def stop_listeners(values):
 
 
 if __name__ == '__main__':
-    actions={'inspect':inspect,'start_listeners':start_listeners,'probe_listeners':probe_listeners,'stop_listeners':stop_listeners}
+    actions={'inspect':inspect,'inspect_k3s':inspect_k3s,'stop_owned_k3s':stop_owned_k3s,'start_listeners':start_listeners,'probe_listeners':probe_listeners,'stop_listeners':stop_listeners}
     if ARCIA_INPUT['action'] not in actions: raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     print(json.dumps(actions[ARCIA_INPUT['action']](ARCIA_INPUT)))

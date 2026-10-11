@@ -6,8 +6,9 @@ VMware, avec stockage partagé. Dépôt : **nicolastheuil/arcia-harness**, priv�
 **État : trois VM Debian 13 créées et allumées ; VMware, empreintes SSH hors bande
 et préflight Linux vérifiés sur les trois nœuds ; DNS des endpoints vérifiés 3/3,
 compte SSO dédié et droits effectifs bornés vérifiés ; VIP installée et bascule
-du transport synthétique vérifiée (12/12), flux K3s vérifiés (54/54) ; aucun cluster
-K3s déployé. Les services métier Hermes/Entra/Teams/VPN/coffres/DLP restent à développer
+du transport synthétique vérifiée (12/12), flux K3s vérifiés (54/54). Bootstrap K3s
+tenté sur le premier nœud, échec de démarrage puis arrêt contrôlé ; aucun cluster
+K3s opérationnel. Voir [le handoff](docs/handoff-2026-10-11.md). Les services métier Hermes/Entra/Teams/VPN/coffres/DLP restent à développer
 et qualifier. Ce dépôt n'est pas encore une release installable.**
 
 Le socle contient : spécification des VM, wizard Windows DPAPI à ACL restreinte,
