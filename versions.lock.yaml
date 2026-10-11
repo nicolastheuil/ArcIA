@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-11",
+  "release_status": "preparation_only",
+  "components": {
+    "k3s": {
+      "version": "v1.35.9+k3s1",
+      "revision": "58877f27435fe86ee292859db3d0df2ca5423991",
+      "source": "https://github.com/k3s-io/k3s/releases/tag/v1.35.9%2Bk3s1",
+      "installer_url": "https://raw.githubusercontent.com/k3s-io/k3s/58877f27435fe86ee292859db3d0df2ca5423991/install.sh",
+      "installer_sha256": "8598e002e61d658fed7b7542fc6d2c66d8da6eae69e088830105d2ee1ffb6d91",
+      "binary_url": "https://github.com/k3s-io/k3s/releases/download/v1.35.9%2Bk3s1/k3s",
+      "binary_sha256": "897acb21cca57d477a211102251a6591450ce767344a9faaa121a1007ca9fa9a",
+      "images_url": "https://github.com/k3s-io/k3s/releases/download/v1.35.9%2Bk3s1/k3s-airgap-images-amd64.tar.zst",
+      "images_sha256": "7f1cbfea56d38f5e69aec13500a89290119096cc2f5a6d4f542e5f26599977d0",
+      "status": "source_verified_not_qualified"
+    },
+    "vsphere_csi": {
+      "version": "v3.7.3",
+      "revision": "27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34",
+      "source": "https://github.com/kubernetes-sigs/vsphere-csi-driver/releases/tag/v3.7.3",
+      "image_digest": null,
+      "status": "source_verified_not_qualified"
+    },
+    "cloudnative_pg": {
+      "version": "v1.30.1",
+      "revision": "2a35abb4628f209d149825ef3c38011e0701ff2f",
+      "source": "https://github.com/cloudnative-pg/cloudnative-pg/releases/tag/v1.30.1",
+      "image_digest": null,
+      "status": "source_verified_not_qualified"
+    },
+    "hermes": {
+      "version": "v0.21.6",
+      "revision": "818c13be1dc4fd28987e1e881a9408224afd4535",
+      "source": "https://github.com/NousResearch/hermes-agent/releases/tag/v0.21.6",
+      "image_repository": "docker.io/nousresearch/hermes-agent",
+      "image_digest": null,
+      "status": "source_verified_not_qualified"
+    },
+    "vsphere_cpi": {"version": null, "image_digest": null, "status": "pending_vmware_inventory"},
+    "ingress": {"version": null, "image_digest": null, "status": "pending_endpoint_design"},
+    "postgres_pgvector": {"version": null, "image_digest": null, "status": "pending_image_qualification"},
+    "omniroute": {"source": "https://github.com/diegosouzapw/OmniRoute", "version": null, "image_digest": null, "status": "pending_qualification"}
+  }
+}

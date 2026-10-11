@@ -1,0 +1,29 @@
+# Proposed specification only; no VM created by this document.
+schema_version: 1
+status: proposed
+operating_system: debian-13-amd64
+nodes:
+  - hermes-k3s-01
+  - hermes-k3s-02
+  - hermes-k3s-03
+per_node:
+  vcpu: 8
+  memory_gib: 32
+  system_disk_gib: 150
+  disk_controller: pvscsi
+  nic: vmxnet3
+  disk_enable_uuid: true
+  tools: open-vm-tools
+shared_persistent_storage_gib: 1024
+placement:
+  separate_esxi_failure_domains: required_if_available
+  stable_private_addresses: required
+  unique_vm_uuid_mac_hostname_machine_id: required
+bootstrap:
+  container_runtime: k3s-containerd
+  docker_engine_required: false
+  gpu_required: false
+  ssh_host_fingerprints_verified_out_of_band: required
+  private_api_endpoint_with_failover: required
+  https_endpoint_with_failover: required
+  cpi_csi_compatibility: pending

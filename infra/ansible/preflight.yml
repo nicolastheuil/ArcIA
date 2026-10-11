@@ -1,0 +1,36 @@
+---
+- name: Read-only Debian preflight
+  hosts: k3s_servers
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Run fixed probe without exposing private facts
+      ansible.builtin.script: ../../scripts/node_probe.py
+      args:
+        executable: /usr/bin/python3
+      register: hermes_probe
+      changed_when: false
+      no_log: true
+
+    - name: Keep probe in memory only
+      ansible.builtin.set_fact:
+        hermes_probe_result: "{{ hermes_probe.stdout | from_json }}"
+      no_log: true
+
+    - name: Validate Debian and resource checks
+      ansible.builtin.assert:
+        that:
+          - hermes_probe_result.checks.values() | reject('equalto', true) | list | length == 0
+      no_log: true
+
+- name: Reject cloned machine identities
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check all three server identities without printing them
+      ansible.builtin.assert:
+        that:
+          - groups['k3s_servers'] | length == 3
+          - groups['k3s_servers'] | map('extract', hostvars, ['hermes_probe_result', 'machine_id']) | unique | list | length == 3
+          - groups['k3s_servers'] | map('extract', hostvars, ['hermes_probe_result', 'product_uuid']) | unique | list | length == 3
+      no_log: true

@@ -1,0 +1,22 @@
+# Private configuration must live outside this workspace and OneDrive.
+*.dpapi
+*.age
+*.key
+*.pem
+*.p12
+*.pfx
+*.kubeconfig
+kubeconfig*
+.env
+.env.*
+!.env.example
+private/
+inventory.private.*
+group_vars/private*
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+artifacts/
+*.retry
+*.log
