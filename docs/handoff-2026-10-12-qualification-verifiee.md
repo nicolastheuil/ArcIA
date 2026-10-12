@@ -66,3 +66,13 @@ six skills Superpowers/ECC ciblés dans `.agents/skills`, invocation explicite,
 sans hooks ni apprentissage. 19 schémas Mermaid parsés, 128 liens locaux vérifiés,
 50 scripts PowerShell parsés. Le scan LintLang n’atteste pas la sécurité.
 Aucune déclaration HA de production ni release installable.
+
+## Livraison GitHub
+
+Les commits de réalisation sont publiés sur `codex/socle-qualification-handoff`.
+La [PR nº1](https://github.com/nicolastheuil/arcia-harness/pull/1) reste en
+brouillon, sans fusion dans `main`. La [CI Linux et Windows
+nº12](https://github.com/nicolastheuil/arcia-harness/actions/runs/38287969991)
+a réussi sur `21647b838d6893d98b32eb7581e09e3f6724fed5` : tests Python,
+validation des sources, scan LintLang, parsing PowerShell et tests protégés
+Windows. Cette mention de livraison est un ajout documentaire ultérieur.

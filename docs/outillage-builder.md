@@ -112,6 +112,9 @@ Dépôt actuel : **nicolastheuil/arcia-harness**, visibilité privée et droits
 push/admin vérifiés via le connecteur. Branches de travail préfixées `codex/`.
 La branche du lot est `codex/socle-qualification-handoff` ; ne pas assimiler son
 contenu à une release de production ou à la branche principale avant intégration.
+Le lot est publié dans la [PR nº1 en brouillon](https://github.com/nicolastheuil/arcia-harness/pull/1) ;
+sa CI Linux et Windows a réussi sur le commit de réalisation `21647b8`.
+La référence de preuve est conservée dans le [handoff courant](handoff-2026-10-12-qualification-verifiee.md#livraison-github).
 
 Versionner code générique, manifests sans secrets, locks, tests, ADR, README,
 runbooks et handoffs assainis. Les credentials et inventaires restent protégés ;
