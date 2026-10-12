@@ -4,14 +4,18 @@ $ErrorActionPreference='Stop'
 try{
     if($PSVersionTable.PSVersion -lt [version]'7.4'){throw 'POWERSHELL_7_REQUIRED'}
     foreach($command in @('git','ssh')){if(-not(Get-Command $command -ErrorAction SilentlyContinue)){throw 'SYSTEM_TOOL_MISSING'}}
-    $python=Get-Command python -ErrorAction SilentlyContinue
-    if(-not $python){throw 'PYTHON_3_14_REQUIRED'}
-    $version=& $python.Source -c 'import sys; print("%d.%d" % sys.version_info[:2])'
+    $pythonPath=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation/python-3.14.7/python.exe'
+    if(-not(Test-Path -LiteralPath $pythonPath)){
+        $python=Get-Command python -ErrorAction SilentlyContinue
+        if(-not $python){throw 'PYTHON_3_14_REQUIRED'}
+        $pythonPath=$python.Source
+    }
+    $version=& $pythonPath -c 'import sys; print("%d.%d" % sys.version_info[:2])'
     if($LASTEXITCODE -ne 0 -or $version -ne '3.14'){throw 'PYTHON_3_14_REQUIRED'}
     $validation=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation/venv'
     $executable=Join-Path $validation 'Scripts/python.exe'
     if(-not(Test-Path -LiteralPath $executable)){
-        & $python.Source -m venv $validation *> $null
+        & $pythonPath -m venv $validation *> $null
         if($LASTEXITCODE -ne 0){throw 'VALIDATION_ENVIRONMENT_CREATION_FAILED'}
     }
     & $executable -m pip install --require-hashes -r (Join-Path $PSScriptRoot '../requirements-vmware.txt') *> $null
@@ -31,7 +35,7 @@ result=subprocess.run([str(root/'bin/python'),'-m','pip','install','-r',str(requ
 raise SystemExit(result.returncode)
 '@
         $requirements=Get-Content (Join-Path $PSScriptRoot '../requirements-validation.txt') -Raw
-        $requirements| & wsl.exe -e python3 -c $code *> $null
+        $requirements| & wsl.exe -e /bin/sh -c 'if [ -x "$HOME/.local/share/arcia-validation/bin/python" ]; then exec "$HOME/.local/share/arcia-validation/bin/python" -c "$1"; else exec python3 -c "$1"; fi' 'arcia-prepare' $code *> $null
         if($LASTEXITCODE -ne 0){throw 'WSL_VALIDATION_DEPENDENCIES_FAILED'}
     }
     Write-Output 'SECOND_PC_DEPENDENCIES_PREPARED; NO_DEPLOYMENT_STARTED'

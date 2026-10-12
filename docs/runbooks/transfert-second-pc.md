@@ -23,8 +23,19 @@ du second PC à la restauration. La copie exploitable du PC actuel est conservé
 
 Export réellement exécuté et relu : 86 fichiers, 44 bundles DPAPI, un fichier externe
 référencé. Tests locaux exécutés : restauration, réécriture des chemins, intégrité,
-refus de mauvais mot de passe, altération et écrasement. **Pas encore de restauration
-réellement exécutée sur le second PC.**
+refus de mauvais mot de passe, altération et écrasement. **Restauration réelle sur
+le second PC vérifiée le 12 octobre 2026** : 86 fichiers présents, 44 bundles DPAPI
+lisibles par le compte courant, dix références privées valides et ACL limitées
+au compte courant. Voir [l'état de reprise](../etat-reprise.md) pour les limites
+du poste et le nettoyage temporaire restant.
+
+Sur ce second PC, OneDrive marque `secrets/local` comme ReparsePoint : le
+formulaire actuel refuse ce dossier dès son initialisation. L'import réussi a
+utilisé une copie chiffrée et les scripts existants dans un staging local hors
+synchronisation. Attention : le script déduit le workspace de son propre
+emplacement ; une copie des scripts peut donc réécrire des références de projet
+vers le staging. Vérifier ces références avant tout nettoyage. Pour cette
+restauration, aucune référence DPAPI vers le staging n'a été relevée.
 
 ## Préparer le poste et restaurer
 

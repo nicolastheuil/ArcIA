@@ -122,8 +122,102 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
+    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)
+    if action in ('install_postgres','install_hermes','inspect_apps'):
+        import kubernetes_apps
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text())
+        values={'action':action,'operation_id':operation}
+        if action!='inspect_apps':
+            qualification=payload['storage_qualification']
+            if qualification['operation_id']!=operation or len(qualification['result']['checks'])!=5 or not all(qualification['result']['checks'].values()):
+                raise ValueError('VERIFIED_STORAGE_REQUIRED')
+        if action=='install_postgres':
+            values.update(operator=kubernetes_apps.operator(lock),database=kubernetes_apps.postgres(lock,payload['instance']['config']))
+        if action=='install_hermes':
+            values.update(hermes=kubernetes_apps.hermes(lock,payload['instance']['config'],payload['pilot']),
+                          ingress=kubernetes_apps.ingress(lock,payload['instance']['config'],payload['pilot']))
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),values,root=True,timeout=1200)
+        counts={}
+        for namespace in ('cnpg-system','arcia-data','arcia-hermes','arcia-ingress'):
+            subset=[p for p in result['pods'] if p['metadata']['namespace']==namespace]
+            counts[namespace]={'pod_count':len(subset),'ready_pod_count':sum(any(c['type']=='Ready' and c['status']=='True' for c in p.get('status',{}).get('conditions',[])) for p in subset)}
+        patterns={'Permission denied':'FILESYSTEM_PERMISSION_DENIED','Read-only file system':'READ_ONLY_FILESYSTEM',
+            'ModuleNotFoundError':'PYTHON_MODULE_MISSING','CrashLoopBackOff':'CRASH_LOOP','ImagePullBackOff':'IMAGE_PULL_FAILED',
+            'FailedScheduling':'POD_SCHEDULING_FAILED','FailedMount':'VOLUME_MOUNT_FAILED','FailedAttachVolume':'VOLUME_ATTACH_FAILED',
+            'FATAL':'APPLICATION_FATAL','connection refused':'CONNECTION_REFUSED','i/o timeout':'NETWORK_TIMEOUT'}
+        diagnostics=json.dumps(result)
+        passed=result.get('ready',True)
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':('inspected' if action=='inspect_apps' else 'verified') if passed else 'blocked',
+            'code':'QUALIFICATION_APPLICATIONS_INSPECTED' if action=='inspect_apps' else ('QUALIFICATION_APPLICATION_DEPLOYED' if passed else 'QUALIFICATION_APPLICATION_NOT_READY'),
+            'workloads':counts,'known_error_codes':[code for pattern,code in patterns.items() if pattern.casefold() in diagnostics.casefold()],
+            'cloud_calls_enabled':False,'business_integrations_enabled':False}}
+    if action=='inspect_vmware':
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
+            {'action':action,'nodes':[v['name'] for v in payload['instance']['config']['nodes']],
+             'api_endpoint':payload['instance']['config']['network']['api_endpoint']},root=True)
+        allowed_reasons={'CrashLoopBackOff','ImagePullBackOff','ErrImagePull','ContainerCreating','Pending','Running','Succeeded','Failed'}
+        reasons={c.get('state',{}).get('waiting',{}).get('reason','') for p in result['workloads'] for c in p.get('status',{}).get('containerStatuses',[])}
+        logs=json.dumps(result['diagnostics'])+json.dumps(result.get('storage_diagnostics',{}))
+        patterns={'x509':'VMWARE_TLS_FAILED','NoPermission':'VMWARE_PERMISSION_DENIED','InvalidLogin':'VMWARE_AUTHENTICATION_FAILED',
+            'not found':'VMWARE_OBJECT_NOT_FOUND','connection refused':'CONNECTION_REFUSED','timed out':'OPERATION_TIMEOUT',
+            'failed to parse':'CONFIGURATION_PARSE_FAILED','failed to read':'CONFIGURATION_READ_FAILED',
+            'VirtualCenterIP is empty':'VCENTER_CONFIG_EMPTY','invalid parameter':'INVALID_STORAGE_PARAMETER',
+            'Permission denied':'FILESYSTEM_PERMISSION_DENIED','FailedMount':'VOLUME_MOUNT_FAILED',
+            'FailedAttachVolume':'VOLUME_ATTACH_FAILED','FailedScheduling':'POD_SCHEDULING_FAILED',
+            'ProvisioningFailed':'VOLUME_PROVISIONING_FAILED','does not exist':'OBJECT_DOES_NOT_EXIST',
+            'no shared datastores':'NO_SHARED_DATASTORES','not authorized':'NOT_AUTHORIZED'}
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'inspected',
+            'code':'VMWARE_KUBERNETES_STATE_INSPECTED','initialized_node_count':sum(n['provider_id_present'] and not n['uninitialized'] for n in result['nodes']),
+            'pod_count':result['pod_count'],'ready_pod_count':result['ready_pod_count'],'pending_pod_count':result['pending_pod_count'],
+            'container_waiting_reasons':sorted(reasons & allowed_reasons),
+            'known_error_codes':[code for pattern,code in patterns.items() if pattern.casefold() in logs.casefold()]}}
+    if action=='qualify_storage':
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text())
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
+            {'action':action,'operation_id':operation,'image':lock['qualification_image']['pinned'],
+             'nodes':[v['name'] for v in payload['instance']['config']['nodes']],
+             'api_endpoint':payload['instance']['config']['network']['api_endpoint']},root=True,timeout=1200)
+        passed=len(result['checks'])==5 and all(result['checks'].values()) and not result.get('failure')
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'verified' if passed else 'blocked',
+            'code':'CSI_RWOP_PERSISTENCE_VERIFIED' if passed else 'CSI_STORAGE_QUALIFICATION_FAILED',
+            'checks':result['checks'],'abrupt_node_fencing_qualified':False,'rwx_qualified':False}}
+    if action=='install_vmware':
+        import kubernetes_vmware
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text())
+        documents=kubernetes_vmware.prepare(payload,lock)
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
+            {'action':action,'operation_id':operation,'documents':documents,
+             'nodes':[v['name'] for v in payload['instance']['config']['nodes']],
+             'api_endpoint':payload['instance']['config']['network']['api_endpoint']},root=True,timeout=900)
+        initialized=sum(n['provider_id_present'] and not n['uninitialized'] for n in result['nodes'])
+        passed=all(result['rollouts']) and initialized==3
+        diagnostic_text=json.dumps(result['diagnostics'])
+        patterns={'x509':'VMWARE_TLS_FAILED','NoPermission':'VMWARE_PERMISSION_DENIED','InvalidLogin':'VMWARE_AUTHENTICATION_FAILED',
+            'not found':'VMWARE_OBJECT_NOT_FOUND','connection refused':'CONNECTION_REFUSED','timed out':'OPERATION_TIMEOUT'}
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'verified' if passed else 'blocked',
+            'code':'VMWARE_CPI_CSI_ROLLOUTS_VERIFIED' if passed else 'VMWARE_FOUNDATION_NOT_READY',
+            'rollouts':result['rollouts'],'initialized_node_count':initialized,
+            'known_error_codes':[code for pattern,code in patterns.items() if pattern.casefold() in diagnostic_text.casefold()],
+            'cpi_version':lock['components']['vsphere_cpi']['version'],'csi_version':lock['components']['vsphere_csi']['version'],
+            'storage_class_count':len(result['storage_classes']),'storage_qualified':False}}
+    if action=='inspect_cluster':
+        script=(ROOT/'scripts/node_kubernetes.py').read_bytes()
+        results=[guest(target,n,base,script,{'action':action,'nodes':[v['name'] for v in payload['instance']['config']['nodes']],
+            'api_endpoint':payload['instance']['config']['network']['api_endpoint']},root=True) for n in nodes]
+        expected=json.loads((ROOT/'versions.lock.yaml').read_text())['components']['k3s']['version']
+        passed=all(r['ready'] and r['vip_ready'] and r['encryption_enabled'] and r['encryption_hashes_match'] and
+            len(r['nodes'])==3 and all(n['ready'] and n['control_plane'] and n['etcd'] and n['version']==expected for n in r['nodes']) for r in results)
+        return {'private':{'operation_id':operation,'results':results},'safe':{'status':'verified' if passed else 'blocked',
+            'code':'K3S_API_VIP_ENCRYPTION_VERIFIED' if passed else 'K3S_CLUSTER_HEALTH_FAILED',
+            'node_count':3,'ready_node_count':sum(n['ready'] for n in results[0]['nodes']),
+            'provider_id_count':sum(n['provider_id_present'] for n in results[0]['nodes']),
+            'uninitialized_node_count':sum(n['uninitialized'] for n in results[0]['nodes']),
+            'api_checks':sum(r['ready'] for r in results),'vip_api_checks':sum(r['vip_ready'] for r in results),
+            'encryption_checks':sum(r['encryption_enabled'] and r['encryption_hashes_match'] for r in results),
+            'pod_count':results[0]['pod_count'],'pending_pod_count':results[0]['pending_pod_count'],
+            'storage_class_count':len(results[0]['storage_classes']),'k3s_version':expected,
+            'production_failover_qualified':False,'csi_qualified':False}}
     if action=='install_k3s': return install_k3s(payload,target,nodes,base)
     if action in ('install_vip','qualify_vip','inspect_vip'): return vip_operation(payload,target,nodes,base)
     script = (ROOT/'scripts/node_foundation.py').read_bytes()
@@ -148,6 +242,7 @@ def collect(payload):
         safe=[]
         for index,r in enumerate(results,1):
             safe.append({'node':'N'+str(index),'binary_present':r['binary_present'],'config_present':r['config_present'],
+                'asset_layout':r['asset_layout'],
                 'active':'ActiveState=active' in r['unit'],'known_error_codes':sorted({code for pattern,code in patterns.items() if pattern.casefold() in r['journal'].casefold()}),
                 'exit_status':int(re.search(r'^ExecMainStatus=(\d+)$',r['unit'],re.M)[1]) if re.search(r'^ExecMainStatus=(\d+)$',r['unit'],re.M) else None,
                 'binary_version_matches':json.loads((ROOT/'versions.lock.yaml').read_text())['components']['k3s']['version'] in r['version'],

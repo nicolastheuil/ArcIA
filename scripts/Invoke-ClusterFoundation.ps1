@@ -1,18 +1,34 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps')){
+        $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    }
     $payload=@{action=$Action;private_root=$root}
     foreach($mapping in @(@('target','vmware-target.dpapi'),@('trust','ssh-trust.dpapi'),@('instance','instance.dpapi'))){
         $payload[$mapping[0]]=(Read-ProtectedBundle (Join-Path $root $mapping[1]))|ConvertFrom-Json
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -in @('install_postgres','install_hermes')){
+        $payload.storage_qualification=(Read-ProtectedBundle (Join-Path $root 'cluster-qualify_storage.dpapi'))|ConvertFrom-Json
+    }
+    if($Action -eq 'install_hermes'){
+        . (Join-Path $PSScriptRoot 'PilotCredentials.ps1')
+        $decisions=(Read-ProtectedBundle (Join-Path $root 'installation-decisions.dpapi'))|ConvertFrom-Json
+        if($decisions.operation_id -ne $operation.id -or $decisions.authentication_mode -ne 'local' -or $decisions.tls_mode -ne 'self_signed_pilot' -or $decisions.public_access_enabled){throw 'LOCAL_PILOT_DECISIONS_REQUIRED'}
+        $payload.pilot=Get-PilotCredentials $root $operation.id $payload.instance.config.network.public_hostname
+    }
+    if($Action -eq 'install_vmware'){
+        foreach($mapping in @(@('connection','vmware.dpapi'),@('service','sso-service.dpapi'),@('foundation','foundation-inventory.dpapi'))){
+            $payload[$mapping[0]]=(Read-ProtectedBundle (Join-Path $root $mapping[1]))|ConvertFrom-Json
+        }
+    }
     if($Action -in @('install_vip','qualify_vip','inspect_vip')){
         $journal=Join-Path $root 'vip-journal.dpapi'
         if(-not(Test-Path -LiteralPath $journal)){
@@ -27,7 +43,7 @@ try{
         $payload.vip_journal=(Read-ProtectedBundle $journal)|ConvertFrom-Json
     }
     $start=New-Object Diagnostics.ProcessStartInfo
-    $start.FileName=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation/venv/Scripts/python.exe'
+    $start.FileName=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation\venv\Scripts\python.exe'
     $start.Arguments='"'+(Join-Path $PSScriptRoot 'cluster_foundation.py')+'"'
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true

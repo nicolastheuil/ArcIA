@@ -165,6 +165,90 @@
     INSTALL_K3S_SKIP_ENABLE: 'true'
   no_log: true
 
+- name: Overwrite service with launcher to avoid re-exec loop
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/k3s.service
+    content: |
+      [Unit]
+      Description=Lightweight Kubernetes
+      Documentation=https://k3s.io
+      Wants=network-online.target
+      After=network-online.target
+
+      [Install]
+      WantedBy=multi-user.target
+
+      [Service]
+      Type=notify
+      EnvironmentFile=-/etc/default/%N
+      EnvironmentFile=-/etc/sysconfig/%N
+      EnvironmentFile=-/etc/systemd/system/k3s.service.env
+      KillMode=process
+      Delegate=yes
+      User=root
+      LimitNOFILE=1048576
+      LimitNPROC=infinity
+      LimitCORE=infinity
+      TasksMax=infinity
+      TimeoutStartSec=0
+      Restart=always
+      RestartSec=5s
+      ExecStartPre=-/sbin/modprobe br_netfilter
+      ExecStartPre=-/sbin/modprobe overlay
+      ExecStartPre=-/bin/rm -rf /var/lib/rancher/k3s/data
+      ExecStart=/usr/local/bin/k3s-server-launcher
+    mode: '0644'
+  no_log: true
+
+- name: Ensure launcher script exists
+  ansible.builtin.copy:
+    dest: /usr/local/bin/k3s-server-launcher
+    content: |
+      #!/bin/bash
+      exec -a k3s-server /usr/local/bin/k3s server "$@"
+    mode: '0755'
+  no_log: true
+
+- name: Ensure k3s-server wrapper exists (prevents re-exec loop)
+  ansible.builtin.copy:
+    dest: /usr/local/bin/k3s-server
+    content: |
+      #!/bin/bash
+      if [[ -n "$K3S_REEXEC_DONE" ]]; then
+        export K3S_CONFIG_FILE="/etc/rancher/k3s/config.yaml"
+        export K3S_DATA_DIR="/var/lib/rancher/k3s"
+        export K3S_TOKEN_FILE="/etc/rancher/k3s/cluster-token"
+        exec -a k3s-server /usr/local/bin/k3s "$@"
+      fi
+      export K3S_REEXEC_DONE=1
+      args=("$@")
+      if [[ ${args[0]} == "server" ]]; then
+        args=("${args[@]:1}")
+      fi
+      exec -a k3s-server /usr/local/bin/k3s server "${args[@]}"
+    mode: '0755'
+  no_log: true
+
+- name: Ensure k3s-agent wrapper exists (prevents re-exec loop)
+  ansible.builtin.copy:
+    dest: /usr/local/bin/k3s-agent
+    content: |
+      #!/bin/bash
+      if [[ -n "$K3S_REEXEC_DONE" ]]; then
+        export K3S_CONFIG_FILE="/etc/rancher/k3s/config.yaml"
+        export K3S_DATA_DIR="/var/lib/rancher/k3s"
+        export K3S_TOKEN_FILE="/etc/rancher/k3s/cluster-token"
+        exec -a k3s-agent /usr/local/bin/k3s "$@"
+      fi
+      export K3S_REEXEC_DONE=1
+      args=("$@")
+      if [[ ${args[0]} == "agent" ]]; then
+        args=("${args[@]:1}")
+      fi
+      exec -a k3s-agent /usr/local/bin/k3s agent "${args[@]}"
+    mode: '0755'
+  no_log: true
+
 - name: Disable core dumps in K3s processes
   ansible.builtin.file:
     path: /etc/systemd/system/k3s.service.d
@@ -177,12 +261,15 @@
     dest: /etc/systemd/system/k3s.service.d/10-arcia-security.conf
     mode: '0644'
 
-- name: Start the server without restarting an existing service
-  ansible.builtin.systemd_service:
+- name: Ensure systemd daemon is reloaded after service changes
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Start k3s service (idempotent)
+  ansible.builtin.systemd:
     name: k3s
     enabled: true
     state: started
-    daemon_reload: true
 
 - name: Verify local API health before adding the next server
   ansible.builtin.command:

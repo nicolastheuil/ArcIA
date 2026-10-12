@@ -7,7 +7,8 @@ import sys
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-CPI_REVISION = '59582fbcc054eb42106d7d31ab543ae8e3333e67'
+CPI_REVISION = '26afdddaa7c641f50ec5823c3e4fbe390ea894d4'
+CPI_VERSION = 'v1.37.0'
 CSI_REVISION = '27ec91d0a0fc820724cc5d7a0a2f69d12bc4ff34'
 SOURCES = {
     'cpi-daemonset.yaml': ('kubernetes/cloud-provider-vsphere', CPI_REVISION,
@@ -75,9 +76,9 @@ def main():
             document = document.replace('image: '+reference, 'image: '+image['pinned'])
         documents[name] = document
         sources[name]['rendered_sha256'] = hashlib.sha256(document.encode()).hexdigest()
-    cpi = images['registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere:v1.35.1']
-    lock['components']['vsphere_cpi'] = {'version': 'v1.35.1', 'revision': CPI_REVISION,
-        'source': 'https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.35.1',
+    cpi = images['registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere:'+CPI_VERSION]
+    lock['components']['vsphere_cpi'] = {'version': CPI_VERSION, 'revision': CPI_REVISION,
+        'source': 'https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/'+CPI_VERSION,
         'image_digest': cpi['digest'], 'image_repository': cpi['pinned'].split('@')[0],
         'status': 'source_verified_not_qualified'}
     lock['components']['vsphere_csi']['image_digest'] = images['registry.k8s.io/csi-vsphere/driver:v3.7.3']['digest']

@@ -1,4 +1,42 @@
-# État de reprise — 11 octobre 2026
+# État de reprise — 12 octobre 2026
+
+## Référence actuelle — arrêt du 12 octobre, socle de qualification
+
+Lire en priorité [handoff-2026-10-12-socle-qualification.md](handoff-2026-10-12-socle-qualification.md).
+K3s 3/3, CPI/CSI et cinq essais RWOP vérifiés ; PostgreSQL prêt 3/3,
+Hermes prêt 1/1. Proxy HTTPS non prêt : correction NGINX codée à appliquer.
+91 tests Python passent sous WSL. Arrêt demandé pour quitter le poste.
+Archive portable antérieure au lot, à renouveler localement avant transfert.
+Les sections ci-dessous sont historiques et ne décrivent plus l'état courant.
+
+## Restauration privée sur le second PC — vérifiée le 12 octobre 2026
+
+L'import de `secrets/local/arcia-private.arciap` a réellement réussi sur le
+second PC après saisie locale de la clé de récupération. Code retourné :
+`PORTABLE_STATE_RESTORED_FOR_CURRENT_WINDOWS_USER`, 86 fichiers restaurés sous
+`%LOCALAPPDATA%\ArcIA-Harness`. Les 44 bundles DPAPI ont tous été déchiffrés et
+relus comme JSON par un programme local ne retournant que des compteurs.
+Les dix références vers des fichiers privés existent, les deux fichiers SSH
+sont présents, aucun accès ACL supplémentaire ni reparse point n'a été relevé
+dans l'état restauré ; l'héritage des ACL est bloqué à sa racine.
+
+Le formulaire initial refusait `secrets/local`, marqué ReparsePoint par OneDrive.
+L'import a été exécuté avec les scripts existants et une copie chiffrée dans un
+staging local hors synchronisation. Aucune référence DPAPI ne pointe vers ce
+staging. L'égalité SHA256 de sa copie avec l'archive d'origine a été vérifiée.
+L'archive d'origine est conservée et le formulaire terminé a été fermé.
+La suppression du staging a été refusée par le contrôle automatique d'exécution,
+y compris avec son chemin explicite vérifié. Nettoyage restant :
+`%LOCALAPPDATA%\Temp\arcia-import-fc120d82377b4b21a595e7ed01840132`
+(copie chiffrée, scripts, petit dépôt Git temporaire et statuts de l'import).
+
+`Initialize-SecondPc.ps1 -IncludeWsl` s'est arrêté avec
+`PYTHON_3_14_REQUIRED` : le poste résout Python 3.13.15. La préparation des
+dépendances Windows/WSL reste à terminer avant reprise du déploiement.
+Aucune connexion aux VM, relance K3s ou action de déploiement n'a été exécutée
+pendant cette restauration. Les validations d'infrastructure du handoff restent
+historiques ; ce transfert ne qualifie pas un rebuild de cluster ni un second
+ingénieur. Ne pas réimporter sur l'état local désormais rempli.
 
 ## Arrêt demandé et handoff final
 

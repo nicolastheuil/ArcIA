@@ -4,15 +4,15 @@
   "release_status": "preparation_only",
   "components": {
     "k3s": {
-      "version": "v1.35.9+k3s1",
-      "revision": "58877f27435fe86ee292859db3d0df2ca5423991",
-      "source": "https://github.com/k3s-io/k3s/releases/tag/v1.35.9%2Bk3s1",
-      "installer_url": "https://raw.githubusercontent.com/k3s-io/k3s/58877f27435fe86ee292859db3d0df2ca5423991/install.sh",
-      "installer_sha256": "8598e002e61d658fed7b7542fc6d2c66d8da6eae69e088830105d2ee1ffb6d91",
-      "binary_url": "https://github.com/k3s-io/k3s/releases/download/v1.35.9%2Bk3s1/k3s",
-      "binary_sha256": "897acb21cca57d477a211102251a6591450ce767344a9faaa121a1007ca9fa9a",
-      "images_url": "https://github.com/k3s-io/k3s/releases/download/v1.35.9%2Bk3s1/k3s-airgap-images-amd64.tar.zst",
-      "images_sha256": "7f1cbfea56d38f5e69aec13500a89290119096cc2f5a6d4f542e5f26599977d0",
+      "version": "v1.37.1+k3s1",
+      "revision": "356c025475bbefaa09cf0d7e48e8e2adbbde57db",
+      "source": "https://github.com/k3s-io/k3s/releases/tag/v1.37.1%2Bk3s1",
+      "installer_url": "https://raw.githubusercontent.com/k3s-io/k3s/356c025475bbefaa09cf0d7e48e8e2adbbde57db/install.sh",
+      "installer_sha256": "ed01f89fd977bf20ac1516bbebf8370bf3ddbaa55dac8aba610956a4c78cc00b",
+      "binary_url": "https://github.com/k3s-io/k3s/releases/download/v1.37.1%2Bk3s1/k3s",
+      "binary_sha256": "92b94582eb7b34a8cf532e6006842b9ed215a6783cf56a3dd6271fd35243b2c0",
+      "images_url": "https://github.com/k3s-io/k3s/releases/download/v1.37.1%2Bk3s1/k3s-airgap-images-amd64.tar.zst",
+      "images_sha256": "865b2a63ad7a63fc0db17b7fc2985bf4ae11d5ae93ca1472be6218d20aeb6b23",
       "status": "source_verified_not_qualified"
     },
     "vsphere_csi": {
@@ -26,34 +26,42 @@
       "version": "v1.30.1",
       "revision": "2a35abb4628f209d149825ef3c38011e0701ff2f",
       "source": "https://github.com/cloudnative-pg/cloudnative-pg/releases/tag/v1.30.1",
-      "image_digest": null,
-      "status": "source_verified_not_qualified"
+      "image_digest": "sha256:923c267ec29636db3bee20f993d0ec4973fa22998e1adad37da79e4d32b5bc07",
+      "status": "source_verified_not_qualified",
+      "image_repository": "ghcr.io/cloudnative-pg/cloudnative-pg"
     },
     "hermes": {
       "version": "v0.21.6",
       "revision": "818c13be1dc4fd28987e1e881a9408224afd4535",
       "source": "https://github.com/NousResearch/hermes-agent/releases/tag/v0.21.6",
       "image_repository": "docker.io/nousresearch/hermes-agent",
-      "image_digest": null,
-      "status": "source_verified_not_qualified"
+      "image_digest": "sha256:55e192fba0cd4fde61142abbff5adeacff40efdb482ccd0ff877924bd274f909",
+      "status": "pinned_not_deployed",
+      "image": "docker.io/nousresearch/hermes-agent@sha256:55e192fba0cd4fde61142abbff5adeacff40efdb482ccd0ff877924bd274f909",
+      "image_labels": {}
     },
     "vsphere_cpi": {
-      "version": "v1.35.1",
-      "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
-      "source": "https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.35.1",
-      "image_digest": "sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79",
+      "version": "v1.37.0",
+      "revision": "26afdddaa7c641f50ec5823c3e4fbe390ea894d4",
+      "source": "https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.37.0",
+      "image_digest": "sha256:df7f7380d12d1e26c08556769f6c778b8e7c282463eb972ea9c98bdb96dfa715",
       "image_repository": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere",
       "status": "source_verified_not_qualified"
     },
     "ingress": {
-      "version": null,
-      "image_digest": null,
-      "status": "pending_endpoint_design"
+      "version": "1.31.6",
+      "image": "docker.io/library/nginx@sha256:60f0d4e986561e08804f75c211dcaf7fc5455699eada29f42cbe8a0a7253dd86",
+      "image_digest": "sha256:60f0d4e986561e08804f75c211dcaf7fc5455699eada29f42cbe8a0a7253dd86",
+      "source": "https://github.com/nginx/nginx/releases/tag/release-1.31.6",
+      "status": "pinned_not_deployed"
     },
     "postgres_pgvector": {
-      "version": null,
-      "image_digest": null,
-      "status": "pending_image_qualification"
+      "version": "18.6-202610120828-standard-trixie",
+      "image": "ghcr.io/cloudnative-pg/postgresql:18.6-202610120828-standard-trixie@sha256:c7747d8d1049fff9cf30d9cd83d14d609c957afb5ffbcd114145f393ea1850e1",
+      "image_digest": "sha256:c7747d8d1049fff9cf30d9cd83d14d609c957afb5ffbcd114145f393ea1850e1",
+      "catalog_source": "https://raw.githubusercontent.com/cloudnative-pg/artifacts/50f18009e7d13bebbba8e6b02b38d507f69817a8/image-catalogs/catalog-standard-trixie.yaml",
+      "catalog_sha256": "7dda0c06dbf01e1caac78569c6e0f173f7af8c3495c5f67559f33653c761dd97",
+      "status": "pinned_not_deployed"
     },
     "omniroute": {
       "source": "https://github.com/diegosouzapw/OmniRoute",
@@ -65,20 +73,20 @@
   "vmware_foundation": {
     "sources": {
       "cpi-daemonset.yaml": {
-        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/vsphere-cloud-controller-manager-ds.yaml",
-        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
-        "upstream_sha256": "92d87efcd0d748820b044c46654cbe1c913efea40f6c1d5de54d9d95d6788dd0",
-        "rendered_sha256": "20ae26dbf44ab4973f65e4a8006fe79f10dd8bd20139b2a94fea00158fb9d21d"
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/26afdddaa7c641f50ec5823c3e4fbe390ea894d4/manifests/controller-manager/vsphere-cloud-controller-manager-ds.yaml",
+        "revision": "26afdddaa7c641f50ec5823c3e4fbe390ea894d4",
+        "upstream_sha256": "0018f98547965887c6f469af6c792e9179d643142f486d9fa02065f78893fd61",
+        "rendered_sha256": "afdec9dff0650cfd871060e95ab34badef710343e6ffeb50da897a5f38aba5fe"
       },
       "cpi-roles.yaml": {
-        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/cloud-controller-manager-roles.yaml",
-        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
-        "upstream_sha256": "92a414fde0b2e2446edd62ca9ef99f1780defbc5f7d998885caef166438c8531",
-        "rendered_sha256": "92a414fde0b2e2446edd62ca9ef99f1780defbc5f7d998885caef166438c8531"
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/26afdddaa7c641f50ec5823c3e4fbe390ea894d4/manifests/controller-manager/cloud-controller-manager-roles.yaml",
+        "revision": "26afdddaa7c641f50ec5823c3e4fbe390ea894d4",
+        "upstream_sha256": "70f43138a5933fe6f1c2fd6b26d68e722dde7a0d2df256ba06204a21c0c379e0",
+        "rendered_sha256": "70f43138a5933fe6f1c2fd6b26d68e722dde7a0d2df256ba06204a21c0c379e0"
       },
       "cpi-bindings.yaml": {
-        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/59582fbcc054eb42106d7d31ab543ae8e3333e67/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
-        "revision": "59582fbcc054eb42106d7d31ab543ae8e3333e67",
+        "url": "https://raw.githubusercontent.com/kubernetes/cloud-provider-vsphere/26afdddaa7c641f50ec5823c3e4fbe390ea894d4/manifests/controller-manager/cloud-controller-manager-role-bindings.yaml",
+        "revision": "26afdddaa7c641f50ec5823c3e4fbe390ea894d4",
         "upstream_sha256": "18bf94e1afd09224fbd5a891b0a79b2d80785d9984fae95cea881cdb7f0f33cc",
         "rendered_sha256": "18bf94e1afd09224fbd5a891b0a79b2d80785d9984fae95cea881cdb7f0f33cc"
       },
@@ -91,9 +99,9 @@
     },
     "images": [
       {
-        "source": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere:v1.35.1",
-        "digest": "sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79",
-        "pinned": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere@sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79"
+        "source": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere:v1.37.0",
+        "digest": "sha256:df7f7380d12d1e26c08556769f6c778b8e7c282463eb972ea9c98bdb96dfa715",
+        "pinned": "registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere@sha256:df7f7380d12d1e26c08556769f6c778b8e7c282463eb972ea9c98bdb96dfa715"
       },
       {
         "source": "registry.k8s.io/csi-vsphere/driver:v3.7.3",
@@ -183,5 +191,15 @@
       }
     },
     "status": "pinned_not_installed"
+  },
+  "qualification_image": {
+    "source": "registry.k8s.io/e2e-test-images/busybox:1.29-4",
+    "pinned": "registry.k8s.io/e2e-test-images/busybox@sha256:2e0f836850e09b8b7cc937681d6194537a09fbd5f6b9e08f4d646a85128e8937",
+    "purpose": "synthetic_storage_checks_only"
+  },
+  "cnpg_source": {
+    "url": "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v1.30.1/cnpg-1.30.1.yaml",
+    "upstream_sha256": "37237f145d8138256ea25ae830f87759255665ff08f8d552fdd8224a5ec032fb",
+    "rendered_sha256": "e978726f665b83492e470d562e538c1516d3ff01918bd504e728d6dffdbb4e8b"
   }
 }

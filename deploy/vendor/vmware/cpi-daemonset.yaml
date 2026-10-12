@@ -43,7 +43,7 @@ spec:
       serviceAccountName: cloud-controller-manager
       containers:
         - name: vsphere-cloud-controller-manager
-          image: registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere@sha256:fab194e856a6d0fa24b22c80c7e6c3e72e0ccc19dad87eae5ae9c23cefe85b79
+          image: registry.k8s.io/cloud-pv-vsphere/cloud-provider-vsphere@sha256:df7f7380d12d1e26c08556769f6c778b8e7c282463eb972ea9c98bdb96dfa715
           args:
             - --v=2
             - --cloud-provider=vsphere

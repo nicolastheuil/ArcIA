@@ -13,7 +13,10 @@ def transport(payload):
     target, nodes = verified_nodes(payload)
     root = Path(payload['private_root']).resolve()
     identity = Path(target['ssh_public_key_path']).resolve().with_suffix('')
-    if root.is_relative_to(ROOT) or not identity.is_relative_to(root/'ssh') or not identity.is_file():
+    # MSIX may resolve files to LocalCache while keeping the directory alias.
+    # Compare the actual directory identity; do not weaken the SSH boundary.
+    if (root.is_relative_to(ROOT) or not identity.is_file() or identity.is_symlink()
+            or not identity.parent.samefile(root/'ssh')):
         raise ValueError('PROTECTED_SSH_IDENTITY_REQUIRED')
     known = root/'known_hosts.arcia'
     expected = ''.join(n['address']+' ssh-ed25519 '+n['key']+'\n' for n in nodes)

@@ -1,6 +1,13 @@
 # Backlog — préparation ArcIA
 
-Mis à jour : 2026-10-11. Codé ne signifie pas déployé ou qualifié.
+Mis à jour : 2026-10-12. Codé ne signifie pas déployé ou qualifié.
+
+État courant prioritaire : [handoff socle de qualification](handoff-2026-10-12-socle-qualification.md).
+PREP-05 : K3s trois serveurs Ready ; PREP-09/L0-01 : CPI 1.37.0 et CSI 3.7.3
+déployés, cinq essais RWOP vérifiés, PostgreSQL prêt 3/3. L0-02 : Hermes prêt
+1/1 en isolation sans appels IA ; HTTPS non prêt, correction NGINX codée à appliquer.
+Failover PG, fencing/perte de nœud, sauvegardes et rebuild non exécutés.
+La table historique ci-dessous conserve le contexte initial ; le handoff prévaut.
 
 | ID | Lot | Travail | État / gate |
 |---|---|---|---|

@@ -8,6 +8,7 @@ import subprocess
 import time
 import uuid
 import hashlib
+import os
 
 
 def run(args, timeout=30):
@@ -50,7 +51,36 @@ def inspect_k3s(values):
         output[name]=result.stdout.decode(errors='replace')+result.stderr.decode(errors='replace')
     output['binary_present']=Path('/usr/local/bin/k3s').is_file()
     output['config_present']=Path('/etc/rancher/k3s/config.yaml').is_file()
+    output['asset_layout']=inspect_asset_layout(Path('/var/lib/rancher/k3s/data'))
+    mask=subprocess.run(['/usr/bin/systemctl','show','k3s','-p','UMask','--value'],capture_output=True,timeout=10).stdout.decode().strip()
+    output['asset_layout']['service_umask']=mask if re.fullmatch(r'0?[0-7]{3}',mask) else None
     return output
+
+
+def inspect_asset_layout(directory):
+    """Bounded metadata only; never return directory names, link targets or file content."""
+    layouts=[]
+    if directory.is_dir():
+        for entry in sorted(directory.iterdir()):
+            if not re.fullmatch(r'[a-f0-9]{64}', entry.name) or not entry.is_dir() or entry.is_symlink():
+                continue
+            commands={}
+            for name in ('k3s','k3s-server','k3s-agent','kubectl','containerd','runc'):
+                path=entry/'bin'/name
+                commands[name]={'exists':path.exists(),'symlink':path.is_symlink(),
+                    'mode':oct(path.stat().st_mode & 0o777) if path.exists() else None,
+                    'executable':os.access(path,os.X_OK),'size':path.stat().st_size if path.is_file() else None,
+                    'links_to_k3s':path.is_symlink() and os.readlink(path)=='k3s'}
+            layouts.append({'commands':commands,'bin_present':(entry/'bin').is_dir()})
+            if len(layouts)==8: break
+    mounted=subprocess.run(['/usr/bin/findmnt','-J','-T',str(directory),'-o','OPTIONS'],capture_output=True,timeout=10)
+    try:
+        options=json.loads(mounted.stdout)['filesystems'][0]['options'].split(',')
+    except (ValueError,KeyError,IndexError):
+        options=[]
+    return {'directories':layouts,'mount_noexec':'noexec' in options,
+            'mount_readonly':'ro' in options,'current_link':(directory/'current').is_symlink(),
+            'current_exists':(directory/'current').exists()}
 
 
 def stop_owned_k3s(values):
