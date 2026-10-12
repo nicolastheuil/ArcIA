@@ -89,11 +89,15 @@ def documents(lock,data,digest):
                     'readinessProbe':{'httpGet':{'path':'/health','port':8080}},
                     'volumeMounts':[{'name':'code','mountPath':'/code','readOnly':True}]}],
                 'volumes':[{'name':'code','configMap':{'name':'context7-relay-code'}}]}}})
-    return [resource('PersistentVolumeClaim','hermes-tools',{'storageClassName':'arcia-vsphere','accessModes':['ReadWriteOncePod'],
+    documents=[resource('PersistentVolumeClaim','hermes-tools',{'storageClassName':'arcia-vsphere','accessModes':['ReadWriteOncePod'],
         'resources':{'requests':{'storage':'10Gi'}}}),cm,proxy_cm,
         resource('Service','context7-docs',{'selector':{'app':'context7-docs'},'ports':[{'port':8080,'targetPort':8080}]}),
         resource('NetworkPolicy','hermes-tools-install-egress',{'podSelector':{'matchLabels':{'app':'hermes-tools-installer'}},'policyTypes':['Egress'],'egress':[dns,public]}),
         resource('NetworkPolicy','context7-docs-only',{'podSelector':{'matchLabels':{'app':'context7-docs'}},'policyTypes':['Ingress','Egress'],
-            'ingress':[{'from':[{'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}],'egress':[dns,public]}),
+            'ingress':[{'from':[{'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}],'egress':[]}),
         resource('NetworkPolicy','hermes-internal-docs-only',{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Egress'],
             'egress':[dns,{'to':[{'podSelector':{'matchLabels':{'app':'context7-docs'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}]}),relay,job]
+    if lock.get('privacy',{}).get('enabled'):
+        import privacy_deploy
+        documents=[d for d in documents if d['metadata']['name']!='hermes-internal-docs-only']+[privacy_deploy.hermes_policy()]
+    return documents

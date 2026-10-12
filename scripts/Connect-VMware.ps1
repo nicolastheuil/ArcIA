@@ -2,7 +2,7 @@
 param([switch]$CheckOnly, [switch]$PromptFingerprint)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$stateDirectory = Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$stateDirectory = Get-ArcIAStateRoot
 $connectionPath = Join-Path $stateDirectory 'vmware.dpapi'
 $inventoryPath = Join-Path $stateDirectory 'vmware-inventory.dpapi'
 $statusPath = Join-Path $stateDirectory 'vmware-status.json'

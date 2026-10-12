@@ -213,5 +213,23 @@
     "models": "services/knowledge/models.lock.json",
     "dependencies": "services/knowledge/requirements.lock.txt",
     "ocr_qualified": false
+  },
+  "privacy": {
+    "enabled": true,
+    "mode": "synthetic_free_cloud_qualification",
+    "analyzer": "2.2.364",
+    "anonymizer": "2.2.364",
+    "spacy": "3.8.16",
+    "models": "services/privacy/models.lock.json",
+    "dependencies": "services/privacy/requirements.lock.txt",
+    "cloud_model": "openrouter/free",
+    "paid_enabled": false,
+    "zdr_required": true
+  },
+  "multiuser": {
+    "enabled": true,
+    "qualification_only": true,
+    "runtime_count": 2,
+    "central_sso_enabled": false
   }
 }

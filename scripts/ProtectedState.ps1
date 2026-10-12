@@ -1,6 +1,42 @@
 # This file never returns a secret to stdout. Call only from a local trusted program.
 Add-Type -AssemblyName System.Security
 
+function Get-ArcIAStateRoot {
+    # Shared by every administrative entry point, including before pilot creation.
+    if($env:ARCIA_STATE_ROOT){
+        $candidate=[IO.Path]::GetFullPath($env:ARCIA_STATE_ROOT)
+        Initialize-PrivateDirectory $candidate
+        return $candidate
+    }
+    $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+    $candidates=@($primary)
+    $packages=Join-Path $env:USERPROFILE 'AppData\Local\Packages'
+    if(Test-Path -LiteralPath $packages){
+        $candidates+=@(Get-ChildItem -LiteralPath $packages -Directory -Filter '*Codex*' |
+            ForEach-Object {Join-Path $_.FullName 'LocalCache\Local\ArcIA-Harness'})
+    }
+    $valid=@()
+    foreach($candidate in ($candidates|Select-Object -Unique)){
+        if(-not(Test-Path -LiteralPath $candidate)){continue}
+        if((Get-Item -LiteralPath $candidate).Attributes -band [IO.FileAttributes]::ReparsePoint){continue}
+        foreach($name in @('vmware-operation.dpapi','vmware.dpapi','instance.dpapi')){
+            $path=Join-Path $candidate $name
+            if(-not(Test-Path -LiteralPath $path)){continue}
+            try{
+                $value=(Read-ProtectedBundle $path)|ConvertFrom-Json
+                if(-not $value){continue}
+                $resolved=if(Test-Path -LiteralPath (Join-Path $candidate 'vmware-operation.dpapi')){Get-PhysicalArcIARoot $candidate}else{$candidate}
+                $valid+=,$resolved
+                break
+            }catch{}finally{$value=$null}
+        }
+    }
+    $valid=@($valid|Select-Object -Unique)
+    if($valid.Count -gt 1){throw 'MULTIPLE_PROTECTED_ARCIA_STATES_REFUSED'}
+    if($valid.Count -eq 1){return $valid[0]}
+    return $primary
+}
+
 function Get-PhysicalArcIARoot {
     param([Parameter(Mandatory=$true)][string]$Path)
     if(-not ('ArcIAProtectedPath.Native' -as [type])){

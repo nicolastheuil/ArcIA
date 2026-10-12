@@ -2,7 +2,7 @@
 param([switch]$EnforcePlacement)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 $statusPath=Join-Path $privateRoot 'vmware-verify-status.json'
 $process=$null
 try {

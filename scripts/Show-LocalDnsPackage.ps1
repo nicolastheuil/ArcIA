@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 try{
-    $root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+    $root=Get-ArcIAStateRoot
     $reference=Get-ChildItem -LiteralPath $root -Filter 'dns-local-reference-*.dpapi'|Sort-Object LastWriteTime -Descending|Select-Object -First 1
     $package=(Read-ProtectedBundle $reference.FullName)|ConvertFrom-Json
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json

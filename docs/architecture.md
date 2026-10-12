@@ -1,125 +1,58 @@
-# Architecture réelle du harness
+# Architecture d’ArcIA
 
-> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
+Socle déployé sur une cible de qualification ; données synthétiques uniquement. [Vue produit](plateforme-arcia.md), [schémas](schemas-plateforme-hermes.md), [recette](runbooks/recette-fondatrice.md) et [état de reprise](etat-reprise.md) distinguent le présent des fonctions cibles.
 
+## Hébergement et disponibilité
 
-État observé le 12 octobre 2026. Le socle décrit ici est déployé ; les
-[schémas de plateforme](schemas-plateforme-hermes.md) présentent aussi les
-services métier à construire. Voir [la recette](runbooks/recette-fondatrice.md).
+Trois VM Debian 13 amd64, paramètres initiaux 8 vCPU/32 Gio/150 Gio, réparties sur des ESXi distincts. K3s serveur/control-plane/etcd sur les trois nœuds, containerd et Flannel VXLAN. Keepalived porte des VIP API/HTTPS privées. L’administration reste privée ; NGINX termine TLS et transmet au dashboard Hermes.
 
-## Infrastructure et disponibilité
+La bascule contrôlée des VIP est vérifiée ; panne brutale de nœud, fencing et restauration complète restent à qualifier. Quorum etcd, réplication PostgreSQL et propriétaire SQLite unique sont des mécanismes distincts. Le datastore partagé demeure une dépendance commune.
 
-Trois VM Debian 13 amd64, chacune 8 vCPU, 32 Gio et 150 Gio système/runtime,
-sont réparties sur trois ESXi distincts avec anti-affinité. Toutes exécutent
-K3s serveur/control-plane/etcd et des workloads. K3s fournit containerd ;
-Docker Engine n’est pas requis. Flannel VXLAN assure le réseau des Pods.
+## Services, données et états
 
-Keepalived porte les VIP privées API et HTTPS. L’API administrative reste sur
-6443, l’entrée applicative sur 443. Le passage contrôlé du propriétaire VIP
-a été testé contre les vrais services depuis les trois nœuds, puis le service
-Keepalived arrêté a été rétabli. Cela ne simule ni arrêt brutal de VM ni perte
-d’ESXi/datastore et ne mesure pas encore un RTO de production.
-
-```mermaid
-flowchart TB
-  subgraph VS["VMware : 3 domaines ESXi observés"]
-    N1["VM 1 : K3s serveur + etcd"]
-    N2["VM 2 : K3s serveur + etcd"]
-    N3["VM 3 : K3s serveur + etcd"]
-    N1 --- N2
-    N2 --- N3
-    N3 --- N1
-  end
-  VIP["VIP privées : API et HTTPS"] --> N1
-  VIP --> N2
-  VIP --> N3
-  N1 --> CSI["vSphere CSI"]
-  N2 --> CSI
-  N3 --> CSI
-  CSI --> DS["Datastore partagé : volumes bloc ext4"]
-```
-
-Le quorum etcd protège l’état Kubernetes. CNPG réplique PostgreSQL séparément.
-Le CSI attache les volumes ; il ne réplique pas SQLite entre plusieurs écrivains.
-Un datastore partagé reste une dépendance commune.
-
-## Workloads et volumes
-
-| Espace | Composant | Fonction et état |
+| Namespace | Composants | État et stockage |
 |---|---|---|
-| `kube-system` | CPI et services K3s | Identité vSphere, DNS/réseau/contrôle |
-| `vmware-system-csi` | Contrôleur et agents CSI | Provisionnement/attachement |
-| `cnpg-system` | Opérateur CNPG 2/2 | Réconciliation PostgreSQL |
-| `arcia-data` | PostgreSQL 3/3 | 3 PVC de 20 Gi ; réplication synchrone requise à 1 réplique |
-| `arcia-hermes` | Hermes 1/1 | PVC 10 Gi RWOP, SQLite natif, Recreate |
-| `arcia-ingress` | NGINX 3/3 | TLS/proxy vers le seul Hermes de qualification |
+| kube-system / vmware-system-csi | K3s, CPI et CSI | Administration et stockage VMware |
+| cnpg-system / arcia-data | CNPG, PostgreSQL/pgvector | 3 instances, PVC 20 Gi chacune, 1 réplica synchrone requis |
+| arcia-hermes | Hermes, outils, relais Context7 fermé | État Hermes 10 Gi RWOP ; outils 10 Gi readonly |
+| arcia-knowledge | Knowledge | Runtime/modèles 10 Gi readonly ; originaux/assets 20 Gi RWOP |
+| arcia-privacy | Presidio, cloud-egress, DNS statique | Runtime/modèles spaCy 5 Gi readonly ; secrets séparés |
+| arcia-ingress | NGINX sur les trois nœuds | Certificats protégés ; hostPort 443 vers 8443 non-root |
 
-La StorageClass `arcia-vsphere` utilise `storagepolicyname`, ext4,
-`WaitForFirstConsumer` et `Retain`. Supprimer un PVC applicatif ne démontre donc
-pas l’effacement de ses données. La recette CSI utilise une classe distincte
-avec `Delete` pour retirer son seul volume synthétique.
+La StorageClass utilise ext4, WaitForFirstConsumer, Retain et RWOP. Un seul propriétaire écrit chaque état Hermes. Les outils partagent l’image Hermes fixée par digest mais disposent de dépendances isolées. Les nouveaux modèles/documents ne sont pas téléchargés librement par l’agent.
 
-Hermes utilise UID/GID 10000, un filesystem racine en lecture seule et des
-volumes d’écriture bornés. Son `state.db` reste exclusif. La recette de
-persistance utilise un canari SQLite séparé ; elle ne valide pas toutes les
-migrations et sessions internes Hermes.
+## Requête et réseau
 
-## Entrée et communications
+Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Les appels modèles passent à Presidio puis à un relais portant seul la clé OpenRouter. Le relais valide attestation, anti-rejeu et politique gratuite/ZDR avant TLS vers sa destination fixée. [Contrôles et limites](confidentialite-cloud.md).
 
-```mermaid
-flowchart LR
-  U["Qualification sur réseau privé"] -->|"TLS 443"| V["VIP HTTPS"]
-  V --> N["NGINX : port Pod 8443"]
-  N -->|"HTTP interne autorisé"| H["Backend Hermes"]
-  H --> DB["SQLite exclusif"]
-  ADMIN["Ingénieur + état DPAPI"] -->|"SSH strict"| K["Actions Kubernetes typées"]
-  K --> PG["CNPG / PostgreSQL : recette SQL"]
-  H -. "refus réseau observés" .-> OUT["DNS et base inter-namespace"]
-```
+Hermes utilise un DNS statique interne sans forwarding ; Internet direct, DNS général et accès direct au relais sont refusés. Context7 reste installé mais ne peut plus transmettre des requêtes externes non filtrées. Ajouter un MCP demande une autorisation réseau et une recette spécifiques. Les Jobs d’installation peuvent télécharger leurs artefacts HTTPS publics ; ils sont supprimés avant activation du volume runtime RWOP.
 
-NGINX expose hostPort 443 vers 8443 non privilégié. Les trois réplicas ne créent
-pas trois noms publics. Le serveur TLS par défaut refuse les SNI inconnus.
-Les fichiers temporaires vont sous `/tmp` ; les checksums configuration/TLS
-déclenchent un rollout après changement.
+## Configuration et réconciliation
 
-NGINX reconstruit les en-têtes proxy. Hermes fait confiance au CIDR Pods borné
-et sa NetworkPolicy n’accepte que `app=pilot-https` dans `arcia-ingress`.
-TLS/auth/cookies sont vérifiés. WebSocket/SSE sont configurés, sans recette
-de bout en bout à ce stade.
+Les renderers combinent code/locks et état privé sur stdin. Chaque ressource porte un identifiant d’opération ; une ressource étrangère n’est pas adoptée. Les Secrets utilisent server-side apply, sans copie last-applied en clair. Les agents n’ont pas de token SA, socket d’administration ou PodSpec arbitraire.
 
-Deux noms demandés : `arcia.arcitek.io` pour Hermes, `arcia-teams.arcitek.io`
-pour le futur bot. Aucun service Teams ni NAT Internet actif.
-Voir [DNS/TLS](runbooks/certificats-dns.md).
+Le rendu Hermes conserve configuration, outils, MCP, DNS et passerelle cloud lors d’une réapplication ou rotation TLS. Une ConfigMap immuable portant le hash du contenu sert au montage runtime : le nouveau Pod ne peut pas démarrer avec une ancienne projection mise en cache par le kubelet. La ConfigMap au nom stable reste l’interface des opérations administratives contrôlées.
 
-<a id="carte-du-depot"></a>
 ## Carte du dépôt
 
 | Chemin | Responsabilité |
 |---|---|
-| `AGENTS.md`, `builder/` | Rôle et règles du builder |
-| `harness.py`, `bootstrap_config.py`, `schemas/` | Validation, plan, rendu privé, gates |
-| `scripts/*VMware*`, `vmware_*.py`, `infra/vmware/` | Inventaire TLS, image Debian, VM et droits VMware |
-| `infra/ansible/`, `node_foundation.py`, `wsl_ansible.py` | Préparation/installation K3s |
-| `Invoke-ClusterFoundation.ps1`, `cluster_foundation.py` | Actions administratives, verrou local, preuves |
-| `kubernetes_vmware.py`, `kubernetes_apps.py` | Rendu des ressources possédées par l’opération |
-| `node_kubernetes.py`, `node_vip.py`, `vip_health.py` | Actions fixes et recettes sur les nœuds |
-| `ProtectedState.ps1`, `PortableState.ps1`, wrappers GUI | DPAPI/ACL et export/import chiffré |
-| `PilotCredentials.ps1`, `Verify-PilotAccess.ps1` | Identifiants locaux et vérification HTTPS épinglée |
-| `Invoke-PilotCertificate.ps1`, `certbot_*.py` | Certbot DNS-01, suspension, collecte protégée |
-| `deploy/foundation/`, `deploy/vendor/` | Fondations statiques, sources amont et licences |
-| `versions.lock.yaml`, `requirements*.txt` | Versions/hashes/digests ; lock de release incomplet |
-| `tests/`, `.github/workflows/` | Contrôles synthétiques et CI sans accès client |
+| AGENTS.md / builder | Rôle de construction, locks et catalogue de skills |
+| bootstrap/qualification.json | Ordre, profils et contrats de succès du bootstrap |
+| scripts/Bootstrap-Harness.ps1 / BootstrapEngine.ps1 | Orchestration, verrous et journal protégé |
+| scripts/*VMware* / infra/ansible | Provisionnement, préflight et K3s |
+| scripts/kubernetes_apps.py / hermes_tools.py | Rendu canonique Hermes, outils et entrée |
+| services/knowledge / scripts/knowledge_deploy.py | RAG local et intégration MCP |
+| services/privacy / scripts/privacy_deploy.py | DLP, protocole attesté, sortie cloud et DNS |
+| scripts/Invoke-ClusterFoundation.ps1 / cluster_foundation.py / node_*.py | Opérations administratives fixes sur la cible possédée |
+| scripts/ProtectedState.ps1 / PortableState.ps1 | DPAPI/ACL, export/import protégé et résolution du répertoire MSIX |
+| versions.lock.yaml / requirements* / builder/*lock* | Versions, dépendances, hashes et digests |
+| tests / .github/workflows | Tests synthétiques, coverage bootstrap et CI |
 
-Les fichiers Python cités sont sous `scripts/`. Les manifests applicatifs réels
-sont générés avec l’état privé sur stdin, sans enregistrer secrets ou inventaires
-dans `deploy/`. Le worker refuse une ressource appartenant à une autre opération.
-Ces droits administratifs ne sont pas destinés aux agents métier.
+## Extension d’instance
 
-## Évolution prévue
+Les usages, corpus, sites, comptes, domaines, habilitations et connecteurs spécifiques sont externes au harness. Une instance fixe une révision d’ArcIA et fournit ses surcharges protégées. Le contrat multi-utilisateur, les espaces communs/restreints/personnels et leur limite actuelle sont détaillés dans [le modèle de partage](plateforme-arcia.md#partage-et-cloisonnement).
 
-Entra/RBAC, approbations Teams, secrets, launcher/VPN, sanitizer, routeur IA,
-collecte et recherche documentaire restent à développer. Le répertoire
-`services/` et la CLI `hermes-platform` ne sont pas opérationnels.
-Avant release : panne brutale/fencing, backups/restores, rebuild neuf,
-compatibilité supportée, dépendances verrouillées et recette métier.
-Voir [backlog](backlog.md), [sécurité](securite.md) et [plan §26](plan-integration-hermes.md).
+## Deux espaces locaux de qualification
+
+Deux runtimes Hermes, chacun dans son namespace avec état et outillage propres, sont exposés sur le même domaine HTTPS : chemin racine et `/qualification-b/`. Le préfixe est imposé par NGINX, tandis que chaque backend vérifie ses propres identifiants et cookies. La connaissance commune se partage via les ACL/RLS du service Knowledge, sans partage des SQLite ou des volumes applicatifs. Le [schéma multi-utilisateur et sa recette](multi-utilisateur.md) détaillent cette frontière.

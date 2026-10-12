@@ -3,7 +3,7 @@ param([switch]$Create)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 . (Join-Path $PSScriptRoot 'DnsRecordPlan.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 $statusPath=Join-Path $privateRoot 'dns-status.json'
 $session=$null;$stage='READ_PROTECTED_PLAN';$created=0;$lockStream=$null
 try {

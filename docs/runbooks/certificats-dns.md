@@ -1,13 +1,15 @@
-# DNS publics et certificats NGINX
+# ArcIA : DNS d’instance et certificats NGINX
 
 État au 12 octobre 2026 : **certificat Let’s Encrypt émis, collecté et déployé dans NGINX** après reprise explicitement demandée. Les deux TXT ont été trouvés publiés et les challenges ont réussi. Les six contrôles HTTPS/authentification passent. NAT public désactivé ; Teams non déployé.
 
-## Deux noms, une entrée applicative
+Les noms ci-dessous sont des **exemples synthétiques**. Les noms réellement certifiés, le contact et les clés sont lus depuis l’état protégé de l’instance ; aucun domaine d’organisation n’est imposé par ArcIA.
+
+## Deux noms d’exemple, une entrée applicative
 
 | Nom | Usage | État |
 |---|---|---|
-| `arcia.arcitek.io` | Accès Hermes gateway/backend de qualification | Hostname configuré, HTTPS privé vérifié |
-| `arcia-teams.arcitek.io` | Futur callback du bot Teams | Nom réservé ; service métier absent |
+| `assistant.example.org` | Accès Hermes gateway/backend de qualification | Hostname configuré, HTTPS privé vérifié |
+| `assistant-teams.example.org` | Futur callback du bot Teams | Nom réservé ; service métier absent |
 
 Trois Pods NGINX ne créent pas trois endpoints publics. L’API K3s est un endpoint
 administratif privé distinct, jamais un troisième DNS public demandé.
@@ -31,7 +33,7 @@ sequenceDiagram
   C->>L: Créer un ordre DNS-01
   C-->>I: Afficher uniquement noms TXT et valeurs publiques
   I->>A: Transmettre les 2 TXT de cet ordre
-  A->>A: Publier dans la zone arcitek.io
+  A->>A: Publier dans la zone de l’instance
   I->>C: Reprendre avec un ordre valide lorsque DNS disponible
   C->>C: Vérifier les TXT exacts
   C->>L: Faire valider les challenges
@@ -40,10 +42,10 @@ sequenceDiagram
   I->>C: Appliquer NGINX puis vérifier HTTPS
 ```
 
-Les noms de records sont `_acme-challenge.arcia.arcitek.io` et
-`_acme-challenge.arcia-teams.arcitek.io`. Dans un panneau déjà positionné sur
-`arcitek.io`, les noms relatifs sont `_acme-challenge.arcia` et
-`_acme-challenge.arcia-teams`. Les valeurs dépendent de l’ordre courant :
+Les noms de records sont `_acme-challenge.assistant.example.org` et
+`_acme-challenge.assistant-teams.example.org`. Dans un panneau déjà positionné sur
+`example.org`, les noms relatifs sont `_acme-challenge.assistant` et
+`_acme-challenge.assistant-teams`. Les valeurs dépendent de l’ordre courant :
 ne pas les figer dans Git ni réutiliser aveuglément celles d’un ordre suspendu.
 
 ## Émission et renouvellement manuel
@@ -56,8 +58,8 @@ restent dans l’état protégé ; l’adresse personnelle n’est pas versionn�
 ```powershell
 # Fournir le contact déjà enregistré via le programme local ; aucune clé ici.
 pwsh -NoProfile -File scripts/Invoke-PilotCertificate.ps1 -Action request `
-  -Email $contactAcme -HermesHostname arcia.arcitek.io `
-  -TeamsHostname arcia-teams.arcitek.io
+  -Email $contactAcme -HermesHostname assistant.example.org `
+  -TeamsHostname assistant-teams.example.org
 ```
 
 Le wrapper affiche les TXT publics et attend ; le hook contrôle les valeurs

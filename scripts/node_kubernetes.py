@@ -248,6 +248,11 @@ def install_postgres(values):
 
 
 def install_hermes(values):
+    desired=next((d for d in values.get('hermes',[]) if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot'),None)
+    if desired and desired['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/privacy-boundary')=='required':
+        dns=owned('Service','private-dns','arcia-privacy',values['operation_id'])['spec']['clusterIP']
+        desired['spec']['template']['spec'].update(dnsPolicy='None',dnsConfig={'nameservers':[dns],
+            'searches':['arcia-hermes.svc.cluster.local','svc.cluster.local','cluster.local'],'options':[{'name':'ndots','value':'1'}]})
     # Reconcile the two resources patched by the first tools installer. This
     # narrow migration is restricted to our operation and a verified catalog;
     # normal application continues without force-conflicts for every other object.
@@ -256,6 +261,10 @@ def install_hermes(values):
         current=json.loads(current)
         if current['metadata'].get('annotations',{}).get('arcia.io/operation-id')!=values['operation_id']:
             raise ValueError('FOREIGN_HERMES_DEPLOYMENT')
+        if values.get('bootstrap_base'):
+            # Never downgrade an existing instance or remove tools/MCP on resume.
+            kubectl('rollout','status','deployment/hermes-pilot','-n','arcia-hermes','--timeout=600s',timeout=620)
+            return {'pods':[], 'ready':True, 'existing_hermes_preserved':True}
         desired=next(d for d in values['hermes'] if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
         old_hash=current['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/tools-sha256')
         new_hash=desired['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/tools-sha256')

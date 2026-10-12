@@ -3,7 +3,7 @@
 param([Parameter(Mandatory)][string]$HermesHostname,[Parameter(Mandatory)][string]$TeamsHostname)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAStateRoot
 foreach($hostValue in @($HermesHostname,$TeamsHostname)){
     if($hostValue -notmatch '^[a-z0-9][a-z0-9.-]{1,250}\.[a-z]{2,}$'){throw 'ENDPOINT_FQDN_REQUIRED'}
 }

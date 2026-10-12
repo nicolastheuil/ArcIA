@@ -2,7 +2,7 @@
 param([ValidateSet('plan','render','preflight')][string]$Action = 'plan')
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot = Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot = Get-ArcIAStateRoot
 $bundlePath = Join-Path $privateRoot 'instance.dpapi'
 try {
     Initialize-PrivateDirectory -Path $privateRoot

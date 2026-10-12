@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot = Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot = Get-ArcIAStateRoot
 $bundlePath = Join-Path $privateRoot 'instance.dpapi'
 $temporaryPath = Join-Path $privateRoot ('update-' + [guid]::NewGuid().ToString('N') + '.dpapi')
 try {

@@ -2,7 +2,7 @@
 param()
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 try {
     Initialize-PrivateDirectory $privateRoot
     $bundle=(Read-ProtectedBundle (Join-Path $privateRoot 'instance.dpapi'))|ConvertFrom-Json

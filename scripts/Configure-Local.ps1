@@ -3,7 +3,7 @@ param()
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$privateRoot = Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot = Get-ArcIAStateRoot
 $bundlePath = Join-Path $privateRoot 'instance.dpapi'
 try {
     if (Test-Path -LiteralPath $bundlePath) { throw 'EXISTING_CONFIGURATION' }

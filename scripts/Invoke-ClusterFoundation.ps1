@@ -1,12 +1,12 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAStateRoot
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge')){
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
     $payload=@{action=$Action;private_root=$root}
@@ -15,14 +15,34 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
-    if($Action -in @('install_postgres','install_hermes')){
+    if($Action -in @('install_multiuser','verify_multiuser')){
+        $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
+        if($payload.pilot.operation_id -ne $operation.id){throw 'MULTIUSER_PILOT_SCOPE_CONFLICT'}
+        $identityPath=Join-Path $root 'multiuser-credentials.dpapi'
+        if(-not(Test-Path -LiteralPath $identityPath)){
+            if($Action -ne 'install_multiuser'){throw 'MULTIUSER_CREDENTIALS_REQUIRED'}
+            function New-IdentityRandom([int]$Length){$bytes=[byte[]]::new($Length);[Security.Cryptography.RandomNumberGenerator]::Fill($bytes);return [Convert]::ToBase64String($bytes)}
+            $identity=@{operation_id=$operation.id;hostname=$payload.pilot.hostname;username='qualification-b';password=(New-IdentityRandom 24);password_salt=(New-IdentityRandom 16);session_secret=(New-IdentityRandom 32)}
+            Save-ProtectedBundle $identityPath ($identity|ConvertTo-Json -Compress)
+            $identity=$null
+        }
+        $payload.second_pilot=(Read-ProtectedBundle $identityPath)|ConvertFrom-Json
+        if($payload.second_pilot.operation_id -ne $operation.id -or $payload.second_pilot.hostname -ne $payload.pilot.hostname){throw 'MULTIUSER_IDENTITY_SCOPE_CONFLICT'}
+    }
+    if($Action -in @('install_postgres','install_hermes','install_hermes_base')){
         $payload.storage_qualification=(Read-ProtectedBundle (Join-Path $root 'cluster-qualify_storage.dpapi'))|ConvertFrom-Json
     }
-    if($Action -eq 'install_hermes'){
+    if($Action -in @('install_hermes','install_hermes_base')){
         . (Join-Path $PSScriptRoot 'PilotCredentials.ps1')
         $decisions=(Read-ProtectedBundle (Join-Path $root 'installation-decisions.dpapi'))|ConvertFrom-Json
         if($decisions.operation_id -ne $operation.id -or $decisions.authentication_mode -ne 'local' -or $decisions.tls_mode -notin @('self_signed_pilot','public_acme') -or $decisions.public_access_enabled){throw 'LOCAL_PILOT_DECISIONS_REQUIRED'}
         $payload.pilot=Get-PilotCredentials $root $operation.id $payload.instance.config.network.public_hostname
+    }
+    if($Action -eq 'install_privacy'){
+        $integrations=(Read-ProtectedBundle (Join-Path $root 'integrations.dpapi'))|ConvertFrom-Json
+        if($integrations.operation_id -ne $operation.id -or -not $integrations.values.openrouter_api_key){throw 'PROTECTED_OPENROUTER_KEY_REQUIRED'}
+        $payload.cloud_api_key=$integrations.values.openrouter_api_key
+        $integrations=$null
     }
     if($Action -eq 'install_vmware'){
         foreach($mapping in @(@('connection','vmware.dpapi'),@('service','sso-service.dpapi'),@('foundation','foundation-inventory.dpapi'))){

@@ -1,6 +1,6 @@
 # Connaissance documentaire : PDF, API et schémas
 
-**Déployé dans K3s et vérifié sur fixtures synthétiques le 12 octobre 2026.** Le service privé `arcia-knowledge/knowledge` utilise PostgreSQL/pgvector, E5 multilingue et mLateOn en CPU local. Hermes y accède par deux outils MCP en lecture seule. Aucun corpus client n’est ingéré, aucun appel LLM n’est activé. [Code](../services/knowledge/server.py) · [Schéma SQL](../services/knowledge/schema.sql) · [Déploiement](../scripts/knowledge_deploy.py).
+**Déployé dans K3s et vérifié sur fixtures synthétiques le 12 octobre 2026.** Le service privé `arcia-knowledge/knowledge` utilise PostgreSQL/pgvector, E5 multilingue et mLateOn en CPU local. Hermes y accède par deux outils MCP en lecture seule. Aucun corpus privé n’est ingéré, aucun appel LLM n’est activé. [Code](../services/knowledge/server.py) · [Schéma SQL](../services/knowledge/schema.sql) · [Déploiement](../scripts/knowledge_deploy.py).
 
 ## Parcours d’une question
 
@@ -81,7 +81,7 @@ La meilleure trajectoire pour ce corpus combine ce parcours déjà déployé et 
 
 Les tokens du pilote lient côté serveur rôle et périmètre synthétiques A/B. Le corps d’une requête ne peut pas choisir son périmètre. Le token fourni à Hermes est en lecture seule pour A, séparé du compte PostgreSQL et des tokens d’ingestion. RLS est activé et forcé sur documents/fragments ; le rôle DB n’est ni propriétaire, ni superuser, ni BYPASSRLS. Le service est le point de confiance qui fixe `arcia.scope` pour chaque transaction.
 
-Ces tokens de qualification **ne remplacent pas Entra ni les droits de missions métier**. Les tests A/B prouvent cette frontière de service, pas un IAM multiclient complet. L’API n’a pas de route publique ; ingress limité à Hermes. Le runtime ne sort que vers DNS et PostgreSQL. Le Job de construction seul accède aux sources publiques HTTPS. Les secrets restent dans Kubernetes chiffré et les programmes d’administration protégés, jamais dans Git ou les réponses de recherche.
+Ces tokens de qualification **ne remplacent pas Entra ni les droits de missions métier**. Les tests A/B prouvent cette frontière de service, pas un IAM multi-périmètre complet. L’API n’a pas de route publique ; ingress limité à Hermes. Le runtime ne sort que vers DNS et PostgreSQL. Le Job de construction seul accède aux sources publiques HTTPS. Les secrets restent dans Kubernetes chiffré et les programmes d’administration protégés, jamais dans Git ou les réponses de recherche.
 
 ## Recette et exploitation
 
@@ -96,3 +96,13 @@ La recette réelle couvre PDF textuel et page illustrée, refus d’un PDF inexp
 L’ingestion de documents publics autorisés doit passer par le rôle opérateur du service privé, après choix des métadonnées produit/version/source. Aucun outil d’ingestion libre n’est donné à Hermes. La collecte automatisée et une interface d’import opérateur dédiée restent au backlog ; le programme de recette [probe.py](../services/knowledge/probe.py) illustre le protocole sans exposer de token.
 
 Avant corpus large : benchmark représentatif PDF/API/schémas français/anglais, rappel@k, MRR, citations et fidélité d’extraction, latences p50/p95, CPU/RAM, WAL/disque, droits après révocation, panne et restauration. Les originaux et PostgreSQL doivent être sauvegardés de façon cohérente ; les index se reconstruisent à partir des sources et des modèles fixés. [Backlog](backlog.md) · [Sauvegarde](runbooks/sauvegarde-reconstruction.md).
+
+## Alimenter le RAG d’une instance
+
+Le pipeline fonctionne, mais l’interface d’import générale et les connecteurs de collecte ne sont pas encore disponibles. Aujourd’hui l’opérateur utilise l’API privée depuis un programme contrôlé avec un token d’ingestion lié à son périmètre ; les tests automatisés exécutent ce même chemin sur des fixtures synthétiques. Hermes ne reçoit jamais ce token ni un outil d’ingestion libre.
+
+L’API `/ingest` attend `product`, `version`, `title`, `source`, `suffix` et `content_base64`. La source indique la provenance ; le service ne la télécharge pas. Le scope vient de l’identité du token, jamais du corps fourni. Exemple de métadonnées publiques : produit `ArcIA Synthetic Appliance`, version `1`, titre `Guide et API de référence`, source `https://example.invalid/reference`, suffixe `.pdf`. Le fichier est lu et encodé à l’intérieur du programme protégé, pas collé dans le chat.
+
+Parcours : sélectionner le document et ses droits → vérifier qualité/provenance → ingérer avec le rôle autorisé → contrôler citations et version → tester un refus avec une identité non habilitée → autoriser l’utilisation par les agents. Ajouter guide PDF + OpenAPI permet de rechercher à la fois des procédures et des paramètres exacts. Une synchronisation SharePoint/API pourra réutiliser ce pipeline après propagation des ACL, suppressions et révocations. [Guide MCP](connecteurs-mcp.md).
+
+Les formats confidentiels ne doivent pas être chargés dans le périmètre de qualification synthétique. Le modèle commun/restreint/personnel et son IAM doivent être qualifiés avant données réelles. [Partage](plateforme-arcia.md#partage-et-cloisonnement).

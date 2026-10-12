@@ -135,6 +135,26 @@ def hermes(lock, config, pilot):
         cm['data']['config.yaml']=yaml.safe_dump(settings,sort_keys=False)
         deployment=next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
         deployment['spec']['template']['metadata']['annotations']['arcia.io/config-sha256']=hashlib.sha256(cm['data']['config.yaml'].encode()).hexdigest()
+    if lock.get('privacy',{}).get('enabled'):
+        import privacy_deploy
+        privacy_deploy.augment(docs)
+    if lock.get('multiuser',{}).get('enabled'):
+        boundary=(ROOT/'services/multiuser/dashboard_boundary.py').read_text(encoding='utf-8')
+        docs.append({'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':'dashboard-session-boundary','namespace':ns},'data':{'boundary.py':boundary}})
+        deployment=next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
+        spec=deployment['spec']['template']['spec'];container=spec['containers'][0]
+        container['command']=['/opt/hermes/.venv/bin/python','/opt/arcia-dashboard/boundary.py']
+        container['volumeMounts'].append({'name':'dashboard-boundary','mountPath':'/opt/arcia-dashboard','readOnly':True})
+        spec['volumes'].append({'name':'dashboard-boundary','configMap':{'name':'dashboard-session-boundary'}})
+        deployment['spec']['template']['metadata']['annotations']['arcia.io/session-boundary-sha256']=hashlib.sha256(boundary.encode()).hexdigest()
+    # A content-addressed immutable mount avoids kubelet caching an older value
+    # during a rollout. The stable ConfigMap remains the administrative interface.
+    cm=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name']=='hermes-pilot-config')
+    digest=hashlib.sha256(cm['data']['config.yaml'].encode()).hexdigest()
+    name='hermes-config-'+digest[:16]
+    docs.append({'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':name,'namespace':ns},'immutable':True,'data':dict(cm['data'])})
+    deployment=next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
+    next(v for v in deployment['spec']['template']['spec']['volumes'] if v['name']=='config')['configMap']['name']=name
     return docs
 
 
@@ -175,6 +195,29 @@ http {
   }
 }
 '''
+    if lock.get('multiuser',{}).get('enabled'):
+        # Runtime DNS resolution permits a fresh bootstrap before B exists.
+        resolver=str(ipaddress.ip_network(config['network']['service_cidr']).network_address+10)
+        route='''    location = /qualification-b { return 302 /qualification-b/; }
+    location ^~ /qualification-b/ {
+      resolver '''+resolver+''' valid=10s ipv6=off;
+      set $qualification_b http://hermes-pilot.arcia-hermes-qualification-b.svc.cluster.local:9119;
+      rewrite ^/qualification-b/(.*)$ /$1 break;
+      proxy_pass $qualification_b;
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Prefix /qualification-b;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
+      proxy_buffering off;
+      proxy_read_timeout 600s;
+    }
+'''
+        nginx=nginx.replace('    location / {',route+'    location / {')
+        # Never trust a caller-supplied prefix or identity on the main route.
+        nginx=nginx.replace('    location / {','    location / {\n      proxy_set_header X-Forwarded-Prefix "";')
     return [namespace(ns,True),deny_all(ns),quota(ns,{'pods':'6','requests.cpu':'1','requests.memory':'1Gi',
         'limits.cpu':'3','limits.memory':'2Gi','persistentvolumeclaims':'0'}),
         {'apiVersion':'v1','kind':'Secret','metadata':{'name':'pilot-tls','namespace':ns},'type':'kubernetes.io/tls',
@@ -185,6 +228,8 @@ http {
                 'ingress':[{'ports':[{'port':8443,'protocol':'TCP'}]}],
                 'egress':[{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-hermes'}},
                     'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]},
+                    *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-hermes-qualification-b'}},
+                        'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]}] if lock.get('multiuser',{}).get('enabled') else []),
                     {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'kube-system'}},
                         'podSelector':{'matchLabels':{'k8s-app':'kube-dns'}}}],
                         'ports':[{'port':53,'protocol':'UDP'},{'port':53,'protocol':'TCP'}]}]}},

@@ -1,0 +1,931 @@
+{
+  "schema_version": 1,
+  "target": "qualification-synthetic",
+  "steps": [
+    {
+      "id": "controller",
+      "script": "scripts/Prepare-SecondPcRuntime.ps1",
+      "arguments": [
+        "-IncludeWsl"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "protect_ssh_identity",
+      "script": "scripts/Protect-DeploymentKey.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "controller"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 120,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "debian_image",
+      "script": "scripts/Prepare-VMwareImage.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "protect_ssh_identity"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": true
+    },
+    {
+      "id": "virtual_machines",
+      "script": "scripts/Deploy-VMware.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "debian_image"
+      ],
+      "status_file": "vmware-deploy-status.json",
+      "success_codes": [
+        "THREE_VMS_POWERED_ON"
+      ],
+      "timeout_seconds": 7200,
+      "engine": "pwsh",
+      "provision_only": true
+    },
+    {
+      "id": "verify_virtual_machines",
+      "script": "scripts/Verify-VMware.ps1",
+      "arguments": [
+        "-EnforcePlacement"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "virtual_machines"
+      ],
+      "status_file": "vmware-verify-status.json",
+      "success_codes": [
+        "THREE_DEBIAN_VMS_VERIFIED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "ssh_trust_and_preflight",
+      "script": "scripts/Test-NodeAccess.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "verify_virtual_machines"
+      ],
+      "status_file": "ssh-preflight-status.json",
+      "success_codes": [
+        "THREE_LINUX_NODES_PREFLIGHT_PASSED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "powershell",
+      "provision_only": false
+    },
+    {
+      "id": "fresh_nodes",
+      "script": "scripts/Assert-FreshNodes.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "ssh_trust_and_preflight"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 7200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "sso_client",
+      "script": "scripts/Initialize-SsoClient.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "fresh_nodes"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "sso_account",
+      "script": "scripts/Manage-SsoServiceAccount.ps1",
+      "arguments": [
+        "-Create"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "sso_client"
+      ],
+      "status_file": "sso-service-status.json",
+      "success_codes": [
+        "OWNED_SSO_SERVICE_ACCOUNT_CREATED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "powershell",
+      "provision_only": false
+    },
+    {
+      "id": "vmware_inventory",
+      "script": "scripts/Inspect-Foundation.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "sso_account"
+      ],
+      "status_file": "foundation-status.json",
+      "success_codes": [
+        "FOUNDATION_INVENTORY_COLLECTED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "csi_permissions",
+      "script": "scripts/Inspect-Foundation.ps1",
+      "arguments": [
+        "-ServicePermissions"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "vmware_inventory"
+      ],
+      "status_file": "service-permissions-status.json",
+      "success_codes": [
+        "SCOPED_SERVICE_PRIVILEGES_VERIFIED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "instance_configuration",
+      "script": "scripts/Configure-Foundation.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "csi_permissions"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "pilot_decisions",
+      "script": "scripts/Record-InstallationDecisions.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "instance_configuration"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "network_dns",
+      "script": "scripts/Inspect-Foundation.ps1",
+      "arguments": [
+        "-Network"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "pilot_decisions"
+      ],
+      "status_file": "network-status.json",
+      "success_codes": [
+        "BASIC_NETWORK_CHECKS_PASSED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "qualify_ports",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "qualify_ports"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "network_dns"
+      ],
+      "status_file": "cluster-qualify_ports-status.json",
+      "success_codes": [
+        "UNDERLAY_K3S_PORTS_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_vip",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_vip"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "qualify_ports"
+      ],
+      "status_file": "cluster-install_vip-status.json",
+      "success_codes": [
+        "NODE_VIP_INSTALLED_NOT_YET_QUALIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "qualify_vip",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "qualify_vip"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "install_vip"
+      ],
+      "status_file": "cluster-qualify_vip-status.json",
+      "success_codes": [
+        "NODE_VIP_TRANSPORT_FAILOVER_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "preinstallation_gates",
+      "script": "scripts/Qualify-Preinstallation.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "qualify_vip"
+      ],
+      "status_file": null,
+      "success_codes": [],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "ensure_k3s",
+      "script": "scripts/Ensure-K3sBootstrap.ps1",
+      "arguments": [],
+      "profiles": [
+        "reconcile"
+      ],
+      "after": [
+        "preinstallation_gates"
+      ],
+      "status_file": "bootstrap-k3s-status.json",
+      "success_codes": [
+        "OWNED_K3S_FOUNDATION_READY"
+      ],
+      "timeout_seconds": 7200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_k3s",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_k3s"
+      ],
+      "profiles": [
+        "fresh"
+      ],
+      "after": [
+        "ensure_k3s"
+      ],
+      "status_file": "cluster-install_k3s-status.json",
+      "success_codes": [
+        "K3S_THREE_SERVERS_INSTALLED"
+      ],
+      "timeout_seconds": 7200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_cluster",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_cluster"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify",
+        "audit"
+      ],
+      "after": [
+        "install_k3s"
+      ],
+      "status_file": "cluster-inspect_cluster-status.json",
+      "success_codes": [
+        "K3S_API_VIP_ENCRYPTION_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_vmware",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_vmware"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "inspect_cluster"
+      ],
+      "status_file": "cluster-install_vmware-status.json",
+      "success_codes": [
+        "VMWARE_CPI_CSI_ROLLOUTS_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "qualify_storage",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "qualify_storage"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_vmware"
+      ],
+      "status_file": "cluster-qualify_storage-status.json",
+      "success_codes": [
+        "CSI_RWOP_PERSISTENCE_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_postgres",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_postgres"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "qualify_storage"
+      ],
+      "status_file": "cluster-install_postgres-status.json",
+      "success_codes": [
+        "QUALIFICATION_APPLICATION_DEPLOYED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "public_tls",
+      "script": "scripts/Require-PublicTls.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify",
+        "audit"
+      ],
+      "after": [
+        "install_postgres"
+      ],
+      "status_file": "bootstrap-tls-status.json",
+      "success_codes": [
+        "PROTECTED_PUBLIC_TLS_READY"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_hermes_base",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_hermes_base"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "public_tls"
+      ],
+      "status_file": "cluster-install_hermes_base-status.json",
+      "success_codes": [
+        "QUALIFICATION_APPLICATION_DEPLOYED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_knowledge",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_knowledge"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_hermes_base"
+      ],
+      "status_file": "cluster-install_knowledge-status.json",
+      "success_codes": [
+        "KNOWLEDGE_VERIFIED"
+      ],
+      "timeout_seconds": 5400,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_privacy",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_privacy"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_knowledge"
+      ],
+      "status_file": "cluster-install_privacy-status.json",
+      "success_codes": [
+        "PRIVACY_DEPLOYED"
+      ],
+      "timeout_seconds": 5400,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_hermes_tools_base",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_hermes_tools_base"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_privacy"
+      ],
+      "status_file": "cluster-install_hermes_tools_base-status.json",
+      "success_codes": [
+        "HERMES_TOOLS_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "connect_knowledge",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "connect_knowledge"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_hermes_tools_base"
+      ],
+      "status_file": "cluster-connect_knowledge-status.json",
+      "success_codes": [
+        "KNOWLEDGE_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_hermes",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_hermes"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "connect_knowledge"
+      ],
+      "status_file": "cluster-install_hermes-status.json",
+      "success_codes": [
+        "QUALIFICATION_APPLICATION_DEPLOYED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_multiuser",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_multiuser"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_hermes"
+      ],
+      "status_file": "cluster-install_multiuser-status.json",
+      "success_codes": [
+        "MULTIUSER_DEPLOYED"
+      ],
+      "timeout_seconds": 3600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "qualify_apps",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "qualify_apps"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_hermes"
+      ],
+      "status_file": "cluster-qualify_apps-status.json",
+      "success_codes": [
+        "APPLICATION_PERSISTENCE_SWITCHOVER_ISOLATION_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "qualify_live_vip",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "qualify_live_vip"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "qualify_apps"
+      ],
+      "status_file": "cluster-qualify_live_vip-status.json",
+      "success_codes": [
+        "LIVE_API_HTTPS_VIP_FAILOVER_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_vmware",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_vmware"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "audit"
+      ],
+      "after": [
+        "qualify_live_vip"
+      ],
+      "status_file": "cluster-inspect_vmware-status.json",
+      "success_codes": [
+        "VMWARE_KUBERNETES_STATE_INSPECTED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_apps",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_apps"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "audit"
+      ],
+      "after": [
+        "inspect_vmware"
+      ],
+      "status_file": "cluster-inspect_apps-status.json",
+      "success_codes": [
+        "QUALIFICATION_APPLICATIONS_INSPECTED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_knowledge",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_knowledge"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "inspect_apps"
+      ],
+      "status_file": "cluster-inspect_knowledge-status.json",
+      "success_codes": [
+        "KNOWLEDGE_INSPECTED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_privacy",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_privacy"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "inspect_knowledge"
+      ],
+      "status_file": "cluster-inspect_privacy-status.json",
+      "success_codes": [
+        "PRIVACY_INSPECTED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_knowledge",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_knowledge"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "inspect_privacy"
+      ],
+      "status_file": "cluster-verify_knowledge-status.json",
+      "success_codes": [
+        "KNOWLEDGE_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_hermes_tools",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_hermes_tools"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "verify_knowledge"
+      ],
+      "status_file": "cluster-verify_hermes_tools-status.json",
+      "success_codes": [
+        "HERMES_TOOLS_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_privacy",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_privacy"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "verify_hermes_tools"
+      ],
+      "status_file": "cluster-verify_privacy-status.json",
+      "success_codes": [
+        "PRIVACY_VERIFIED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_multiuser",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_multiuser"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "verify_privacy"
+      ],
+      "status_file": "cluster-verify_multiuser-status.json",
+      "success_codes": [
+        "MULTIUSER_VERIFIED"
+      ],
+      "timeout_seconds": 3600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "https_auth",
+      "script": "scripts/Verify-PilotAccess.ps1",
+      "arguments": [],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify",
+        "audit"
+      ],
+      "after": [
+        "verify_privacy"
+      ],
+      "status_file": "pilot-access-status.json",
+      "success_codes": [
+        "PILOT_HTTPS_AUTH_VERIFIED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    }
+  ],
+  "private_inputs": [
+    "Acces vCenter et cible VMware designes : Connect-VMware.ps1 / Select-VMwareTarget.ps1",
+    "Identite SSH protegee : Protect-DeploymentKey.ps1 et confiance hors bande",
+    "Endpoints/IP reserves, policy et CIDR : Configure-Foundation.ps1 (formulaire si absent)",
+    "DNS API prive resolu sur les trois VM avant network_dns",
+    "Certificat public valide et cle : Import-BootstrapTls.ps1, ou pilot-credentials.dpapi existant",
+    "VM vierges existantes, ou -ProvisionVMs avec qemu-img 10.2.1 administratif sous WSL",
+    "Cle OpenRouter DPAPI existante (Configure-Integrations.ps1), qualification gratuite seule"
+  ],
+  "coverage": {
+    "components": [
+      "k3s",
+      "vsphere_csi",
+      "vsphere_cpi",
+      "cloudnative_pg",
+      "postgres_pgvector",
+      "hermes",
+      "ingress",
+      "omniroute"
+    ],
+    "services": [
+      "knowledge",
+      "privacy",
+      "multiuser"
+    ],
+    "tools": [
+      "context7",
+      "skills_cli",
+      "lintlang",
+      "superpowers",
+      "ecc",
+      "rtk",
+      "headroom",
+      "omniroute"
+    ],
+    "features": [
+      "hermes_tools",
+      "knowledge",
+      "privacy",
+      "multiuser"
+    ]
+  },
+  "limitations": [
+    "fresh_cluster_rebuild_not_executed",
+    "coherent_data_backup_restore_not_implemented",
+    "manual_dns01_not_unattended",
+    "business_integrations_disabled"
+  ]
+}

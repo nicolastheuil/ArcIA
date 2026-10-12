@@ -1,0 +1,43 @@
+"""Public bootstrap coverage contract. Adding a component requires updating it."""
+import json
+from pathlib import Path
+
+ROOT=Path(__file__).resolve().parents[1]
+
+
+def validate(root=ROOT):
+    definition=json.loads((root/'bootstrap/qualification.json').read_text(encoding='utf-8'))
+    lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
+    tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
+    coverage=definition['coverage']
+    expected={
+        'components':set(lock['components']),
+        'tools':set(tools['tools']),
+        'services':{p.name for p in (root/'services').iterdir() if p.is_dir() and not p.name.startswith(('.', '__'))},
+        'features':{k for k,v in lock.items() if isinstance(v,dict) and v.get('enabled') is True}}
+    for key,names in expected.items():
+        if set(coverage[key])!=names:raise ValueError('BOOTSTRAP_COVERAGE_'+key.upper())
+    seen=set()
+    for step in definition['steps']:
+        if step['id'] in seen or not set(step['after'])<=seen:raise ValueError('BOOTSTRAP_DEPENDENCIES')
+        if not (root/step['script']).is_file():raise ValueError('BOOTSTRAP_MISSING_SCRIPT')
+        if step['status_file'] and not step['success_codes']:raise ValueError('BOOTSTRAP_MISSING_SUCCESS_CONTRACT')
+        if step['script']=='scripts/Invoke-ClusterFoundation.ps1':
+            action=step['arguments'][1]
+            for source in ('scripts/Invoke-ClusterFoundation.ps1','scripts/cluster_foundation.py'):
+                if "'"+action+"'" not in (root/source).read_text(encoding='utf-8'):raise ValueError('BOOTSTRAP_ACTION_MISSING')
+        seen.add(step['id'])
+    order=[s['id'] for s in definition['steps']]
+    required=['qualify_ports','install_vip','qualify_vip','preinstallation_gates','install_k3s','inspect_cluster',
+              'install_vmware','qualify_storage','install_postgres','public_tls','install_hermes_base',
+              'install_knowledge','install_privacy','install_hermes_tools_base','connect_knowledge','install_hermes',
+              'install_multiuser','qualify_apps','qualify_live_vip','verify_knowledge','verify_hermes_tools','verify_privacy','verify_multiuser','https_auth']
+    if [order.index(k) for k in required]!=sorted(order.index(k) for k in required):raise ValueError('BOOTSTRAP_INSTALL_ORDER')
+    audit=[s for s in definition['steps'] if 'audit' in s['profiles']]
+    if any(s['id'].startswith(('install_', 'qualify_', 'verify_knowledge','connect_')) for s in audit):raise ValueError('BOOTSTRAP_AUDIT_MUTATES_WORKLOADS')
+    return {'status':'verified','code':'BOOTSTRAP_COVERAGE_VERIFIED','steps':len(order),
+            'components':len(expected['components']),'tools_and_catalogs':len(expected['tools']),
+            'fresh_cluster_tested':False}
+
+
+if __name__=='__main__':print(json.dumps(validate()))

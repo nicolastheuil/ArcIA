@@ -3,7 +3,7 @@
 param([switch]$Create,[switch]$RepairPasswordPolicy)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 $statusPath=Join-Path $privateRoot 'sso-service-status.json'
 $stage='INITIALIZE';$server=$null;$journal=$null;$lockStream=$null
 function Save-SsoJournal($Value){

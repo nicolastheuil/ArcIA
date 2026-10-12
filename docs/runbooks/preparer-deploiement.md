@@ -66,7 +66,7 @@ la matrice de recette ; elles ne valident pas automatiquement tous les gates.
 - Définir l'endpoint API privé et le futur HTTPS avec bascule, puis vérifier le
   routage et les probes sans supposer qu'un NAT sur une seule VM assure la HA.
 - Comparer les CIDR Pods/Services aux réseaux connus et routes actuellement visibles.
-  Les futurs réseaux entreprise/VPN/clients restent inconnus ; leur activation exige
+  Les futurs réseaux entreprise/VPN/périmètres restent inconnus ; leur activation exige
   le futur contrôle de routes/isolation/kill switch. Aucun inventaire réputé exhaustif.
 - Faire approuver/appliquer les flux firewall sur les réseaux privés : API
   6443/TCP ; etcd 2379–2380/TCP entre serveurs ; VXLAN 8472/UDP entre nœuds ;
@@ -115,7 +115,7 @@ la reproductibilité binaire complète reste un gate de release.
 
 Qualifier PVC création/écriture/recréation/déplacement/rétention et prévention
 double écrivain. Tester entrée et API sous perte d'un nœud, PG failover, fencing,
-kill switch et absence de rejouage. Développer le lot 0 avant tout client pilote.
+kill switch et absence de rejouage. Développer le lot 0 avant tout périmètre pilote.
 
 Pour le rebuild : cluster de test neuf distinct, sauvegardes chiffrées cohérentes,
 clé externe et deuxième ingénieur. VPN, anciennes capacités, scheduler métier et

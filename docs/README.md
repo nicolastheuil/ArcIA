@@ -1,4 +1,4 @@
-# Documentation du harness
+# Documentation d’ArcIA
 
 Référence opérationnelle : **12 octobre 2026**. Le [README principal](../README.md)
 présente l’essentiel. Les documents ci-dessous expliquent le fonctionnement,
@@ -9,9 +9,14 @@ le handoff courant ; les anciens handoffs restent des instantanés historiques.
 
 | Besoin | Documentation complète |
 |---|---|
+| Comprendre la plateforme et son périmètre | [Philosophie ArcIA](plateforme-arcia.md) |
+| Ajouter des sources et outils | [Connecteurs MCP](connecteurs-mcp.md) |
+| Protéger les appels modèles | [Confidentialité cloud](confidentialite-cloud.md) |
+| Installer et réconcilier automatiquement | [Bootstrap exhaustif](runbooks/bootstrap.md) |
 | Comprendre le socle et trouver le code | [Architecture réelle](architecture.md) |
 | Visualiser flux actuels et futurs | [Schémas explicatifs](schemas-plateforme-hermes.md) |
-| Connaître les protections | [Sécurité et données privées](securite.md) |
+| Connaître les protections | [Sécurisation de la plateforme et des données](securisation-plateforme-donnees.md), [politique de sécurité](securite.md) |
+| Partager les données et séparer les utilisateurs | [Qualification multi-utilisateur](multi-utilisateur.md) |
 | Comprendre PostgreSQL, pgvector et les PDF | [Connaissance documentaire](connaissance-documentaire.md) |
 | Installer une nouvelle cible | [Guide K3s/Codex](installation-k3s-codex.md), [préparation](runbooks/preparer-deploiement.md), [VMware](runbooks/vcenter.md) |
 | Exploiter le pilote existant | [Exploitation de qualification](runbooks/exploitation-qualification.md) |
@@ -19,7 +24,7 @@ le handoff courant ; les anciens handoffs restent des instantanés historiques.
 | Évaluer les preuves | [Recette fondatrice](runbooks/recette-fondatrice.md), [rapport de vérification](verification-preparation.md) |
 | Sauvegarder ou transférer | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md), [second PC](runbooks/transfert-second-pc.md) |
 | Installer/utiliser l’outillage et GitHub | [Outillage Hermes/K3s](outillage-builder.md) |
-| Reprendre les travaux | [Handoff courant](handoff-2026-10-12-documentation-multivecteur.md), [backlog](backlog.md) |
+| Reprendre les travaux | [Handoff courant](handoff-2026-10-12-arcia-cloud-bootstrap.md), [backlog](backlog.md) |
 | Vérifier versions et support | [Versions officielles](versions-officielles.md), [lock](../versions.lock.yaml) |
 
 ## Sources de cadrage
@@ -50,6 +55,9 @@ effectivement exécuté avec une preuve. Une spécification n’est pas une preu
 | [0008](adr/0008-qualification-applicative-et-tls.md) | État applicatif, entrée et TLS différé |
 | [0009](adr/0009-connaissance-hybride-multivecteur.md) | Recherche documentaire, API et schémas |
 | [0010](adr/0010-outils-hermes-main-et-acces.md) | Placement K3s, main et accès dashboard |
+| [0011](adr/0011-bootstrap-exhaustif.md) | Bootstrap exhaustif et contrôlé |
+| [0012](adr/0012-arcia-generique-et-confidentialite.md) | Périmètre ArcIA, instances et cloud gratuit filtré |
+| [0013](adr/0013-qualification-multi-utilisateur.md) | Runtimes personnels, RLS commun/personnel et révocation locale |
 
 ## Historique et maintenance
 
@@ -60,3 +68,7 @@ historiques. Leurs échecs K3s/NGINX ont été corrigés.
 et runbooks si nécessaire. Garder les preuves détaillées privées et publier
 seulement leurs résultats assainis. Une évolution de version exige le lock,
 les artefacts correspondants et une qualification proportionnée.
+
+- [Multi-utilisateur : espaces locaux, corpus commun et recette](multi-utilisateur.md).
+
+- [Sécurisation de la plateforme et des données](securisation-plateforme-donnees.md) : frontières, contrôles, preuves et limites.

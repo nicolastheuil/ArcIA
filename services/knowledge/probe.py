@@ -14,7 +14,7 @@ sys.path.insert(0,'/code')
 from core import maxsim
 
 tokens=json.loads(Path('/credentials/tokens.json').read_text())
-def token(scope,role):return next(k for k,v in tokens.items() if v=={'scope':scope,'role':role})
+def token(scope,role):return next(k for k,v in tokens.items() if v.get('scope')==scope and v.get('role')==role)
 reader=token('qualification-a','reader');writer=token('qualification-a','ingester');other=token('qualification-b','reader')
 def request(path,value=None,key=reader):
     data=None if value is None else json.dumps(value).encode()
@@ -61,7 +61,7 @@ rows=json.loads(raw).get('results',[])
 checks['multivector_search_cited']=status==200 and bool(rows) and any('restoreSnapshot' in r['body'] and r['locator'].startswith('operation:POST:') for r in rows)
 checks['version_filter_enforced']=bool(rows) and all(row['version']=='1' for row in rows)
 checks['source_hash_citation']=bool(rows) and all(len(row['sha256'])==64 and row['source'].startswith('https://example.invalid/') for row in rows)
-checks['cross_scope_search_denied']=json.loads(request('/search',{'query':'restoreSnapshot'},other)[1]).get('results')==[]
+checks['cross_scope_search_denied']=all(r['document_id']!=identifier and r.get('product')!='ArcIA Synthetic Appliance' for r in json.loads(request('/search',{'query':'restoreSnapshot'},other)[1]).get('results',[]))
 checks['cross_scope_asset_denied']=request('/assets/'+identifier+'/original.json',key=other)[0]==404
 checks['reader_cannot_ingest']=request('/ingest',document(b'synthetic text'),reader)[0]==403
 checks['anonymous_denied']=request('/search',{'query':'snapshot'},'invalid')[0]==401

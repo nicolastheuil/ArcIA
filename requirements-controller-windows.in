@@ -1,0 +1,5 @@
+# Administrative controller only; application tools are installed in K3s.
+PyYAML==6.0.3
+jsonschema==4.26.0
+pyvmomi==9.1.1.0
+pycdlib==1.14.0

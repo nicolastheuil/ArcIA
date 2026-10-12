@@ -40,7 +40,7 @@ restauration, aucune référence DPAPI vers le staging n'a été relevée.
 ## Préparer le poste et restaurer
 
 Prérequis : Windows, PowerShell 7.4+ (.NET 8+ ; 7.6.5 sur le poste de build),
-Git, OpenSSH client, Python 3.14 accessible sous `python`. Pour Ansible : WSL2 avec
+Git, OpenSSH périmètre, Python 3.14 accessible sous `python`. Pour Ansible : WSL2 avec
 distribution Linux et Python >=3.12, module venv/pip. Le réseau doit permettre les
 téléchargements des dépendances et l'accès aux seules cibles désignées.
 Les programmes installés, le profil Codex et les sessions Microsoft/GitHub/1Password

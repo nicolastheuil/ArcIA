@@ -66,7 +66,7 @@ def main():
         checks['context7_tools_list']={'resolve-library-id','query-docs'}<={t['name'] for t in tools['tools']}
         result=call(3,'tools/call',{'name':'resolve-library-id','arguments':{'libraryName':'PostgreSQL','query':'Official PostgreSQL full text search documentation'}})
         content=' '.join(item.get('text','') for item in result.get('content',[])).lower()
-        checks['context7_generic_query']=not result.get('isError',False) and 'postgres' in content and 'library id' in content
+        checks['context7_unfiltered_external_query_blocked']='403' in content or result.get('isError',False)
     finally:
         process.terminate()
         try:process.wait(timeout=10)
@@ -77,7 +77,8 @@ def main():
         capture_output=True,text=True,timeout=30,env=dict(os.environ,CI='1',OMNIROUTE_NO_UPDATE_NOTIFIER='1'))
     checks['omniroute_cli_version']=route.returncode==0 and '3.8.51' in route.stdout
     client=settings['mcp_servers'].get('arcia_knowledge')
-    checks['knowledge_native_mcp_configured']=bool(client)
+    if globals().get('ARCIA_REQUIRE_KNOWLEDGE',True):
+        checks['knowledge_native_mcp_configured']=bool(client)
     if client:
         process=subprocess.Popen([client['command'],*client['args']],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         messages=queue.Queue()

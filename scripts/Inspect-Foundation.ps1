@@ -2,7 +2,7 @@
 param([switch]$Network,[switch]$ServicePermissions,[switch]$ReadOnly,[switch]$VerifyOnly,[switch]$FlushDnsCache)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 $process=$null;$lockStream=$null
 try {
     Initialize-PrivateDirectory -Path $privateRoot

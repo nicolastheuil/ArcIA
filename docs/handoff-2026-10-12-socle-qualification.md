@@ -1,3 +1,5 @@
+> Instantané historique de qualification. Voir l’état de reprise pour le statut courant ; les noms d’exemple sont synthétiques.
+
 # Handoff — socle et Hermes de qualification — 12 octobre 2026, 17:24 Paris
 
 Référence prioritaire de reprise. Arrêt demandé par Nicolas pour quitter le poste.
@@ -108,7 +110,7 @@ Les deux scripts d'accès ajoutés au point d'arrêt restent à exécuter/qualif
    K3s non couvert comme vanilla. CSI 3.7 avec K3s 1.37 reste une limite de support.
 
 Aucune déclaration HA de production, release installable ou recette/rebuild
-complète. Aucun environnement client ni service métier utilisé.
+complète. Aucun environnement privé ni service métier utilisé.
 
 Des scripts de diagnostic non suivis préexistaient ; certains affichent des
 états privés (`read-inspect.ps1`, `check-target.ps1`, etc.). Ne pas les exécuter.

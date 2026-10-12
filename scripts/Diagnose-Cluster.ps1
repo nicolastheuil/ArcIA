@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAStateRoot
 try{
     $data=(Read-ProtectedBundle (Join-Path $root 'cluster-install_k3s.dpapi'))|ConvertFrom-Json
     $source=Get-Content (Join-Path $PSScriptRoot '../infra/ansible/roles/k3s/tasks/main.yml') -Raw

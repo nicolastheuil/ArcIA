@@ -1,3 +1,5 @@
+> Instantané historique de qualification. Voir l’état de reprise pour le statut courant ; les noms d’exemple sont synthétiques.
+
 # Handoff — outils K3s, TLS et connaissance documentaire
 
 ## Décisions utilisateur effectives
@@ -7,7 +9,7 @@ Livrer directement sur **main** du dépôt privé nicolastheuil/arcia-harness, s
 ## Réalisé et vérifié
 
 - Main a reçu le précédent lot par avance rapide et push ; les changements de ce lot sont à identifier par le commit de livraison.
-- Certificat Let’s Encrypt DNS-01 émis pour arcia.arcitek.io et arcia-teams.arcitek.io, collecté sous protection et appliqué à NGINX ; 7 contrôles HTTPS/auth réussis, dont chaîne CA publique et hostname. Teams et NAT public absents.
+- Certificat Let’s Encrypt DNS-01 émis pour assistant.example.org et assistant-teams.example.org, collecté sous protection et appliqué à NGINX ; 7 contrôles HTTPS/auth réussis, dont chaîne CA publique et hostname. Teams et NAT public absents.
 - Anciennes installations Context7/skills/LintLang ArcIA-Builder du poste et MCP Codex supprimés, avec sauvegarde protégée ; six skills déplacés dans le catalogue runtime Hermes.
 - PVC Hermes tools 10 Gi RWOP, montage lecture seule : Context7 4.3.0, skills 1.7.2, LintLang 0.8.2, RTK 0.51.0, Headroom 0.40.0, OmniRoute 3.8.51 et Certbot 5.8.0. CLI/imports, 6 skills natifs, Context7 réel générique, refus Internet direct et MCP Knowledge vérifiés. Hooks, compression automatique et fournisseurs IA désactivés.
 - Service Knowledge privé dans arcia-knowledge : modèles E5 et mLateOn locaux, FTS/pgvector/HNSW, RRF puis MaxSim, RLS avec rôle non propriétaire, versions, sources/empreintes et fichiers éditables. Deux PVC : runtime 10 Gi, données 20 Gi, RWOP. Modèles et dépendances fixés par révision/hash.

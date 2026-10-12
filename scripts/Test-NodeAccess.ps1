@@ -2,7 +2,7 @@
 param([switch]$DiscoverOnly, [switch]$ValidateOnly, [switch]$PublishHostKeys, [switch]$StatusOnly, [switch]$RepairDisconnectedSeed, [switch]$CollectHostKeys)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
 $statusPath=Join-Path $privateRoot 'ssh-preflight-status.json'
 $lockStream=$null
 $stage='INITIALIZE'

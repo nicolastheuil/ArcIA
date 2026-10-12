@@ -1,3 +1,5 @@
+> Instantané historique de qualification. Voir l’état de reprise pour le statut courant ; les noms d’exemple sont synthétiques.
+
 # Handoff — socle vérifié et documentation — 12 octobre 2026
 
 Référence courante. Périmètre autorisé : socle et Hermes de qualification, puis
@@ -18,12 +20,12 @@ Ce handoff remplace le point d’arrêt HTTPS du handoff précédent.
 - Bascule contrôlée Keepalived avec vrais services : 9 sondes API + 9 HTTPS,
   propriétaire unique, retour sans préemption ; service arrêté rétabli.
 
-Canaris SQL/SQLite retirés. Aucun appel IA ni environnement client. Le Pod fondation
+Canaris SQL/SQLite retirés. Aucun appel IA ni environnement privé. Le Pod fondation
 non Ready examiné était un Job Succeeded, sans Pending/Failed correspondant.
 
 ## DNS, TLS et reprise
 
-Hermes utilise `arcia.arcitek.io`. `arcia-teams.arcitek.io` est réservé au futur
+Hermes utilise `assistant.example.org`. `assistant-teams.example.org` est réservé au futur
 bot, absent. Identifiants/session et clé pilote préservés pendant migration du
 hostname ; certificat auto-signé renouvelé pour le nom Hermes.
 

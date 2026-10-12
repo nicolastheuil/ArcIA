@@ -24,7 +24,7 @@ La [vérification locale](../verification-preparation.md) est distincte de cette
 | ENTRY-01 | 3 phases × 3 nœuds × API + HTTPS durant bascule Keepalived | Vérifié : 18 sondes, propriétaire unique et retour sans préemption |
 | ENTRY-02 | WebSocket/SSE, Desktop et callbacks Teams | Config proxy codée ; recette complète non exécutée, Teams absent |
 | HA-01 | Arrêt brutal d’un nœud/ESXi, mesures interruption/perte | À exécuter ; aucun statut HA de production |
-| SAFE-01 | Aucun credential LLM, aucun VPN/client ni notification métier activé | Vérifié pour périmètre synthétique ; safe-mode métier non implémenté |
+| SAFE-01 | Aucun credential LLM, aucun VPN/périmètre ni notification métier activé | Vérifié pour périmètre synthétique ; safe-mode métier non implémenté |
 | APP-01 | IAM/DESK/SEC/VPN/APR/DLP/KB/LLM/LOAD du plan | À développer/qualifier |
 | REC-01 | Sauvegarde cohérente cluster et rebuild neuf par deuxième ingénieur | Non exécuté |
 | POSTE-01 | Import portable sous nouveau compte, bundles/fichiers/ACL relus | Vérifié sur ancien snapshot ; nouvel export requis |

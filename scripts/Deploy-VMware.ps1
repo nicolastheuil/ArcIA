@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param([switch]$ValidateOnly, [string]$ImageRoot=(Join-Path $env:LOCALAPPDATA 'ArcIA-Harness\images'))
+param([switch]$ValidateOnly, [string]$ImageRoot)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot=Get-ArcIAStateRoot
+if(-not $ImageRoot){$ImageRoot=Join-Path $privateRoot 'images'}
 $statusPath=Join-Path $privateRoot 'vmware-deploy-status.json'
 $python=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation\venv\Scripts\python.exe'
 $process=$null

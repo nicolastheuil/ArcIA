@@ -6,7 +6,7 @@ if($PSVersionTable.PSVersion -lt [version]'7.4'){Write-Output 'POWERSHELL_7_4_OR
 . (Join-Path $PSScriptRoot 'PortableState.ps1')
 $workspace=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $directory=Join-Path $workspace 'secrets/local';$archive=Join-Path $directory 'arcia-private.arciap'
-$localRoot=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$localRoot=Get-ArcIAStateRoot
 try{
     $null=New-Item -ItemType Directory -Path $directory -Force
     if((Get-Item -LiteralPath $directory).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_FOLDER_LINK_REFUSED'}

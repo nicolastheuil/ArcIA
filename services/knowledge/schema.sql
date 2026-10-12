@@ -25,10 +25,10 @@ ALTER TABLE knowledge.chunks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge.chunks FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS knowledge_documents_scope ON knowledge.documents;
 CREATE POLICY knowledge_documents_scope ON knowledge.documents
- USING (scope=current_setting('arcia.scope',true)) WITH CHECK(scope=current_setting('arcia.scope',true));
+ USING (scope=ANY(string_to_array(current_setting('arcia.read_scopes',true),'|'))) WITH CHECK(scope=current_setting('arcia.scope',true));
 DROP POLICY IF EXISTS knowledge_chunks_scope ON knowledge.chunks;
 CREATE POLICY knowledge_chunks_scope ON knowledge.chunks
- USING (scope=current_setting('arcia.scope',true)) WITH CHECK(scope=current_setting('arcia.scope',true));
+ USING (scope=ANY(string_to_array(current_setting('arcia.read_scopes',true),'|'))) WITH CHECK(scope=current_setting('arcia.scope',true));
 GRANT USAGE ON SCHEMA knowledge TO arcia_knowledge;
 GRANT SELECT,INSERT ON ALL TABLES IN SCHEMA knowledge TO arcia_knowledge;
 GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA knowledge TO arcia_knowledge;

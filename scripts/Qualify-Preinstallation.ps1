@@ -2,7 +2,7 @@
 param()
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness';$mutex=$null
+$root=Get-ArcIAStateRoot;$mutex=$null
 try{
     Initialize-PrivateDirectory $root
     $mutex=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)

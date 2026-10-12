@@ -1,4 +1,4 @@
-# Outils Hermes, installation K3s et GitHub
+# Outillage d’ArcIA : rôle, installation K3s et GitHub
 
 La décision actuelle remplace l’ancien placement sur le poste : **les outils sont installés dans l’instance Hermes du cluster K3s**. Le nom historique `builder/` désigne désormais les locks et le catalogue de fabrication, sans autoriser une installation locale.
 
@@ -22,9 +22,9 @@ Six skills sont versionnés sous `deploy/hermes/skills` et chargés via `skills.
 
 ## Réseau et activation
 
-Hermes accède au DNS interne, au service Knowledge privé et à un relais Context7. Le relais autorise seulement les GET documentaires Context7 vers sa destination HTTPS fixée. Ce relais ne constitue pas un assainisseur : les requêtes restent génériques et synthétiques. Hermes ne dispose pas de sortie Internet directe ni de credentials LLM ou PostgreSQL.
+Hermes accède au DNS statique privé, à Knowledge et à la passerelle Presidio. Les requêtes Context7 externes sont désormais refusées : leur adaptateur filtrant reste à qualifier. Hermes n’a ni Internet direct, ni clé fournisseur, ni identifiants PostgreSQL ; il dispose seulement d’un token de passerelle et de lecture documentaire. [Confidentialité cloud](confidentialite-cloud.md).
 
-RTK est installé sans interception automatique des commandes. Headroom est disponible sans compression automatique ni mémoire interclients. OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés tant que la frontière IA n’est pas qualifiée. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
+RTK est installé sans interception automatique des commandes. Headroom est disponible sans compression automatique ni mémoire entre périmètres. OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés en attendant la qualification de son routage automatique. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
 
 ## Installer et vérifier
 
@@ -35,10 +35,10 @@ RTK est installé sans interception automatique des commandes. Headroom est disp
 
 Ces commandes s’exécutent sur le contrôleur d’administration existant et déploient sur la cible K3s désignée. Le runtime ne peut pas modifier le catalogue monté en lecture seule. NPM utilise son lock avec intégrités et sans scripts lifecycle ; Python exige les hashes et des wheels. Le binaire RTK est vérifié par SHA256. La réapplication Hermes conserve outils et MCP documentaires.
 
-Une mise à jour de catalogue arrête Hermes de façon contrôlée, attend la disparition de son Pod, réinstalle sur le PVC RWOP puis rétablit une seule instance. Ce parcours a été exécuté pour corriger le chargement UTF-8 des instructions. Un échec laisse le propriétaire arrêté et exige inspection/reprise du Job, sans second writer. Le rebuild neuf doit installer le volume d’outils avant d’activer son montage dans Hermes. Cette orchestration complète reste une gate de release, pas une recette déjà réussie.
+Une mise à jour de catalogue arrête Hermes de façon contrôlée, attend la disparition de son Pod, réinstalle sur le PVC RWOP puis rétablit une seule instance. Ce parcours a été exécuté pour corriger le chargement UTF-8 des instructions. Un échec laisse le propriétaire arrêté et exige inspection/reprise du Job, sans second writer. Le rebuild neuf doit installer le volume d’outils avant d’activer son montage dans Hermes. Le bootstrap orchestre maintenant ce parcours et sa réconciliation sur la cible existante ; le rebuild neuf demeure une gate de release.
 
 ## Correction du poste et livraison
 
 `Uninstall-WorkstationTools.ps1` a supprimé les anciennes installations utilisateur ArcIA-Builder et leur enregistrement MCP Codex, après sauvegarde protégée de la configuration. Les autres paramètres Codex et les runtimes d’administration préexistants sont conservés. Les anciennes commandes d’installation locale sont désactivées. Le compte/runtime ACME WSL reste temporairement nécessaire à la reprise du certificat jusqu’à sa migration protégée ; Certbot est également installé dans K3s.
 
-GitHub : dépôt privé `nicolastheuil/arcia-harness`, livraison directe sur **main**, sans nouvelle branche ni PR. Les sources génériques, locks et preuves assainies sont versionnés ; les scripts de debug privés et inventaires ne le sont pas. La CI ne reçoit aucun secret ni accès entreprise. [Handoff et preuves](handoff-2026-10-12-documentation-multivecteur.md).
+GitHub : dépôt privé `nicolastheuil/arcia-harness`, livraison directe sur **main**, sans nouvelle branche ni PR. Les sources génériques, locks et preuves assainies sont versionnés ; les scripts de debug privés et inventaires ne le sont pas. La CI ne reçoit aucun secret ni accès entreprise. [Handoff et preuves](handoff-2026-10-12-arcia-cloud-bootstrap.md).

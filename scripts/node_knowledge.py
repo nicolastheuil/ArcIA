@@ -54,7 +54,7 @@ def connect_hermes(values):
     if secret['metadata'].get('annotations',{}).get('arcia.io/operation-id')!=operation:
         raise ValueError('KNOWLEDGE_CREDENTIAL_OWNERSHIP')
     tokens=json.loads(base64.b64decode(secret['data']['tokens.json']))
-    token=next(k for k,v in tokens.items() if v=={'scope':'qualification-a','role':'reader'})
+    token=next(k for k,v in tokens.items() if v.get('scope')=='qualification-a' and v.get('role')=='reader')
     apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'knowledge-reader','namespace':'arcia-hermes'},
         'type':'Opaque','stringData':{'token':token}}],operation)
     return {'passed':True,'read_only_hermes_token_provisioned':True,'business_iam_enabled':False}

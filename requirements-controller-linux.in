@@ -1,0 +1,4 @@
+# WSL Ansible controller, no Hermes or application packages.
+ansible-core==2.21.5
+PyYAML==6.0.3
+jsonschema==4.26.0

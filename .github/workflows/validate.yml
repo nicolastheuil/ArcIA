@@ -19,6 +19,7 @@ jobs:
       - run: python -m pip install --require-hashes -r requirements-vmware.txt
       - run: python -m unittest discover -s tests -v
       - run: python scripts/validate_sources.py
+      - run: python scripts/validate_bootstrap.py
       - run: python -m pip install --require-hashes -r builder/requirements-tools.lock.txt
       - name: LintLang instructions report (non-blocking findings)
         env:
@@ -46,6 +47,10 @@ jobs:
           }
       - shell: pwsh
         run: ./tests/Test-ProtectedState.ps1
+      - shell: pwsh
+        run: ./tests/Test-Bootstrap.ps1
+      - shell: pwsh
+        run: ./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs
       - shell: pwsh
         run: ./tests/Test-PortableState.ps1
       - shell: powershell

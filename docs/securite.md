@@ -1,71 +1,37 @@
-# Sécurité et données privées
+# Sécurité et données privées dans ArcIA
 
-> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
-
-
-État du socle de qualification au 12 octobre 2026. Les exigences métier complètes
-restent dans le [plan §5–10](plan-integration-hermes.md). La
-[matrice de recette](runbooks/recette-fondatrice.md) distingue les preuves des intentions.
+Le socle est qualifié sur des données synthétiques. La [politique cloud](confidentialite-cloud.md) décrit le filtrage réellement déployé ; le [contrat de plateforme](plan-integration-hermes.md) décrit les contrôles à compléter avant données privées réelles et partage multi-utilisateur.
 
 ## Frontières actuelles
 
-| Frontière | Contrôle présent | Portée prouvée / limite |
+| Frontière | Contrôle | Limite |
 |---|---|---|
-| Poste → SSH | Clés hôte validées hors bande, SSH strict, identité ingénieur | Trois VM désignées ; pas de confiance par réseau seul |
-| Poste → VMware | Certificat accepté et contrôlé, compte technique borné | Accès et refus de droits dangereux testés ; inventaire protégé |
-| Cluster → données | Secrets K3s chiffrés, PVC CSI, états séparés | Chiffrement Kubernetes vérifié ; pas de preuve du chiffrement complet du datastore |
-| Entrée → Hermes | TLS épinglé, authentification scrypt locale, cookies Secure/HttpOnly | 6 checks réussis ; OIDC/Entra et révocation métier absents |
-| Proxy → backend | NetworkPolicy par namespace et label, en-têtes reconstruits | Entrée privée contrôlée ; le CIDR de proxies de confiance reste borné |
-| Hermes → réseau | Egress deny-all, aucune clé LLM | DNS et connexion DB inter-namespace refusés ; aucun appel IA |
-| Hermes → hôte/Kubernetes | Non-root, racine readonly, sans token SA/socket runtime | Pas d’administration cluster depuis le runtime |
-| Hermes → état | RWOP, un replica, Recreate | Second écrivain CSI refusé ; panne brutale/fencing restant |
+| Administration SSH | Clés hôtes vérifiées hors bande, identité protégée, destinations désignées | Un administrateur root reste dans la frontière de confiance |
+| Administration VMware | TLS contrôlé, compte technique et privilèges bornés | Permissions et inventaire privés |
+| Secrets cluster | Chiffrement des Secrets K3s vérifié, montages distincts | Ne prouve pas le chiffrement de chaque disque/datastore |
+| Entrée utilisateur | TLS, authentification locale scrypt, cookies sécurisés | Identité d’entreprise et révocation non intégrées |
+| Runtime Hermes | Non-root, readonly, sans token SA ni socket d’administration | Un seul propriétaire de qualification |
+| Réseau Hermes | Services internes autorisés, DNS sans forwarding, refus Internet et relais direct | Chaque nouveau connecteur exige sa recette |
+| RAG | Scope serveur, FORCE RLS et rôle DB non propriétaire/non bypass | Deux scopes synthétiques ; agrégation selon identité à développer |
+| Cloud | Presidio FR/EN, filtres techniques/secrets, enveloppe attestée, route gratuite ZDR | Faux négatifs possibles ; aucune garantie d’anonymat absolu |
+| État Hermes | RWOP, replica unique, Recreate | Fencing sous panne brutale à qualifier |
 
-Le refus Hermes → PostgreSQL est observé avec des politiques aux deux extrémités ;
-il ne démontre pas à lui seul laquelle bloque le paquet. Une règle déclarée ou
-une ConfigMap safe-mode n’est pas une preuve universelle d’isolation.
+## Secrets et preuves
 
-## État administratif et secrets
+Le contrôleur utilise DPAPI CurrentUser et ACL dans une racine privée hors Git/OneDrive. Get-ArcIAStateRoot retrouve aussi le LocalCache MSIX de Codex et refuse plusieurs états ambigus. Les wrappers déchiffrent dans leurs processus, transmettent les paramètres privés par stdin et rechiffrent les diagnostics. Le modèle ne reçoit que des codes, booléens et compteurs autorisés.
 
-`%LOCALAPPDATA%\ArcIA-Harness` contient les bundles DPAPI, la clé SSH et les
-références d’inventaire. Sa racine a des ACL restreintes. Les wrappers déchiffrent
-dans leurs processus, transmettent les paramètres privés par stdin et capturent
-les diagnostics avant rechiffrement. Le modèle reçoit des codes/compteurs.
+Ne pas afficher bundles, get secret, kubeconfigs, logs bruts, sessions, clés ou fichiers de credentials. La saisie se fait dans un programme local protégé. L’export portable convertit/chiffre l’état pour un autre compte ; il ne remplace pas les sauvegardes des bases et corpus.
 
-Ne pas afficher bundles, kubeconfigs, sorties `get secret`, logs bruts, transits
-Ansible, comptes ACME ou fichiers de credentials. Les scripts de diagnostic
-non suivis préexistants ne sont pas des interfaces approuvées. Les mots de passe,
-OTP et clés sont saisis uniquement dans un programme local protégé.
+## Autorité et données non fiables
 
-DPAPI protège l’état pour le compte Windows courant ; ce n’est pas une clé
-portable. L’archive portable chiffre après conversion des bundles et se restaure
-sous le nouveau compte. Son mot de passe reste dans le gestionnaire personnel,
-hors dépôt et chat. Voir [transfert](runbooks/transfert-second-pc.md).
+Un document, un résultat MCP ou une réponse modèle peut contenir des instructions malveillantes. Les sources sont citées comme données, sans autorité sur les permissions. L’agent ne choisit pas son scope ni sa classification cloud. Un téléchargement autorisé n’autorise pas une exécution. Les schémas actifs, références distantes et formats opaques sont traités/refusés selon leur chemin.
 
-## Exception d’entrée
+Les futures actions externes exigeront permission serveur, plan immuable, approbation vérifiée et idempotence. Une perte de connexion impose réconciliation, jamais rejeu aveugle. Les intégrations d’instance ne peuvent pas ouvrir un accès fournisseur direct contournant la politique du socle.
 
-Le namespace `arcia-ingress` autorise le hostPort nécessaire au proxy. Son niveau
-PSA est une exception technique documentée ; les conteneurs NGINX restent UID101,
-non privilégiés, sans capabilities, sans élévation ni token Kubernetes.
-Cette exception ne s’étend pas à Hermes ni aux futurs exécuteurs.
+## Partage, sauvegardes et production
 
-## Protections métier à construire
+Les connaissances communes doivent être accessibles uniquement aux personnes habilitées. Espaces restreints, historiques et connexions personnelles restent distincts. Le pilote actuel ne prouve pas encore ce modèle complet. [Contrat de partage](plateforme-arcia.md#partage-et-cloisonnement).
 
-Entra identifie par tenant/object_id ; le serveur décide du client, de la mission
-et des droits. Les coffres/VPN restent personnels. Une écriture cliente exige
-plan immuable, approbation Teams vérifiée, capacité unique et recontrôle.
-Une interruption impose réconciliation, jamais rejeu aveugle.
+Code générique et exemples synthétiques dans le harness ; usages/configuration propres à l’organisation dans son dépôt d’instance ; données et sauvegardes sensibles chiffrées, clés externes. Un dépôt privé ne dispense pas du chiffrement. Réplication, stockage partagé et PV Retain ne sont pas des backups. [Reconstruction et limites](runbooks/sauvegarde-reconstruction.md).
 
-La future passerelle IA traite l’intégralité du payload, y compris extraits RAG,
-historique et sorties d’outils. Données brutes, OCR et embeddings privés restent
-locaux. Les caches respectent le même périmètre. Aucun client réel ne doit être
-activé avant qualification de ces services et du kill switch VPN.
-
-## GitHub et récupération
-
-Le harness contient code générique, tests synthétiques et preuves assainies.
-Configurations privées, données et sauvegardes sont chiffrées avant tout dépôt
-privé. Les clés externes restent séparées. Le dépôt actuel reste privé ; une
-publication publique nécessite la revue prévue au plan.
-Un administrateur root appartient à la frontière de confiance et peut observer
-les secrets utilisés sur sa machine. Réplication et stockage partagé ne sont
-pas des sauvegardes ; voir [reconstruction](runbooks/sauvegarde-reconstruction.md).
+La [sécurisation détaillée de la plateforme et des données](securisation-plateforme-donnees.md) relie chaque protection à sa frontière, sa recette et ses limites : sessions/révocation, corpus communs et personnels, outils, réseau, cloud, secrets, chiffrement et restauration.

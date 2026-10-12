@@ -29,9 +29,10 @@ LATE=MultiVectorEncoder('/runtime/models/late',device='cpu',local_files_only=Tru
 LATE.max_seq_length=256
 READY=True
 
-def connect(scope):
+def connect(scope,read_scopes=None):
     connection=psycopg.connect(**DB,row_factory=dict_row,connect_timeout=5)
     connection.execute("SELECT set_config('arcia.scope',%s,true)",(scope,))
+    connection.execute("SELECT set_config('arcia.read_scopes',%s,true)",('|'.join(read_scopes or [scope]),))
     connection.execute("SET LOCAL statement_timeout='15s'")
     connection.execute("SET LOCAL hnsw.iterative_scan='strict_order'")
     return connection
@@ -90,7 +91,7 @@ def ingest(scope,value):
                 (identifier,scope,part.locator,part.kind,part.text,vector(title),vector(dense),tokens.astype('<f2').tobytes(),len(tokens)))
     return {'id':identifier,'chunks':len(parts),'assets':list(assets),'sha256':digest}
 
-def search(scope,value):
+def search(scope,value,read_scopes=None):
     query=value.get('query')
     if not isinstance(query,str) or not 1<=len(query)<=2000:raise ValueError('QUERY_SIZE')
     product=value.get('product');version=value.get('version')
@@ -99,7 +100,7 @@ def search(scope,value):
     limit=value.get('limit',5)
     if type(limit)!=int or not 1<=limit<=10:raise ValueError('RESULT_LIMIT')
     dense,tokens=encoding(query,True)
-    with connect(scope) as db:
+    with connect(scope,read_scopes) as db:
         base='SELECT c.id FROM knowledge.chunks c JOIN knowledge.documents d ON d.id=c.document_id '
         where='WHERE (%s::text IS NULL OR d.product=%s) AND (%s::text IS NULL OR d.version=%s) '
         filters=(product,product,version,version)
@@ -130,7 +131,11 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers();self.wfile.write(raw)
     def identity(self):
         supplied=self.headers.get('Authorization','').removeprefix('Bearer ')
-        for token,identity in TOKENS.items():
+        # Read the projected policy on every request; a revoked identity must not
+        # survive indefinitely in a process cache. Malformed policy fails closed.
+        try:tokens=json.loads(Path('/credentials/tokens.json').read_text())
+        except (OSError,ValueError):return None
+        for token,identity in tokens.items():
             if hmac.compare_digest(supplied,token):return identity
         return None
     def do_GET(self):
@@ -143,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
         _,_,identifier,name=pieces
         if len(identifier)!=64 or any(c not in '0123456789abcdef' for c in identifier):
             return self.reply(404,{'error':'NOT_FOUND'})
-        with connect(identity['scope']) as db:
+        with connect(identity['scope'],identity.get('read_scopes')) as db:
             doc=db.execute('SELECT suffix FROM knowledge.documents WHERE id=%s',(identifier,)).fetchone()
         if not doc:return self.reply(404,{'error':'NOT_FOUND'})
         folder=DATA/identifier
@@ -166,8 +171,8 @@ class Handler(BaseHTTPRequestHandler):
             if not 1<=size<=MAX_BYTES*2:raise ValueError('REQUEST_SIZE')
             value=json.loads(self.rfile.read(size))
             if not isinstance(value,dict):raise ValueError('OBJECT_REQUIRED')
-            if 'scope' in value:raise ValueError('SCOPE_BOUND_TO_SERVER_IDENTITY')
-            result=search(identity['scope'],value) if self.path=='/search' else ingest(identity['scope'],value)
+            if any(k in value for k in ('scope','read_scopes','principal','user_id','role')):raise ValueError('SCOPE_BOUND_TO_SERVER_IDENTITY')
+            result=search(identity['scope'],value,identity.get('read_scopes')) if self.path=='/search' else ingest(identity['scope'],value)
             return self.reply(200,result)
         except (ValueError,KeyError):return self.reply(400,{'error':'INVALID_DOCUMENT_OR_REQUEST'})
         except Exception:return self.reply(503,{'error':'KNOWLEDGE_OPERATION_FAILED'})

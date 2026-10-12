@@ -48,7 +48,7 @@ mise à jour administrative des gates ne sont pas qualifiés de bout en bout.
 
 La CI reproduit tests Python, schéma/YAML/Ansible et test DPAPI sur runners hébergés
 sans secret d'entreprise. Les actions checkout/setup-python sont épinglées par
-commit résolu sur leurs tags officiels. Aucun runner avec route vers les clients.
+commit résolu sur leurs tags officiels. Aucun runner avec route vers les périmètres.
 
 ## Non exécuté
 

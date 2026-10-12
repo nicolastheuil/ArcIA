@@ -1,10 +1,17 @@
 # Records the user's explicit pilot decisions; never changes integration credentials.
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAStateRoot
 try{
     Initialize-PrivateDirectory $root
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
+    $existing=Join-Path $root 'installation-decisions.dpapi'
+    if(Test-Path -LiteralPath $existing){
+        $previous=(Read-ProtectedBundle $existing)|ConvertFrom-Json
+        if($previous.operation_id -ne $operation.id -or $previous.authentication_mode -ne 'local' -or $previous.public_access_enabled){throw 'INSTALLATION_DECISIONS_CONFLICT'}
+        Write-Output 'EXISTING_INSTALLATION_DECISIONS_PRESERVED'
+        exit 0
+    }
     $decisions=@{operation_id=$operation.id;authentication_mode='local';entra_integration='deferred_keep_adapter';
         tls_mode='self_signed_pilot';recovery_mode='prepare_second_engineer_pending';public_access_enabled=$false;
         recorded_at=[DateTime]::UtcNow.ToString('o')}

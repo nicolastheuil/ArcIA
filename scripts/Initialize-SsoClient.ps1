@@ -6,7 +6,7 @@ $ErrorActionPreference='Stop'
 try {
     $lock=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../versions.lock.yaml') -Raw|ConvertFrom-Json
     if($lock.sso_admin_client.revision -notmatch '^[a-f0-9]{40}$'){throw 'CLIENT_REVISION_INVALID'}
-    $cache=Join-Path $env:LOCALAPPDATA ('ArcIA-Harness/tools/sso-'+$lock.sso_admin_client.revision)
+    $cache=Join-Path (Get-ArcIAStateRoot) ('tools/sso-'+$lock.sso_admin_client.revision)
     Initialize-PrivateDirectory $cache
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     foreach($file in $lock.sso_admin_client.files){

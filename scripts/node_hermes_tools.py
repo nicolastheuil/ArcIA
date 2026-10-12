@@ -92,7 +92,8 @@ def apply_owned(documents,operation):
 
 def verify(values):
     _,pod=workload(values)
-    return json.loads(python(pod,values['verify_source'],timeout=400,tools=True))
+    source='ARCIA_REQUIRE_KNOWLEDGE = '+repr(values.get('require_knowledge',True))+'\n'+values['verify_source']
+    return json.loads(python(pod,source,timeout=400,tools=True))
 
 
 def install(values):
@@ -134,7 +135,10 @@ def install(values):
     kube('delete','job',job,'-n',NS,'--wait=true','--timeout=90s',timeout=100)
     kube('rollout','status','deployment/context7-docs','-n',NS,'--timeout=180s',timeout=200)
     kube('patch','configmap','hermes-pilot-config','-n',NS,'--field-manager=arcia-foundation','--type=merge','-p',json.dumps({'data':{'config.yaml':new_yaml}}))
+    config_name='hermes-config-'+hashlib.sha256(new_yaml.encode()).hexdigest()[:16]
+    apply_owned([{'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':config_name,'namespace':NS},'immutable':True,'data':{'config.yaml':new_yaml}}],values['operation_id'])
     spec=deployment['spec']['template']['spec']
+    next(v for v in spec['volumes'] if v['name']=='config')['configMap']['name']=config_name
     container=next(c for c in spec['containers'] if c['name']=='hermes')
     if not installed:
         container['volumeMounts'].append({'name':'tools','mountPath':'/opt/arcia-tools','readOnly':True})

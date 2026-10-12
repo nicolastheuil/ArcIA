@@ -1,8 +1,11 @@
-# Installation fondatrice Debian / K3s avec Codex
+# Installation d’ArcIA : fondations Debian / K3s
 
-> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
 
 Version 1.1 — actualisation opérationnelle du 12 octobre 2026.
+
+## Point d’entrée actuel
+
+Utiliser le [bootstrap exhaustif](runbooks/bootstrap.md) pour Plan/Apply/Reconcile/Verify/Audit. Il couvre maintenant le RAG, Presidio et le cloud gratuit filtré. Les étapes détaillées ci-dessous expliquent les fondations et restent soumises aux prérequis/propriétés contrôlés par le bootstrap. Les customisations métier se font dans le dépôt d’instance.
 
 ## État et chemin de reprise
 
@@ -18,9 +21,9 @@ Les commandes des étapes suivantes constituent le parcours d’une nouvelle cib
 Une release/reconstruction neuve n’est pas encore qualifiée. Les wrappers K3s
 hérités, le nettoyage du répertoire d’extraction au démarrage, le verrouillage
 des paquets et les matrices CSI/CNPG doivent être revus avant rebuild.
-DNS-01 public reste différé ; voir [certificats](runbooks/certificats-dns.md).
+Le TLS public est déployé, le renouvellement manuel reste à automatiser ; voir [certificats](runbooks/certificats-dns.md).
 
-Ce guide remplace le parcours Compose envisagé avant la confirmation des VM multiples. Infrastructure confirmée : VMware et stockage partagé. Le code métier du harness reste à développer : le pack de cadrage n’est pas une release déployable. Les étapes ci-dessous définissent le travail réel à effectuer et les preuves requises.
+Ce guide remplace le parcours Compose envisagé avant la confirmation des VM multiples. Infrastructure confirmée : VMware et stockage partagé. Les extensions d’usage appartiennent à chaque instance ; le socle possède un bootstrap logiciel, dont le rebuild neuf reste à qualifier. Les étapes ci-dessous définissent le travail réel à effectuer et les preuves requises.
 
 ## 1. Préparer trois VM
 Réutiliser la VM Debian vierge comme hermes-k3s-01 et créer hermes-k3s-02 et hermes-k3s-03. Proposition initiale par VM : 8 vCPU, 32 Go RAM, 150 Go système/runtime, x86_64, sans GPU. Prévoir environ 1 To de volumes persistants partagés à ajuster aux rétentions et à la réplication.
@@ -30,13 +33,10 @@ Répartir les VM sur des ESXi distincts si disponibles. Configurer nom, IP stabl
 La VM seule peut servir aux premiers tests ; la recette HA exige les trois nœuds et des domaines de panne identifiés.
 
 ## 2. Préparer le poste Codex
-Sur Windows, vérifier que Git, OpenSSH et GitHub CLI sont accessibles. Ouvrir un terminal PowerShell :
+Sur Windows, vérifier que Git et OpenSSH sont accessibles. GitHub CLI est une option administrative si déjà disponible ; elle n’est pas une dépendance du bootstrap. Ouvrir un terminal PowerShell :
 ```powershell
 git --version
 ssh -V
-gh --version
-gh auth login
-gh auth status
 ```
 Installer les outils manquants par le canal approuvé de l’entreprise. Les identités GitHub et SSH restent personnelles à l’ingénieur. Le workspace Codex doit pouvoir exécuter les commandes nécessaires et atteindre les VM par le réseau privé ; un environnement Codex distant sans route vers ces IP ne peut pas déployer directement.
 
@@ -56,11 +56,12 @@ Après extraction, si le dossier n’est pas déjà un dépôt et après choix d
 git init -b main
 git add AGENTS.md README.md .gitignore docs
 git commit -m "Initial architecture and Codex bootstrap"
-gh repo create ORGANISATION/hermes-platform-harness --private --source . --remote origin --push
+# Option si gh est déjà disponible et un nouveau dépôt est explicitement demandé
+gh repo create ORGANISATION/arcia-harness --private --source . --remote origin --push
 ```
 Remplacer ORGANISATION par la destination confirmée. Si le dépôt existe, le cloner et intégrer le pack ; ne pas créer un doublon.
 
-Le dépôt est la source du code, pas un dump des machines. Les configs privées, données clients et sauvegardes vont dans les dépôts dédiés sous chiffrement. Ni clé age, kubeconfig administrateur, token K3s, fichier .env ni secret de coffre n’est commité en clair.
+Le dépôt est la source du code, pas un dump des machines. Les configs privées, données privéess et sauvegardes vont dans les dépôts dédiés sous chiffrement. Ni clé age, kubeconfig administrateur, token K3s, fichier .env ni secret de coffre n’est commité en clair.
 
 ## 5. Générer le squelette de travail
 Codex crée et commite progressivement :
@@ -69,7 +70,7 @@ Codex crée et commite progressivement :
 - infra/ansible/ : préflight Debian, préparation et installation K3s idempotente.
 - deploy/ : charts Helm ou overlays Kustomize, politiques et templates.
 - services/ : API, gouvernance, assainissement, secrets, launcher, collecte.
-- schemas/ : contrats client, mission, binding et configuration.
+- schemas/ : contrats périmètre, mission, binding et configuration.
 - tests/ : scénarios synthétiques et tests de frontières.
 - scripts/ : wizard, doctor, backup, restore et migrations.
 - versions.lock.yaml : versions précises, commits et digests qualifiés.
@@ -178,7 +179,7 @@ Une duplication de ce Pod avec le même état n’est pas un test de scaling aut
 
 ## 14. Développer puis activer les intégrations métier
 Codex construit les lots, teste puis déploie :
-1. Identité Entra, registre clients/missions et RBAC serveur.
+1. Identité Entra, registre périmètres/tâches et RBAC serveur.
 2. Passerelle d’assainissement et contrôle des sorties cloud.
 3. Opérations typées, plan immuable et validation Teams.
 4. Connecteurs de coffres persistants individuels.

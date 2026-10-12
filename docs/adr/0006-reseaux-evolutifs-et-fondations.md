@@ -2,7 +2,7 @@
 
 Date : 2026-10-11. Statut : décisions enregistrées, sondes exécutées ; K3s non installé.
 
-Les CIDR entreprise/VPN/clients ne sont pas tous connus et évolueront. Une saisie
+Les CIDR entreprise/VPN/périmètres ne sont pas tous connus et évolueront. Une saisie
 initiale ne peut donc pas constituer une preuve d'absence perpétuelle de conflit.
 Le bootstrap synthétique compare les CIDR choisis aux réseaux des VM, aux CIDR
 explicitement connus et aux routes actuellement visibles sur les VM et le poste.

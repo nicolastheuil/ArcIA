@@ -2,7 +2,7 @@
 param()
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$privateRoot = Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$privateRoot = Get-ArcIAStateRoot
 $targetPath = Join-Path $privateRoot 'vmware-target.dpapi'
 $draftPath = Join-Path $privateRoot 'vmware-target-draft.dpapi'
 $statusPath = Join-Path $privateRoot 'vmware-target-status.json'

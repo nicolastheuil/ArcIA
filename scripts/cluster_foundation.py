@@ -154,8 +154,28 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
+    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)
+    if action in ('install_multiuser','verify_multiuser'):
+        import multiuser_deploy
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+        values={'action':action,'operation_id':operation,**multiuser_deploy.payload(lock,payload['instance']['config'],payload['pilot'],payload['second_pilot'])}
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_multiuser.py').read_bytes(),values,root=True,timeout=2500)
+        if action=='verify_multiuser':
+            import verify_multiuser_access
+            http_result=verify_multiuser_access.verify(payload)
+            result['checks'].update(http_result['checks'])
+            result['passed']=all(result['checks'].values())
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'verified' if result.get('passed') else 'blocked',
+            'code':'MULTIUSER_DEPLOYED' if action=='install_multiuser' and result.get('passed') else ('MULTIUSER_VERIFIED' if result.get('passed') else 'MULTIUSER_QUALIFICATION_FAILED'),'result':result}}
+    if action in ('install_privacy','verify_privacy','inspect_privacy'):
+        import privacy_deploy
+        values={'action':action,'operation_id':operation,**privacy_deploy.payload(),'hermes_policy':privacy_deploy.hermes_policy()}
+        if action=='install_privacy':values['api_key']=payload.get('cloud_api_key')
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_privacy.py').read_bytes(),values,root=True,timeout=3600)
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'inspected' if action=='inspect_privacy' else ('verified' if result.get('passed') else 'blocked'),
+            'code':'PRIVACY_INSPECTED' if action=='inspect_privacy' else ('PRIVACY_DEPLOYED' if action=='install_privacy' and result.get('passed') else ('PRIVACY_VERIFIED' if result.get('passed') else 'PRIVACY_QUALIFICATION_FAILED')),'result':result}}
     if action in ('install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge'):
         import knowledge_deploy
         values={'action':action,'operation_id':operation,**knowledge_deploy.payload()}
@@ -163,9 +183,10 @@ def collect(payload):
         return {'private':{'operation_id':operation,'result':result},'safe':{
             'status':'inspected' if action=='inspect_knowledge' else ('verified' if result.get('passed') else 'blocked'),
             'code':'KNOWLEDGE_INSPECTED' if action=='inspect_knowledge' else ('KNOWLEDGE_VERIFIED' if result.get('passed') else 'KNOWLEDGE_QUALIFICATION_FAILED'),'result':result}}
-    if action in ('inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools'):
-        values={'action':action,'operation_id':operation}
-        if action in ('install_hermes_tools','verify_hermes_tools'):
+    if action in ('inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools'):
+        values={'action':'install_hermes_tools' if action=='install_hermes_tools_base' else action,'operation_id':operation,
+                'require_knowledge':action!='install_hermes_tools_base'}
+        if action in ('install_hermes_tools','install_hermes_tools_base','verify_hermes_tools'):
             import hermes_tools
             values.update(hermes_tools.payload())
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_hermes_tools.py').read_bytes(),values,root=True,timeout=1500)
@@ -180,17 +201,24 @@ def collect(payload):
         return {'private':{'operation_id':operation,'result':result},'safe':{
             'status':'verified' if passed else 'blocked','code':'APPLICATION_PERSISTENCE_SWITCHOVER_ISOLATION_VERIFIED' if passed else 'APPLICATION_QUALIFICATION_FAILED',
             'checks':result['checks'],'abrupt_node_fencing_qualified':False,'cloud_calls_enabled':False}}
-    if action in ('install_postgres','install_hermes','inspect_apps'):
+    if action in ('install_postgres','install_hermes','install_hermes_base','inspect_apps'):
         import kubernetes_apps
         lock=json.loads((ROOT/'versions.lock.yaml').read_text())
-        values={'action':action,'operation_id':operation}
+        values={'action':'install_hermes' if action=='install_hermes_base' else action,'operation_id':operation}
         if action!='inspect_apps':
             qualification=payload['storage_qualification']
             if qualification['operation_id']!=operation or len(qualification['result']['checks'])!=5 or not all(qualification['result']['checks'].values()):
                 raise ValueError('VERIFIED_STORAGE_REQUIRED')
         if action=='install_postgres':
             values.update(operator=kubernetes_apps.operator(lock),database=kubernetes_apps.postgres(lock,payload['instance']['config']))
-        if action=='install_hermes':
+        if action in ('install_hermes','install_hermes_base'):
+            if action=='install_hermes_base':
+                import copy
+                lock=copy.deepcopy(lock)
+                lock['hermes_tools']['enabled']=False
+                lock['knowledge']['enabled']=False
+                lock['privacy']['enabled']=False
+                values['bootstrap_base']=True
             values.update(hermes=kubernetes_apps.hermes(lock,payload['instance']['config'],payload['pilot']),
                           ingress=kubernetes_apps.ingress(lock,payload['instance']['config'],payload['pilot']))
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),values,root=True,timeout=1200)
@@ -207,7 +235,7 @@ def collect(payload):
         return {'private':{'operation_id':operation,'result':result},'safe':{'status':('inspected' if action=='inspect_apps' else 'verified') if passed else 'blocked',
             'code':'QUALIFICATION_APPLICATIONS_INSPECTED' if action=='inspect_apps' else ('QUALIFICATION_APPLICATION_DEPLOYED' if passed else 'QUALIFICATION_APPLICATION_NOT_READY'),
             'workloads':counts,'known_error_codes':[code for pattern,code in patterns.items() if pattern.casefold() in diagnostics.casefold()],
-            'cloud_calls_enabled':False,'business_integrations_enabled':False}}
+            'cloud_calls_enabled':bool(action=='install_hermes' and lock.get('privacy',{}).get('enabled')),'business_integrations_enabled':False}}
     if action=='inspect_vmware':
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
             {'action':action,'nodes':[v['name'] for v in payload['instance']['config']['nodes']],

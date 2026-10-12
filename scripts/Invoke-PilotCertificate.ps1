@@ -3,7 +3,7 @@ param([ValidateSet('request','collect','suspend','checkpoint')][string]$Action='
     [string]$HermesHostname,[string]$TeamsHostname)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAStateRoot
 Initialize-PrivateDirectory $root
 $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
 $payload=@{action=$Action;operation_id=$operation.id}
