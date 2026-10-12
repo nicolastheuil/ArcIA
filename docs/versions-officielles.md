@@ -1,5 +1,8 @@
 # Versions et compatibilités — 12 octobre 2026
 
+> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
+
+
 Le [lock](../versions.lock.yaml) contient les références exactes, commits et
 digests. Les statuts conservateurs de préparation dans ce lock ne constituent
 pas une preuve de déploiement ; celle-ci est dans

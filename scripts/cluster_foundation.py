@@ -154,8 +154,25 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
+    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)
+    if action in ('install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge'):
+        import knowledge_deploy
+        values={'action':action,'operation_id':operation,**knowledge_deploy.payload()}
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_knowledge.py').read_bytes(),values,root=True,timeout=3600)
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'inspected' if action=='inspect_knowledge' else ('verified' if result.get('passed') else 'blocked'),
+            'code':'KNOWLEDGE_INSPECTED' if action=='inspect_knowledge' else ('KNOWLEDGE_VERIFIED' if result.get('passed') else 'KNOWLEDGE_QUALIFICATION_FAILED'),'result':result}}
+    if action in ('inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools'):
+        values={'action':action,'operation_id':operation}
+        if action in ('install_hermes_tools','verify_hermes_tools'):
+            import hermes_tools
+            values.update(hermes_tools.payload())
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_hermes_tools.py').read_bytes(),values,root=True,timeout=1500)
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'inspected' if action=='inspect_hermes_tools' else ('verified' if result.get('passed') else 'blocked'),
+            'code':'HERMES_TOOLS_'+('INSPECTED' if action=='inspect_hermes_tools' else ('FAILED_JOBS_REMOVED' if action=='cleanup_failed_hermes_tools' else ('VERIFIED' if result.get('passed') else 'QUALIFICATION_FAILED'))),
+            'result':result}}
     if action=='qualify_apps':
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
             {'action':action,'operation_id':operation},root=True,timeout=900)

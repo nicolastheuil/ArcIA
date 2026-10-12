@@ -1,12 +1,12 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps')){
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
     $payload=@{action=$Action;private_root=$root}

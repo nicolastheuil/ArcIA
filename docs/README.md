@@ -18,8 +18,8 @@ le handoff courant ; les anciens handoffs restent des instantanés historiques.
 | Reprendre les certificats | [DNS et Certbot](runbooks/certificats-dns.md) |
 | Évaluer les preuves | [Recette fondatrice](runbooks/recette-fondatrice.md), [rapport de vérification](verification-preparation.md) |
 | Sauvegarder ou transférer | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md), [second PC](runbooks/transfert-second-pc.md) |
-| Installer/utiliser l’outillage et GitHub | [Outillage builder](outillage-builder.md) |
-| Reprendre les travaux | [Handoff courant](handoff-2026-10-12-qualification-verifiee.md), [backlog](backlog.md) |
+| Installer/utiliser l’outillage et GitHub | [Outillage Hermes/K3s](outillage-builder.md) |
+| Reprendre les travaux | [Handoff courant](handoff-2026-10-12-documentation-multivecteur.md), [backlog](backlog.md) |
 | Vérifier versions et support | [Versions officielles](versions-officielles.md), [lock](../versions.lock.yaml) |
 
 ## Sources de cadrage
@@ -48,6 +48,8 @@ effectivement exécuté avec une preuve. Une spécification n’est pas une preu
 | [0006](adr/0006-reseaux-evolutifs-et-fondations.md) | Réseaux connus et futurs VPN |
 | [0007](adr/0007-vip-et-bootstrap-synthetique.md) | VIP et qualification synthétique |
 | [0008](adr/0008-qualification-applicative-et-tls.md) | État applicatif, entrée et TLS différé |
+| [0009](adr/0009-connaissance-hybride-multivecteur.md) | Recherche documentaire, API et schémas |
+| [0010](adr/0010-outils-hermes-main-et-acces.md) | Placement K3s, main et accès dashboard |
 
 ## Historique et maintenance
 

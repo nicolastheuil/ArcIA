@@ -8,3 +8,4 @@
 *.json text eol=lf
 *.txt text eol=lf
 .agents/skills/** text eol=lf
+deploy/hermes/skills/** text eol=lf

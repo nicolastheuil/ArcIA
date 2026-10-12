@@ -1,9 +1,8 @@
 # Backlog ArcIA — 12 octobre 2026
 
-Référence : [handoff courant](handoff-2026-10-12-qualification-verifiee.md).
+Référence : [handoff courant](handoff-2026-10-12-documentation-multivecteur.md).
 La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
-Périmètre courant : socle/Hermes synthétiques, documentation et outillage builder
-retenu au §25. Les services métier ne sont pas activés par cette demande.
+Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Hermes/K3s et recherche documentaire locale. Les services métier ne sont pas activés par cette demande.
 
 | ID | Travail | État réel / suite |
 |---|---|---|
@@ -19,18 +18,18 @@ retenu au §25. Les services métier ne sont pas activés par cette demande.
 | PREP-10 | VIP API/HTTPS et réseau privé | Bascule réelle contrôlée vérifiée, 18 sondes ; panne brutale restante |
 | L0-01 | CNPG/PostgreSQL/pgvector | Déployé 3/3 ; 6 checks SQL/réplication/switchover réussis |
 | L0-02a | Hermes et HTTPS locaux | Déployé ; 6 checks Hermes, 6 HTTPS/auth ; Desktop/WS/SSE restants |
-| L0-02b | TLS public pour les deux noms demandés | Certbot prêt, demande suspendue par utilisateur ; reprise après DNS |
+| L0-02b | TLS public pour les deux noms demandés | Certificat Let’s Encrypt émis/collecté/déployé ; renouvellement DNS manuel et migration du compte ACME restants |
 | L0-02c | Entra/OIDC métier et bot Teams | À développer ; hors socle actuel |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | À développer et tester avant client/appel cloud |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
-| L0-06 | Outils builder §25, provenance/licences | Context7/skills/LintLang installés ; 6 skills Superpowers/ECC, hashes/licences ; MCP/requête générique et scans vérifiés ; chargement au prochain tour |
+| L0-06 | Outils builder §25, provenance/licences | Context7/skills/LintLang/RTK/Headroom/OmniRoute/Certbot dans K3s ; 6 skills natifs ; MCP et versions vérifiés ; compression/routage automatiques non activés |
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
 | L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |
 | L2 | Plans immuables, approbations Teams, capacités uniques/réconciliation | Après L1 |
-| L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Conception documentée ; aucun pipeline opérationnel |
+| L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Hybride + multi-vecteur, PDF textuels/API/schémas, RLS/citations et MCP déployés/vérifiés synthétiquement ; OCR, ColPali, collecte/import dédié, file durable et benchmark corpus large restants |
 | L4 | Fencing/panne de nœud, cinq missions, deuxième ingénieur/rebuild/SBOM | Gate de release |
-| L5 | RTK/Graphify pilotes, compression/Headroom et autres options | Désactivés tant que qualification non conclue |
+| L5 | RTK/Graphify pilotes, compression/Headroom et autres options | RTK/Headroom/OmniRoute installés ; automatisations et fournisseurs désactivés ; Graphify/Ponytail différés |
 
 Aucun conteneur factice ne remplace un service métier manquant.
 La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM

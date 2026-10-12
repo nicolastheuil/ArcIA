@@ -1,9 +1,6 @@
 # DNS publics et certificats NGINX
 
-État au 12 octobre 2026 : **validation ACME différée sur demande utilisateur**.
-La demande Certbot a été suspendue ; aucun contrôle DNS en arrière-plan ne doit
-être relancé tant que l’administrateur n’a pas publié les entrées et que la reprise
-n’est pas demandée. Le certificat actif reste auto-signé pour le pilote privé.
+État au 12 octobre 2026 : **certificat Let’s Encrypt émis, collecté et déployé dans NGINX** après reprise explicitement demandée. Les deux TXT ont été trouvés publiés et les challenges ont réussi. Les six contrôles HTTPS/authentification passent. NAT public désactivé ; Teams non déployé.
 
 ## Deux noms, une entrée applicative
 
@@ -35,7 +32,6 @@ sequenceDiagram
   C-->>I: Afficher uniquement noms TXT et valeurs publiques
   I->>A: Transmettre les 2 TXT de cet ordre
   A->>A: Publier dans la zone arcitek.io
-  Note over I,L: Point d’arrêt actuel : demande suspendue
   I->>C: Reprendre avec un ordre valide lorsque DNS disponible
   C->>C: Vérifier les TXT exacts
   C->>L: Faire valider les challenges
@@ -50,9 +46,9 @@ Les noms de records sont `_acme-challenge.arcia.arcitek.io` et
 `_acme-challenge.arcia-teams`. Les valeurs dépendent de l’ordre courant :
 ne pas les figer dans Git ni réutiliser aveuglément celles d’un ordre suspendu.
 
-## Commandes de reprise, à exécuter seulement au moment convenu
+## Émission et renouvellement manuel
 
-Préparer le runtime utilisateur WSL avec `scripts/prepare_certbot_runtime.sh`.
+Certbot est désormais aussi installé dans K3s. Le compte et le runtime WSL utilisés pour cette émission restent temporairement protégés ; leur migration vers K3s doit être achevée avant de supprimer cette reprise ACME. Ne pas installer de nouvel outillage sur le poste.
 Certbot 5.8.0 et ses dépendances sont fixés avec hashes dans
 `scripts/requirements-certbot.lock.txt`. Le compte et le contact déjà saisis
 restent dans l’état protégé ; l’adresse personnelle n’est pas versionnée.
@@ -84,13 +80,15 @@ pwsh -NoProfile -File scripts/Invoke-ClusterFoundation.ps1 -Action install_herme
 pwsh -NoProfile -File scripts/Verify-PilotAccess.ps1
 ```
 
-`collect` est codé mais n’a pas été exécuté avec un certificat public émis. Il
+`collect` a été exécuté sur le certificat public émis. Il
 vérifie clé/certificat, SAN et dates, conserve une sauvegarde DPAPI et un journal
 de migration, puis remplace les bundles privés. Une interruption entre ces
 remplacements exige réconciliation depuis ce journal avant application cluster.
 Les credentials Hermes et l’identité API K3s sont conservés.
 
 ## Renouvellement et exposition publique
+
+Certificat actuel : émetteur Let’s Encrypt YE2, expiration **10 janvier 2027 à 17:13:22 UTC**. Chaîne CA publique, hostname et certificat épinglé vérifiés. Prévoir le renouvellement manuel avant cette date. Les TXT de validation publiés ne créent pas les enregistrements A/AAAA : le hostname doit aussi être résolu pour le navigateur.
 
 Le mode DNS manuel actuel ne fournit pas de renouvellement autonome : il faut
 un nouveau TXT par challenge, ou développer ensuite un provider DNS autorisé.

@@ -2,9 +2,10 @@
 param()
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+$root=Get-ArcIAPrivateRoot
 $pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
 $instance=(Read-ProtectedBundle (Join-Path $root 'instance.dpapi'))|ConvertFrom-Json
+$decisions=(Read-ProtectedBundle (Join-Path $root 'installation-decisions.dpapi'))|ConvertFrom-Json
 if($pilot.operation_id -ne $instance.operation_id){throw 'PILOT_CREDENTIAL_SCOPE_CONFLICT'}
 $start=[Diagnostics.ProcessStartInfo]::new()
 $start.FileName=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation/venv/Scripts/python.exe'
@@ -15,7 +16,7 @@ $start.StandardInputEncoding=[Text.UTF8Encoding]::new($false)
 $process=[Diagnostics.Process]::new();$process.StartInfo=$start
 try{
     $null=$process.Start()
-    $process.StandardInput.Write((@{pilot=$pilot;address=$instance.endpoint_design.https_ip}|ConvertTo-Json -Depth 10 -Compress))
+    $process.StandardInput.Write((@{pilot=$pilot;address=$instance.endpoint_design.https_ip;public_acme=($decisions.tls_mode -eq 'public_acme')}|ConvertTo-Json -Depth 10 -Compress))
     $process.StandardInput.Close()
     $output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
     if(-not $process.WaitForExit(120000)){$process.Kill();throw 'PILOT_VERIFICATION_TIMEOUT'}

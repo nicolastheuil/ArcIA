@@ -1,77 +1,71 @@
-# ArcIA Harness
+# ArcIA — Hermes Platform Harness
 
-Harness de déploiement et de qualification d’une plateforme Hermes sur **trois VM Debian 13 / K3s, VMware et stockage partagé**. Dépôt privé pendant le build : `nicolastheuil/arcia-harness`. Codex assure le build initial ; Compose et Kilo restent des options de laboratoire/portabilité. Voir [le plan intégral](docs/plan-integration-hermes.md) et [l’index documentaire](docs/README.md).
+ArcIA construit une plateforme d’assistance technique pour les ingénieurs : **comprendre la documentation des produits, préparer des diagnostics et des plans d’intervention, puis exécuter les opérations autorisées avec des preuves**. Hermes fournit l’agent et son interface ; ce harness apporte son déploiement, les outils, la connaissance documentaire et les frontières de sécurité. [Vision et plan complet](docs/plan-integration-hermes.md).
 
-## État actuel
+## Philosophie
 
-**Socle de qualification opérationnel au 12 octobre 2026**, sans accès client ni appel IA. K3s 3/3, CPI/CSI, PostgreSQL/pgvector 3/3, Hermes 1/1 et NGINX 3/3 sont déployés. Persistance, isolation, authentification HTTPS et bascules contrôlées PostgreSQL/VIP sont vérifiées. TLS auto-signé ; validation DNS Let’s Encrypt différée à la demande de l’utilisateur. La release installable et la HA de production restent à qualifier. Voir [la recette](docs/runbooks/recette-fondatrice.md), [l’état de reprise](docs/etat-reprise.md) et [le handoff courant](docs/handoff-2026-10-12-qualification-verifiee.md).
+Le code générique et les procédures sont reproductibles depuis GitHub. Les identités, configurations et données privées restent protégées hors du dépôt. Les documents alimentent les réponses avec des citations ; ils ne peuvent pas autoriser une action. Une intervention client exige à terme identité, périmètre serveur, plan et approbation vérifiée. Le build actuel utilise uniquement des fixtures synthétiques. [Sécurité](docs/securite.md) · [Décisions](docs/README.md#decisions).
 
-| Composant | Déploiement observé | Qualification réalisée |
-|---|---|---|
-| K3s v1.37.1+k3s1 | 3 serveurs control-plane/etcd Ready | API, VIP, chiffrement des Secrets |
-| vSphere CPI v1.37.0 / CSI v3.7.3 | Nœuds initialisés, volumes CSI | 5 contrôles RWOP/persistance |
-| CNPG v1.30.1 / PostgreSQL 18.6 | Opérateur 2/2, base 3/3 sur nœuds distincts | pgvector, réplication synchrone, bascule contrôlée |
-| Hermes v0.21.6 | 1 propriétaire, SQLite sur PVC RWOP | Recréation du Pod, persistance, refus réseau |
-| NGINX 1.31.6 | 3 réplicas, entrée privée 443 | 6 contrôles TLS/auth et 18 sondes API/HTTPS de bascule |
-
-Les images applicatives sont épinglées par digest. Les limites de support Kubernetes/CSI/CNPG et les dépendances encore non verrouillées sont détaillées dans [les versions et compatibilités](docs/versions-officielles.md).
-
-## Architecture déployée
+## Architecture et fonctionnement
 
 ```mermaid
 flowchart TD
-  U["Accès de qualification privé"] --> V["VIP HTTPS : 443"]
-  V --> N["NGINX : 3 réplicas"]
-  N --> H["Hermes : 1 instance isolée"]
-  H --> S["SQLite : PVC 10 Gi RWOP"]
-  A["Ingénieur : scripts protégés"] --> K["VIP API K3s privée : 6443"]
-  K --> C["3 VM Debian : K3s et quorum etcd"]
-  C --> P["PostgreSQL / pgvector : 3 instances"]
-  P --> D["3 PVC de 20 Gi"]
-  S --> CSI["vSphere CSI : stockage partagé"]
-  D --> CSI
+  U["Ingénieur : HTTPS authentifié"] --> N["NGINX / certificat Let’s Encrypt"]
+  N --> H["Hermes : une instance, un propriétaire"]
+  H --> S["Mémoire SQLite / volume RWOP"]
+  H --> T["Outils et skills / volume persistant en lecture seule"]
+  H --> K["MCP documentaire privé"]
+  K --> Q["Recherche : texte + vecteurs + classement multi-vecteur"]
+  Q --> P["PostgreSQL / pgvector : 3 instances"]
+  Q --> M["Modèles locaux CPU / aucune sortie Internet"]
+  Q --> D["Originaux, pages et schémas éditables"]
+  H --> C["Context7 : relais documentaire générique"]
+  X["3 VM Debian / K3s / VMware"] --> V["Stockage partagé vSphere CSI"]
+  S --> V
+  T --> V
+  D --> V
 ```
 
-PostgreSQL prépare les données partagées et la recherche documentaire. Hermes conserve son SQLite natif ; il n’est pas raccordé à PostgreSQL dans ce pilote. Voir [l’architecture réelle et la carte du code](docs/architecture.md) et [les schémas détaillés](docs/schemas-plateforme-hermes.md).
+Une question documentaire passe par un MCP en lecture seule. Le serveur applique le périmètre associé à son token, recherche les passages par texte et similarité, puis les reclasse avec les vecteurs de tokens. Il renvoie extrait, produit, version, page/opération et empreinte source. Hermes peut télécharger l’original ou un schéma éditable pour préparer une adaptation traçable. [Architecture détaillée](docs/architecture.md) · [Schémas complets](docs/schemas-plateforme-hermes.md) · [Recherche documentaire](docs/connaissance-documentaire.md).
 
-## Accès, DNS et certificats
+## Outils intégrés à Hermes dans K3s
 
-Deux noms publics sont demandés : **arcia.arcitek.io** pour Hermes et **arcia-teams.arcitek.io** pour le futur bot Teams. Les trois réplicas NGINX servent la même entrée ; ils ne créent pas un troisième endpoint public. Le bot Teams est absent et le NAT public reste désactivé. Voir [DNS et Certbot](docs/runbooks/certificats-dns.md).
+| Outil | Utilité et état |
+|---|---|
+| Context7 4.3.0 | Documentation publique de bibliothèques via MCP ; requête générique vérifiée |
+| skills 1.7.2 + 6 skills Superpowers/ECC | Méthodes de diagnostic, vérification, revue, Python et PostgreSQL ; découverte native vérifiée |
+| LintLang 0.8.2 | Analyse des instructions, en mode rapport |
+| RTK 0.51.0 | Réduction des sorties de commandes ; CLI installé, hooks désactivés |
+| Headroom 0.40.0 | Compression locale du contexte ; package vérifié, intégration automatique à qualifier |
+| OmniRoute 3.8.51 | Routage des fournisseurs IA ; CLI installé, fournisseurs et service de routage désactivés |
+| Certbot 5.8.0 | Gestion des certificats DNS-01 ; certificat public émis et appliqué |
+| Service Knowledge | Recherche hybride, E5 multilingue et mLateOn multi-vecteur locaux, citations et assets |
 
-L’accès actuel utilise une authentification locale et un certificat auto-signé épinglé par le vérificateur. Les identifiants s’affichent uniquement dans le formulaire local `scripts/Show-PilotAccess.ps1`. Les TXT seront à confirmer pour l’ordre ACME actif lors de la reprise ; ceux d’un ordre suspendu peuvent changer. Voir [l’exploitation du pilote](docs/runbooks/exploitation-qualification.md).
+Les outils tournent **dans le cluster**, pas sur le poste. Les anciennes installations Context7/skills/LintLang du poste ont été retirées. Le poste conserve le contrôleur d’administration protégé ; le transfert du compte ACME vers le cluster reste à terminer. Versions, chemins, installation et limites : [outillage Hermes](docs/outillage-builder.md).
 
-## PostgreSQL et ingestion de PDF
+## Corpus documentaire : PDF, API et schémas
 
-Le choix cible est **PostgreSQL full-text + pgvector** : références textuelles exactes, similarité sémantique, filtres client/ACL/version et citations. Des centaines de PDF se dimensionnent en fragments, dimensions d’embeddings et requêtes simultanées. Docling/OCR, embeddings locaux et recherche hybride restent à développer ; la requête vectorielle synthétique réussie n’est pas un benchmark d’ingestion. Voir [la conception documentaire](docs/connaissance-documentaire.md).
+Les PDF textuels sont découpés par page ; tableaux et pages illustrées sont conservés. Les spécifications OpenAPI gardent opérations, paramètres, réponses et version. Les JSON Schema et guides complets restent archivés avec leur empreinte. Les sources Mermaid, SVG et draw.io sont téléchargeables ; une adaptation référence son original et une reconstruction est signalée. [Pipeline et formats](docs/connaissance-documentaire.md).
 
-## Sécurité et sauvegarde
+La recherche combine **full-text PostgreSQL + deux représentations vectorielles par passage + fusion RRF + MaxSim multi-vecteur sur 30 candidats**. Les modèles sont téléchargés à révision et hash fixés, puis exécutés hors ligne. Les scans nécessitant OCR sont refusés avant publication ; OCR avancé et recherche visuelle ColPali restent à qualifier. [Choix, coûts et recette](docs/connaissance-documentaire.md#choix-et-couts).
 
-Les secrets passent par des programmes locaux protégés, jamais par le chat ni Git. L’état administratif est sous `%LOCALAPPDATA%\ArcIA-Harness`, avec DPAPI et ACL restreintes. Hermes n’a ni clé fournisseur, ni token Kubernetes, ni sortie réseau autorisée. Voir [le modèle de sécurité](docs/securite.md).
+## Accès et état de qualification
 
-L’archive chiffrée `secrets/local/arcia-private.arciap` est exclue de Git. **La copie actuelle précède les derniers lots** : renouveler l’export avant transfert. Elle ne sauvegarde pas les bases actives du cluster. Voir [le transfert de poste](docs/runbooks/transfert-second-pc.md) et [la sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md).
+Depuis un terminal à la racine du projet, lancer `./scripts/Show-PilotAccess.ps1` : la fenêtre protégée affiche les identifiants et son bouton ouvre le dashboard avec la résolution privée. Le DNS n’est pas encore disponible sur le poste. Aucun mot de passe ne passe par le chat.
 
-## Installation, exploitation et contrôles
+Deux noms : **arcia.arcitek.io** pour Hermes et **arcia-teams.arcitek.io** pour le futur bot Teams. Le certificat Let’s Encrypt couvre les deux noms et est déployé dans NGINX. Le bot Teams n’est pas déployé ; le NAT public reste désactivé. L’accès actuel utilise l’authentification locale. [Certificats et renouvellement](docs/runbooks/certificats-dns.md) · [Exploitation](docs/runbooks/exploitation-qualification.md).
 
-Pour l’instance existante, suivre [l’exploitation](docs/runbooks/exploitation-qualification.md) en conservant identités et token. Pour une nouvelle cible, lire [le guide K3s/Codex](docs/installation-k3s-codex.md), [la préparation](docs/runbooks/preparer-deploiement.md) et [VMware](docs/runbooks/vcenter.md). Le rebuild neuf reste à qualifier.
+Le socle K3s 3/3, CPI/CSI, PostgreSQL 3/3, Hermes et NGINX est opérationnel en qualification. La recherche documentaire est déployée et testée sur corpus synthétique ; ce résultat ne mesure pas encore des centaines de manuels. Les appels LLM restent désactivés. Entra/Teams, coffres/VPN, assainissement cloud, panne brutale/fencing, sauvegarde et rebuild neuf restent des gates distinctes. [État et preuves de reprise](docs/etat-reprise.md) · [Backlog](docs/backlog.md).
 
-Contrôles locaux synthétiques, sans accès aux VM :
+## Déployer, vérifier et contribuer
+
+Le dépôt privé [nicolastheuil/arcia-harness](https://github.com/nicolastheuil/arcia-harness) est la source de vérité. **Les changements sont livrés directement sur `main`, conformément à la décision utilisateur.** Les versions, locks, scripts et tests sont versionnés ; secrets et inventaires privés sont exclus. [Guide K3s](docs/installation-k3s-codex.md) · [Carte du code](docs/architecture.md#carte-du-depot).
 
 ```powershell
-python -m unittest discover -s tests -v
-python scripts/harness.py doctor
-python scripts/harness.py plan --config examples/synthetic/instance.json
-pwsh -NoProfile -File tests/Test-ProtectedState.ps1
+# Contrôleur d’administration existant, avec état DPAPI et accès SSH vérifiés
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_hermes_tools
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_knowledge
+./scripts/Verify-PilotAccess.ps1
 ```
 
-Utiliser un Python isolé avec les dépendances du projet. Sous Linux/WSL, `python scripts/validate_sources.py` contrôle JSON/YAML/Ansible. **98 tests Python réussis** au dernier lot ; les essais réels sont consignés séparément dans [le rapport de vérification](docs/verification-preparation.md).
-
-## Outillage, GitHub et suite
-
-Context7, le CLI skills et LintLang sont installés sur le poste ; six skills
-Superpowers/ECC ciblés sont installés pour le projet, sans hooks ni apprentissage.
-Versions, licences, preuves, usages et désactivation sont dans
-[l’outillage builder et GitHub](docs/outillage-builder.md).
-
-Le code, les manifests, les tests, les versions et les procédures constituent la source de vérité. Les sources amont sont épinglées ; les paramètres privés restent hors Git en clair. Voir [la carte du dépôt](docs/architecture.md#carte-du-depot), [les ADR](docs/README.md#decisions) et [le backlog](docs/backlog.md).
-
-Restent : certificats publics après DNS, WebSocket/SSE et Desktop de bout en bout, perte brutale de nœud/fencing, sauvegardes/rebuild, puis Entra/RBAC, Teams, coffres, VPN, assainissement et ingestion. Les critères complets restent ceux du [plan §19/25/26](docs/plan-integration-hermes.md). Chaque résultat distingue proposé, codé, déployé et vérifié.
+L’installation neuve complète et la restauration des données restent à qualifier avant release installable. L’archive privée portable actuelle doit être renouvelée avant transfert ; elle ne remplace pas les sauvegardes PostgreSQL et des volumes. [Recette](docs/runbooks/recette-fondatrice.md) · [Sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md) · [Index de toute la documentation](docs/README.md).

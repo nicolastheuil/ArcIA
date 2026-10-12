@@ -1,20 +1,15 @@
 # État de reprise — 12 octobre 2026
 
-## Référence actuelle — qualification vérifiée et documentation
+## Référence actuelle — outils K3s, TLS public et recherche documentaire
 
-Lire [le handoff courant](handoff-2026-10-12-qualification-verifiee.md) et
-[l’index documentaire](README.md). K3s 3/3, CPI/CSI, PostgreSQL 3/3,
-Hermes 1/1 et NGINX 3/3 sont opérationnels en qualification synthétique.
-CSI : 5 checks ; applications : 12 ; HTTPS/auth : 6 ; bascule VIP réelle :
-18 sondes réussies. DNS-01 suspendu à la demande de l’utilisateur ; TLS
-auto-signé, aucun NAT public ni service Teams. 98 tests Python réussis.
-Documentation complète actualisée ; Context7/skills/LintLang et six skills ciblés
-Superpowers/ECC installés. Context7 MCP/requête générique et LintLang vérifiés ;
-voir [outillage builder](outillage-builder.md). 19 schémas Mermaid parsés sans
-erreur ; 128 liens locaux vérifiés. Les nouveaux skills seront disponibles au
-prochain tour ; la configuration MCP peut nécessiter une nouvelle session.
-Archive portable à renouveler. Fencing/perte brutale, backups/rebuild et métier
-restent non qualifiés. Ne pas relancer Certbot avant reprise demandée.
+Lire [le handoff courant](handoff-2026-10-12-documentation-multivecteur.md).
+Travail directement sur **main**, sans nouvelle branche ni PR. L’ancien lot a été intégré et poussé dans main.
+
+Le socle K3s/VMware/PostgreSQL/Hermes reste opérationnel. Le certificat Let’s Encrypt couvre les deux noms demandés et est déployé dans NGINX ; NAT public désactivé, Teams absent. Les outils Context7, skills, LintLang, RTK, Headroom, OmniRoute et Certbot sont installés sur le PVC d’outils d’Hermes dans K3s. Les anciennes installations ArcIA-Builder du poste et leur MCP Codex ont été retirés. Le compte/runtime ACME WSL reste temporairement à migrer ; les runtimes d’administration sont conservés.
+
+Le service Knowledge privé est déployé : PostgreSQL/RLS, FTS + E5 + fusion RRF + MaxSim mLateOn, originaux/diagrammes éditables et citations. PDF textuels, OpenAPI, versions, assets, refus inter-périmètres et MCP Hermes sont vérifiés sur corpus synthétique. OCR/ColPali, collecte/import opérateur dédié, file durable et benchmark de centaines de PDF restent au backlog. Les fournisseurs/appels IA et intégrations métier restent désactivés.
+
+La recette Knowledge et les sondes outils sont relançables via Invoke-ClusterFoundation. État privé dans les statuts et bundles protégés ; ne jamais afficher les secrets ou les logs privés bruts. Renouveler l’archive portable avant transfert. Panne brutale/fencing, sauvegarde et rebuild restent des gates de release.
 
 ## Historique — arrêt initial du 12 octobre, socle de qualification
 

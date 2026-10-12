@@ -1,6 +1,63 @@
 # This file never returns a secret to stdout. Call only from a local trusted program.
 Add-Type -AssemblyName System.Security
 
+function Get-PhysicalArcIARoot {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    if(-not ('ArcIAProtectedPath.Native' -as [type])){
+        Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+namespace ArcIAProtectedPath {
+ public static class Native {
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  public static extern uint GetFinalPathNameByHandleW(IntPtr handle, StringBuilder path, uint count, uint flags);
+ }
+}
+'@
+    }
+    $stream=[IO.File]::OpenRead((Join-Path $Path 'vmware-operation.dpapi'))
+    try{
+        $buffer=[Text.StringBuilder]::new(4096)
+        $count=[ArcIAProtectedPath.Native]::GetFinalPathNameByHandleW($stream.SafeFileHandle.DangerousGetHandle(),$buffer,4096,0)
+        if($count -eq 0 -or $count -ge 4096){throw 'PROTECTED_PATH_RESOLUTION_FAILED'}
+        $resolved=$buffer.ToString()
+        if($resolved.StartsWith('\\?\')){$resolved=$resolved.Substring(4)}
+        return Split-Path -Parent $resolved
+    }finally{$stream.Dispose()}
+}
+
+function Get-ArcIAPrivateRoot {
+    # MSIX redirects Codex's LOCALAPPDATA writes into its package LocalCache.
+    # A normal Windows terminal must discover that same protected directory.
+    $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
+    $candidates=@($primary)
+    $packages=Join-Path $env:USERPROFILE 'AppData\Local\Packages'
+    if(Test-Path -LiteralPath $packages){
+        $candidates+=@(Get-ChildItem -LiteralPath $packages -Directory -Filter '*Codex*' |
+            ForEach-Object {Join-Path $_.FullName 'LocalCache\Local\ArcIA-Harness'})
+    }
+    $valid=@()
+    foreach($candidate in ($candidates|Select-Object -Unique)){
+        $pilotPath=Join-Path $candidate 'pilot-credentials.dpapi'
+        $operationPath=Join-Path $candidate 'vmware-operation.dpapi'
+        if(-not(Test-Path -LiteralPath $pilotPath) -or -not(Test-Path -LiteralPath $operationPath)){continue}
+        if((Get-Item -LiteralPath $candidate).Attributes -band [IO.FileAttributes]::ReparsePoint){continue}
+        try{
+            $access=(Read-ProtectedBundle $pilotPath)|ConvertFrom-Json
+            $identity=(Read-ProtectedBundle $operationPath)|ConvertFrom-Json
+            if($access.operation_id -ne $identity.id -or -not $access.username -or -not $access.password){continue}
+            if($candidate -eq $primary){return Get-PhysicalArcIARoot $primary}
+            $valid+=,$candidate
+        }catch{
+            # Another Windows account's DPAPI data is never adopted.
+        }finally{$access=$null;$identity=$null}
+    }
+    if($valid.Count -eq 1){return Get-PhysicalArcIARoot $valid[0]}
+    if($valid.Count -gt 1){throw 'MULTIPLE_PROTECTED_ARCIA_STATES_REFUSED'}
+    throw 'PROTECTED_DASHBOARD_CREDENTIALS_NOT_FOUND_FOR_CURRENT_WINDOWS_USER'
+}
+
 function Initialize-PrivateDirectory {
     param([Parameter(Mandatory=$true)][string]$Path)
     $fullPath = [IO.Path]::GetFullPath($Path)

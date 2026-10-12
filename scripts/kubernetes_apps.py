@@ -124,6 +124,17 @@ def hermes(lock, config, pilot):
                             {'name':'tmp','mountPath':'/tmp'}]}],
                     'volumes':[{'name':'state','persistentVolumeClaim':{'claimName':'hermes-pilot-state'}},
                         {'name':'config','configMap':{'name':'hermes-pilot-config'}},{'name':'tmp','emptyDir':{'sizeLimit':'512Mi'}}]}}}}]
+    if lock.get('hermes_tools',{}).get('enabled'):
+        import hermes_tools
+        hermes_tools.augment(docs)
+    if lock.get('knowledge',{}).get('enabled'):
+        import knowledge_client
+        cm=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name']=='hermes-pilot-config')
+        settings=yaml.safe_load(cm['data']['config.yaml'])
+        knowledge_client.augment(docs,settings)
+        cm['data']['config.yaml']=yaml.safe_dump(settings,sort_keys=False)
+        deployment=next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
+        deployment['spec']['template']['metadata']['annotations']['arcia.io/config-sha256']=hashlib.sha256(cm['data']['config.yaml'].encode()).hexdigest()
     return docs
 
 

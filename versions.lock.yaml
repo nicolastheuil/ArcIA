@@ -65,9 +65,9 @@
     },
     "omniroute": {
       "source": "https://github.com/diegosouzapw/OmniRoute",
-      "version": null,
+      "version": "3.8.51",
       "image_digest": null,
-      "status": "pending_qualification"
+      "status": "package_installed_providers_disabled"
     }
   },
   "vmware_foundation": {
@@ -201,5 +201,17 @@
     "url": "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v1.30.1/cnpg-1.30.1.yaml",
     "upstream_sha256": "37237f145d8138256ea25ae830f87759255665ff08f8d552fdd8224a5ec032fb",
     "rendered_sha256": "e978726f665b83492e470d562e538c1516d3ff01918bd504e728d6dffdbb4e8b"
+  },
+  "hermes_tools": {
+    "enabled": true,
+    "location": "hermes_pod_rwop_readonly_tools_volume",
+    "catalog": "builder/tools.lock.json"
+  },
+  "knowledge": {
+    "enabled": true,
+    "mode": "private_synthetic_qualification",
+    "models": "services/knowledge/models.lock.json",
+    "dependencies": "services/knowledge/requirements.lock.txt",
+    "ocr_qualified": false
   }
 }

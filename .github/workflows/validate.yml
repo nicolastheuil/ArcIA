@@ -25,6 +25,11 @@ jobs:
           DISABLE_TELEMETRY: '1'
         run: lintlang scan AGENTS.md builder/role.md --format json
       - run: python scripts/harness.py plan --config examples/synthetic/instance.json
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.7.0'
+      - run: npm ci --prefix validation --ignore-scripts --no-audit --no-fund
+      - run: node validation/diagrams.mjs
   powershell:
     runs-on: windows-2025
     timeout-minutes: 5

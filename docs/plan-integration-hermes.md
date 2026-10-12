@@ -1,5 +1,8 @@
 # Plateforme Hermes mutualisée — plan intégral d’intégration
 
+> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
+
+
 **Date : 11 octobre 2026 — version 1.2, cible Debian / K3s / Codex**
 **Destinataire : IA Platform Engineer avec Codex sous Windows ; adaptateur Kilo facultatif, et ingénieurs administrateurs de la plateforme.**
 

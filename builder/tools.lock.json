@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "checked_at": "2026-10-12",
-  "scope": "builder_only_synthetic",
+  "scope": "hermes_k3s_qualification",
   "telemetry_enabled": false,
   "hooks_enabled": false,
   "tools": {
@@ -33,22 +33,49 @@
       "source": "https://github.com/obra/superpowers",
       "revision": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
       "license": "MIT",
-      "selected_skills": ["verification-before-completion", "systematic-debugging", "receiving-code-review", "test-driven-development"],
+      "selected_skills": [
+        "verification-before-completion",
+        "systematic-debugging",
+        "receiving-code-review",
+        "test-driven-development"
+      ],
       "automatic_bootstrap": false
     },
     "ecc": {
       "source": "https://github.com/affaan-m/ECC",
       "revision": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
       "license": "MIT",
-      "selected_skills": ["python-patterns", "postgres-patterns"],
+      "selected_skills": [
+        "python-patterns",
+        "postgres-patterns"
+      ],
       "learning_enabled": false,
       "session_export_enabled": false
+    },
+    "rtk": {
+      "version": "0.51.0",
+      "source": "https://github.com/rtk-ai/rtk",
+      "license": "MIT",
+      "asset_url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-x86_64-unknown-linux-musl.tar.gz",
+      "sha256": "5028d3b19a8f0990d30fec9fbb07e32782bc5698e618fb1861aad8a9ccba4eb5",
+      "hooks_enabled": false
+    },
+    "headroom": {
+      "package": "headroom-ai",
+      "version": "0.40.0",
+      "source": "https://github.com/headroomlabs-ai/headroom",
+      "compression_mode": "local_explicit",
+      "memory_enabled": false
+    },
+    "omniroute": {
+      "package": "omniroute",
+      "version": "3.8.51",
+      "source": "https://github.com/diegosouzapw/OmniRoute",
+      "providers_enabled": false
     }
   },
   "deferred": {
-    "rtk": "builder pilot, not adopted before benchmark",
     "graphify": "code-only pilot pending network isolation and qualification",
-    "headroom": "optional after compression benchmark",
     "ponytail": "optional punctual review",
     "public_apis": "watch catalog, not an executable service"
   }

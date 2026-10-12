@@ -1,96 +1,98 @@
-# PostgreSQL, pgvector et ingestion documentaire
+# Connaissance documentaire : PDF, API et schémas
 
-Décision cible : PostgreSQL pour les données partagées et la recherche hybride.
-**Déployé/vérifié** : base CNPG à trois instances, extension vectorielle et
-requête synthétique, réplication synchrone et bascule contrôlée.
-**À développer** : collecte, parsing/OCR, embeddings locaux, index documentaires,
-API de recherche, ACL et citations. Aucun corpus métier n’est ingéré.
+**Déployé dans K3s et vérifié sur fixtures synthétiques le 12 octobre 2026.** Le service privé `arcia-knowledge/knowledge` utilise PostgreSQL/pgvector, E5 multilingue et mLateOn en CPU local. Hermes y accède par deux outils MCP en lecture seule. Aucun corpus client n’est ingéré, aucun appel LLM n’est activé. [Code](../services/knowledge/server.py) · [Schéma SQL](../services/knowledge/schema.sql) · [Déploiement](../scripts/knowledge_deploy.py).
 
-## Pourquoi PostgreSQL
-
-Le même socle pourra héberger registre client/mission, droits, tâches durables,
-métadonnées documentaires et fragments. Hermes conserve sa mémoire SQLite native
-sur son propre PVC ; PostgreSQL ne remplace pas ce fichier dans le pilote.
-
-pgvector fournit distances vectorielles, recherche exacte et index approximatifs
-dont HNSW. PostgreSQL fournit recherche plein texte et index textuels. Les deux
-permettent une recherche hybride ; leur seule présence ne crée pas le pipeline.
-Sources : [pgvector](https://github.com/pgvector/pgvector),
-[PostgreSQL full-text](https://www.postgresql.org/docs/18/textsearch.html).
-
-## Pipeline cible
+## Parcours d’une question
 
 ```mermaid
 flowchart TD
-  CAT["Catalogue produit / version / sources"] --> FETCH["Collecte autorisée et bornée"]
-  FETCH --> Q["Quarantaine : type, taille, hash, provenance"]
-  Q --> PARSE["Extraction locale / Docling / OCR"]
-  PARSE --> CH["Fragments structurés + pages + ACL"]
-  CH --> EMB["Embeddings multilingues locaux"]
-  CH --> TXT["Index textuel PostgreSQL"]
-  EMB --> VEC["Vecteurs pgvector"]
-  Q --> ARCH["Originaux et manifestes versionnés protégés"]
-  TXT --> PUB["Publication atomique de la version"]
-  VEC --> PUB
-  PUB --> SEARCH["Recherche serveur : droits, produit, version"]
-  SEARCH --> FUSE["Fusion texte / sémantique"]
-  FUSE --> CITE["Extraits autorisés et citations vérifiables"]
+  A["Question : produit, version, besoin"] --> B["Identité du token : périmètre imposé côté serveur"]
+  B --> T["Texte exact : références / operationId / erreurs"]
+  B --> V["Vecteur E5 du passage"]
+  B --> H["Vecteur E5 du titre / produit / version"]
+  T --> R["Fusion RRF : 30 candidats maximum"]
+  V --> R
+  H --> R
+  R --> L["mLateOn : MaxSim entre vecteurs de tokens"]
+  L --> C["5 résultats par défaut : extrait, version, localisateur, source, hash"]
+  C --> O["Original ou schéma éditable autorisé"]
 ```
 
-Dédupliquer par hash, conserver les versions encore utiles et garder l’ancienne
-version publiée si l’ingestion suivante échoue. Les PDF/images sont analysés
-localement dans des workers isolés. Démarrer avec un worker OCR lourd et une file
-distincte des missions interactives. HTML et release notes font aussi partie du corpus.
+La première étape rappelle les références exactes et les formulations proches en français/anglais. Les branches imposent les mêmes droits et filtres produit/version. RRF fusionne leurs rangs ; MaxSim compare chaque token de la question avec les tokens des 30 passages candidats. Le résultat conserve les références ; le texte documentaire reste une donnée non fiable, sans autorité sur les outils.
 
-## Schéma logique à implémenter
+`knowledge_search` accepte question, produit/version facultatifs et 1 à 10 résultats. `knowledge_download_asset` télécharge un asset autorisé sous `/opt/data/knowledge-assets/<document-id>/` et retourne chemin et SHA256. Il ne l’exécute pas. Aucun outil MCP d’ingestion, SQL arbitraire ou changement de périmètre n’est exposé à Hermes. [Client MCP](../services/knowledge/mcp_client.py).
 
-| Objet | Métadonnées essentielles |
-|---|---|
-| Source | Éditeur, domaines autorisés, droits d’accès, fréquence, état de collecte |
-| Document/version | Identifiant, hash, produit, version, langue, provenance, classe d’accès |
-| Fragment | Document/version, section/page, texte, empreinte, ACL/périmètre |
-| Embedding | Fragment, modèle/révision, dimension, normalisation et vecteur |
-| Publication | Ensemble cohérent de fragments/index, état et date |
-| Tâche | Lease, tentatives bornées, idempotence, résultat et erreur assainie |
+## Ingestion et publication
 
-Le format exact et les migrations restent à coder. Un changement de modèle ou de
-dimension exige une réindexation versionnée. Les originaux restent dans un
-stockage d’objets/fichiers protégé ; les vecteurs se reconstruisent.
+```mermaid
+flowchart LR
+  F["Source choisie par l’ingénieur"] --> B["Type / taille / références / provenance"]
+  B --> P["Extraction locale structurée"]
+  P --> W["Fenêtres de tokens avec recouvrement"]
+  W --> E["E5 : titre et corps / mLateOn : tokens FP16"]
+  E --> TX["Transaction PostgreSQL : publication cohérente"]
+  B --> O["Original SHA256 et assets sur PVC"]
+  TX --> R["Recherche autorisée et citations"]
+```
 
-## ACL et qualité des résultats
+Maximum : 32 Mio par original, 1 000 pages PDF, 2 000 fragments après découpage, 64 Mio d’assets illustrés par PDF. Fenêtres de 220 tokens documentaires avec recouvrement, plafond de 256 vecteurs par fragment ; question plafonnée à 64 vecteurs. Un dépassement ou une extraction insuffisante refuse la publication. L’original complet conserve les parties non retournées dans un extrait.
 
-Le serveur établit l’identité et le périmètre avant la récupération. Il impose
-les filtres client, classe d’accès, produit et version dans chaque branche de
-recherche, puis les revérifie lors de l’accès direct/citation/export/cache.
-RLS avec rôles DB non propriétaires ou API dédiée est à qualifier ; un filtre
-envoyé volontairement par l’agent ne suffit pas.
+Déduplication par périmètre, produit, version et hash de source. Les métadonnées et fragments sont publiés dans une transaction ; une erreur ne publie pas une moitié d’index. Des fichiers orphelins peuvent rester après un échec SQL et doivent être réconciliés ; aucun nettoyage automatique des versions n’est activé. L’ingestion est séquentielle pour borner mémoire et écritures. File durable, leases, collecte planifiée et ingestion concurrente restent à développer.
 
-Avec un index vectoriel approximatif, filtrer peut diminuer le nombre de voisins
-retournés. Mesurer rappel, paramètres de parcours et éventuel partitionnement
-par périmètre ; ne jamais élargir l’ACL pour remplir le top-k.
-Les documents sont des données non fiables : leur texte ne peut autoriser un outil.
+## Formats et fidélité
 
-## Des centaines de PDF : dimensionner en fragments
+| Source | Traitement actuel | Conservation / réutilisation |
+|---|---|---|
+| PDF textuel | Texte ordonné par page, tableaux, fragments | Original complet, page/localisateur, PNG des pages illustrées |
+| PDF scanné ou page presque vide | Refus avec besoin OCR | Aucun index trompeur publié ; OCR avancé à qualifier |
+| Guide Markdown / texte | Fragments avec recouvrement | Original complet et sections |
+| OpenAPI JSON/YAML | Fragments par méthode, chemin et operationId ; paramètres, réponses, composants et version | Original complet ; aucune exécution d’appel API |
+| JSON Schema | Fragments structurés et conservation des `$ref` internes | Résolution distante refusée ; schéma original téléchargeable |
+| Mermaid / SVG / draw.io | Source et contenu recherchables dans les limites du parseur | Original éditable et empreinte ; téléchargement en pièce jointe |
 
-Exemple de travail, **pas mesure du corpus** : 500 PDF × 200 fragments donne
-100 000 vecteurs. À 768 dimensions en float32, les seules coordonnées représentent
-environ 293 Mio par copie. Ajouter textes, métadonnées, index, overhead, WAL,
-réplication et backups. Les volumes PostgreSQL actuels de 20 Gi par instance
-sont ceux de la qualification, pas une capacité documentaire garantie.
+Les schémas provenant d’un PDF conservent la page, ses légendes et son image. Ils sont retrouvés via le texte associé ; **la compréhension visuelle des flèches et symboles n’est pas encore indexée par un modèle multimodal**. Les fichiers draw.io compressés restent préservés, mais leurs libellés compressés ne bénéficient pas d’une extraction sémantique complète. Les tableaux complexes et PDF multicolonnes doivent entrer dans le benchmark d’extraction.
 
-Le choix PostgreSQL est un bon point de départ pour cette échelle envisagée.
-La limite réelle dépend de la longueur des manuels, du modèle, du matériel,
-du filtrage, des index et de la concurrence. Un moteur vectoriel séparé sera
-étudié si les mesures montrent un besoin de distribution ou d’isolation de charge.
+Une adaptation est un nouveau document avec `parent_id`, nouveau hash, produit/version et provenance. `reconstruction=true` impose un parent autorisé et signale une reconstruction à vérifier. Un schéma éditable original peut être téléchargé puis adapté dans l’espace de travail d’Hermes. Une image ne devient pas automatiquement un diagramme fidèle : il faut vérifier connexions, légendes et conventions avant usage.
 
-## Recette avant ingestion élargie
+Les références de schéma distantes, entités XML, scripts SVG et handlers actifs sont refusés. Les assets sont servis comme fichiers téléchargés avec `nosniff`, sans rendu HTML/SVG automatique. Le service ne collecte aucune URL fournie par un document ; le champ source est une provenance, pas une commande de téléchargement.
 
-Utiliser un corpus synthétique/représentatif autorisé : PDF textuels, scans,
-tableaux, français/anglais, versions proches et références techniques exactes.
-Mesurer temps OCR/indexation, mémoire/CPU, croissance disque/WAL, latence p50/p95,
-rappel à k, pertinence des citations et erreurs d’extraction. Comparer recherche
-textuelle, exacte et hybride, avec charge concurrente et après bascule PG.
+## Modèles et stockage
 
-Les tests négatifs couvrent ACL, accès direct, révoqués, caches et versions.
-Le [plan §12](plan-integration-hermes.md) décrit catalogue, fraîcheur, licences,
-budgets et archivage ; le [backlog](backlog.md) suit l’implémentation.
+| Modèle | Usage | Dimension / fixation |
+|---|---|---|
+| intfloat/multilingual-e5-small | Passage et titre, préfixes query/passage, normalisation | 384 dimensions, révision `614241f622f53c4eeff9890bdc4f31cfecc418b3` |
+| lightonai/mLateOn | Interaction tardive multilingue, MaxSim | 128 dimensions par token, révision `bbd883ae1fadb563056ff73b1061ae8172a3fcda` |
+
+Chaque fichier de modèle a son SHA256 et sa taille dans [models.lock.json](../services/knowledge/models.lock.json). Safetensors seulement pour les poids, `trust_remote_code=false`, chemins locaux et mode hors ligne. Les wheels Python/Torch CPU sont fixés avec hashes dans [requirements.lock.txt](../services/knowledge/requirements.lock.txt). L’installation ne télécharge pas de pile CUDA.
+
+PostgreSQL conserve documents, versions, ACL/périmètres, textes, index GIN, deux vecteurs pgvector/HNSW par fragment et matrices de tokens FP16 en bytea. Le calcul MaxSim est effectué dans le service CPU sur les candidats ; pgvector ne fournit pas ici un index MaxSim natif. Le PVC `knowledge-runtime` 10 Gi contient dépendances/modèles, montés en lecture seule ; `knowledge-data` 20 Gi contient originaux, manifests et assets, avec un propriétaire RWOP.
+
+## Choix et coûts
+
+Le multi-vecteur affine la correspondance entre termes, paramètres et concepts sans les réduire immédiatement à un seul point. Les gains attendus concernent les passages denses, procédures proches et correspondances multilingues ; **leur amplitude reste à mesurer sur les manuels éditeurs**. Les références exactes et les versions gardent une branche textuelle.
+
+À 256 tokens × 128 dimensions × 2 octets, la matrice représente 64 Kio par fragment. Pour 100 000 fragments : environ 6,1 Gio par copie PostgreSQL, contre 293 Mio pour les deux seuls vecteurs 384D float32. Ajouter textes, HNSW/GIN, tables, WAL, réplication et backups. Trois réplicas multiplient l’occupation physique ; les PVC PostgreSQL actuels de 20 Gi restent des volumes de qualification, pas une capacité garantie.
+
+Les 30 candidats et deux threads CPU bornent le reclassement. Le service mono-requête met ingestion et questions en concurrence pour la même capacité : ingestion à planifier hors interactions dans ce pilote. Une recherche sur quelques fixtures a pris environ 0,14 seconde ; ce chiffre ne prédit ni p95 ni débit à 100 000 fragments.
+
+La meilleure trajectoire pour ce corpus combine ce parcours déjà déployé et une qualification supplémentaire de Docling/OCR et ColPali sur les documents visuels difficiles. ColPali peut retrouver une page à partir de sa composition et de ses diagrammes, avec un coût modèle/stockage/inférence supérieur ; il ne faut pas l’activer uniformément sans mesurer sa valeur. Sources primaires : [ColBERT](https://arxiv.org/abs/2004.12832), [ColPali](https://arxiv.org/abs/2407.01449), [mLateOn](https://huggingface.co/lightonai/mLateOn), [E5 multilingue](https://huggingface.co/intfloat/multilingual-e5-small), [pgvector](https://github.com/pgvector/pgvector).
+
+## Droits et réseau
+
+Les tokens du pilote lient côté serveur rôle et périmètre synthétiques A/B. Le corps d’une requête ne peut pas choisir son périmètre. Le token fourni à Hermes est en lecture seule pour A, séparé du compte PostgreSQL et des tokens d’ingestion. RLS est activé et forcé sur documents/fragments ; le rôle DB n’est ni propriétaire, ni superuser, ni BYPASSRLS. Le service est le point de confiance qui fixe `arcia.scope` pour chaque transaction.
+
+Ces tokens de qualification **ne remplacent pas Entra ni les droits de missions métier**. Les tests A/B prouvent cette frontière de service, pas un IAM multiclient complet. L’API n’a pas de route publique ; ingress limité à Hermes. Le runtime ne sort que vers DNS et PostgreSQL. Le Job de construction seul accède aux sources publiques HTTPS. Les secrets restent dans Kubernetes chiffré et les programmes d’administration protégés, jamais dans Git ou les réponses de recherche.
+
+## Recette et exploitation
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_knowledge
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_knowledge
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_hermes_tools
+```
+
+La recette réelle couvre PDF textuel et page illustrée, refus d’un PDF inexploitable, OpenAPI, déduplication, deux versions, dérivé éditable, recherche multivecteur/citations, filtres, refus A/B sur recherche et asset, lecture seule, anonymes, scope imposé, références externes/SVG actif, aller-retour d’original, RLS sans propriétaire/bypass, refus Internet et modèles en lecture seule. Elle utilise uniquement des fixtures synthétiques et peut être relancée.
+
+L’ingestion de documents publics autorisés doit passer par le rôle opérateur du service privé, après choix des métadonnées produit/version/source. Aucun outil d’ingestion libre n’est donné à Hermes. La collecte automatisée et une interface d’import opérateur dédiée restent au backlog ; le programme de recette [probe.py](../services/knowledge/probe.py) illustre le protocole sans exposer de token.
+
+Avant corpus large : benchmark représentatif PDF/API/schémas français/anglais, rappel@k, MRR, citations et fidélité d’extraction, latences p50/p95, CPU/RAM, WAL/disque, droits après révocation, panne et restauration. Les originaux et PostgreSQL doivent être sauvegardés de façon cohérente ; les index se reconstruisent à partir des sources et des modèles fixés. [Backlog](backlog.md) · [Sauvegarde](runbooks/sauvegarde-reconstruction.md).

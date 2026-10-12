@@ -248,6 +248,26 @@ def install_postgres(values):
 
 
 def install_hermes(values):
+    # Reconcile the two resources patched by the first tools installer. This
+    # narrow migration is restricted to our operation and a verified catalog;
+    # normal application continues without force-conflicts for every other object.
+    current=kubectl('get','deployment','hermes-pilot','-n','arcia-hermes','--ignore-not-found','-o','json')
+    if current:
+        current=json.loads(current)
+        if current['metadata'].get('annotations',{}).get('arcia.io/operation-id')!=values['operation_id']:
+            raise ValueError('FOREIGN_HERMES_DEPLOYMENT')
+        desired=next(d for d in values['hermes'] if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
+        old_hash=current['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/tools-sha256')
+        new_hash=desired['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/tools-sha256')
+        if old_hash and old_hash!=new_hash:raise ValueError('TOOLS_CATALOG_REINSTALL_REQUIRED')
+        if old_hash:
+            for kind,name in [('ConfigMap','hermes-pilot-config'),('Deployment','hermes-pilot')]:
+                existing=owned(kind,name,'arcia-hermes',values['operation_id'])
+                existing=json.loads(kubectl('get',kind,name,'-n','arcia-hermes','--show-managed-fields=true','-o','json'))
+                if any(m['manager']=='kubectl-patch' for m in existing['metadata'].get('managedFields',[])):
+                    doc=next(d for d in values['hermes'] if d['kind']==kind and d['metadata']['name']==name)
+                    doc['metadata'].setdefault('annotations',{})['arcia.io/operation-id']=values['operation_id']
+                    kubectl('apply','--server-side','--force-conflicts','--field-manager=arcia-foundation','-f','-',document=doc)
     apply_owned(values['hermes'],values['operation_id'])
     try:
         kubectl('rollout','status','deployment/hermes-pilot','-n','arcia-hermes','--timeout=600s',timeout=620)
@@ -349,7 +369,10 @@ def qualify_apps(values):
     db_service=json.loads(kubectl('get','service','arcia-postgres-rw','-n','arcia-data','-o','json'))['spec']['clusterIP']
     probe="import socket;s=socket.socket();s.settimeout(3);print(s.connect_ex(('"+db_service+"',5432))!=0);s.close()"
     checks['hermes_cross_namespace_egress_denied']=python(pod,probe)=='True'
-    checks['hermes_dns_egress_denied']=python(pod,"import socket;socket.setdefaulttimeout(3)\ntry:\n socket.getaddrinfo('kubernetes.default.svc.cluster.local',443);print(False)\nexcept OSError: print(True)")=='True'
+    dns_probe=python(pod,"import socket;socket.setdefaulttimeout(3)\ntry:\n socket.getaddrinfo('kubernetes.default.svc.cluster.local',443);print(True)\nexcept OSError: print(False)")=='True'
+    if deployment['spec']['template']['metadata'].get('annotations',{}).get('arcia.io/tools-sha256'):
+        checks['hermes_internal_dns_allowed']=dns_probe
+    else:checks['hermes_dns_egress_denied']=not dns_probe
     kubectl('delete','pod',pod['metadata']['name'],'-n',ns,'--wait=true','--timeout=90s',timeout=100)
     kubectl('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=180s',timeout=200)
     pod=hermes_pod()

@@ -1,5 +1,8 @@
 # Architecture réelle du harness
 
+> Actualisation du 12 octobre 2026 : outils dans Hermes/K3s, livraison directe sur main, certificat public déployé et recherche hybride/multi-vecteur locale opérationnelle en qualification synthétique. Voir [handoff actuel](handoff-2026-10-12-documentation-multivecteur.md), [outillage Hermes](outillage-builder.md) et [pipeline documentaire/API/schémas](connaissance-documentaire.md). Les décisions historiques de placement builder/PR et l’ancien statut TLS différé sont remplacés par ces décisions utilisateur.
+
+
 État observé le 12 octobre 2026. Le socle décrit ici est déployé ; les
 [schémas de plateforme](schemas-plateforme-hermes.md) présentent aussi les
 services métier à construire. Voir [la recette](runbooks/recette-fondatrice.md).

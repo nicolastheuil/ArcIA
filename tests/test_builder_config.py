@@ -6,10 +6,28 @@ import tomllib
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
-from register_builder_mcp import register
+from register_builder_mcp import register,unregister
 
 
 class BuilderConfigTests(unittest.TestCase):
+    def test_unregister_preserves_unrelated_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'config.toml'
+            original='model="synthetic"\n[mcp_servers.other]\nurl="https://example.invalid"\n'
+            path.write_text(original,encoding='utf-8')
+            value={'config_path':str(path),'node':'node','entry':'owned.js'}
+            register(value);unregister(value)
+            self.assertEqual(tomllib.loads(path.read_text()),tomllib.loads(original))
+            self.assertEqual(unregister(value)['code'],'LOCAL_CONTEXT7_ABSENT')
+
+    def test_unregister_refuses_foreign_entry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'config.toml'
+            original='[mcp_servers.arcia_context7]\nargs=["foreign.js"]\n'
+            path.write_text(original)
+            with self.assertRaisesRegex(ValueError,'FOREIGN_CONTEXT7'):
+                unregister({'config_path':str(path),'entry':'owned.js'})
+            self.assertEqual(path.read_text(),original)
     def test_preserves_other_settings_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'config.toml'

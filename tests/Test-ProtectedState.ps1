@@ -21,9 +21,15 @@ try {
     if (-not $workspaceBlocked) { throw 'WORKSPACE_NOT_BLOCKED' }
     $rules = (Get-Acl -LiteralPath $testDirectory).Access
     if (@($rules).Count -ne 1 -or $rules[0].IsInherited) { throw 'ACL_NOT_RESTRICTED' }
+    $operationPath=Join-Path $testDirectory 'vmware-operation.dpapi'
+    Save-ProtectedBundle -Path $operationPath -Bundle '{"id":"synthetic-operation"}'
+    $physicalRoot=Get-PhysicalArcIARoot $testDirectory
+    if(-not(Test-Path -LiteralPath (Join-Path $physicalRoot 'vmware-operation.dpapi'))){throw 'PHYSICAL_PATH_NOT_RESOLVED'}
+    Remove-Item -LiteralPath $operationPath
     Write-Host 'DPAPI_ROUNDTRIP_OK; ATOMIC_REPLACEMENT_OK; PLAINTEXT_ABSENT; OVERWRITE_BLOCKED; WORKSPACE_BLOCKED; ACL_RESTRICTED'
 } finally {
     # Exact synthetic files only, no recursive directory removal.
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
+    if ($operationPath -and (Test-Path -LiteralPath $operationPath)) {Remove-Item -LiteralPath $operationPath}
     if (Test-Path -LiteralPath $testDirectory) { Remove-Item -LiteralPath $testDirectory }
 }

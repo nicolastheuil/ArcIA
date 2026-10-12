@@ -43,7 +43,11 @@ class ApplicationSecurityTests(unittest.TestCase):
         for doc in documents:
             self.assertNotIn(self.pilot['password'],json.dumps(doc))
             if doc['kind']!='Secret': self.assertNotIn(self.pilot['session_secret'],json.dumps(doc))
-            if doc['kind']=='NetworkPolicy': self.assertFalse(doc['spec'].get('egress'))
+            if doc['kind']=='NetworkPolicy' and doc['metadata']['name']=='deny-all':
+                self.assertFalse(doc['spec'].get('egress'))
+        mounts=deploy['spec']['template']['spec']['containers'][0]['volumeMounts']
+        self.assertTrue(next(m for m in mounts if m['name']=='tools')['readOnly'])
+        self.assertIn('knowledge-token',[m['name'] for m in mounts])
         encoded=next(d for d in documents if d['kind']=='Secret')['stringData']['HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH']
         scheme,n,r,p,salt,derived=encoded.split('$')
         self.assertEqual(scheme,'scrypt')

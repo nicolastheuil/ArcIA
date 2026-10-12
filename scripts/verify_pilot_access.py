@@ -31,6 +31,11 @@ def verify(payload):
             return response.status,content
         finally: connection.close()
     checks={}
+    if payload.get('public_acme'):
+        public_context=ssl.create_default_context()
+        with socket.create_connection((address,443),timeout=15) as raw:
+            with public_context.wrap_socket(raw,server_hostname=host) as tls:
+                checks['public_ca_chain_and_hostname']=bool(tls.getpeercert())
     checks['tls_hostname_and_pinned_certificate']=request('GET','/api/health')[0]==200
     checks['anonymous_config_denied']=request('GET','/api/config')[0] in (401,403)
     checks['wrong_password_denied']=request('POST','/auth/password-login',

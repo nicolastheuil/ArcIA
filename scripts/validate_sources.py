@@ -49,7 +49,7 @@ if (ROOT/'builder/catalog.lock.json').exists():
     catalog=json.loads((ROOT/'builder/catalog.lock.json').read_text(encoding='utf-8'))
     for relative,expected in catalog['files'].items():
         path=ROOT/relative
-        if not path.resolve().is_relative_to((ROOT/'.agents/skills').resolve()) or path.is_symlink():
+        if not path.resolve().is_relative_to((ROOT/'deploy/hermes/skills').resolve()) or path.is_symlink():
             raise RuntimeError('BUILDER_SKILL_PATH_REFUSED')
         if hashlib.sha256(path.read_bytes()).hexdigest()!=expected:
             raise RuntimeError('BUILDER_SKILL_HASH_MISMATCH')
