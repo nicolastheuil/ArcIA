@@ -1,40 +1,38 @@
-# Backlog — préparation ArcIA
+# Backlog ArcIA — 12 octobre 2026
 
-Mis à jour : 2026-10-12. Codé ne signifie pas déployé ou qualifié.
+Référence : [handoff courant](handoff-2026-10-12-qualification-verifiee.md).
+La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
+Périmètre courant : socle/Hermes synthétiques, documentation et outillage builder
+retenu au §25. Les services métier ne sont pas activés par cette demande.
 
-État courant prioritaire : [handoff socle de qualification](handoff-2026-10-12-socle-qualification.md).
-PREP-05 : K3s trois serveurs Ready ; PREP-09/L0-01 : CPI 1.37.0 et CSI 3.7.3
-déployés, cinq essais RWOP vérifiés, PostgreSQL prêt 3/3. L0-02 : Hermes prêt
-1/1 en isolation sans appels IA ; HTTPS non prêt, correction NGINX codée à appliquer.
-Failover PG, fencing/perte de nœud, sauvegardes et rebuild non exécutés.
-La table historique ci-dessous conserve le contexte initial ; le handoff prévaut.
+| ID | Travail | État réel / suite |
+|---|---|---|
+| PREP-01 | Sources intégrales, inventaire, backlog/ADR | Réalisé ; documentation actualisée |
+| PREP-02 | Versions et artefacts épinglés | Images/hashes fixés ; support et lock de release incomplets |
+| PREP-03 | Wizard, DPAPI/ACL, configuration privée | Codé et utilisé ; export portable actuel à renouveler |
+| PREP-04 | SSH hors bande et préflight | Vérifié 3/3 |
+| PREP-05 | K3s trois serveurs | Déployé/vérifié ; wrappers et extraction au démarrage à revoir |
+| PREP-06 | Namespaces, quotas, comptes et réseau | Appliqué pour apps ; refus Hermes observés, admission métier à compléter |
+| PREP-07 | GitHub dédié privé | Créé ; privé et droits d’écriture revérifiés |
+| PREP-08 | VM, identités et domaines ESXi | Vérifié 3/3 avec anti-affinité |
+| PREP-09 | CPI/CSI, compte technique et stockage | Déployé ; 5 essais CSI réussis ; fencing brutal/RWX restants |
+| PREP-10 | VIP API/HTTPS et réseau privé | Bascule réelle contrôlée vérifiée, 18 sondes ; panne brutale restante |
+| L0-01 | CNPG/PostgreSQL/pgvector | Déployé 3/3 ; 6 checks SQL/réplication/switchover réussis |
+| L0-02a | Hermes et HTTPS locaux | Déployé ; 6 checks Hermes, 6 HTTPS/auth ; Desktop/WS/SSE restants |
+| L0-02b | TLS public pour les deux noms demandés | Certbot prêt, demande suspendue par utilisateur ; reprise après DNS |
+| L0-02c | Entra/OIDC métier et bot Teams | À développer ; hors socle actuel |
+| L0-03 | Policy/RBAC, sanitizer, sortie IA unique | À développer et tester avant client/appel cloud |
+| L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
+| L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
+| L0-06 | Outils builder §25, provenance/licences | Context7/skills/LintLang installés ; 6 skills Superpowers/ECC, hashes/licences ; MCP/requête générique et scans vérifiés ; chargement au prochain tour |
+| L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
+| L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |
+| L2 | Plans immuables, approbations Teams, capacités uniques/réconciliation | Après L1 |
+| L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Conception documentée ; aucun pipeline opérationnel |
+| L4 | Fencing/panne de nœud, cinq missions, deuxième ingénieur/rebuild/SBOM | Gate de release |
+| L5 | RTK/Graphify pilotes, compression/Headroom et autres options | Désactivés tant que qualification non conclue |
 
-| ID | Lot | Travail | État / gate |
-|---|---|---|---|
-| PREP-01 | Préparation | Lire intégralement les sources, inventorier poste et fichiers | Vérifié localement |
-| PREP-02 | Préparation | ADR, versions officielles, rôle et reprise | Codé/documenté |
-| PREP-03 | Préparation | Wizard DPAPI, validation stricte, rendu privé | Codé ; tests synthétiques locaux |
-| PREP-04 | Préparation | Préflight SSH sans mutation et sans sorties brutes | Vérifié sur les trois VM via SSH strict et sudo ; preuves détaillées protégées |
-| PREP-05 | Préparation | Ansible K3s épinglé et idempotence bornée | Exécuté ; premier serveur préparé puis échec k3s-server/PATH ; arrêt contrôlé pour handoff, cause à corriger avant reprise |
-| PREP-06 | Préparation | Namespaces restreints, deny-all, quotas, identités | Codé ; API/admission non testées |
-| PREP-07 | Préparation | Compte/dépôt privé, identité et droits | Créé : nicolastheuil/arcia-harness ; privé et ADMIN vérifiés |
-| PREP-08 | Préparation | Trois VM, empreintes SSH, DNS/NTP et ressources | Vérifié : trois Debian 13, clés SSH hors bande conservées, sudo, identités Linux uniques, DNS/NTP, ressources, tools, cgroups, swap absent et TUN ; K3s non installé |
-| PREP-09 | Préparation | ESXi/domaines de panne, CPI/CSI, policy, comptes minimum | vCenter/ESXi 9.1.1 ; vSAN partagé, dix policies compatibles PBM ; compte SSO créé ; quatre rôles, dix objets, droits effectifs positifs/négatifs vérifiés ; CPI/CSI non qualifiés |
-| PREP-10 | Préparation | API/HTTPS avec bascule, CIDR sans recouvrement, firewall | DNS vérifiés 3/3 ; 54/54 ports et 12/12 contrôles transport VIP avec bascule/retrait qualifiés ; API K3s réelle à tester ; réseaux futurs inconnus |
-| L0-01 | 0 | Digests/artefacts, CPI/CSI/ingress et PG/pgvector | CPI 1.35.1 et CSI 3.7.3 : quatre manifests et neuf images épinglés ; non déployés ; autres composants à préparer |
-| L0-07 | 0 | Contrôle de routes à chaque connexion VPN, refus des conflits, isolation et kill switch | À développer avant activation d'un VPN client ; aucun inventaire futur réputé exhaustif |
-| L0-02 | 0 | Hermes synthétique, Desktop, OIDC, Entra et Teams | À développer et tester |
-| L0-03 | 0 | Policy serveur, sanitizer complet, sortie unique mock | À développer et tester |
-| L0-04 | 0 | Launcher typé, VPN personnel synthétique, kill switch/reaper | À développer et tester |
-| L0-05 | 0 | Backup chiffré cohérent, restore safe-mode et rebuild | À développer et tester |
-| L0-06 | 0 | Qualification skills/hooks §25, licences/provenance | Pilotes désactivés |
-| L1 | 1 | Registre/RBAC, coffres individuels, lecture, rapports, docs réduites | Après gates lot 0 |
-| L2 | 2 | Plans immuables, Teams, capacités uniques, verrou et réconciliation | Après lot 1 |
-| L3 | 3 | Brigade, collecte documentaire, ACL/recherche, promotion REX | Après fondations |
-| L4 | 4 | Rebuild deuxième ingénieur, revue confidentialité, release/SBOM | Aucun statut release avant recette |
-| L5 | 5 | Benchmarks compression et connecteurs supplémentaires | Facultatif, désactivé au bootstrap |
-
-Les services métier sont absents. Ne pas remplacer leur développement par des
-conteneurs vides ou des réponses fictives. La recette complète reste celle du §19,
-complétée par §25 et §26 : IAM/DESK/SEC/VPN/APR/DLP/KB/LLM/GIT/CRY/REC/LOAD,
-perte de nœud, failover PG, fencing Hermes et bascule endpoints.
+Aucun conteneur factice ne remplace un service métier manquant.
+La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM
+du [plan complet](plan-integration-hermes.md). Le stockage et la réplication ne
+constituent pas une sauvegarde. Ne pas publier de release avant recette/rebuild.

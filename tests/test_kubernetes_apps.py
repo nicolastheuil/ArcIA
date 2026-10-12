@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 import jsonschema
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import kubernetes_apps as apps
+import node_kubernetes as node
 
 
 class ApplicationSecurityTests(unittest.TestCase):
@@ -57,6 +59,28 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertTrue(pod['securityContext']['runAsNonRoot'])
         self.assertFalse(pod.get('hostNetwork',False))
         self.assertTrue(pod['containers'][0]['securityContext']['readOnlyRootFilesystem'])
+
+    def test_proxy_rotation_and_bounded_trust(self):
+        original=apps.ingress(self.lock,self.config,self.pilot)
+        self.pilot['tls_certificate']='ROTATED_PUBLIC_CERT'
+        updated=apps.ingress(self.lock,self.config,self.pilot)
+        def annotation(documents):
+            return next(d for d in documents if d['kind']=='DaemonSet')['spec']['template']['metadata']['annotations']['arcia.io/tls-sha256']
+        self.assertNotEqual(annotation(original),annotation(updated))
+        settings=next(d for d in apps.hermes(self.lock,self.config,self.pilot) if d['kind']=='ConfigMap')['data']['config.yaml']
+        self.assertIn('trusted_proxies:',settings)
+        self.assertNotIn('0.0.0.0/0',settings)
+        conf=next(d for d in updated if d['kind']=='ConfigMap')['data']['nginx.conf']
+        self.assertIn('ssl_reject_handshake on',conf)
+        self.assertNotIn('/var/cache/nginx',conf)
+
+    def test_foreign_database_refuses_qualification_before_any_write(self):
+        foreign={'metadata':{'annotations':{'arcia.io/operation-id':'other'}}}
+        with patch.object(node,'kubectl',return_value=json.dumps(foreign)) as call:
+            with self.assertRaisesRegex(ValueError,'FOREIGN_QUALIFICATION_RESOURCE'):
+                node.qualify_apps({'operation_id':'9645701a-17fb-49bf-966b-c345c5c6076a'})
+            self.assertEqual(call.call_count,1)
+            self.assertEqual(call.call_args.args[0],'get')
 
     def test_vendor_drift_and_tagless_pg_image_refused(self):
         self.lock['cnpg_source']['rendered_sha256']='0'*64

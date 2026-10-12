@@ -11,7 +11,7 @@ Add-Type -AssemblyName System.Windows.Forms
 $form=[Windows.Forms.Form]::new()
 $form.Text='ArcIA — accès au pilote de qualification'
 $form.Width=650;$form.Height=285;$form.StartPosition='CenterScreen'
-$values=@('https://'+$pilot.hostname,$pilot.username,$pilot.password)
+$values=@(('https://'+$pilot.hostname),$pilot.username,$pilot.password)
 $labels=@('Adresse HTTPS privée','Utilisateur','Mot de passe')
 for($i=0;$i -lt 3;$i++){
     $label=[Windows.Forms.Label]::new();$label.Text=$labels[$i];$label.SetBounds(15,20+45*$i,155,25)

@@ -36,7 +36,31 @@ if 'vmware_foundation' in lock:
         found_images.update(re.findall(r'^\s*image:\s*(\S+)\s*$', content.decode(), re.M))
     if found_images != expected_images or not all(re.fullmatch(r'registry\.k8s\.io/[a-z0-9_./-]+@sha256:[a-f0-9]{64}', value) for value in found_images):
         raise RuntimeError('VMWARE_IMAGES_NOT_PINNED')
-    print('VMWARE_MANIFEST_HASHES_AND_IMAGE_DIGESTS_OK; NOT_DEPLOYED')
+    print('VMWARE_MANIFEST_HASHES_AND_IMAGE_DIGESTS_OK; SOURCE_VALIDATION_ONLY')
+if 'cnpg_source' in lock:
+    import kubernetes_apps
+    kubernetes_apps.operator(lock)
+    print('CNPG_VENDOR_HASH_OK')
+    for component in ('hermes','ingress','postgres_pgvector'):
+        if not re.fullmatch(r'[a-z0-9./_:-]+@sha256:[a-f0-9]{64}',lock['components'][component]['image']):
+            raise RuntimeError('APPLICATION_IMAGE_DIGEST_REQUIRED')
+    print('APPLICATION_IMAGE_DIGESTS_OK')
+if (ROOT/'builder/catalog.lock.json').exists():
+    catalog=json.loads((ROOT/'builder/catalog.lock.json').read_text(encoding='utf-8'))
+    for relative,expected in catalog['files'].items():
+        path=ROOT/relative
+        if not path.resolve().is_relative_to((ROOT/'.agents/skills').resolve()) or path.is_symlink():
+            raise RuntimeError('BUILDER_SKILL_PATH_REFUSED')
+        if hashlib.sha256(path.read_bytes()).hexdigest()!=expected:
+            raise RuntimeError('BUILDER_SKILL_HASH_MISMATCH')
+    tools=json.loads((ROOT/'builder/tools.lock.json').read_text(encoding='utf-8'))
+    packages=json.loads((ROOT/'builder/npm/package-lock.json').read_text(encoding='utf-8'))['packages']
+    for key in ('context7','skills_cli'):
+        tool=tools['tools'][key]
+        package=packages['node_modules/'+tool['package']]
+        if package['version']!=tool['version'] or package['integrity']!=tool['integrity']:
+            raise RuntimeError('BUILDER_NPM_LOCK_MISMATCH')
+    print('BUILDER_SKILL_HASHES_AND_NPM_LOCK_OK')
 if sys.platform != "win32":
     lock = json.loads((ROOT / "versions.lock.yaml").read_text())
     with tempfile.TemporaryDirectory(prefix="arcia-synthetic-") as directory:

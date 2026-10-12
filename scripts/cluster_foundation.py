@@ -66,6 +66,38 @@ def vip_operation(payload,target,nodes,base):
         return {'private':{'operation_id':operation,'states':states},
             'safe':{'status':'inspected','code':'NODE_VIP_STATE_INSPECTED','active_service_count':sum(s['active'] for s in states),
                     'vip_owner_count':sum(s['owns_any_vip'] for s in states)}}
+    if payload['action']=='qualify_live_vip':
+        config=instance['config'];phases=[];stopped=None
+        def single_owner(exclude=None):
+            deadline=time.monotonic()+25
+            while time.monotonic()<deadline:
+                states=[call(i,'vip_state') for i in (1,2,3)]
+                owners=[i for i,s in enumerate(states,1) if s['owns_all_vips']]
+                if sum(s['owns_any_vip'] for s in states)>1: raise ValueError('MULTIPLE_LIVE_VIP_OWNERS')
+                if len(owners)==1 and owners[0]!=exclude: return owners[0]
+                time.sleep(1)
+            raise ValueError('LIVE_VIP_OWNER_NOT_READY')
+        def check(phase,owner):
+            probes=[guest(target,node,base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),{
+                'action':'probe_live_endpoints','api_endpoint':config['network']['api_endpoint'],
+                'https_ip':instance['endpoint_design']['https_ip'],'hostname':config['network']['public_hostname'],
+                'certificate':payload['pilot']['tls_certificate']},root=True,timeout=60) for node in nodes]
+            phases.append({'phase':phase,'owner':owner,'probes':probes})
+            if not all(p['api_ready'] and p['https_ready'] for p in probes): raise ValueError('LIVE_ENDPOINT_PROBE_FAILED')
+        try:
+            initial=single_owner();check('initial',initial)
+            stopped=initial;call(initial,'stop_vip')
+            replacement=single_owner(exclude=initial);check('after_failover',replacement)
+        finally:
+            if stopped is not None: call(stopped,'start_vip')
+        final=single_owner();check('after_owner_return',final)
+        passed=final==replacement
+        return {'private':{'operation_id':operation,'phases':phases},'safe':{
+            'status':'verified' if passed else 'blocked','code':'LIVE_API_HTTPS_VIP_FAILOVER_VERIFIED' if passed else 'LIVE_VIP_PREEMPTION_FAILED',
+            'api_checks':sum(p['api_ready'] for phase in phases for p in phase['probes']),
+            'https_checks':sum(p['https_ready'] for phase in phases for p in phase['probes']),
+            'single_owner_failover':passed,'returning_owner_did_not_preempt':passed,
+            'abrupt_node_loss_qualified':False,'public_access_enabled':False}}
     if payload['action']!='qualify_vip': raise ValueError('UNKNOWN_VIP_ACTION')
     listener=(ROOT/'scripts/node_foundation.py').read_bytes()
     challenge=secrets.token_hex(32)
@@ -122,8 +154,15 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
+    if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)
+    if action=='qualify_apps':
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_kubernetes.py').read_bytes(),
+            {'action':action,'operation_id':operation},root=True,timeout=900)
+        passed=bool(result['checks']) and all(result['checks'].values())
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'verified' if passed else 'blocked','code':'APPLICATION_PERSISTENCE_SWITCHOVER_ISOLATION_VERIFIED' if passed else 'APPLICATION_QUALIFICATION_FAILED',
+            'checks':result['checks'],'abrupt_node_fencing_qualified':False,'cloud_calls_enabled':False}}
     if action in ('install_postgres','install_hermes','inspect_apps'):
         import kubernetes_apps
         lock=json.loads((ROOT/'versions.lock.yaml').read_text())
@@ -219,7 +258,7 @@ def collect(payload):
             'storage_class_count':len(results[0]['storage_classes']),'k3s_version':expected,
             'production_failover_qualified':False,'csi_qualified':False}}
     if action=='install_k3s': return install_k3s(payload,target,nodes,base)
-    if action in ('install_vip','qualify_vip','inspect_vip'): return vip_operation(payload,target,nodes,base)
+    if action in ('install_vip','qualify_vip','inspect_vip','qualify_live_vip'): return vip_operation(payload,target,nodes,base)
     script = (ROOT/'scripts/node_foundation.py').read_bytes()
     if action=='pause_k3s':
         lock=json.loads((ROOT/'versions.lock.yaml').read_text())

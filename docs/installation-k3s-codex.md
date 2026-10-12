@@ -1,5 +1,21 @@
 # Installation fondatrice Debian / K3s avec Codex
-Version 1.0 — 11 octobre 2026.
+Version 1.1 — actualisation opérationnelle du 12 octobre 2026.
+
+## État et chemin de reprise
+
+Le socle décrit aux étapes 1–13 existe désormais sur les trois VM désignées :
+K3s, CPI/CSI, CNPG/PostgreSQL/pgvector, Hermes et NGINX privés. Les preuves et
+limites sont dans [la recette](runbooks/recette-fondatrice.md) et
+[l’architecture réelle](architecture.md). Pour cette instance, suivre
+[l’exploitation](runbooks/exploitation-qualification.md), sans recréer VM,
+token, compte technique ou configuration. Le dépôt réel est
+`nicolastheuil/arcia-harness`, privé ; les noms des étapes initiales sont des exemples.
+
+Les commandes des étapes suivantes constituent le parcours d’une nouvelle cible.
+Une release/reconstruction neuve n’est pas encore qualifiée. Les wrappers K3s
+hérités, le nettoyage du répertoire d’extraction au démarrage, le verrouillage
+des paquets et les matrices CSI/CNPG doivent être revus avant rebuild.
+DNS-01 public reste différé ; voir [certificats](runbooks/certificats-dns.md).
 
 Ce guide remplace le parcours Compose envisagé avant la confirmation des VM multiples. Infrastructure confirmée : VMware et stockage partagé. Le code métier du harness reste à développer : le pack de cadrage n’est pas une release déployable. Les étapes ci-dessous définissent le travail réel à effectuer et les preuves requises.
 
@@ -207,4 +223,7 @@ Sources officielles consultées le 11 octobre 2026 :
 - Codex AGENTS.md : https://developers.openai.com/codex/guides/agents-md/
 - GitHub CLI : https://cli.github.com/manual/gh_repo_create
 
-Aucun cluster, dépôt GitHub ni service métier n’a été créé dans cette conversation. Ce guide et le pack sont les entrées d’un build initial ; les scripts et services exécutables seront produits et qualifiés par Codex.
+À la rédaction initiale du 11 octobre, ce guide était l’entrée du build. Le
+socle et ses scripts ont depuis été construits/déployés ; les services métier
+et la recette de reconstruction restent à réaliser. L’état courant est celui
+du [handoff](handoff-2026-10-12-qualification-verifiee.md).

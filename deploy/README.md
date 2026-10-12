@@ -1,29 +1,39 @@
-# Socle de qualification
+# Ressources Kubernetes du harness
 
-`foundation/` contient seulement cinq namespaces, PSA restricted version 1.35,
-deny-all ingress/egress, DNS vers CoreDNS, ServiceAccounts sans token automatique,
-quotas et LimitRanges. Pas de workload applicatif, Ingress, secret ou permission
-de création de Pods. Le namespace d'exécution VPN exige une admission spécifique
-encore à développer ; il n'est pas créé avec des permissions trop larges.
+Le socle est déployé en qualification. Voir
+[architecture](../docs/architecture.md), [recette](../docs/runbooks/recette-fondatrice.md)
+et [exploitation](../docs/runbooks/exploitation-qualification.md).
 
-La ConfigMap safe-mode exprime l'intention de qualification. Elle ne constitue pas
-un mécanisme d'autorisation : les futurs services doivent l'appliquer, et les
-politiques réseau doivent être testées sur cible. Aucun accès client n'est possible
-via ce socle seul. Ajouter les flux internes un à un avec tests négatifs.
+## Sources et rendu
 
-Après bootstrap autorisé sur cibles désignées et contrôle du contexte kubectl :
+`foundation/` contient les namespaces/politiques/quotas statiques de préparation,
+sans secrets réels. `vendor/vmware/` conserve CPI/CSI et licences ;
+`vendor/cnpg/` conserve le manifeste opérateur et sa licence. Hashes et images
+épinglées sont contrôlés contre `versions.lock.yaml`.
 
-```bash
-kubectl kustomize deploy/foundation
-kubectl apply --dry-run=server -k deploy/foundation
-kubectl apply -k deploy/foundation
-```
+Les ressources applicatives réelles sont générées par
+`scripts/kubernetes_apps.py` et celles VMware par `scripts/kubernetes_vmware.py`.
+Le wrapper protégé fournit les paramètres sur stdin et le worker applique les
+objets appartenant à l’opération. Ne pas enregistrer les manifests privés
+rendus ni les Secrets dans ce dossier.
 
-Ces commandes ne sont pas exécutées pendant la préparation. Le dry-run serveur
-requiert un cluster. Les quotas par namespace ne sont pas une réservation globale
-de capacité : mesurer et ajuster le budget deux nœuds et les cinq missions.
+## Contrôles et exceptions
 
-Hermes, ingress, CPI/CSI et PostgreSQL restent à ajouter après qualification des
-images par digest. Le UID/GID et le superviseur s6 de l'image Hermes officielle
-doivent être testés avant de décider son SecurityContext ; ne pas inventer un
-Deployment Running en désactivant les contrôles du namespace.
+Hermes : non-root, racine readonly, pas de token Kubernetes, PVC RWOP/Recreate,
+egress deny-all. NGINX : UID101 et même durcissement ; exception PSA du namespace
+pour hostPort443, sans container privilégié ni capabilities. CNPG/PostgreSQL
+a ses flux de réplication/opérateur bornés et des quotas applicatifs.
+
+La ConfigMap safe-mode exprime une intention, pas une implémentation des futures
+autorisations métier. Le namespace VPN et ses permissions restent à construire.
+
+## Usage
+
+L’inspection générique `kubectl kustomize deploy/foundation` ne déploie pas
+les applications. Sur l’instance existante, utiliser les actions administratives
+du runbook, avec contrôle de cible et verrou d’opération. Un apply direct non
+journalisé ne remplace pas ce parcours.
+
+Réplication, storage partagé et Pods Ready ne suffisent pas à qualifier panne
+brutale/fencing, backup ou rebuild. La politique applicative `Retain` conserve
+les données après suppression de claim ; aucune purge implicite autorisée.

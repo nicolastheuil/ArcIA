@@ -1,7 +1,36 @@
 # Plateforme Hermes — schémas détaillés d’architecture
-Date : 11 octobre 2026. Architecture cible proposée, complément du plan d’intégration v1.2.
+Actualisation : 12 octobre 2026. Socle actuel et architecture cible du plan v1.2.
 
-Ces schémas décrivent un système à construire et à qualifier. Ils ne représentent pas une plateforme déjà déployée. Les boîtes de services sont des responsabilités logiques : certaines peuvent partager un service ou un conteneur au démarrage.
+## 0. Lecture des schémas : déployé et prévu
+
+Le schéma ci-dessous décrit le socle réel. Les sections 1–10 décrivent la
+plateforme métier cible, dont les intégrations restent à construire. Voir
+[architecture](architecture.md), [recette](runbooks/recette-fondatrice.md) et
+[pipeline documentaire](connaissance-documentaire.md).
+
+```mermaid
+flowchart TD
+  USER["Qualification privée"] --> VIP["VIP HTTPS : bascule contrôlée vérifiée"]
+  VIP --> NG["3 NGINX : TLS auto-signé et auth locale"]
+  NG --> H["1 Hermes : egress interdit, sans clé LLM"]
+  H --> SQ["SQLite : PVC RWOP exclusif 10 Gi"]
+  ADMIN["Ingénieur / scripts protégés"] --> API["VIP API privée"]
+  API --> K["3 serveurs K3s / etcd"]
+  K --> PG["3 PostgreSQL : pgvector / réplication synchrone"]
+  PG --> PV["3 PVC de 20 Gi"]
+  SQ --> CSI["CSI vSphere / datastore partagé"]
+  PV --> CSI
+  FUT["Prévu : Entra, Teams, RBAC, VPN, coffres, DLP, ingestion"]
+```
+
+Hermes n’est pas connecté à PostgreSQL dans le pilote. Deux DNS publics demandés,
+aucun bot Teams ni NAT public actif. Les trois réplicas proxy servent une entrée
+commune. Le quorum etcd, la réplication PG et l’unicité SQLite sont trois
+mécanismes distincts ; aucun n’atteste à lui seul une HA de production.
+
+Les schémas des sections 1–10 décrivent le système métier à construire et à
+qualifier. Leurs boîtes sont des responsabilités logiques ; certaines peuvent
+partager un service ou un conteneur au démarrage. Seul le §0 décrit le socle déployé.
 
 Hermes apporte le moteur d’agent, ses profils, sa mémoire et ses interfaces compatibles. Le RBAC métier, le routage multi-consultants, les connecteurs de secrets, le contrôle d’exécution, les approbations intercanal et le filtre de sortie sont des intégrations de plateforme. La compatibilité exacte de Desktop et des plugins doit être prouvée sur les versions retenues.
 

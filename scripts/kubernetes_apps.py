@@ -20,6 +20,10 @@ def deny_all(name):
         'spec':{'podSelector':{},'policyTypes':['Ingress','Egress']}}
 
 
+def quota(name, hard):
+    return {'apiVersion':'v1','kind':'ResourceQuota','metadata':{'name':'qualification-bounds','namespace':name},'spec':{'hard':hard}}
+
+
 def operator(lock):
     content=(ROOT/'deploy/vendor/cnpg/operator.yaml').read_bytes()
     if hashlib.sha256(content).hexdigest()!=lock['cnpg_source']['rendered_sha256']:
@@ -37,7 +41,8 @@ def operator(lock):
 
 def postgres(lock, config):
     ns='arcia-data'
-    docs=[namespace(ns),deny_all(ns)]
+    docs=[namespace(ns),deny_all(ns),quota(ns,{'pods':'10','requests.cpu':'8','requests.memory':'16Gi',
+        'limits.cpu':'16','limits.memory':'32Gi','persistentvolumeclaims':'5','requests.storage':'100Gi'})]
     api_ips=[str(ipaddress.ip_network(config['network']['service_cidr']).network_address+1)]+[n['address'] for n in config['nodes']]
     docs.append({'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy','metadata':{'name':'postgres-control-and-replication','namespace':ns},
         'spec':{'podSelector':{},'policyTypes':['Ingress','Egress'],
@@ -74,9 +79,10 @@ def hermes(lock, config, pilot):
     host=config['network']['public_hostname']
     settings={'model':{'default':'qualification-disabled','provider':'custom','base_url':'http://127.0.0.1:9/v1'},
         'terminal':{'backend':'local'},'security':{'allow_lazy_installs':False},
-        'dashboard':{'public_url':'https://'+host},
+        'dashboard':{'public_url':'https://'+host,'trusted_proxies':[str(ipaddress.ip_network(config['network']['pod_cidr']))]},
         'platform':{'qualification_only':True,'cloud_calls_enabled':False}}
-    docs=[namespace(ns),deny_all(ns),
+    docs=[namespace(ns),deny_all(ns),quota(ns,{'pods':'3','requests.cpu':'3','requests.memory':'6Gi',
+        'limits.cpu':'6','limits.memory':'12Gi','persistentvolumeclaims':'2','requests.storage':'20Gi'}),
         {'apiVersion':'v1','kind':'Secret','metadata':{'name':'hermes-pilot-auth','namespace':ns},'type':'Opaque',
             'stringData':{'HERMES_DASHBOARD_BASIC_AUTH_USERNAME':pilot['username'],
                 'HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH':password_hash(pilot),
@@ -90,7 +96,8 @@ def hermes(lock, config, pilot):
             'spec':{'selector':{'app':'hermes-pilot'},'ports':[{'port':9119,'targetPort':9119}]}},
         {'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy','metadata':{'name':'ingress-from-private-proxy','namespace':ns},
             'spec':{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Ingress'],
-                'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-ingress'}}}],
+                'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-ingress'}},
+                    'podSelector':{'matchLabels':{'app':'pilot-https'}}}],
                     'ports':[{'port':9119,'protocol':'TCP'}]}]}},
         {'apiVersion':'apps/v1','kind':'Deployment','metadata':{'name':'hermes-pilot','namespace':ns},
             'spec':{'replicas':1,'strategy':{'type':'Recreate'},'selector':{'matchLabels':{'app':'hermes-pilot'}},
@@ -135,6 +142,7 @@ http {
   uwsgi_temp_path /tmp/uwsgi;
   scgi_temp_path /tmp/scgi;
   map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+  server { listen 8443 ssl default_server; ssl_reject_handshake on; }
   server {
     listen 8443 ssl;
     server_name '''+host+''';
@@ -147,6 +155,7 @@ http {
       proxy_http_version 1.1;
       proxy_set_header Host $host;
       proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-For $remote_addr;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection $connection_upgrade;
       proxy_buffering off;
@@ -155,7 +164,8 @@ http {
   }
 }
 '''
-    return [namespace(ns,True),deny_all(ns),
+    return [namespace(ns,True),deny_all(ns),quota(ns,{'pods':'6','requests.cpu':'1','requests.memory':'1Gi',
+        'limits.cpu':'3','limits.memory':'2Gi','persistentvolumeclaims':'0'}),
         {'apiVersion':'v1','kind':'Secret','metadata':{'name':'pilot-tls','namespace':ns},'type':'kubernetes.io/tls',
             'stringData':{'tls.crt':pilot['tls_certificate'],'tls.key':pilot['tls_private_key']}},
         {'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':'pilot-nginx','namespace':ns},'data':{'nginx.conf':nginx}},
@@ -170,7 +180,8 @@ http {
         {'apiVersion':'apps/v1','kind':'DaemonSet','metadata':{'name':'pilot-https','namespace':ns},
             'spec':{'selector':{'matchLabels':{'app':'pilot-https'}},'template':{
                 'metadata':{'labels':{'app':'pilot-https'},'annotations':{
-                    'arcia.io/config-sha256':hashlib.sha256(nginx.encode()).hexdigest()}},'spec':{
+                    'arcia.io/config-sha256':hashlib.sha256(nginx.encode()).hexdigest(),
+                    'arcia.io/tls-sha256':hashlib.sha256(pilot['tls_certificate'].encode()).hexdigest()}},'spec':{
                     'automountServiceAccountToken':False,'securityContext':{'runAsNonRoot':True,'runAsUser':101,
                         'runAsGroup':101,'fsGroup':101,'seccompProfile':{'type':'RuntimeDefault'}},
                     'containers':[{'name':'nginx','image':lock['components']['ingress']['image'],

@@ -18,3 +18,11 @@ génériques. LintLang en rapport après qualification. RTK, Headroom, Ponytail 
 Graphify restent des pilotes désactivés ; aucun apprentissage, export de sessions
 ou mémoire interclients. Distribution de skills par révision revue avec licence,
 DISABLE_TELEMETRY=1 et catalogue interne. Aucun sous-agent nécessaire à ce lot.
+
+Installation autorisée explicitement le 12 octobre : Context7, CLI skills,
+LintLang et sélection Superpowers/ECC. Versions dans tools.lock.json, catalogue
+adapté dans ../.agents/skills et empreintes dans catalog.lock.json. Invocation
+explicite, sans hook ni bootstrap global, sans apprentissage/export de sessions.
+Context7 reçoit uniquement produit/version et requêtes génériques, jamais des
+inventaires ou données clients. LintLang reste en rapport, pas une preuve de sécurité.
+Voir ../docs/outillage-builder.md pour installation, usages et désactivation.

@@ -3,6 +3,15 @@
 **Date : 11 octobre 2026 — version 1.2, cible Debian / K3s / Codex**
 **Destinataire : IA Platform Engineer avec Codex sous Windows ; adaptateur Kilo facultatif, et ingénieurs administrateurs de la plateforme.**
 
+**Actualisation du 12 octobre 2026 :** le socle K3s/VMware, PostgreSQL/pgvector,
+Hermes et NGINX de qualification est désormais déployé et partiellement qualifié.
+Voir [l’architecture réelle](architecture.md), [la recette](runbooks/recette-fondatrice.md)
+et [l’outillage builder](outillage-builder.md). Ce plan conserve la cible complète :
+les services métier, la CLI proposée et le rebuild ne deviennent pas disponibles
+par leur description ci-dessous. Les mentions « aucun serveur créé » décrivent
+la rédaction initiale du 11 octobre. Le dépôt réel est
+`nicolastheuil/arcia-harness`, privé ; les noms proposés restent des exemples.
+
 Ce document constitue le cahier d’architecture et d’implémentation initial. Il doit permettre de créer les dépôts, développer les intégrations nécessaires, déployer une première instance et rendre GitHub suffisant pour reconstruire ensuite une instance avec les moyens de déchiffrement externes. Les commandes de la future CLI décrites ici sont des interfaces à implémenter, pas des commandes natives d’Hermes déjà disponibles. Aucun serveur ni dépôt n’a été créé dans le cadre de cette rédaction.
 
 L’architecture provient exclusivement du brief fourni et des réponses données dans cet échange. Les capacités des composants ont été examinées dans leurs sources officielles ; leur compatibilité effective doit être vérifiée sur les versions retenues lors du build.

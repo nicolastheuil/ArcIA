@@ -3,8 +3,11 @@
 ## État et destination
 
 Destination confirmée : **nicolastheuil/arcia-harness**, privé. Les trois VM
-Debian 13 sont créées et vérifiées via SSH strict et sudo. Cette livraison prépare le socle ; aucun cluster ou service métier
-n'est installé et aucune HA n'est annoncée. Voir docs/etat-reprise.md et backlog.
+Debian 13 sont créées et vérifiées via SSH strict et sudo. Le socle K3s,
+CPI/CSI, PostgreSQL/pgvector, Hermes et NGINX de qualification est déployé.
+Voir [recette](recette-fondatrice.md), [état courant](../etat-reprise.md) et
+[exploitation de l’existant](exploitation-qualification.md). Les étapes ci-dessous
+préparent une nouvelle cible ; aucun service métier ni HA de production annoncé.
 
 ## 1. Vérifier les VM désignées
 
@@ -53,7 +56,8 @@ personnels du harness métier reste à développer. Il ne revendique aucun accè
 autonome déjà en place. Après réalisation d'une qualification, l'ingénieur peut
 enregistrer son état et sa référence de preuve locale via `Set-Qualification.ps1`
 (`-Gate`, `-Status`, `-EvidenceRef`). Ce programme ne teste pas le fait déclaré :
-la preuve mesurée doit exister et être revue. Aucun gate n'a été validé ici.
+la preuve mesurée doit exister et être revue. Les preuves actuelles sont dans
+la matrice de recette ; elles ne valident pas automatiquement tous les gates.
 
 ## 3. Qualifier les prérequis
 
@@ -94,8 +98,9 @@ cd infra/ansible
 /protected/validation-venv/bin/ansible-playbook -i /protected/inventory.private.json site.yml
 ```
 
-Le playbook bloque le rendu actuel : gates pending, DNS/endpoints et permissions
-techniques non qualifiés. Les sources CPI/CSI sont épinglées mais non installées.
+Le playbook évalue les gates de la configuration fournie ; l’exemple synthétique
+reste bloqué avant SSH. Sur l’instance actuelle, DNS privés, permissions,
+CPI/CSI et services ont depuis fait l’objet des vérifications documentées.
 La première installation est une qualification synthétique safe-mode,
 pas un lancement métier. Installer ensuite CPI/CSI/ingress qualifiés. Les logs
 Ansible contiennent les noms d'hôtes : ils restent locaux protégés, jamais bruts

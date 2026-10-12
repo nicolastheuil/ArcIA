@@ -1,0 +1,10 @@
+{
+  "name": "arcia-builder-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pinned developer tools; no runtime or customer access",
+  "dependencies": {
+    "@upstash/context7-mcp": "4.3.0",
+    "skills": "1.7.2"
+  }
+}

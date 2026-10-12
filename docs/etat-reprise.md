@@ -1,6 +1,22 @@
 # État de reprise — 12 octobre 2026
 
-## Référence actuelle — arrêt du 12 octobre, socle de qualification
+## Référence actuelle — qualification vérifiée et documentation
+
+Lire [le handoff courant](handoff-2026-10-12-qualification-verifiee.md) et
+[l’index documentaire](README.md). K3s 3/3, CPI/CSI, PostgreSQL 3/3,
+Hermes 1/1 et NGINX 3/3 sont opérationnels en qualification synthétique.
+CSI : 5 checks ; applications : 12 ; HTTPS/auth : 6 ; bascule VIP réelle :
+18 sondes réussies. DNS-01 suspendu à la demande de l’utilisateur ; TLS
+auto-signé, aucun NAT public ni service Teams. 98 tests Python réussis.
+Documentation complète actualisée ; Context7/skills/LintLang et six skills ciblés
+Superpowers/ECC installés. Context7 MCP/requête générique et LintLang vérifiés ;
+voir [outillage builder](outillage-builder.md). 19 schémas Mermaid parsés sans
+erreur ; 128 liens locaux vérifiés. Les nouveaux skills seront disponibles au
+prochain tour ; la configuration MCP peut nécessiter une nouvelle session.
+Archive portable à renouveler. Fencing/perte brutale, backups/rebuild et métier
+restent non qualifiés. Ne pas relancer Certbot avant reprise demandée.
+
+## Historique — arrêt initial du 12 octobre, socle de qualification
 
 Lire en priorité [handoff-2026-10-12-socle-qualification.md](handoff-2026-10-12-socle-qualification.md).
 K3s 3/3, CPI/CSI et cinq essais RWOP vérifiés ; PostgreSQL prêt 3/3,

@@ -5,6 +5,11 @@ from pathlib import Path
 import re
 import time
 import uuid
+import datetime
+import hashlib
+import http.client
+import socket
+import ssl
 
 K3S = '/usr/local/bin/k3s'
 
@@ -257,7 +262,106 @@ def install_hermes(values):
     return result
 
 
+def owned(kind, name, namespace, operation):
+    obj=json.loads(kubectl('get',kind,name,'-n',namespace,'-o','json'))
+    if obj['metadata'].get('annotations',{}).get('arcia.io/operation-id')!=operation:
+        raise ValueError('FOREIGN_QUALIFICATION_RESOURCE')
+    return obj
+
+
+def probe_live_endpoints(values):
+    api=kubectl('--server=https://'+values['api_endpoint']+':6443','get','--raw=/readyz').strip()=='ok'
+    pem=re.search(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',values['certificate'],re.S).group()
+    expected=hashlib.sha256(ssl.PEM_cert_to_DER_cert(pem)).digest()
+    context=ssl.create_default_context(cadata=values['certificate'])
+    connection=http.client.HTTPSConnection(values['hostname'],context=context,timeout=10)
+    connection._create_connection=lambda dest,timeout,source_address=None: socket.create_connection((values['https_ip'],443),timeout)
+    try:
+        connection.connect()
+        pinned=hashlib.sha256(connection.sock.getpeercert(binary_form=True)).digest()==expected
+        connection.request('GET','/api/health')
+        response=connection.getresponse();healthy=response.status==200;response.read()
+    finally: connection.close()
+    return {'api_ready':api,'https_ready':healthy and pinned}
+
+
+def qualify_apps(values):
+    """Synthetic only: controlled PG switchover, Hermes persistence and isolation."""
+    operation=str(uuid.UUID(values['operation_id']))
+    checks={}
+    ns='arcia-data';name='arcia-postgres'
+    def cluster(): return owned('cluster.postgresql.cnpg.io',name,ns,operation)
+    def sql(pod,query):
+        return kubectl('exec',pod,'-n',ns,'-c','postgres','--','psql','-X','-v','ON_ERROR_STOP=1',
+            '-U','postgres','-d','arcia','-tAc',query,timeout=90).strip()
+    initial=cluster()
+    if initial['status'].get('readyInstances')!=3: raise ValueError('THREE_READY_DATABASE_INSTANCES_REQUIRED')
+    pods=[p for p in get('pods',ns)['items'] if p['metadata'].get('labels',{}).get('cnpg.io/cluster')==name
+          and p['status'].get('phase')=='Running']
+    checks['postgres_three_distinct_nodes']=len(pods)==3 and len({p['spec']['nodeName'] for p in pods})==3
+    primary=initial['status']['currentPrimary']
+    replicas=[p['metadata']['name'] for p in pods if p['metadata']['name']!=primary]
+    marker='synthetic-'+operation
+    # A dedicated schema and operation key never touch application/customer rows.
+    sql(primary,"CREATE SCHEMA IF NOT EXISTS arcia_qualification; CREATE TABLE IF NOT EXISTS arcia_qualification.canary (operation_id text PRIMARY KEY, marker text NOT NULL); INSERT INTO arcia_qualification.canary VALUES ('"+operation+"','"+marker+"') ON CONFLICT (operation_id) DO UPDATE SET marker=EXCLUDED.marker;")
+    query="SELECT marker FROM arcia_qualification.canary WHERE operation_id='"+operation+"';"
+    checks['postgres_pgvector_query']=sql(primary,"SELECT '[1,2]'::vector <-> '[1,2]'::vector;")=='0'
+    checks['postgres_synchronous_replica']=int(sql(primary,"SELECT count(*) FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum');"))>=1
+    deadline=time.monotonic()+60
+    while time.monotonic()<deadline:
+        if all(sql(p,query)==marker for p in replicas): checks['postgres_replica_canary']=True;break
+        time.sleep(2)
+    if not checks.get('postgres_replica_canary'): raise ValueError('REPLICA_CANARY_NOT_REPLICATED')
+    # Mirror the pinned CNPG promote plugin: optimistic status patch, never pg_ctl.
+    current=cluster();target=replicas[0]
+    patch={'metadata':{'resourceVersion':current['metadata']['resourceVersion']},'status':{
+        'targetPrimary':target,'targetPrimaryTimestamp':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'phase':'Switchover in progress','phaseReason':'Synthetic qualification switchover'}}
+    kubectl('patch','cluster.postgresql.cnpg.io',name,'-n',ns,'--subresource=status','--type=merge','-p',json.dumps(patch))
+    deadline=time.monotonic()+240
+    while time.monotonic()<deadline:
+        current=cluster()
+        if current['status'].get('currentPrimary')==target and current['status'].get('readyInstances')==3:
+            if sql(target,'SELECT pg_is_in_recovery();')=='f':
+                checks['postgres_controlled_switchover']=True;break
+        time.sleep(3)
+    if not checks.get('postgres_controlled_switchover'): raise ValueError('POSTGRES_SWITCHOVER_NOT_VERIFIED')
+    checks['postgres_switchover_canary_preserved']=sql(target,query)==marker
+    sql(target,"DELETE FROM arcia_qualification.canary WHERE operation_id='"+operation+"';")
+    ns='arcia-hermes'
+    deployment=owned('deployment','hermes-pilot',ns,operation)
+    if deployment['spec']['replicas']!=1 or deployment['spec']['strategy']['type']!='Recreate':
+        raise ValueError('HERMES_SINGLE_OWNER_REQUIRED')
+    claim=owned('pvc','hermes-pilot-state',ns,operation)
+    if claim['spec']['accessModes']!=['ReadWriteOncePod']: raise ValueError('HERMES_RWOP_REQUIRED')
+    def hermes_pod():
+        pods=json.loads(kubectl('get','pods','-n',ns,'-l','app=hermes-pilot','-o','json'))['items']
+        active=[p for p in pods if not p['metadata'].get('deletionTimestamp') and p['status'].get('phase')=='Running']
+        if len(active)!=1: raise ValueError('HERMES_OWNER_NOT_UNIQUE')
+        return active[0]
+    def python(pod,source):
+        return kubectl('exec',pod['metadata']['name'],'-n',ns,'--','/opt/hermes/.venv/bin/python','-c',source,timeout=30).strip()
+    pod=hermes_pod();old_uid=pod['metadata']['uid']
+    checks['hermes_native_sqlite_present']=python(pod,"from pathlib import Path;print((Path('/opt/data')/'state.db').is_file())")=='True'
+    # The canary is separate from Hermes' own schema; its SQLite transaction is synthetic.
+    python(pod,"import sqlite3;db=sqlite3.connect('/opt/data/arcia-qualification.db');db.execute('CREATE TABLE IF NOT EXISTS canary (marker TEXT)');db.execute('DELETE FROM canary');db.execute('INSERT INTO canary VALUES (?)',('"+marker+"',));db.commit();db.close()")
+    # Reachable control target = in-cluster Postgres. A failed public target alone proves nothing.
+    db_service=json.loads(kubectl('get','service','arcia-postgres-rw','-n','arcia-data','-o','json'))['spec']['clusterIP']
+    probe="import socket;s=socket.socket();s.settimeout(3);print(s.connect_ex(('"+db_service+"',5432))!=0);s.close()"
+    checks['hermes_cross_namespace_egress_denied']=python(pod,probe)=='True'
+    checks['hermes_dns_egress_denied']=python(pod,"import socket;socket.setdefaulttimeout(3)\ntry:\n socket.getaddrinfo('kubernetes.default.svc.cluster.local',443);print(False)\nexcept OSError: print(True)")=='True'
+    kubectl('delete','pod',pod['metadata']['name'],'-n',ns,'--wait=true','--timeout=90s',timeout=100)
+    kubectl('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=180s',timeout=200)
+    pod=hermes_pod()
+    checks['hermes_pod_recreated']=pod['metadata']['uid']!=old_uid
+    checks['hermes_sqlite_persistence']=python(pod,"import sqlite3;db=sqlite3.connect('/opt/data/arcia-qualification.db');print(db.execute('SELECT marker FROM canary').fetchone()[0]=='"+marker+"');db.close()")=='True'
+    python(pod,"from pathlib import Path;Path('/opt/data/arcia-qualification.db').unlink()")
+    checks['hermes_single_owner_after_restart']=len(json.loads(kubectl('get','pods','-n',ns,'-l','app=hermes-pilot','-o','json'))['items'])==1
+    return {'checks':checks,'abrupt_node_fencing_qualified':False,'customer_writes_replayed':False}
+
+
 if __name__ == '__main__':
     actions = {'inspect_cluster': inspect,'install_vmware':install_vmware,'inspect_vmware':vmware_state,'qualify_storage':qualify_storage,
-        'install_postgres':install_postgres,'install_hermes':install_hermes,'inspect_apps':app_state}
+        'install_postgres':install_postgres,'install_hermes':install_hermes,'inspect_apps':app_state,'qualify_apps':qualify_apps,
+        'probe_live_endpoints':probe_live_endpoints}
     print(json.dumps(actions[ARCIA_INPUT['action']](ARCIA_INPUT)))

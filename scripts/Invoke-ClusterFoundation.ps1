@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','inspect_apps','qualify_apps','qualify_live_vip')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
@@ -21,7 +21,7 @@ try{
     if($Action -eq 'install_hermes'){
         . (Join-Path $PSScriptRoot 'PilotCredentials.ps1')
         $decisions=(Read-ProtectedBundle (Join-Path $root 'installation-decisions.dpapi'))|ConvertFrom-Json
-        if($decisions.operation_id -ne $operation.id -or $decisions.authentication_mode -ne 'local' -or $decisions.tls_mode -ne 'self_signed_pilot' -or $decisions.public_access_enabled){throw 'LOCAL_PILOT_DECISIONS_REQUIRED'}
+        if($decisions.operation_id -ne $operation.id -or $decisions.authentication_mode -ne 'local' -or $decisions.tls_mode -notin @('self_signed_pilot','public_acme') -or $decisions.public_access_enabled){throw 'LOCAL_PILOT_DECISIONS_REQUIRED'}
         $payload.pilot=Get-PilotCredentials $root $operation.id $payload.instance.config.network.public_hostname
     }
     if($Action -eq 'install_vmware'){
@@ -29,7 +29,11 @@ try{
             $payload[$mapping[0]]=(Read-ProtectedBundle (Join-Path $root $mapping[1]))|ConvertFrom-Json
         }
     }
-    if($Action -in @('install_vip','qualify_vip','inspect_vip')){
+    if($Action -eq 'qualify_live_vip'){
+        $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
+        if($payload.pilot.operation_id -ne $operation.id){throw 'PILOT_SCOPE_CONFLICT'}
+    }
+    if($Action -in @('install_vip','qualify_vip','inspect_vip','qualify_live_vip')){
         $journal=Join-Path $root 'vip-journal.dpapi'
         if(-not(Test-Path -LiteralPath $journal)){
             if($Action -ne 'install_vip'){throw 'VIP_JOURNAL_REQUIRED'}

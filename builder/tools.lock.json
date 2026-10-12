@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-12",
+  "scope": "builder_only_synthetic",
+  "telemetry_enabled": false,
+  "hooks_enabled": false,
+  "tools": {
+    "context7": {
+      "package": "@upstash/context7-mcp",
+      "version": "4.3.0",
+      "source": "https://github.com/upstash/context7",
+      "license": "MIT",
+      "integrity": "sha512-fuDt5nWjE5JkAPLjU0m+m0LlJphxyegAvAmcwHoA5jrzAhKo/rVV0RFA8TOwODGdDVdt/nPxNslkxeDIDp/rPA==",
+      "purpose": "generic documentation requests only"
+    },
+    "skills_cli": {
+      "package": "skills",
+      "version": "1.7.2",
+      "source": "https://github.com/vercel-labs/skills",
+      "revision": "671e8c320810d36fed80fac5f1a2c1bf7e82d812",
+      "license": "MIT",
+      "integrity": "sha512-j+GzyF/oNahsjjjup6y3lJpFkC1lQjIkf4kAMXICA1hboBqi0fAGXAGoE4x9FRZiP1br/YE9+L3/Tqq6PIAe0A==",
+      "purpose": "reviewed internal catalog only; no free installation from agent runtimes"
+    },
+    "lintlang": {
+      "package": "lintlang",
+      "version": "0.8.2",
+      "source": "https://github.com/hermes-labs-ai/lintlang",
+      "license": "Apache-2.0",
+      "mode": "report_only"
+    },
+    "superpowers": {
+      "source": "https://github.com/obra/superpowers",
+      "revision": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+      "license": "MIT",
+      "selected_skills": ["verification-before-completion", "systematic-debugging", "receiving-code-review", "test-driven-development"],
+      "automatic_bootstrap": false
+    },
+    "ecc": {
+      "source": "https://github.com/affaan-m/ECC",
+      "revision": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+      "license": "MIT",
+      "selected_skills": ["python-patterns", "postgres-patterns"],
+      "learning_enabled": false,
+      "session_export_enabled": false
+    }
+  },
+  "deferred": {
+    "rtk": "builder pilot, not adopted before benchmark",
+    "graphify": "code-only pilot pending network isolation and qualification",
+    "headroom": "optional after compression benchmark",
+    "ponytail": "optional punctual review",
+    "public_apis": "watch catalog, not an executable service"
+  }
+}

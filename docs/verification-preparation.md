@@ -1,5 +1,31 @@
 # Vérification de la préparation — 11 octobre 2026
 
+## Résultat courant — 12 octobre 2026
+
+98 tests Python WSL réussis. Validation JSON Schema/YAML, hashes des sources
+VMware et CNPG, digests applicatifs, syntaxe Ansible et refus de l’installation
+synthétique avant SSH réussis. Les avertissements Ansible sur le dossier WSL
+monté inscriptible concernent la lecture d’ansible.cfg, pas un accès SSH par ces tests.
+
+Sur cible : CSI 5 checks ; applications 12 (pgvector, réplication/bascule PG,
+persistance SQLite et refus réseau) ; HTTPS/auth 6 ; VIP réelles 9 API + 9 HTTPS.
+Voir [matrice de recette et limites](runbooks/recette-fondatrice.md) et
+[handoff courant](handoff-2026-10-12-qualification-verifiee.md).
+TLS public différé, WebSocket/SSE complet, perte brutale/fencing,
+backups/rebuild et services métier non qualifiés.
+
+Lot documentation/outillage : 50 scripts PowerShell parsés sans erreur,
+19 schémas Mermaid validés par le parseur 12.1.0, 128 liens locaux résolus.
+Le contrôle Mermaid est syntaxique, sans recette visuelle exhaustive.
+Context7 4.3.0 : initialize/tools-list et requête publique PostgreSQL réussis ;
+skills CLI 1.7.2 exécuté ; LintLang 0.8.2 exécuté sur deux instructions, PASS
+structurel avec confiance heuristique faible (65 % de couverture).
+Six skills Superpowers/ECC installés/adaptés, licences et 23 empreintes validées.
+Trois tests nouveaux protègent la mise à jour Codex : préservation/idempotence,
+refus de table homonyme étrangère, refus d’un TOML existant invalide.
+
+**Les sections suivantes sont historiques et décrivent les lots antérieurs.**
+
 ## Exécuté localement
 
 | Contrôle | Résultat |
