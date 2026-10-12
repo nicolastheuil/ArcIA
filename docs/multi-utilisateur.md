@@ -41,7 +41,7 @@ La politique des jetons est relue à chaque requête depuis le Secret projeté. 
 
 L’installation et la recette sont aussi des étapes du [bootstrap](runbooks/bootstrap.md). Les identifiants B sont générés une seule fois, protégés par DPAPI/ACL et affichables uniquement dans le formulaire local. Le test n’affiche aucun mot de passe, cookie, contexte ou contenu de réponse.
 
-La recette crée des conversations, fichiers et documents synthétiques identifiés. Elle vérifie les connexions A/B, les cookies, les accès concurrents, la survie des états après restart, les refus croisés sur sessions/messages/exports/modifications, les volumes et secrets séparés, l’interdiction réseau, les sources communes et personnelles sous RLS, les téléchargements, les écritures et les tentatives de substitution d’identité. Les résultats réellement obtenus figurent dans le [handoff courant](handoff-2026-10-12-arcia-cloud-bootstrap.md).
+La recette crée des conversations, fichiers et documents synthétiques identifiés. Elle vérifie les connexions A/B, les cookies, les accès concurrents, la survie des états après restart, les refus croisés sur sessions/messages/exports/modifications, les volumes et secrets séparés, l’interdiction réseau, les sources communes et personnelles sous RLS, les téléchargements, les écritures et les tentatives de substitution d’identité. La recette a réussi ses **90 contrôles** le 12 octobre 2026, dont cookie et bearer révoqués après déconnexion. Les résultats figurent dans le [handoff courant](handoff-2026-10-12-arcia-cloud-bootstrap.md) et les [preuves assainies](qualification/2026-10-12-synthetique.json).
 
 ## Portée
 

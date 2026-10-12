@@ -32,7 +32,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L5 | RTK/Graphify pilotes, compression/Headroom et autres options | RTK/Headroom/OmniRoute installés ; automatisations et routage automatique différé ; Graphify/Ponytail différés |
 
 | BOOT-01 | Bootstrap exhaustif et coverage CI | Codé, Audit/Reconcile existants vérifiés ; rebuild neuf restant |
-| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 88 contrôles réussis ; SSO, groupes et provisioning général restants |
+| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 90 contrôles réussis ; SSO, groupes et provisioning général restants |
 
 Aucun conteneur factice ne remplace un service métier manquant.
 La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM
