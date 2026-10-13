@@ -140,7 +140,8 @@ class NetworkProbeTests(unittest.TestCase):
         with patch.object(node_network_probe, 'route', return_value={'dev': 'eth0'}), \
              patch.object(node_network_probe, 'tcp', return_value=False), \
              patch.object(node_network_probe, 'tls', return_value=True), \
-             patch.object(node_network_probe.subprocess, 'run', side_effect=[links, type(links)(stdout=b'[{"dst":"192.0.2.0/24"}]')]):
+             patch.object(node_network_probe.subprocess, 'run', side_effect=[links, type(links)(stdout=b'[{"dst":"192.0.2.0/24"}]')]), \
+             patch.object(node_network_probe.Path, 'read_text', return_value='nameserver 192.0.2.53\n'):
             result = node_network_probe.probe({'nodes': ['192.0.2.11']*3,
                 'vcenter': 'synthetic.test', 'vcenter_port': 443})
         self.assertFalse(result['checks']['node_mesh_ssh_tcp'])

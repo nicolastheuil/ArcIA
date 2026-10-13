@@ -1,5 +1,17 @@
 # État de reprise d’ArcIA — 13 octobre 2026
 
+Mise à jour courante : sortie IPv4 publique TCP/443 Keycloak appliquée sur
+instruction explicite, filtrage des destinations au pare-feu amont. Snapshot
+`/32` retiré ; DNS courant, TLS Microsoft/Graph 4/4, HTTPS public et refus
+HTTP/80 vérifiés. Admin local nommé récupéré (`realm-admin` effectif), mapper
+tenant `ArcIA.User` appliqué sur exception limitée, rôle et espace d'un compte
+fédéré constatés. Nettoyage de l'unique espace d'un compte supprimé et de ses
+deux volumes autorisé par exception distincte ; deux comptes désactivés
+conservés, pool privé porté à 32 places pour trente collaborateurs. Voir le
+[handoff courant](handoff-2026-10-13-identity-public-https.md), qui remplace les
+états réseau et habilitation intermédiaires ci-dessous. Bot Teams à recréer ;
+identité administrative et cible Azure encore à enrôler localement.
+
 Identité par défaut : comptes locaux permanents Keycloak, portail `/admin/users`,
 SSO optionnel en parallèle. Lire le [handoff identité](handoff-2026-10-13-identite.md)
 et [les procédures administrateur](identite-utilisateurs.md). Base dédiée et

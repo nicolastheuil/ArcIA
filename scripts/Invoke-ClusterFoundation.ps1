@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy')][string]$Action='inspect',
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup')][string]$Action='inspect',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256,
     [string]$RecoveryUsername)
 $ErrorActionPreference='Stop'
@@ -8,7 +8,7 @@ $root=Get-ArcIAStateRoot
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress','plan_identity_access_repair','inspect_identity_access_policy')){
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress','plan_identity_access_repair','inspect_identity_access_policy','plan_personal_cleanup')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
     $payload=@{action=$Action;private_root=$root}
@@ -17,6 +17,12 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -eq 'apply_personal_cleanup'){
+        if(-not $AuthorizedRepairPlanSha256){throw 'PERSONAL_CLEANUP_EXPLICIT_NAMED_EXCEPTION_REQUIRED'}
+        $payload.cleanup_plan=(Read-ProtectedBundle (Join-Path $root 'cluster-plan_personal_cleanup.dpapi'))|ConvertFrom-Json
+        if($payload.cleanup_plan.operation_id -ne $operation.id -or $payload.cleanup_plan.plan.plan_sha256 -ne $AuthorizedRepairPlanSha256){throw 'PERSONAL_CLEANUP_PLAN_SCOPE'}
+        $payload.authorized_plan_sha256=$AuthorizedRepairPlanSha256
+    }
     if($Action -eq 'inspect_identity_access_policy'){
         $policyPath=Join-Path $root 'identity-access-policy.dpapi'
         if(Test-Path -LiteralPath $policyPath){$payload.access_policy=(Read-ProtectedBundle $policyPath)|ConvertFrom-Json}
@@ -52,7 +58,7 @@ try{
         $payload.portal_fixtures=(Read-ProtectedBundle $fixturePath)|ConvertFrom-Json
         if($payload.portal_fixtures.operation_id -ne $operation.id){throw 'PERSONAL_PORTAL_FIXTURE_SCOPE'}
     }
-    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy')){
+    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','plan_personal_cleanup','apply_personal_cleanup')){
         $identityPath=Join-Path $root 'identity.dpapi'
         if(-not(Test-Path -LiteralPath $identityPath)){
             if($Action -ne 'install_identity'){throw 'IDENTITY_ENROLLMENT_REQUIRED'}

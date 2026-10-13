@@ -39,11 +39,33 @@ def owned(kind, name, namespace, operation, optional=False):
 
 
 def apply(documents, operation):
+    snapshots = []
+    standard = []
     for doc in documents:
-        owned(doc['kind'], doc['metadata']['name'], doc['metadata'].get('namespace'), operation, True)
+        previous = owned(doc['kind'], doc['metadata']['name'], doc['metadata'].get('namespace'), operation, True)
         doc['metadata'].setdefault('annotations', {})['arcia.io/operation-id'] = operation
-    kube('apply', '--server-side', '--field-manager=arcia-foundation', '-f', '-',
-         document={'apiVersion': 'v1', 'kind': 'List', 'items': documents})
+        if (doc['kind'] == 'NetworkPolicy' and doc['metadata'].get('namespace') == NS and
+                doc['metadata']['name'] == 'keycloak-microsoft-egress' and
+                doc['metadata']['annotations'].get('arcia.io/egress-mode') == 'retired-dns-snapshot'):
+            if doc['spec'] != {'podSelector': {'matchLabels': {'app': 'keycloak'}},
+                               'policyTypes': ['Egress'], 'egress': []}:
+                raise ValueError('IDENTITY_SNAPSHOT_RETIREMENT_SCOPE')
+            snapshots.append((doc, previous))
+        else:
+            standard.append(doc)
+    if standard:
+        kube('apply', '--server-side', '--field-manager=arcia-foundation', '-f', '-',
+             document={'apiVersion': 'v1', 'kind': 'List', 'items': standard})
+    # The initial repair used create/replace. Retire it with a resourceVersion
+    # precondition rather than forcing SSA ownership of another manager's fields.
+    for doc, previous in snapshots:
+        replacement = json.loads(json.dumps(doc))
+        if previous:
+            metadata = previous['metadata']
+            replacement['metadata'].update(resourceVersion=metadata['resourceVersion'],
+                labels=metadata.get('labels', {}), annotations={**metadata.get('annotations', {}),
+                                                               **doc['metadata']['annotations']})
+        kube('replace' if previous else 'create', '-f', '-', document=replacement)
 
 
 @contextmanager
@@ -253,6 +275,20 @@ print(json.dumps(r))"""
     return result
 
 
+def personal_cleanup(values):
+    operation = values['operation_id']
+    owned('Deployment', 'keycloak', NS, operation)
+    scope = {}
+    exec(values['cleanup_source'], scope)
+    with forward() as base:
+        admin = Admin(base, values['hostname'])
+        admin.authenticate(values['credentials'])
+        if values['action'] == 'plan_personal_cleanup':
+            return {'plan': scope['plan'](admin, owned, kube, operation)}
+        return scope['apply'](admin, owned, kube, operation, values['cleanup_plan'],
+                              values['authorized_plan_sha256'], values['approval_mode'])
+
+
 def plan_microsoft_egress(values):
     # Planning never applies. Administrative repair has a separate entry point.
     operation = values['operation_id']
@@ -304,6 +340,19 @@ def resolve_microsoft_egress(values):
 def inspect_microsoft_egress(values):
     operation = values['operation_id']
     owned('Deployment', 'keycloak', NS, operation)
+    public = owned('NetworkPolicy', 'keycloak-public-https-egress', NS, operation, True)
+    if public:
+        scope = {}
+        exec(values['egress_source'], scope)
+        expected = scope['public_https_policy'](values['network'], operation)
+        snapshot = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
+        # The API omits empty lists in its readback representation.
+        snapshot_retired = not snapshot or {**snapshot['spec'], 'egress': snapshot['spec'].get('egress', [])} == scope['retired_snapshot_policy']()['spec']
+        return {'configured': True, 'bounded_rule': public['spec'] == expected['spec'] and
+                    values.get('https_egress_mode') == 'public_ipv4_443' and snapshot_retired,
+                'snapshot_retired': snapshot_retired,
+                'current_dns_covered': True, 'mode': 'public_ipv4_443',
+                'destination_control': 'upstream_firewall', 'resources_modified': False}
     existing = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
     if not existing:
         return {'configured': False, 'current_dns_covered': None, 'resources_modified': False}
@@ -333,6 +382,28 @@ def inspect_microsoft_egress(values):
             'current_dns_covered': expected_addresses <= permitted,
             'address_count': len(permitted), 'missing_address_count': len(expected_addresses - permitted),
             'resources_modified': False}
+
+
+def install_public_https_egress(values):
+    operation = values['operation_id']
+    owned('Deployment', 'keycloak', NS, operation)
+    if values.get('https_egress_mode') != 'public_ipv4_443':
+        raise ValueError('IDENTITY_PUBLIC_HTTPS_EXPLICIT_CONFIGURATION_REQUIRED')
+    scope = {}
+    exec(values['egress_source'], scope)
+    public = scope['public_https_policy'](values['network'], operation)
+    # Both resources are checked before the first mutation.
+    owned('NetworkPolicy', public['metadata']['name'], NS, operation, True)
+    owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
+    apply([public, scope['retired_snapshot_policy']()], operation)
+    installed = owned('NetworkPolicy', public['metadata']['name'], NS, operation)
+    retired = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation)
+    if installed['spec'] != public['spec'] or retired['spec'].get('egress', []):
+        raise ValueError('IDENTITY_PUBLIC_HTTPS_READBACK_FAILED')
+    return {'public_https_egress_configured': True, 'target': 'keycloak_only',
+            'port': 443, 'protocol': 'TCP', 'destination_control': 'upstream_firewall',
+            'snapshot_retired': True, 'keycloak_rollout_triggered': False,
+            'credentials_modified': False, 'volumes_modified': False}
 
 
 def apply_microsoft_egress_repair(values):
@@ -832,12 +903,14 @@ def install_personal_portal(values):
 
 if __name__ == '__main__':
     print(json.dumps({'install_identity': install, 'verify_identity': verify,
+                      'plan_personal_cleanup': personal_cleanup, 'apply_personal_cleanup': personal_cleanup,
                       'plan_identity_microsoft_egress': plan_microsoft_egress,
                       'plan_identity_access_repair': identity_access_repair,
                       'apply_identity_access_repair': identity_access_repair,
                       'inspect_identity_access_policy': identity_access_repair,
                       'resolve_identity_microsoft_egress': resolve_microsoft_egress,
                       'inspect_identity_microsoft_egress': inspect_microsoft_egress,
+                      'install_identity_public_https_egress': install_public_https_egress,
                       'apply_identity_microsoft_egress_repair': apply_microsoft_egress_repair,
                       'inspect_identity': inspect,'prepare_identity':prepare,
                       'connect_identity':connect,'cleanup_identity_fixture':cleanup_unbound_fixture,

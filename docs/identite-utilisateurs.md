@@ -315,3 +315,17 @@ L'administration native Keycloak et son déploiement ne constituent pas seuls
 une qualification de tous les usages d'entreprise. Les options SSO, SMTP,
 passkeys, capacités au-delà du pool borné, ACL de groupes et restauration exigent leurs
 propres preuves. Aucune donnée privée réelle n'est ouverte par ce lot.
+
+## Suppression demandée des espaces de comptes supprimés
+
+La désactivation ou la suppression d'un compte ne recycle pas automatiquement
+son espace. Après demande explicite d'effacement, l'opérateur prépare
+`plan_personal_cleanup`, examine le plan protégé et obtient l'approbation requise.
+Seul un sujet absent (HTTP 404), dans le realm possédé, est éligible. Les comptes
+encore présents, même désactivés, et les places libres sont conservés.
+
+L'apply expire après dix minutes, vérifie les bindings, namespace et volumes
+par UID/version, attend leur suppression CSI puis crée une place neuve vide.
+Les données ne sont pas réattribuées. Les autres espaces restent liés à leurs
+propriétaires. Voir [le runbook](runbooks/bootstrap.md) pour l'approbation,
+le passage Retain à Delete et la reprise après échec.

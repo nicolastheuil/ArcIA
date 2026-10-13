@@ -162,3 +162,46 @@ privé, avec tests de restauration, bornes et exclusions.
 Voir [skills](../skills.md), [tokenmaxing](../tokenmaxing.md) et
 [crédits](../../THIRD_PARTY_NOTICES.md). Les résultats historiques à 43 étapes
 restent datés ; les nouvelles preuves sont dans le handoff du 13 octobre.
+
+## Sortie HTTPS Keycloak et nettoyage explicite des espaces
+
+`identity.https_egress_mode` vaut `disabled` par défaut. Sur décision explicite
+de l'opérateur, `public_ipv4_443` ouvre seulement Keycloak vers les IPv4
+publiques TCP/443, avec le filtrage des destinations au pare-feu amont. Les
+plages privées/réservées/Pod/Service restent exclues de cette règle.
+`install_identity_public_https_egress` fait partie de Fresh/Reconcile ; sans
+option active, il termine sans mutation. La migration de l'ancien snapshot
+utilise `resourceVersion`, sans `--force-conflicts`. Audit vérifie la règle
+courante sans liste d'IP DNS. Désactiver le flag d'une instance déjà ouverte
+signale une dérive et ne remplace pas une procédure explicite de retrait.
+
+Le manifeste courant contient 56 étapes. Le pool personnel accepte de une à
+32 places (huit par défaut). Fixer la capacité dans l'instance protégée,
+contrôler stockage/ressources et réappliquer `install_personal_portal`.
+Les anciens bindings, volumes et identités sont conservés. Une place dormante
+ne garantit pas les ressources de trente utilisateurs simultanés.
+
+Le nettoyage n'est jamais automatique. Le mode Audit avec
+`-PlanPersonalCleanup` prépare un plan ; `plan_personal_cleanup` peut aussi
+être appelé directement. Seuls les sujets Keycloak absents (HTTP 404) du realm
+possédé sont éligibles. Un compte désactivé, une erreur d'authentification/
+serveur, une place libre ou une ressource étrangère sont conservés.
+Les deux PVC attendus doivent appartenir à l'opération ; les PV vSphere
+portent les mêmes claimRef/UID. Le plan lie leurs UID, versions et politiques
+de reclaim ; passer Retain à Delete fait partie de la suppression de données
+et requiert la même approbation. Sa validité est dix minutes.
+
+Après approbation Teams vérifiée côté serveur, ou exception humaine explicite
+pour ce plan, appeler `apply_personal_cleanup` avec le hash du plan via le
+programme local protégé. Le résultat indique explicitement l'exception et
+`teams_approval_verified=false` lorsqu'une exception est utilisée.
+L'action arrête l'allocation, revalide le plan, supprime avec préconditions
+UID/resourceVersion, attend namespace et PV, puis réapplique le pool vide aux
+places supprimées. Les autres bindings/PVC sont relus et préservés. Ne jamais
+forcer les finalizers ou les processus de Pod pour accélérer l'effacement.
+
+Si le nettoyage est fini mais la réapplication échoue, utiliser
+`install_personal_portal` pour restaurer le portail et les places manquantes.
+Ne pas rejouer le plan de suppression d'avant l'échec. Les plans, résultats
+intermédiaires et diagnostics restent sous DPAPI/ACL. Ce nettoyage ne supprime
+pas les sauvegardes et ne revendique pas d'effacement physique sécurisé.

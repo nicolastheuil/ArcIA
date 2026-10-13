@@ -154,6 +154,53 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action in ('plan_personal_cleanup', 'apply_personal_cleanup'):
+        if payload['identity']['operation_id'] != operation:
+            raise ValueError('PERSONAL_CLEANUP_IDENTITY_SCOPE')
+        target, nodes, base = transport(payload)
+        values = {'action': action, 'operation_id': operation, 'credentials': payload['identity'],
+                  'hostname': payload['pilot']['hostname'],
+                  'cleanup_source': (ROOT/'scripts/personal_cleanup.py').read_text(encoding='utf-8')}
+        if action == 'apply_personal_cleanup':
+            values.update(cleanup_plan=payload['cleanup_plan']['plan'],
+                          authorized_plan_sha256=payload['authorized_plan_sha256'],
+                          approval_mode='operator_exception_for_named_personal_cleanup')
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(), values, root=True, timeout=1800)
+        if action == 'plan_personal_cleanup':
+            return {'private': {'operation_id': operation, **result}, 'safe': {
+                'status': 'planned', 'code': 'PERSONAL_CLEANUP_PLANNED',
+                'candidate_count': len(result['plan']['candidates']),
+                'claim_count': sum(len(c['volumes']) for c in result['plan']['candidates']),
+                'plan_sha256': result['plan']['plan_sha256'], 'resources_modified': False}}
+        # Recreate fresh empty slots through the normal installer, preserving all
+        # remaining bindings/PVCs. A failed reconciliation leaves a protected result.
+        try:
+            restored = collect({**payload, 'action': 'install_personal_portal'})
+        except Exception as exc:
+            return {'private': {'operation_id': operation, 'cleanup': result, 'failure': traceback.format_exc(),
+                                'guest_failure': getattr(exc, 'private_output', None)},
+                    'safe': {'status': 'blocked', 'code': 'PERSONAL_CLEANUP_RECONCILE_FAILED',
+                             **result, 'portal_reconciled': False}}
+        return {'private': {'operation_id': operation, 'cleanup': result, 'reconcile': restored['private']},
+                'safe': {'status': restored['safe']['status'],
+                         'code': 'PERSONAL_CLEANUP_VERIFIED' if restored['safe']['status'] == 'verified' else 'PERSONAL_CLEANUP_RECONCILE_FAILED',
+                         **result, 'portal_reconciled': restored['safe']['status'] == 'verified',
+                         'capacity': restored['safe'].get('capacity'),
+                         'remaining_bindings_preserved': restored['safe'].get('existing_bindings_preserved'),
+                         'remaining_pvcs_preserved': restored['safe'].get('existing_pvcs_preserved')}}
+    if action == 'install_identity_public_https_egress':
+        config = harness.validate(payload['instance']['config'])
+        if config.get('identity', {}).get('https_egress_mode', 'disabled') == 'disabled':
+            return {'safe': {'status': 'verified', 'code': 'IDENTITY_PUBLIC_HTTPS_EGRESS_NOT_REQUESTED',
+                             'configured': False, 'resources_modified': False}}
+        target, nodes, base = transport(payload)
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                       {'action': action, 'operation_id': operation, 'network': config['network'],
+                        'https_egress_mode': config.get('identity', {}).get('https_egress_mode', 'disabled'),
+                        'egress_source': (ROOT/'scripts/identity_egress.py').read_text(encoding='utf-8')}, root=True)
+        return {'private': {'operation_id': operation, **result}, 'safe': {
+            'status': 'verified', 'code': 'IDENTITY_PUBLIC_HTTPS_EGRESS_VERIFIED',
+            'approval_mode': 'explicit_operator_public_https_configuration', **result}}
     if action == 'inspect_identity_access_policy':
         policy = payload.get('access_policy')
         if not policy:
@@ -197,6 +244,8 @@ def collect(payload):
         target, nodes, base = transport(payload)
         result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
                        {'action': action, 'operation_id': operation,
+                        'network': payload['instance']['config']['network'],
+                        'https_egress_mode': payload['instance']['config'].get('identity', {}).get('https_egress_mode', 'disabled'),
                         'egress_source': (ROOT/'scripts/identity_egress.py').read_text(encoding='utf-8')}, root=True)
         passed = not result['configured'] or (result['bounded_rule'] and result['current_dns_covered'])
         return {'private': {'operation_id': operation, **result}, 'safe': {

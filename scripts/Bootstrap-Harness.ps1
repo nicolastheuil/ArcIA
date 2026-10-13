@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param([ValidateSet('Plan','Apply','Verify','Audit')][string]$Mode='Plan',
     [ValidateSet('Fresh','Reconcile')][string]$Profile='Reconcile',[switch]$ProvisionVMs,
-    [switch]$PlanMicrosoftEgress)
+    [switch]$PlanMicrosoftEgress,[switch]$PlanPersonalCleanup)
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSVersion -lt [version]'7.4'){throw 'POWERSHELL_7_4_REQUIRED'}
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
@@ -12,12 +12,15 @@ Assert-BootstrapDefinition $definition $workspace
 if($ProvisionVMs -and ($Profile -ne 'Fresh' -or $Mode -notin @('Apply','Plan'))){throw 'PROVISION_REQUIRES_FRESH_APPLY'}
 $selection=if($Mode -eq 'Apply' -or $Mode -eq 'Plan'){$Profile.ToLowerInvariant()}else{$Mode.ToLowerInvariant()}
 if($PlanMicrosoftEgress -and $Mode -ne 'Audit'){throw 'MICROSOFT_EGRESS_PLAN_REQUIRES_AUDIT'}
+if($PlanPersonalCleanup -and $Mode -ne 'Audit'){throw 'PERSONAL_CLEANUP_PLAN_REQUIRES_AUDIT'}
 $steps=@($definition.steps|Where-Object {$selection -in $_.profiles -and (-not $_.provision_only -or $ProvisionVMs) -and
-    ($_.id -ne 'plan_identity_microsoft_egress' -or $PlanMicrosoftEgress)})
+    ($_.id -ne 'plan_identity_microsoft_egress' -or $PlanMicrosoftEgress) -and
+    ($_.id -ne 'plan_personal_cleanup' -or $PlanPersonalCleanup)})
 if($Mode -eq 'Plan'){
     @{status='planned';profile=$Profile;target='qualification';steps=@($steps|ForEach-Object {$_.id});
       private_inputs=$definition.private_inputs;configuration_contracts=$definition.configuration_contracts;
       tenant_admission=$definition.configuration_contracts.identity.tenant_admission;
+      identity_public_https=$definition.configuration_contracts.identity.public_https;
       business_services_enabled=$false;fresh_cluster_tested=$false}|ConvertTo-Json -Depth 8
     exit 0
 }

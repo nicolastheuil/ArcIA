@@ -43,9 +43,13 @@ def validate(config):
     required={"schema_version", "synthetic", "github", "nodes", "network", "storage", "gates"}
     require(isinstance(config,dict) and set(config) in (required,required|{'identity'}),'CONFIG_FIELDS')
     if 'identity' in config:
-        keys(config['identity'],('personal_slots',),'IDENTITY_FIELDS')
+        require(isinstance(config['identity'], dict) and
+                set(config['identity']) in ({'personal_slots'}, {'personal_slots', 'https_egress_mode'}),
+                'IDENTITY_FIELDS')
         require(type(config['identity']['personal_slots']) is int and 1<=config['identity']['personal_slots']<=32,
                 'PERSONAL_RUNTIME_CAPACITY_INVALID')
+        require(config['identity'].get('https_egress_mode', 'disabled') in ('disabled', 'public_ipv4_443'),
+                'IDENTITY_HTTPS_EGRESS_MODE_INVALID')
     require(type(config["schema_version"]) is int and config["schema_version"] == 1,
             "SCHEMA_VERSION")
     require(type(config["synthetic"]) is bool, "SYNTHETIC_FLAG")

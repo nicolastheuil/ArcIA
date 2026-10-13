@@ -296,7 +296,7 @@
     "personal_portal_qualified": true,
     "personal_portal_proof": "docs/qualification/2026-10-13-portail-personnel.json",
     "microsoft_egress": {
-      "status": "qualification_repair_installed_network_verified_login_pending",
+      "status": "legacy_dns_snapshot_superseded_by_explicit_public_https_on_current_target",
       "mode": "qualification_ipv4_dns_snapshot",
       "source": "scripts/identity_egress.py",
       "approval_required": "server_verified_teams",
@@ -306,11 +306,25 @@
       "inspection_step": "inspect_identity_microsoft_egress"
     },
     "tenant_admission": {
-      "status": "coded_not_applied",
+      "status": "deployed_readback_verified_federated_user_role_verified",
       "default_role": "ArcIA.User",
       "scope": "verified_microsoft_tenant_only",
       "automatic_admin_grants": false,
       "source": "scripts/identity_access.py"
+    },
+    "personal_slots_maximum": 32,
+    "public_https": {
+      "status": "implemented_instance_opt_in_deployed_network_verified",
+      "default": "disabled",
+      "enabled_mode": "public_ipv4_443",
+      "target": "keycloak_only",
+      "installation_step": "install_identity_public_https_egress",
+      "proof": "docs/qualification/2026-10-13-identity-public-https.json"
+    },
+    "personal_cleanup": {
+      "status": "deployed_verified_one_missing_user_slot_deleted_others_preserved",
+      "automatic_deletion": false,
+      "source": "scripts/personal_cleanup.py"
     }
   }
 }

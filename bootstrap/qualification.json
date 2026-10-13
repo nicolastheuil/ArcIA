@@ -657,6 +657,29 @@
       "provision_only": false
     },
     {
+      "id": "install_identity_public_https_egress",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_identity_public_https_egress"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_identity"
+      ],
+      "status_file": "cluster-install_identity_public_https_egress-status.json",
+      "success_codes": [
+        "IDENTITY_PUBLIC_HTTPS_EGRESS_VERIFIED",
+        "IDENTITY_PUBLIC_HTTPS_EGRESS_NOT_REQUESTED"
+      ],
+      "timeout_seconds": 300,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "verify_identity",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -669,7 +692,8 @@
         "verify"
       ],
       "after": [
-        "install_identity"
+        "install_identity",
+        "install_identity_public_https_egress"
       ],
       "status_file": "cluster-verify_identity-status.json",
       "success_codes": [
@@ -785,6 +809,27 @@
         "PERSONAL_PORTAL_INSPECTED"
       ],
       "timeout_seconds": 180,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "plan_personal_cleanup",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "plan_personal_cleanup"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "install_personal_portal"
+      ],
+      "status_file": "cluster-plan_personal_cleanup-status.json",
+      "success_codes": [
+        "PERSONAL_CLEANUP_PLANNED"
+      ],
+      "timeout_seconds": 300,
       "engine": "pwsh",
       "provision_only": false
     },
@@ -1231,6 +1276,32 @@
         "apply_action": "apply_identity_access_repair",
         "inspection_step": "inspect_identity_access_policy",
         "automatic_privilege_repair": false
+      },
+      "capacity_maximum": 32,
+      "public_https": {
+        "instance_option": "identity.https_egress_mode",
+        "default": "disabled",
+        "enabled_mode": "public_ipv4_443",
+        "target": "keycloak_only",
+        "protocol": "TCP",
+        "port": 443,
+        "destination_control": "upstream_firewall",
+        "private_cluster_ranges_excluded": true,
+        "installation_step": "install_identity_public_https_egress",
+        "snapshot_migration": "owned_resource_version_replace_no_force",
+        "approval": "explicit_operator_instance_configuration",
+        "inspection_step": "inspect_identity_microsoft_egress"
+      },
+      "personal_cleanup": {
+        "plan_action": "plan_personal_cleanup",
+        "apply_action": "apply_personal_cleanup",
+        "automatic_deletion": false,
+        "eligible_users": "missing_subject_404_only_disabled_retained",
+        "approval_required": "server_verified_teams_or_explicit_named_exception",
+        "scope": "fixed_owned_slots_and_exact_csi_claims",
+        "plan_validity_seconds": 600,
+        "preservation": "all_remaining_bindings_and_pvcs",
+        "recovery": "install_personal_portal_no_repeated_deletion"
       }
     }
   }

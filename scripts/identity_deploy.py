@@ -92,6 +92,12 @@ def payload(lock, config, credentials, pilot):
                 'volumes': [{'name': 'db-ca', 'secret': {'secretName': 'identity-db-ca',
                               'items': [{'key': 'ca.crt', 'path': 'ca.crt'}]}}]}}}}
     docs.append(deployment)
+    mode = config.get('identity', {}).get('https_egress_mode', 'disabled')
+    if mode not in ('disabled', 'public_ipv4_443'):
+        raise ValueError('IDENTITY_HTTPS_EGRESS_MODE_INVALID')
+    if mode == 'public_ipv4_443':
+        import identity_egress
+        docs.extend([identity_egress.public_https_policy(config['network']), identity_egress.retired_snapshot_policy()])
     return {'documents': docs, 'ingress': kubernetes_apps.ingress(lock, config, pilot),
             'credentials': credentials, 'hostname': host,
             'realm_source': (ROOT / 'services/identity/realm.py').read_text(encoding='utf-8')}

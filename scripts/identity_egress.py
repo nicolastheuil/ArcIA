@@ -14,6 +14,36 @@ HOSTS = ('login.microsoftonline.com', 'graph.microsoft.com')
 NS = 'arcia-identity'
 NAME = 'keycloak-microsoft-egress'
 PLAN_SECONDS = 600
+PUBLIC_NAME = 'keycloak-public-https-egress'
+
+
+def public_https_policy(network, operation=None):
+    excluded = [ipaddress.ip_network(cidr) for cidr in (
+        '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16',
+        '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24', '192.168.0.0/16',
+        '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4')]
+    for key in ('pod_cidr', 'service_cidr'):
+        cidr = ipaddress.ip_network(network[key])
+        if cidr.version != 4 or cidr.prefixlen < 8:
+            raise ValueError('IDENTITY_PUBLIC_HTTPS_CLUSTER_CIDR_REFUSED')
+        excluded.append(cidr)
+    annotations = {'arcia.io/egress-mode': 'public-ipv4-443-upstream-firewall'}
+    if operation:
+        annotations['arcia.io/operation-id'] = str(uuid.UUID(operation))
+    return {'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy',
+            'metadata': {'name': PUBLIC_NAME, 'namespace': NS, 'annotations': annotations},
+            'spec': {'podSelector': {'matchLabels': {'app': 'keycloak'}}, 'policyTypes': ['Egress'],
+                     'egress': [{'to': [{'ipBlock': {'cidr': '0.0.0.0/0',
+                        'except': [str(cidr) for cidr in ipaddress.collapse_addresses(excluded)]}}],
+                        'ports': [{'port': 443, 'protocol': 'TCP'}]}]}}
+
+
+def retired_snapshot_policy():
+    return {'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy',
+            'metadata': {'name': NAME, 'namespace': NS,
+                         'annotations': {'arcia.io/egress-mode': 'retired-dns-snapshot'}},
+            'spec': {'podSelector': {'matchLabels': {'app': 'keycloak'}},
+                     'policyTypes': ['Egress'], 'egress': []}}
 
 
 def digest(value):

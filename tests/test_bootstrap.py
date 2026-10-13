@@ -25,6 +25,18 @@ class BootstrapTests(unittest.TestCase):
         with patch.object(Path,'read_text',read):
             with self.assertRaisesRegex(ValueError,'BOOTSTRAP_COVERAGE_COMPONENTS'):validate_bootstrap.validate()
 
+    def test_cleanup_cannot_be_added_to_automatic_bootstrap(self):
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            text=original(path,*args,**kwargs)
+            if path.name=='qualification.json':
+                data=json.loads(text)
+                next(s for s in data['steps'] if s['id']=='plan_personal_cleanup')['arguments']=['-Action','apply_personal_cleanup']
+                return json.dumps(data)
+            return text
+        with patch.object(Path,'read_text',read):
+            with self.assertRaisesRegex(ValueError,'AUTOMATIC_DELETE_REFUSED'):validate_bootstrap.validate()
+
     def test_seed_preserves_existing_instance_without_apply_or_downgrade(self):
         current={'metadata':{'annotations':{'arcia.io/operation-id':'synthetic'}}}
         with patch.object(node_kubernetes,'kubectl',side_effect=[json.dumps(current),'ready']) as call:

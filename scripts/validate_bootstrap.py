@@ -26,6 +26,24 @@ def validate(root=ROOT):
         required_identity=['install_identity','verify_identity','connect_identity','verify_identity_access','inspect_identity']
         required_identity += ['plan_identity_microsoft_egress', 'inspect_identity_microsoft_egress']
         required_identity.append('inspect_identity_access_policy')
+        required_identity.append('install_identity_public_https_egress')
+        required_identity.append('plan_personal_cleanup')
+        cleanup = contract.get('personal_cleanup', {})
+        if (cleanup.get('automatic_deletion') is not False or
+                cleanup.get('eligible_users') != 'missing_subject_404_only_disabled_retained' or
+                cleanup.get('apply_action') != 'apply_personal_cleanup' or
+                'scripts/personal_cleanup.py' not in identity_lock['files']):
+            raise ValueError('BOOTSTRAP_PERSONAL_CLEANUP_CONTRACT')
+        if any('apply_personal_cleanup' in s.get('arguments', []) for s in definition['steps']):
+            raise ValueError('BOOTSTRAP_PERSONAL_CLEANUP_AUTOMATIC_DELETE_REFUSED')
+        public_https = contract.get('public_https', {})
+        if (public_https.get('instance_option') != 'identity.https_egress_mode' or
+                public_https.get('default') != 'disabled' or
+                public_https.get('enabled_mode') != 'public_ipv4_443' or
+                public_https.get('target') != 'keycloak_only' or
+                public_https.get('installation_step') != 'install_identity_public_https_egress' or
+                not {'schemas/bootstrap.schema.json', 'scripts/harness.py'} <= set(identity_lock['files'])):
+            raise ValueError('BOOTSTRAP_IDENTITY_PUBLIC_HTTPS_CONTRACT')
         admission = contract.get('tenant_admission', {})
         if (admission.get('role') != 'ArcIA.User' or admission.get('automatic_privilege_repair') is not False or
                 admission.get('inspection_step') != 'inspect_identity_access_policy' or

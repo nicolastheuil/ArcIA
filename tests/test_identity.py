@@ -94,6 +94,17 @@ class IdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'IDENTITY_IMAGE_NOT_PINNED'):
             identity_deploy.payload(self.lock, self.config, self.credentials, self.pilot)
 
+    def test_public_https_is_explicit_instance_option_and_default_stays_closed(self):
+        for mode in ('disabled', 'public_ipv4_443'):
+            config = copy.deepcopy(self.config)
+            config['identity'] = {'personal_slots': 8, 'https_egress_mode': mode}
+            docs = identity_deploy.payload(self.lock, config, self.credentials, self.pilot)['documents']
+            public = [d for d in docs if d['kind']=='NetworkPolicy' and d['metadata']['name']=='keycloak-public-https-egress']
+            self.assertEqual(bool(public), mode == 'public_ipv4_443')
+            if public:
+                retired = next(d for d in docs if d['kind']=='NetworkPolicy' and d['metadata']['name']=='keycloak-microsoft-egress')
+                self.assertEqual(retired['spec']['egress'], [])
+
 
 if __name__ == '__main__':
     unittest.main()

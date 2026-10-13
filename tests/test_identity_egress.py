@@ -129,7 +129,7 @@ class IdentityEgressTests(unittest.TestCase):
 
     def test_inspection_detects_stale_or_widened_policy_without_apply(self):
         policy = egress.policy(self.addresses, self.operation)
-        with patch.object(node_identity, 'owned', side_effect=[self.deployment, policy]), \
+        with patch.object(node_identity, 'owned', side_effect=[self.deployment, None, policy]), \
                 patch('socket.getaddrinfo', side_effect=[[(2, 1, 6, '', ('20.190.128.3', 443))],
                                                         [(2, 1, 6, '', ('20.190.128.2', 443))]]), \
                 patch.object(node_identity, 'apply') as apply:
@@ -140,7 +140,7 @@ class IdentityEgressTests(unittest.TestCase):
             self.assertEqual(result['missing_address_count'], 1)
             apply.assert_not_called()
         policy['spec']['egress'][0]['to'] = [{'ipBlock': {'cidr': '0.0.0.0/0'}}]
-        with patch.object(node_identity, 'owned', side_effect=[self.deployment, policy]), \
+        with patch.object(node_identity, 'owned', side_effect=[self.deployment, None, policy]), \
                 patch('socket.getaddrinfo', side_effect=[[(2, 1, 6, '', ('20.190.128.1', 443))],
                                                         [(2, 1, 6, '', ('20.190.128.2', 443))]]):
             result = node_identity.inspect_microsoft_egress({'operation_id': self.operation,
@@ -151,6 +151,72 @@ class IdentityEgressTests(unittest.TestCase):
         other = copy.deepcopy(self.addresses); other[egress.HOSTS[0]] = ['20.190.128.3']
         combined = egress.merge_resolutions([self.addresses, other])
         self.assertEqual(combined[egress.HOSTS[0]], ['20.190.128.1', '20.190.128.3'])
+
+    def test_explicit_public_https_policy_never_opens_cluster_private_or_other_ports(self):
+        import ipaddress
+        network = {'pod_cidr': '10.42.0.0/16', 'service_cidr': '10.43.0.0/16'}
+        doc = egress.public_https_policy(network, self.operation)
+        self.assertEqual(doc['spec']['podSelector'], {'matchLabels': {'app': 'keycloak'}})
+        self.assertEqual(doc['spec']['policyTypes'], ['Egress'])
+        rule = doc['spec']['egress'][0]
+        self.assertEqual(rule['ports'], [{'port': 443, 'protocol': 'TCP'}])
+        block = rule['to'][0]['ipBlock']; self.assertEqual(block['cidr'], '0.0.0.0/0')
+        exceptions = [ipaddress.ip_network(v) for v in block['except']]
+        for address in ('10.42.1.1','10.43.0.1','192.168.1.1','172.16.0.1','169.254.169.254','127.0.0.1','100.64.1.1'):
+            self.assertTrue(any(ipaddress.ip_address(address) in n for n in exceptions))
+        self.assertFalse(any(ipaddress.ip_address('20.190.128.1') in n for n in exceptions))
+
+    def test_public_mode_inspection_uses_no_dns_snapshot_and_detects_configuration_drift(self):
+        network = {'pod_cidr': '10.42.0.0/16', 'service_cidr': '10.43.0.0/16'}
+        public = egress.public_https_policy(network, self.operation)
+        values = {'operation_id': self.operation, 'egress_source': Path(egress.__file__).read_text(encoding='utf-8'),
+                  'network': network, 'https_egress_mode': 'public_ipv4_443'}
+        for mode, expected in (('public_ipv4_443', True), ('disabled', False)):
+            values['https_egress_mode'] = mode
+            with patch.object(node_identity, 'owned', side_effect=[self.deployment, public, egress.retired_snapshot_policy()]), patch('socket.getaddrinfo') as dns:
+                result = node_identity.inspect_microsoft_egress(values)
+                self.assertEqual(result['bounded_rule'], expected)
+                dns.assert_not_called()
+
+    def test_public_mode_audit_detects_reactivated_snapshot_permissions(self):
+        network = {'pod_cidr': '10.42.0.0/16', 'service_cidr': '10.43.0.0/16'}
+        with patch.object(node_identity, 'owned', side_effect=[self.deployment,
+                egress.public_https_policy(network, self.operation), egress.policy(self.addresses,self.operation)]):
+            result=node_identity.inspect_microsoft_egress({'operation_id':self.operation,'network':network,
+                'https_egress_mode':'public_ipv4_443','egress_source':Path(egress.__file__).read_text(encoding='utf-8')})
+            self.assertFalse(result['bounded_rule'])
+            self.assertFalse(result['snapshot_retired'])
+
+    def test_public_mode_audit_accepts_api_omission_of_empty_egress_list(self):
+        network={'pod_cidr':'10.42.0.0/16','service_cidr':'10.43.0.0/16'}
+        retired=egress.retired_snapshot_policy();del retired['spec']['egress']
+        with patch.object(node_identity,'owned',side_effect=[self.deployment,egress.public_https_policy(network,self.operation),retired]):
+            result=node_identity.inspect_microsoft_egress({'operation_id':self.operation,'network':network,
+                'https_egress_mode':'public_ipv4_443','egress_source':Path(egress.__file__).read_text(encoding='utf-8')})
+            self.assertTrue(result['bounded_rule'])
+            self.assertTrue(result['snapshot_retired'])
+
+    def test_snapshot_retirement_preserves_metadata_and_uses_version_precondition_not_forced_ssa(self):
+        previous = egress.policy(self.addresses, self.operation)
+        previous['metadata'].update(resourceVersion='7', labels={'preserve': 'yes'})
+        previous['metadata']['annotations']['preserve'] = 'yes'
+        retired = egress.retired_snapshot_policy()
+        with patch.object(node_identity, 'owned', return_value=previous), patch.object(node_identity, 'kube') as kube:
+            node_identity.apply([retired], self.operation)
+            self.assertEqual(kube.call_args.args, ('replace', '-f', '-'))
+            document = kube.call_args.kwargs['document']
+            self.assertEqual(document['metadata']['resourceVersion'], '7')
+            self.assertEqual(document['metadata']['labels'], {'preserve': 'yes'})
+            self.assertEqual(document['metadata']['annotations']['preserve'], 'yes')
+            self.assertEqual(document['spec']['egress'], [])
+
+    def test_foreign_snapshot_is_refused_before_public_policy_mutation(self):
+        public = egress.public_https_policy({'pod_cidr': '10.42.0.0/16', 'service_cidr': '10.43.0.0/16'}, self.operation)
+        with patch.object(node_identity, 'owned', side_effect=[None, ValueError('IDENTITY_FOREIGN_RESOURCE')]), \
+                patch.object(node_identity, 'kube') as kube:
+            with self.assertRaisesRegex(ValueError, 'FOREIGN_RESOURCE'):
+                node_identity.apply([public, egress.retired_snapshot_policy()], self.operation)
+            kube.assert_not_called()
 
 
 if __name__ == '__main__':

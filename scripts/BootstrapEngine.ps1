@@ -9,6 +9,11 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
        $identity.microsoft_egress.approval_required -ne 'server_verified_teams'){
         throw 'BOOTSTRAP_IDENTITY_EGRESS_APPROVAL_REQUIRED'
     }
+    if($identity.public_https.default -ne 'disabled' -or
+       $identity.public_https.enabled_mode -ne 'public_ipv4_443' -or
+       $identity.public_https.target -ne 'keycloak_only'){
+        throw 'BOOTSTRAP_IDENTITY_PUBLIC_HTTPS_CONTRACT'
+    }
     $m365=$Definition.configuration_contracts.microsoft365
     if($null -eq $m365 -or $m365.runtime_implemented -ne $false -or
        $m365.lock -ne 'bootstrap/microsoft365.lock.json' -or
