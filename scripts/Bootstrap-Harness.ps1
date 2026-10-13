@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([ValidateSet('Plan','Apply','Verify','Audit')][string]$Mode='Plan',
-    [ValidateSet('Fresh','Reconcile')][string]$Profile='Reconcile',[switch]$ProvisionVMs)
+    [ValidateSet('Fresh','Reconcile')][string]$Profile='Reconcile',[switch]$ProvisionVMs,
+    [switch]$PlanMicrosoftEgress)
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSVersion -lt [version]'7.4'){throw 'POWERSHELL_7_4_REQUIRED'}
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
@@ -10,7 +11,9 @@ $definition=Get-Content -LiteralPath (Join-Path $workspace 'bootstrap/qualificat
 Assert-BootstrapDefinition $definition $workspace
 if($ProvisionVMs -and ($Profile -ne 'Fresh' -or $Mode -notin @('Apply','Plan'))){throw 'PROVISION_REQUIRES_FRESH_APPLY'}
 $selection=if($Mode -eq 'Apply' -or $Mode -eq 'Plan'){$Profile.ToLowerInvariant()}else{$Mode.ToLowerInvariant()}
-$steps=@($definition.steps|Where-Object {$selection -in $_.profiles -and (-not $_.provision_only -or $ProvisionVMs)})
+if($PlanMicrosoftEgress -and $Mode -ne 'Audit'){throw 'MICROSOFT_EGRESS_PLAN_REQUIRES_AUDIT'}
+$steps=@($definition.steps|Where-Object {$selection -in $_.profiles -and (-not $_.provision_only -or $ProvisionVMs) -and
+    ($_.id -ne 'plan_identity_microsoft_egress' -or $PlanMicrosoftEgress)})
 if($Mode -eq 'Plan'){
     @{status='planned';profile=$Profile;target='qualification';steps=@($steps|ForEach-Object {$_.id});
       private_inputs=$definition.private_inputs;configuration_contracts=$definition.configuration_contracts;

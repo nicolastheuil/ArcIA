@@ -154,6 +154,49 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action == 'inspect_identity_microsoft_egress':
+        target, nodes, base = transport(payload)
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                       {'action': action, 'operation_id': operation,
+                        'egress_source': (ROOT/'scripts/identity_egress.py').read_text(encoding='utf-8')}, root=True)
+        passed = not result['configured'] or (result['bounded_rule'] and result['current_dns_covered'])
+        return {'private': {'operation_id': operation, **result}, 'safe': {
+            'status': 'inspected' if passed else 'blocked',
+            'code': 'IDENTITY_MICROSOFT_EGRESS_INSPECTED' if passed else 'IDENTITY_MICROSOFT_EGRESS_REPLAN_REQUIRED',
+            **result}}
+    if action == 'apply_identity_microsoft_egress_repair':
+        target, nodes, base = transport(payload)
+        repair = payload['repair']
+        if repair['operation_id'] != operation:
+            raise ValueError('IDENTITY_EGRESS_REPAIR_SCOPE')
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                       {'action': action, 'operation_id': operation, 'repair_plan': repair['plan'],
+                        'authorized_plan_sha256': payload['authorized_plan_sha256'],
+                        'approval_mode': 'operator_exception_for_named_repair',
+                        'egress_source': (ROOT/'scripts/identity_egress.py').read_text(encoding='utf-8')}, root=True)
+        return {'private': {'operation_id': operation, **result}, 'safe': {
+            'status': 'installed', 'code': 'IDENTITY_MICROSOFT_EGRESS_REPAIR_INSTALLED',
+            **{k: result[k] for k in ('plan_sha256', 'approval_mode', 'teams_approval_verified',
+                                     'keycloak_rollout_triggered', 'credentials_modified',
+                                     'volumes_modified', 'address_count')},
+            'authentication_restored': False}}
+    if action == 'plan_identity_microsoft_egress':
+        target, nodes, base = transport(payload)
+        egress_source = (ROOT/'scripts/identity_egress.py').read_text(encoding='utf-8')
+        resolutions = []
+        for node in nodes:
+            resolved = guest(target, node, base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                             {'action': 'resolve_identity_microsoft_egress', 'egress_source': egress_source}, root=True)
+            resolutions.extend(resolved['resolutions'])
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                       {'action': action, 'operation_id': operation,
+                        'egress_source': egress_source, 'resolutions': resolutions}, root=True)
+        return {'private': {'operation_id': operation, **result}, 'safe': {
+            'status': 'planned', 'code': 'IDENTITY_MICROSOFT_EGRESS_PLANNED',
+            'plan_sha256': result['plan']['plan_sha256'], 'address_count': result['address_count'],
+            'port': 443, 'protocol': 'TCP', 'target': 'keycloak_only',
+            'approval_required': 'server_verified_teams', 'resources_modified': False,
+            'authentication_restored': False}}
     if action=='inspect_personal_portal':
         target,nodes,base=transport(payload)
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),

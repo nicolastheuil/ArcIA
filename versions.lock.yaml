@@ -294,6 +294,16 @@
     "personal_slots": 8,
     "automatic_first_login": true,
     "personal_portal_qualified": true,
-    "personal_portal_proof": "docs/qualification/2026-10-13-portail-personnel.json"
+    "personal_portal_proof": "docs/qualification/2026-10-13-portail-personnel.json",
+    "microsoft_egress": {
+      "status": "qualification_repair_installed_network_verified_login_pending",
+      "mode": "qualification_ipv4_dns_snapshot",
+      "source": "scripts/identity_egress.py",
+      "approval_required": "server_verified_teams",
+      "automatic_dns_refresh": false,
+      "automatic_deployment_enabled": false,
+      "repair_implemented": true,
+      "inspection_step": "inspect_identity_microsoft_egress"
+    }
   }
 }

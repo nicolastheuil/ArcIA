@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-13",
+  "status": "deployed_network_verified_user_login_pending",
+  "approval_mode": "operator_exception_for_named_repair",
+  "human_exception_explicit": true,
+  "teams_approval_verified": false,
+  "scope": "one_named_keycloak_microsoft_ipv4_repair",
+  "policy": {
+    "name": "keycloak-microsoft-egress",
+    "namespace": "arcia-identity",
+    "selector": "app=keycloak",
+    "port": 443,
+    "protocol": "TCP",
+    "ipv4_host_routes": 14,
+    "plan_sha256": "faa1e476e7b9b6cb8412f4e61d4b32beb838c1481346ae1dcbef68f4641487b5",
+    "installed_readback_verified": true,
+    "identity_preserved_on_reapply": true,
+    "automatic_refresh": false,
+    "hostname_filter_enforced_by_network_policy": false
+  },
+  "post_repair_probes": {
+    "source": "existing_keycloak_network_namespace",
+    "addresses_source": "current_pod_dns_A_answers",
+    "microsoft_graph_ipv4_tls_passed": 4,
+    "microsoft_graph_ipv4_tls_attempts": 4,
+    "keycloak_policy_reject_packet_delta": 0,
+    "dns_queries_passed": 4,
+    "postgres_service_tcp5432_passed": true,
+    "out_of_scope_example_com_tcp443_denied": true,
+    "ipv6_route_still_absent": true
+  },
+  "credentials_modified": false,
+  "local_validation": {
+    "identity_tests_passed": 27,
+    "bootstrap_python_tests_passed": 5,
+    "bootstrap_powershell_passed": true,
+    "validate_sources_passed": true,
+    "full_windows_suite_run": false,
+    "remote_ci_run": false
+  },
+  "volumes_modified": false,
+  "keycloak_rollout_triggered": false,
+  "full_microsoft_login_verified": false,
+  "authentication_restored": false,
+  "fresh_cluster_rebuilt": false,
+  "raw_evidence": "protected_local_dpapi"
+}

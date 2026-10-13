@@ -23,4 +23,9 @@ $bad.configuration_contracts.microsoft365.runtime_implemented=$true
 $blocked=$false
 try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$true}
 if(-not $blocked){throw 'BOOTSTRAP_M365_ACTIVATION_GUARD_FAILED'}
+$bad=$definition|ConvertTo-Json -Depth 20|ConvertFrom-Json
+$bad.configuration_contracts.identity.microsoft_egress.automatic_deployment_enabled=$true
+$blocked=$false
+try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$true}
+if(-not $blocked){throw 'BOOTSTRAP_IDENTITY_EGRESS_APPROVAL_GUARD_FAILED'}
 Write-Output 'BOOTSTRAP_FAIL_CLOSED_REPLAY_AND_DEPENDENCY_GUARDS_VERIFIED'

@@ -11,6 +11,32 @@ le realm possédé ; `verify_identity` exerce l'administration avec un compte
 synthétique supprimé en fin de test ; `connect_identity` rattache les deux
 espaces synthétiques existants par subject/client distincts.
 `inspect_identity` inspecte le service et ses flux sans modifier le realm.
+`plan_identity_microsoft_egress` prépare une règle additive IPv4 `/32` pour
+Keycloak seulement, sans apply. Elle est exclue d'Audit par défaut ; l'activer
+avec `Bootstrap-Harness.ps1 -Mode Audit -PlanMicrosoftEgress`, ou exécuter
+`Invoke-ClusterFoundation.ps1 -Action plan_identity_microsoft_egress` seul.
+Le plan exact, ses adresses, la cible et l'état précédent sont chiffrés sous
+`cluster-plan_identity_microsoft_egress.dpapi` ; le statut ne contient que hash,
+compteur et codes. Validité du plan : dix minutes ; la règle éventuelle ne
+s'expire pas automatiquement. DNS changeant et IP partagées rendent ce mode
+impropre à une garantie FQDN durable. L'approbation serveur Teams reste requise
+par défaut. Une exception explicite du propriétaire pour ce seul correctif a
+permis l'action administrative distincte ci-dessous ; le hash n'est pas secret
+mais ne constitue pas à lui seul une autorisation humaine :
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action apply_identity_microsoft_egress_repair -AuthorizedRepairPlanSha256 <HASH_DU_PLAN_AUTORISE>
+./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_identity_microsoft_egress
+```
+
+La réparation refuse plan expiré/modifié, cible changée, règle étrangère ou
+IP DNS actuelle absente du plan. Elle ne simule pas Teams et n'est jamais
+incluse dans Fresh/Reconcile/Verify/Audit. Toute nouvelle application doit
+respecter son autorisation propre. Audit inspecte une règle existante et
+signale `IDENTITY_MICROSOFT_EGRESS_REPLAN_REQUIRED` en cas de dérive ; il ne
+rafraîchit pas le réseau. Sans règle, il constate simplement l'absence, pour
+préserver le fonctionnement local par défaut.
+[Décision et limites](../adr/0018-plan-reparation-sortie-keycloak.md).
 `verify_identity_access` exerce le login OIDC réel, les refus croisés et la
 suspension/révocation centrale sur les deux propriétaires synthétiques.
 La réapplication conserve identités, passwords/MFA, volumes, clients et

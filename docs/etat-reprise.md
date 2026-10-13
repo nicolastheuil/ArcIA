@@ -19,6 +19,19 @@ Complément documentaire et de configuration :
 contrat YAML/validation hors ligne livrés ; aucun service Microsoft 365 actif,
 aucun tenant contacté. La qualification K3s précédente reste inchangée.
 
+Authentification Microsoft : [diagnostic courant](handoff-2026-10-13-m365-auth-diagnostic.md).
+Redirection vers Microsoft vérifiée (HTTP 303) ; callback en erreur réseau dans
+les journaux récents, sans règle TCP/443 pour Keycloak. Correction non déployée,
+connexion complète non qualifiée ; preuves brutes protégées localement.
+Tests de routage exécutés : VM Microsoft IPv4/TLS 12/12, Pod Keycloak IPv4
+refusé avec compteur REJECT +4, DNS/PG OK, contrôle de sortie Pod TLS 2/2.
+IPv6 sans route sur les VM et Keycloak ; [preuves](qualification/2026-10-13-m365-routing.json).
+Correction suivante : [réparation réseau appliquée](handoff-2026-10-13-m365-egress-repair.md)
+sur exception administrative explicitement autorisée pour ce seul correctif.
+Règle Keycloak TCP/443 sur 14 IPv4 `/32`, TLS Microsoft/Graph 4/4 et refus
+hors liste vérifiés. Login Microsoft/MFA utilisateur encore à confirmer ;
+pas de refresh automatique ni de qualification SSO complète revendiquée.
+
 Lire le [handoff courant](handoff-2026-10-13-skills-catalogue.md), puis le [socle précédent](handoff-2026-10-12-arcia-cloud-bootstrap.md). Travailler sur **main** ; ne pas créer de branche. `arcia-harness` contient la plateforme générique ArcIA ; les customisations d’organisation vivent dans leur dépôt d’instance distinct.
 
 Socle K3s/VMware, PostgreSQL, Hermes, outils et Knowledge opérationnels en qualification synthétique. Presidio et le relais cloud gratuit filtré sont déployés ; une réponse réelle HTTP 200 avec ZDR/prix nul a été obtenue. DNS externe et Internet direct depuis Hermes sont refusés ; Context7 externe reste fermé. OmniRoute est installé, son automatisation reste différée. Aucune autorisation payante.

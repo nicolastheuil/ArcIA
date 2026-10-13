@@ -6,16 +6,20 @@
     "services/identity/realm.py": "6d932856edb0ee04f00659c59e24145a5bbde86859c848a9919ba5f676466ac1",
     "services/identity/provider.py": "5abfb85a8b1ca9cb74196446f354d461cbb7e75730c0b6102cf97cb38718e86a",
     "scripts/identity_deploy.py": "a87577fb466fec535b248b6407f19b62f67c3ad71ed5bb033a828ad86404d7ef",
-    "scripts/node_identity.py": "caddaf64dfff337ecbc1f90bb9accdaf21701a44f6009c30b024f3ad7342f278",
+    "scripts/node_identity.py": "f10c6f85c9db548cddae504d72bc3aa4c9dcda76c778e85d2820613e0831a63e",
     "scripts/identity_login.py": "e4c9c1eea89585796a3daef3eabd87b2868ef318e6efd69be5ff6756156b1207",
     "services/multiuser/dashboard_boundary.py": "8f29a98640d8ff2536399f0b2443e15545c74f945c652ffc80e79ecf10ce0395",
     "scripts/ProtectedState.ps1": "d01f8a4633f5a21a9601e1a052bb35257fb6511ffb1ef854bef210ffe63e13fb",
     "scripts/Show-IdentityAccess.ps1": "99b87fc46a0519024270b18c61bc31d4d5fd6596f7855e8d421074c2f33d07c4",
-    "scripts/Invoke-ClusterFoundation.ps1": "3928d2dcf6fbc225a112ab397d7185bc22f2891bc4f558700e2303de241355ec",
+    "scripts/Invoke-ClusterFoundation.ps1": "6a84016e322abf5663767ea1f12cc01f4b71e9b55c88a5f8919d7707de6db9d9",
     "services/identity/slots.py": "1d27501287dde1cbee3ca1bd87daf80a00da35cc3b2923c098783365986f471a",
     "scripts/portal_deploy.py": "ba1a396cf101048d37e3f5b821dda27b7c59d1454103c9e83b93e01598f6e33f",
     "services/identity/portal.py": "a051d93a6650ae3fbd984b5866d026eb06b5f9985a418d1c706feb31206a0be3",
-    "scripts/cluster_foundation.py": "fa2ea2c30417fa3ac20c2a32c8c2a85c46818e5c3c7612698d773ae2c5892a0d",
-    "scripts/Open-ArcIA.ps1": "4e3500e9c4781ac601faa665bac33f23d2c2d4d9e0cb386dea3f62163d3387ae"
+    "scripts/cluster_foundation.py": "410e8f0e238335981e86b5e607624a9a5349f5585d5386c7f8b6c5b6bd810e32",
+    "scripts/Open-ArcIA.ps1": "4e3500e9c4781ac601faa665bac33f23d2c2d4d9e0cb386dea3f62163d3387ae",
+    "scripts/identity_egress.py": "98131834430c2977545082293a4d0d5a8159625c0692f5e0ece32ed999fea983",
+    "scripts/Bootstrap-Harness.ps1": "c09428cb5fdfe7daffd70ef768f7c5048d0eb92081c524ff89b76e8e2846e684",
+    "scripts/BootstrapEngine.ps1": "480f70a80aee2ddf9dac92b2dbc77705cbe46682199b6702346ffebaccd3dd9e",
+    "scripts/validate_bootstrap.py": "31e8555df8bdad3899cad87451f1639f0c3a8d4b34e92216895d034b22e2de70"
   }
 }

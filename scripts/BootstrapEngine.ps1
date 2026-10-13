@@ -5,6 +5,10 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
     if($null -eq $identity -or $identity.default_provider -ne 'keycloak_local' -or
        $identity.local_accounts -ne 'permanent' -or
        -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/identity.lock.json'))){throw 'BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED'}
+    if($identity.microsoft_egress.automatic_deployment_enabled -ne $false -or
+       $identity.microsoft_egress.approval_required -ne 'server_verified_teams'){
+        throw 'BOOTSTRAP_IDENTITY_EGRESS_APPROVAL_REQUIRED'
+    }
     $m365=$Definition.configuration_contracts.microsoft365
     if($null -eq $m365 -or $m365.runtime_implemented -ne $false -or
        $m365.lock -ne 'bootstrap/microsoft365.lock.json' -or

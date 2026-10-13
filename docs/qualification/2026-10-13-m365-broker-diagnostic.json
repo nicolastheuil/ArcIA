@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-13",
+  "kind": "read_only_diagnostic",
+  "keycloak_ready": true,
+  "provider": {
+    "type": "microsoft",
+    "enabled": true,
+    "credential_present_not_validated": true,
+    "tenant_specific": true
+  },
+  "http_probe": {
+    "login_page_status": 200,
+    "social_link_count": 1,
+    "broker_status": 303,
+    "redirects_to_microsoft": true,
+    "unexpected_error_on_redirect_probe": false,
+    "microsoft_redirect_followed": false,
+    "end_to_end_login_executed": false
+  },
+  "recent_logs": {
+    "window_minutes": 30,
+    "maximum_lines": 1500,
+    "maximum_bytes": 524288,
+    "network_unreachable": true,
+    "oauth_callback": true,
+    "login_microsoft_host": true,
+    "invalid_client_marker": false,
+    "aadsts_codes": [],
+    "dns_failure_marker": false,
+    "tls_handshake_failure_marker": false
+  },
+  "network": {
+    "selected_egress_policy_count": 2,
+    "tcp443_egress_rule_present": false,
+    "additional_routing_or_ipv6_fault_excluded": false
+  },
+  "resources_modified": false,
+  "secrets_disclosed": false,
+  "raw_evidence": "protected_local_dpapi",
+  "network_fix_coded": false,
+  "network_fix_deployed": false,
+  "authentication_restored": false,
+  "fresh_cluster_rebuilt": false
+}

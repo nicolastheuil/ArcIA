@@ -24,6 +24,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | M365-01 | Annexe administrateur, YAML d'instance, schéma strict et plan hors ligne | Codés ; aucun accès/configuration tenant ; [annexe](annexes/integration-microsoft365.md) |
 | M365-02 | Wizard/importeur protégé, adaptateurs OIDC/Bot/Graph et export assaini | À développer ; contrat v1 interdit toute activation |
 | M365-03 | IAM/ACL, approbations Teams, collecte/synthèse, scopes et révocation | À développer puis recette synthétique ; aucune donnée réelle autorisée |
+| M365-AUTH-01 | Sortie réseau bornée du broker Microsoft Keycloak | Réparation ponctuelle déployée sur exception explicite : 14 IPv4 `/32`, TLS Microsoft/Graph 4/4, REJECT +0, destination hors liste refusée ; login utilisateur/MFA attendu, contrôle FQDN et refresh durable à qualifier ; [reprise](handoff-2026-10-13-m365-egress-repair.md) |
 | IAM-LOCAL-01 | Annuaire local permanent par défaut et portail admins | Keycloak 26.8.1, PostgreSQL dédié, `/admin/users` ; administration native déployée, 15 contrôles exécutés |
 | IAM-LOCAL-02 | Raccordement des espaces, sessions et identité stable | Provider OIDC public PKCE, validation UserInfo/propriétaire ; 12 contrôles HTTPS et 200 d'isolation réussis ; [handoff](handoff-2026-10-13-identite.md) |
 | IAM-LOCAL-03 | Coexistence local/SSO, nouveaux runtimes et ACL de groupes | Brokering documenté ; tenant réel, launcher général, ACL dynamiques et restore/HA à qualifier |

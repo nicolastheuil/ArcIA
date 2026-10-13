@@ -24,6 +24,12 @@ def validate(root=ROOT):
             content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
             if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_IDENTITY_LOCK_HASH')
         required_identity=['install_identity','verify_identity','connect_identity','verify_identity_access','inspect_identity']
+        required_identity += ['plan_identity_microsoft_egress', 'inspect_identity_microsoft_egress']
+        if (contract.get('microsoft_egress', {}).get('automatic_deployment_enabled') is not False or
+                contract['microsoft_egress'].get('planning_step') != 'plan_identity_microsoft_egress' or
+                contract['microsoft_egress'].get('approval_required') != 'server_verified_teams' or
+                'scripts/identity_egress.py' not in identity_lock['files']):
+            raise ValueError('BOOTSTRAP_IDENTITY_EGRESS_CONTRACT')
         if lock['identity'].get('personal_portal_enabled'):
             required_identity+=['install_personal_portal','verify_personal_portal','inspect_personal_portal']
             if contract.get('automatic_first_login') is not True or contract.get('stable_ownership')!='issuer_subject_never_reassigned':

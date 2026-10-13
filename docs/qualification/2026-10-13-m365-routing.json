@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-13",
+  "kind": "read_only_network_probes",
+  "nodes": {
+    "tested": 3,
+    "default_ipv4_route_count": 3,
+    "default_ipv6_route_count": 0,
+    "destinations": ["login.microsoftonline.com:443", "graph.microsoft.com:443"],
+    "ipv4_tcp_and_verified_tls_passed": 12,
+    "ipv4_attempts": 12,
+    "ipv6_attempts": 12,
+    "ipv6_network_unreachable_errno101": 12
+  },
+  "keycloak_network_namespace": {
+    "existing_owned_pod_verified": true,
+    "host_network_namespace_refused": true,
+    "default_ipv4_route": true,
+    "default_ipv6_route": false,
+    "dns_A_AAAA_queries_passed": 4,
+    "dns_queries": 4,
+    "postgres_service_tcp5432_passed": true,
+    "microsoft_ipv4_attempts": 4,
+    "microsoft_ipv4_connection_refused_errno111": 4,
+    "microsoft_ipv6_attempts": 4,
+    "microsoft_ipv6_network_unreachable_errno101": 4,
+    "matched_keycloak_firewall_chains": 1,
+    "keycloak_firewall_reject_packet_delta_during_probe": 4
+  },
+  "k3s_hosting_node": {
+    "ipv4_forwarding_enabled": true,
+    "flannel_postrouting_chain_present": true,
+    "flannel_masquerade_rule_present": true
+  },
+  "existing_control_pod": {
+    "deployment_ownership_verified": true,
+    "destination": "openrouter.ai:443",
+    "ipv4_tcp_and_verified_tls_passed": 2,
+    "attempts": 2,
+    "authenticated_requests_sent": false,
+    "model_requests_sent": false
+  },
+  "conclusion": {
+    "vm_internet_ipv4_verified": true,
+    "keycloak_ipv4_policy_rejection_observed": true,
+    "ipv6_route_missing_observed": true,
+    "global_k3s_routing_failure_observed": false,
+    "all_possible_network_faults_excluded": false,
+    "java_address_selection_reproduced": false
+  },
+  "resources_modified": false,
+  "network_policy_modified": false,
+  "new_pod_created": false,
+  "secrets_disclosed": false,
+  "raw_evidence": "protected_local_dpapi",
+  "authentication_restored": false,
+  "full_microsoft_login_executed": false
+}

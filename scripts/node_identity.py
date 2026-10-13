@@ -253,6 +253,89 @@ print(json.dumps(r))"""
     return result
 
 
+def plan_microsoft_egress(values):
+    # Planning never applies. Administrative repair has a separate entry point.
+    operation = values['operation_id']
+    deployment = owned('Deployment', 'keycloak', NS, operation)
+    previous = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
+    scope = {}
+    exec(values['egress_source'], scope)
+    addresses = scope['merge_resolutions'](values.get('resolutions', []) + [scope['resolve']()])
+    return {'plan': scope['plan'](addresses, operation, deployment, previous),
+            'address_count': len({ip for items in addresses.values() for ip in items})}
+
+
+def resolve_microsoft_egress(values):
+    scope = {}
+    exec(values['egress_source'], scope)
+    return {'resolutions': [scope['resolve']() for _ in range(3)]}
+
+
+def inspect_microsoft_egress(values):
+    operation = values['operation_id']
+    owned('Deployment', 'keycloak', NS, operation)
+    existing = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
+    if not existing:
+        return {'configured': False, 'current_dns_covered': None, 'resources_modified': False}
+    scope = {}
+    exec(values['egress_source'], scope)
+    addresses = scope['resolve']()
+    spec = existing['spec']
+    rule = spec.get('egress', [{}])[0]
+    expected_addresses = {ip for items in addresses.values() for ip in items}
+    destinations = rule.get('to', [])
+    permitted = set()
+    bounded = bool(destinations) and len(destinations) <= 128
+    for destination in destinations:
+        block = destination.get('ipBlock', {})
+        try:
+            network = __import__('ipaddress').ip_network(block['cidr'])
+            address = network.network_address
+            bounded = bounded and set(destination) == {'ipBlock'} and set(block) == {'cidr'}
+            bounded = bounded and network.prefixlen == 32 and address.is_global and not address.is_multicast
+            permitted.add(str(address))
+        except (KeyError, ValueError):
+            bounded = False
+    bounded = bool(bounded and spec.get('podSelector') == {'matchLabels': {'app': 'keycloak'}} and
+                   spec.get('policyTypes') == ['Egress'] and len(spec.get('egress', [])) == 1 and
+                   rule.get('ports') == [{'port': 443, 'protocol': 'TCP'}])
+    return {'configured': True, 'bounded_rule': bounded,
+            'current_dns_covered': expected_addresses <= permitted,
+            'address_count': len(permitted), 'missing_address_count': len(expected_addresses - permitted),
+            'resources_modified': False}
+
+
+def apply_microsoft_egress_repair(values):
+    # Explicit operator exception for this named repair. This is NOT Teams approval.
+    plan = values['repair_plan']
+    if (values.get('approval_mode') != 'operator_exception_for_named_repair' or
+            not values.get('authorized_plan_sha256') or
+            values['authorized_plan_sha256'] != plan.get('plan_sha256')):
+        raise ValueError('IDENTITY_EGRESS_EXPLICIT_EXCEPTION_REQUIRED')
+    operation = values['operation_id']
+    deployment = owned('Deployment', 'keycloak', NS, operation)
+    previous = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation, True)
+    scope = {}
+    exec(values['egress_source'], scope)
+    scope['validate_plan'](plan, operation, deployment, previous)
+    current = scope['resolve']()
+    if any(not set(current[host]) <= set(plan['addresses'][host]) for host in current):
+        raise ValueError('IDENTITY_EGRESS_DNS_CHANGED_REPLAN_REQUIRED')
+    document = json.loads(json.dumps(plan['document']))
+    if previous:
+        document['metadata']['resourceVersion'] = previous['metadata']['resourceVersion']
+    # create/replace uses existence/resourceVersion preconditions, no forced adoption.
+    kube('replace' if previous else 'create', '-f', '-', document=document)
+    installed = owned('NetworkPolicy', 'keycloak-microsoft-egress', NS, operation)
+    if installed['spec'] != document['spec']:
+        raise ValueError('IDENTITY_EGRESS_REPAIR_READBACK_FAILED')
+    return {'installed': True, 'policy_uid': installed['metadata']['uid'],
+            'plan_sha256': plan['plan_sha256'], 'approval_mode': values['approval_mode'],
+            'teams_approval_verified': False, 'keycloak_rollout_triggered': False,
+            'credentials_modified': False, 'volumes_modified': False,
+            'address_count': len(document['spec']['egress'][0]['to'])}
+
+
 def install(values):
     operation = values['operation_id']
     previous = owned('Secret', 'identity-db-auth', NS, operation, True)
@@ -719,6 +802,10 @@ def install_personal_portal(values):
 
 if __name__ == '__main__':
     print(json.dumps({'install_identity': install, 'verify_identity': verify,
+                      'plan_identity_microsoft_egress': plan_microsoft_egress,
+                      'resolve_identity_microsoft_egress': resolve_microsoft_egress,
+                      'inspect_identity_microsoft_egress': inspect_microsoft_egress,
+                      'apply_identity_microsoft_egress_repair': apply_microsoft_egress_repair,
                       'inspect_identity': inspect,'prepare_identity':prepare,
                       'connect_identity':connect,'cleanup_identity_fixture':cleanup_unbound_fixture,
                       'prepare_personal_portal':prepare_personal_portal,'install_personal_portal':install_personal_portal,

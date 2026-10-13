@@ -1,12 +1,13 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress')][string]$Action='inspect',
+    [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy')){
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
     $payload=@{action=$Action;private_root=$root}
@@ -15,6 +16,12 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -eq 'apply_identity_microsoft_egress_repair'){
+        if(-not $AuthorizedRepairPlanSha256){throw 'IDENTITY_EGRESS_EXPLICIT_EXCEPTION_REQUIRED'}
+        $payload.repair=(Read-ProtectedBundle (Join-Path $root 'cluster-plan_identity_microsoft_egress.dpapi'))|ConvertFrom-Json
+        if($payload.repair.operation_id -ne $operation.id -or $payload.repair.plan.plan_sha256 -ne $AuthorizedRepairPlanSha256){throw 'IDENTITY_EGRESS_REPAIR_SCOPE'}
+        $payload.authorized_plan_sha256=$AuthorizedRepairPlanSha256
+    }
     if($Action -eq 'verify_personal_portal'){
         $fixturePath=Join-Path $root 'portal-fixtures.dpapi'
         if(-not(Test-Path -LiteralPath $fixturePath)){
