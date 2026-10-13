@@ -2,7 +2,8 @@
 
 Le harness distingue trois fonctions. **Hermes conserve la gestion et la
 compaction de l'historique. RTK réduit certaines sorties CLI. Headroom produit
-une vue réduite d'un fichier JSON avant que son contenu arrive au modèle.**
+une vue réduite des gros résultats JSON de lecture avant leur envoi au modèle,
+avec récupération de l'original.**
 Ces fonctions ne remplacent pas Presidio ni les droits d'accès.
 
 ## Vérifications du 13 octobre 2026

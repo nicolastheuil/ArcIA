@@ -1,4 +1,4 @@
-# Backlog ArcIA — 12 octobre 2026
+# Backlog ArcIA — 13 octobre 2026
 
 Référence : [handoff courant](handoff-2026-10-13-skills-catalogue.md).
 La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
@@ -23,16 +23,16 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
-| L0-06 | Outils builder §25, provenance/licences | Context7/skills/LintLang/RTK/Headroom/OmniRoute/Certbot dans K3s ; 6 skills natifs ; MCP et versions vérifiés ; compression/routage automatiques non activés |
+| L0-06 | Outils, catalogue, provenance/licences | Dans K3s ; 539 entrées upstream, 7 adaptations/orientations natives ; 55 sondes par runtime. RTK git log et Headroom JSON intégrés ; OmniRoute automatique différé |
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
 | L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |
 | L2 | Plans immuables, approbations Teams, capacités uniques/réconciliation | Après L1 |
 | L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Hybride + multi-vecteur, PDF textuels/API/schémas, RLS/citations et MCP déployés/vérifiés synthétiquement ; OCR, ColPali, collecte/import dédié, file durable et benchmark corpus large restants |
 | L4 | Fencing/panne de nœud, cinq missions, deuxième ingénieur/rebuild/SBOM | Gate de release |
-| L5 | RTK/Graphify pilotes, compression/Headroom et autres options | RTK/Headroom/OmniRoute installés ; automatisations et routage automatique différé ; Graphify/Ponytail différés |
+| L5 | Réduction du contexte et autres options | RTK borné et Headroom sur lectures JSON qualifiés ; proxy/mémoire Headroom écartés. OmniRoute automatique, Graphify/Ponytail différés |
 
 | BOOT-01 | Bootstrap exhaustif et coverage CI | Codé, Audit/Reconcile existants vérifiés ; rebuild neuf restant |
-| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 90 contrôles réussis ; SSO, groupes et provisioning général restants |
+| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 200 contrôles réussis, dont 90 d'isolation/corpus et 55 sondes d'outillage par runtime ; SSO, groupes et provisioning général restants |
 
 Aucun conteneur factice ne remplace un service métier manquant.
 La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM
@@ -44,8 +44,9 @@ constituent pas une sauvegarde. Ne pas publier de release avant recette/rebuild.
 Catalogue complet des sources retenues : 539 entrées, découverte locale MCP,
 58 skills Hermes embarquées exposées nativement, sept adaptations/orientations.
 Mémoire/délégation Hermes ; pas de mémoire/apprentissage ECC ni d’orchestrateur
-supplémentaire. RTK automatique borné à git log ; Headroom en outil de lecture
-JSON personnelle, sans proxy ni mémoire partagée. Sources, crédits et licences
+supplémentaire. RTK automatique borné à git log ; Headroom réduit les gros
+résultats JSON de lectures déclarées avant contexte, avec original récupérable,
+sans proxy ni mémoire partagée. Sources, crédits et licences
 verrouillés ; vérification upstream par script/workflow manuel. Voir le
 [handoff du 13 octobre](handoff-2026-10-13-skills-catalogue.md) pour les résultats
 exécutés. Qualification individuelle des centaines de procédures et comparaison
