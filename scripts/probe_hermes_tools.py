@@ -156,7 +156,8 @@ print(json.dumps(checks))
             checks['knowledge_mcp_initialize']=bool(call(1,'initialize',{'protocolVersion':'2025-03-26','capabilities':{},'clientInfo':{'name':'arcia-probe','version':'1'}}))
             tools=call(2,'tools/list',{})
             checks['knowledge_mcp_read_only_tools']={t['name'] for t in tools['tools']}=={'knowledge_search','knowledge_download_asset'}
-            result=call(3,'tools/call',{'name':'knowledge_search','arguments':{'query':'restoreSnapshot','version':'1'}})
+            arguments=globals().get('ARCIA_TOOLS_KNOWLEDGE_ARGUMENTS',{'query':'restoreSnapshot','version':'1'})
+            result=call(3,'tools/call',{'name':'knowledge_search','arguments':arguments})
             content=json.loads(result['content'][0]['text'])
             checks['knowledge_mcp_real_search']=not result.get('isError',False) and bool(content['results'])
         finally:
