@@ -137,3 +137,9 @@ frontières existantes. Les résultats exécutés figurent dans le handoff daté
 Les intégrations RTK et Headroom et leurs mesures sont détaillées dans
 [tokenmaxing](tokenmaxing.md). Aucun proxy de compression ou mémoire partagée
 Headroom n’est activé.
+
+Les gros résultats JSON des outils de lecture déclarés sont également réduits
+automatiquement par un hook natif avant leur entrée en contexte, avec original
+exact récupérable dans un cache privé borné. Les résultats RAG, instructions de
+skills, erreurs et écritures sont exclus. Les nouvelles connexions MCP d'une
+instance doivent qualifier leurs propres outils avant ajout à cette politique.

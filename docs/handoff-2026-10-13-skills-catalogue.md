@@ -24,6 +24,13 @@ automatique est limité aux git log simples ; Headroom fournit un outil natif de
 lecture compressée de JSON dans le workspace personnel, sans proxy global,
 mémoire partagée ou clés dans le sous-processus. Les originaux restent disponibles.
 
+Le hook natif `transform_tool_result` étend Headroom aux gros résultats JSON de
+lectures déclarées, avant entrée en contexte. `read_file` est la politique par
+défaut ; le cache privé RAM est borné à 32 entrées/4 Mio et références de 5 minutes,
+avec récupération exacte/paginée. RAG/citations, skills, erreurs, écritures et
+outils non déclarés sont exclus. Les nouveaux MCP devront être qualifiés avant
+ajout à cette politique. Aucun nouveau fournisseur ou budget n'est activé.
+
 Le README présente une ligne par outil, par catégories. Voir [skills](skills.md),
 [tokenmaxing et fonctions écartées](tokenmaxing.md),
 [ADR 0014](adr/0014-catalogue-skills-et-responsabilites.md) et

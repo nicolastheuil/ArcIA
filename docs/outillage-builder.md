@@ -12,7 +12,7 @@ Namespace `arcia-hermes`, PVC `hermes-tools` 10 Gi RWOP, monté à `/opt/arcia-t
 | skills | 1.7.2 | `/opt/arcia-tools/bin/skills`, catalogue revu |
 | LintLang | 0.8.2 | `/opt/arcia-tools/bin/lintlang`, rapport |
 | RTK | 0.51.0 | `/opt/arcia-tools/bin/rtk`, invocation explicite |
-| Headroom | 0.40.0 | `/opt/arcia-tools/bin/headroom`, Python isolé |
+| Headroom | 0.40.0 | Outil natif `arcia_compress_json_file`, SDK dans Python isolé |
 | OmniRoute | 3.8.51 | `node /opt/arcia-tools/npm/node_modules/omniroute/bin/omniroute.mjs` |
 | Certbot | 5.8.0 | `/opt/arcia-tools/bin/certbot` |
 
@@ -24,7 +24,7 @@ Les six adaptations initiales et l'orientation `arcia-skills` sont versionnées 
 
 Hermes accède au DNS statique privé, à Knowledge et à la passerelle Presidio. Les requêtes Context7 externes sont désormais refusées : leur adaptateur filtrant reste à qualifier. Hermes n’a ni Internet direct, ni clé fournisseur, ni identifiants PostgreSQL ; il dispose seulement d’un token de passerelle et de lecture documentaire. [Confidentialité cloud](confidentialite-cloud.md).
 
-RTK réécrit automatiquement seulement les commandes `git log` simples ; les formats structurés, écritures et shells composés restent inchangés. Headroom fournit `arcia_compress_json_file` pour les JSON du workspace personnel, avant lecture complète par le modèle, sans proxy global ni mémoire partagée. Hermes conserve la mémoire personnelle et la compaction de l'historique. [Mesures, choix et limites](tokenmaxing.md). OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés en attendant la qualification de son routage automatique. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
+RTK réécrit automatiquement seulement les commandes `git log` simples ; les formats structurés, écritures et shells composés restent inchangés. Headroom réduit automatiquement les gros résultats JSON des lectures déclarées avant entrée en contexte, avec original privé récupérable ; `arcia_compress_json_file` reste disponible pour les JSON du workspace. Aucun proxy global ni mémoire partagée. Hermes conserve la mémoire personnelle et la compaction de l'historique. [Mesures, choix et limites](tokenmaxing.md). OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés en attendant la qualification de son routage automatique. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
 
 ## Installer et vérifier
 

@@ -241,9 +241,23 @@
     "delegation_owner": "hermes",
     "runtime_external_discovery": false,
     "native_plugin": "arcia-platform",
-    "headroom_mode": "personal_json_file",
+    "headroom_mode": "native_readonly_json_results_and_personal_files",
     "rtk_automatic_commands": [
       "git log"
     ]
+  },
+  "tokenmaxing": {
+    "enabled": true,
+    "native_plugin": "arcia-platform",
+    "readonly_result_tools": [
+      "read_file"
+    ],
+    "min_result_bytes": 8192,
+    "max_result_bytes": 524288,
+    "original_cache_max_bytes": 4194304,
+    "original_cache_max_items": 32,
+    "original_reference_ttl_seconds": 300,
+    "history_owner": "hermes",
+    "shared_memory": false
   }
 }

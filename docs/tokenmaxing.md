@@ -25,9 +25,11 @@ comptage/format de compression ; aucun modèle OpenAI n'a été appelé.
 
 RTK apporte une réduction démontrée sur le journal Git ; il n'est donc pas retiré.
 Le plugin natif ArcIA réécrit automatiquement **seulement `git log ...` simple**
-vers RTK. Il conserve les arguments de travail d'Hermes. Les commandes shell
+vers RTK. Seules les options de nombre de commits, borné de 1 à 200, sont
+acceptées automatiquement ; une option inconnue reste inchangée. Il conserve les
+arguments de travail d'Hermes. Les commandes shell
 composées, substitutions, écritures, formats `--oneline`/`--format`/`--pretty`,
-diffs et sorties structurées restent inchangés. Les autres filtres RTK demeurent
+diffs, options d'écriture comme `--output` et sorties structurées restent inchangés. Les autres filtres RTK demeurent
 accessibles explicitement, sans être annoncés comme automatiquement qualifiés.
 
 `git --no-pager log ...` fournit un chemin brut sans réécriture ; les originaux
@@ -36,6 +38,37 @@ global. Il s'agit d'une intégration native du harness testée sur la version fi
 pas de l'exécution de `rtk init` sur tous les profils.
 
 ## Headroom retenu pour la lecture préalable de JSON
+
+### Gains transparents pour les utilisateurs finaux
+
+Le plugin natif utilise aussi `transform_tool_result`, appelé par Hermes **avant
+que le résultat entre dans le contexte du modèle**. Les résultats JSON volumineux
+d'outils de lecture configurés sont réduits automatiquement, sans commande à
+apprendre. Par défaut, ce parcours concerne `read_file`, y compris son format
+numéroté. Une instance pourra ajouter les outils de lecture de ses MCP qualifiés
+dans `plugins.entries.arcia-platform.settings.readonly_result_tools`.
+
+Le seuil est 8 Kio ; les résultats de plus de 512 Kio et ceux dont l'enveloppe
+complète ne gagne pas au moins 10 % sont laissés intacts. Les erreurs, écritures,
+outils non déclarés, instructions de skills, résultats RAG et citations restent
+inchangés. La compaction de l'historique reste Hermes. Ces choix évitent un filtre
+aveugle qui supprimerait des preuves ou changerait le contrat d'une action.
+
+Une vue réduite porte une référence opaque vers l'original exact.
+`arcia_restore_tool_result` le restitue avec pagination dans le même runtime.
+Le cache RAM est limité à 32 originaux/4 Mio ; les références deviennent
+inaccessibles après 5 minutes et sont purgées au prochain accès/ajout ou à l'arrêt
+du processus. Aucun cache n'est commun aux utilisateurs. Une référence expirée
+demande de rejouer la lecture autorisée, jamais une écriture. Vue et original
+restitué suivent tous deux la passerelle Presidio habituelle.
+
+Cela peut servir à lire des rapports structurés, listes et résultats d'API ; les
+connecteurs spécifiques ne sont pas encore déployés. Un chat court ou une réponse
+RAG déjà limitée aux passages utiles peut gagner peu ou rien. Aucune économie
+globale ou garantie de conservation sémantique n'est annoncée à partir du seul
+benchmark synthétique. Les métriques de cette version sont dans le handoff.
+
+### Lecture explicite d'un fichier
 
 Headroom a produit une réduction utile sur la fixture structurée ; le supprimer
 comme « inutile » serait contredit par cette mesure. Son proxy global, ses

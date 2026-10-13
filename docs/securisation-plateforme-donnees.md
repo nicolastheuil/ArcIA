@@ -75,6 +75,16 @@ session ; l'original reste dans le workspace et les sorties repassent par Presid
 Aucune mémoire ECC ou Headroom partagée n'est activée. [Skills](skills.md) ·
 [Décisions et mesures](tokenmaxing.md).
 
+Le hook de réduction automatique conserve l'original exact de certains gros
+résultats JSON dans la RAM du processus/plugin propre au runtime, au maximum
+32 entrées et 4 Mio. Une référence expire après 5 minutes ; la purge intervient
+au prochain accès/ajout ou à l'arrêt. Ce cache n'est ni une mémoire d'entreprise,
+ni un stockage inter-utilisateurs. La récupération suit le même filtre cloud.
+Les résultats RAG/citations, skills, erreurs et écritures sont exclus ; seuls les
+outils de lecture déclarés par configuration opérateur sont éligibles. Une
+compression échouée ou sans gain suffisant conserve la sortie habituelle, qui
+repasse toujours par la politique de confidentialité.
+
 | Emplacement | Protection réelle | Limite à conserver |
 |---|---|---|
 | Contrôleur administratif | DPAPI CurrentUser, ACL, stdin privé et diagnostics chiffrés | Le compte Windows administrateur/enrôlé reste une autorité de confiance |

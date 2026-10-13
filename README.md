@@ -41,7 +41,9 @@ Chaque outil garde un rôle explicite. Les liens mènent à ses sources ; les [c
 | Outil | Rôle | État |
 |---|---|---|
 | [RTK](https://github.com/rtk-ai/rtk) | Réduit les sorties CLI pour économiser du contexte | Automatique pour `git log` simple ; autres commandes explicites |
-| [Headroom](https://github.com/headroomlabs-ai/headroom) | Compression du contexte | Outil natif pour prévisualiser les JSON volumineux du workspace ; original conservé |
+| [Headroom](https://github.com/headroomlabs-ai/headroom) | Réduction de gros résultats JSON avant leur envoi au modèle | Automatique sur les lectures configurées ; récupération de l'original et outil de fichier personnel |
+
+Hermes conserve la compaction de l'historique. Les mesures et les fonctions concurrentes écartées sont expliquées dans [Tokenmaxing](docs/tokenmaxing.md).
 
 ### Model Routing
 

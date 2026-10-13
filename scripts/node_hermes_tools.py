@@ -95,7 +95,10 @@ def apply_owned(documents,operation):
 def verify(values):
     _,pod=workload(values)
     source='ARCIA_REQUIRE_KNOWLEDGE = '+repr(values.get('require_knowledge',True))+'\n'+values['verify_source']
-    return json.loads(python(pod,source,timeout=400,tools=True))
+    result=json.loads(python(pod,source,timeout=400,tools=True))
+    result['checks']['tools_catalogue_matches_current_lock']=result.get('catalog_sha256')==values['catalog_sha256']
+    result['passed']=all(result['checks'].values())
+    return result
 
 
 def configuration(values):

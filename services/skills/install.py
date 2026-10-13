@@ -55,6 +55,7 @@ def install(root=Path('/opt/arcia-tools'), inputs=Path('/input')):
     plugin=root/'plugins/arcia-platform'
     plugin.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(inputs/'skills-plugin.py',plugin/'__init__.py')
+    shutil.copyfile(inputs/'skills-result_compression.py',plugin/'result_compression.py')
     (plugin/'plugin.yaml').write_text('name: arcia-platform\nversion: "1.0.0"\ndescription: Local skill discovery and qualified read-only RTK integration\nauthor: ArcIA harness contributors\n',encoding='utf-8')
     return len(index['entries'])
 

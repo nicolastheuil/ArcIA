@@ -79,6 +79,9 @@ Job reconstruit les 539 entrées depuis les archives immuables et vérifie l’i
 le runtime monte les outils et le plugin natif `arcia-platform` en lecture seule.
 La recette multi-utilisateur rejoue aussi les sondes d’outillage dans chaque
 runtime. Les révisions existantes, identités, états et PVC sont conservés.
+Le feature lock `tokenmaxing` et la configuration native portent aussi la
+réduction automatique des résultats JSON de lecture et le cache d'originaux
+privé, avec tests de restauration, bornes et exclusions.
 Voir [skills](../skills.md), [tokenmaxing](../tokenmaxing.md) et
 [crédits](../../THIRD_PARTY_NOTICES.md). Les résultats historiques à 43 étapes
 restent datés ; les nouvelles preuves sont dans le handoff du 13 octobre.

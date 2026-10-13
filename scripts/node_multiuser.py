@@ -121,6 +121,7 @@ def verify(values):
         tools_source="ARCIA_TOOLS_KNOWLEDGE_ARGUMENTS = {'query':'ARCIAMULTIUSER','version':'1-COMMON'}\n"+values['tools_probe']
         tools=json.loads(kube('exec',p['metadata']['name'],'-n',ns,'--','/opt/arcia-tools/python/bin/python','-c',tools_source,timeout=400))
         checks.update({ns+'_tools_'+k:v for k,v in tools['checks'].items()})
+        checks[ns+'_tools_catalogue_matches_current_lock']=tools.get('catalog_sha256')==values['catalog_sha256']
         pseudonyms.append(result['pseudonym_sha256'])
         kube('rollout','restart','deployment/hermes-pilot','-n',ns)
         kube('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=600s',timeout=620)

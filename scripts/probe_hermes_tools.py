@@ -79,7 +79,7 @@ from hermes_cli import plugins
 manager=plugins.get_plugin_manager();manager.discover_and_load()
 loaded=next((p for p in manager.list_plugins() if p['name']=='arcia-platform'),{})
 checks={'native_platform_plugin_loaded':loaded.get('enabled') is True and loaded.get('error') is None,
- 'native_platform_plugin_tool_registered':loaded.get('tools')==1,
+ 'native_platform_plugin_tool_registered':loaded.get('tools')==2,
  'native_discovery_prompt_registered':any('catalog_search' in str(s) for s in plugins.render_system_prompt_sections({}))}
 args={'command':'git log -n 15'}
 plugins.invoke_hook('pre_tool_call',tool_name='terminal',args=args)
@@ -98,6 +98,27 @@ with tempfile.NamedTemporaryFile(mode='w',suffix='.json',prefix='.arcia-token-',
  checks['headroom_original_remains_readable']=Path(f.name).is_file() and json.loads(Path(f.name).read_text())==items
 denied=json.loads(module.compress_file({'path':'/opt/data/config.yaml'}))
 checks['headroom_private_configuration_read_denied']=denied.get('success') is False
+content=json.dumps(items,indent=2)
+numbered='\\n'.join(str(i+1)+'|'+line for i,line in enumerate(content.splitlines()))
+original=json.dumps({'success':True,'content':numbered})
+views=plugins.invoke_hook('transform_tool_result',tool_name='read_file',args={'path':'synthetic.json'},result=original)
+overview=next((v for v in views if isinstance(v,str)),None)
+checks['headroom_automatic_before_context']=bool(overview) and len(overview)<len(original)
+if overview:
+ view=json.loads(overview)
+ checks['headroom_automatic_error_retained']='SYNTHETIC_CRITICAL_MARKER_67' in view.get('preview','')
+ from tools.registry import registry
+ restore=registry.get_entry('arcia_restore_tool_result')
+ restored=json.loads(restore.handler({'reference':view['original_reference']}))
+ checks['headroom_automatic_original_exact']=restored.get('success') is True and restored.get('content')==original
+ checks['headroom_unknown_original_denied']=json.loads(restore.handler({'reference':'unknown'})).get('success') is False
+ import os,urllib.request
+ request=urllib.request.Request('http://privacy.arcia-privacy.svc.cluster.local:8091/v1/sanitize',
+  data=json.dumps({'messages':[{'role':'tool','content':overview}]}).encode(),headers={'Authorization':'Bearer '+os.environ['OPENAI_API_KEY'],'Content-Type':'application/json'})
+ with urllib.request.urlopen(request,timeout=30) as response:filtered=json.load(response)
+ checks['headroom_restore_reference_survives_privacy_filter']=view['original_reference'] in json.dumps(filtered)
+checks['headroom_rag_citations_unchanged']=not plugins.invoke_hook('transform_tool_result',tool_name='knowledge_search',args={},result=original)
+checks['headroom_write_results_unchanged']=not plugins.invoke_hook('transform_tool_result',tool_name='write_file',args={},result=original)
 print(json.dumps(checks))
 """
     native=subprocess.run(['/opt/hermes/.venv/bin/python','-c',native_probe],capture_output=True,text=True,timeout=90)

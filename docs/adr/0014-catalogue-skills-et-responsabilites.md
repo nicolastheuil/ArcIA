@@ -44,7 +44,8 @@ GitHub/skills.sh : il couvre intégralement les racines canoniques retenues.
 | Mémoire personnelle/profil | Hermes natif | ECC learning/instincts/unified-memory restent des références ; aucun hook ni service mémoire ECC déployé |
 | Connaissance commune | Knowledge/RAG avec ACL | Pas de mémoire conversationnelle globale partagée |
 | Délégation et état d'agent | Hermes natif | Méthodes Superpowers/ECC consultables ; pas de second orchestrateur ni de lanceur externe activé |
-| Gestion de contexte | Hermes natif | Headroom traite les fichiers JSON du workspace avant leur lecture ; pas de proxy global |
+| Gestion de l'historique | Hermes natif | Pas de second moteur de compaction globale |
+| Gros résultats JSON de lecture | Headroom, hook natif avant entrée en contexte | Vue avec perte et original privé récupérable ; outils déclarés, exclusions RAG/skills/écritures ; pas de proxy global |
 | Réduction de sorties CLI | RTK, hook natif limité à git log simple | Complément local ; pas d'interception automatique de toutes les commandes |
 | Routage modèle | Passerelle ArcIA filtrée | OmniRoute automatique reste différé ; les skills ne configurent pas les fournisseurs ni budgets |
 | Découverte et lecture des skills | Catalogue local ArcIA + chargeur natif Hermes | Vercel est un outil complémentaire de catalogue, pas une seconde autorité d'exécution |

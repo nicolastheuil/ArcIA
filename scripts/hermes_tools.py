@@ -17,7 +17,7 @@ def settings():
             'CONTEXT7_API_URL':'http://context7-docs.arcia-hermes.svc.cluster.local:8080/api'}}},
         'skills':{'external_dirs':['/opt/arcia-tools/skills','/opt/arcia-tools/catalog/content/hermes/skills'],'project_discovery':False},
         'memory':{'memory_enabled':True,'user_profile_enabled':True},
-        'plugins':{'enabled':['arcia-platform']}}
+        'plugins':{'enabled':['arcia-platform'],'entries':{'arcia-platform':{'settings':{'readonly_result_tools':['read_file']}}}}}
 
 
 def augment(docs):
@@ -56,7 +56,7 @@ def payload():
         'installer.py':(ROOT/'scripts/install_hermes_tools.py').read_text(encoding='utf-8'),
         'AGENTS.md':(ROOT/'AGENTS.md').read_text(encoding='utf-8'),'role.md':(ROOT/'builder/role.md').read_text(encoding='utf-8')}
     data['skills.lock.json']=(ROOT/'builder/skills.lock.json').read_text(encoding='utf-8')
-    for name in ('bundle.py','install.py','catalog.py','server.py','plugin.py','headroom_file.py'):
+    for name in ('bundle.py','install.py','catalog.py','server.py','plugin.py','headroom_file.py','result_compression.py'):
         data[name if name=='bundle.py' else 'skills-'+name]=(ROOT/'services/skills'/name).read_text(encoding='utf-8')
     digest=hashlib.sha256(json.dumps({'data':data,'skills':skills,'tools':tools},sort_keys=True).encode()).hexdigest()
     data['catalog.json']=json.dumps({'skills':skills,'skill_hashes':hashes,'tools':tools,'catalog_sha256':digest})

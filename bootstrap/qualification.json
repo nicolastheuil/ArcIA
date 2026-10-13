@@ -921,7 +921,8 @@
       "knowledge",
       "privacy",
       "multiuser",
-      "skills_catalog"
+      "skills_catalog",
+      "tokenmaxing"
     ]
   },
   "limitations": [
@@ -935,6 +936,7 @@
     "installation_step": "install_hermes_tools_base",
     "verification_step": "verify_hermes_tools",
     "secondary_runtime_step": "install_multiuser",
-    "permissions": "read_only_local_stdio"
+    "permissions": "read_only_local_stdio",
+    "tokenmaxing": "native_plugin_in_tools_job_and_both_runtime_probes"
   }
 }
