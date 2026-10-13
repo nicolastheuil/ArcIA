@@ -32,9 +32,11 @@ Entra ID et d'autres SSO sont optionnels et peuvent fonctionner en parallèle
 via brokering, sans supprimer l'identité locale. La clé stable est `(issuer,
 sub)` ; une liaison vérifiée à Entra conserve le même subject. OIDC authentifie ;
 propriétaire de runtime, rôles, groupes, périmètre, ressource et action sont
-contrôlés côté serveur. Le portail et les deux rattachements synthétiques ont
-leur recette ; provisioning général, ACL de groupes, fédération réelle et
-restauration demandent des preuves distinctes. [Référence identité](identite-utilisateurs.md).
+contrôlés côté serveur. Le portail `/portal/` attribue au premier login un
+espace vide dans un pool borné, à la clé issuer/subject et sans réaffectation
+d'un ancien état. Le rôle `ArcIA.User` est obligatoire. Les ACL de groupes,
+fédération réelle et restauration demandent des preuves distinctes.
+[Référence identité](identite-utilisateurs.md).
 
 ## 7. Partage et cloisonnement
 

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot
@@ -15,7 +15,22 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
-    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access')){
+    if($Action -eq 'verify_personal_portal'){
+        $fixturePath=Join-Path $root 'portal-fixtures.dpapi'
+        if(-not(Test-Path -LiteralPath $fixturePath)){
+            $fixtures=@()
+            foreach($suffix in @('a','b')){
+                $bytes=[byte[]]::new(32);[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+                $fixtures+=@{username=('arcia-portal-validation-'+$suffix);password=[Convert]::ToBase64String($bytes)}
+                [Array]::Clear($bytes,0,$bytes.Length)
+            }
+            Save-ProtectedBundle $fixturePath (@{operation_id=$operation.id;fixtures=$fixtures}|ConvertTo-Json -Depth 6 -Compress)
+            $fixtures=$null
+        }
+        $payload.portal_fixtures=(Read-ProtectedBundle $fixturePath)|ConvertFrom-Json
+        if($payload.portal_fixtures.operation_id -ne $operation.id){throw 'PERSONAL_PORTAL_FIXTURE_SCOPE'}
+    }
+    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal')){
         $identityPath=Join-Path $root 'identity.dpapi'
         if(-not(Test-Path -LiteralPath $identityPath)){
             if($Action -ne 'install_identity'){throw 'IDENTITY_ENROLLMENT_REQUIRED'}
@@ -99,6 +114,11 @@ try{
     $output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
     if(-not $process.WaitForExit(5400000)){$process.Kill();throw 'CLUSTER_ACTION_TIMEOUT'}
     $response=$output.GetAwaiter().GetResult()|ConvertFrom-Json;$null=$errors.GetAwaiter().GetResult()
+    if($Action -eq 'verify_personal_portal' -and $response.private.fixtures){
+        $fixtureUpdate=Join-Path $root ('portal-fixtures-'+[guid]::NewGuid().ToString('N')+'.dpapi')
+        Save-ProtectedBundle $fixtureUpdate (@{operation_id=$operation.id;fixtures=$response.private.fixtures}|ConvertTo-Json -Depth 8 -Compress)
+        [IO.File]::Replace($fixtureUpdate,(Join-Path $root 'portal-fixtures.dpapi'),[NullString]::Value)
+    }
     if($response.private){
         $temporary=Join-Path $root ('cluster-'+[guid]::NewGuid().ToString('N')+'.dpapi')
         Save-ProtectedBundle $temporary ($response.private|ConvertTo-Json -Depth 24 -Compress)

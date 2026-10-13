@@ -17,6 +17,15 @@ base CNPG dédiés. Les deux runtimes existants ont un client OIDC et un
 propriétaire distincts ; les SSO s'ajoutent par brokering sans remplacer les
 comptes locaux. [Administration et limites](identite-utilisateurs.md).
 
+Le namespace `arcia-access` porte le portail `/portal/`, point d'entrée de la
+racine du domaine. Un contrôleur unique attribue au premier login un emplacement
+fixé `arcia-user-pNN` à la clé issuer/subject. Chaque namespace a ses deux PVC
+RWOP, clients et tokens propres ; les runtimes arrêtés et Jobs suspendus sont
+préparés par le bootstrap. Le contrôleur peut seulement modifier le binding,
+reprendre le Job fixé et scaler deux déploiements précis. Les agents n'ont
+aucun ServiceAccount. Un compte supprimé conserve son ancien espace réservé.
+Le pool par défaut compte huit places ; HA et restore ne sont pas qualifiés.
+
 | Namespace | Composants | État et stockage |
 |---|---|---|
 | kube-system / vmware-system-csi | K3s, CPI et CSI | Administration et stockage VMware |
@@ -62,4 +71,4 @@ Les usages, corpus, sites, comptes, domaines, habilitations et connecteurs spéc
 
 ## Deux espaces locaux de qualification
 
-Deux runtimes Hermes, chacun dans son namespace avec état et outillage propres, sont exposés sur le même domaine HTTPS : chemin racine et `/qualification-b/`. Le préfixe est imposé par NGINX, tandis que chaque backend vérifie ses propres identifiants et cookies. La connaissance commune se partage via les ACL/RLS du service Knowledge, sans partage des SQLite ou des volumes applicatifs. Le [schéma multi-utilisateur et sa recette](multi-utilisateur.md) détaillent cette frontière.
+Les deux runtimes historiques restent dans leurs namespaces avec état et outillage propres, exposés sur `/qualification-a/` et `/qualification-b/`. Le domaine racine ouvre désormais le portail personnel. Le préfixe est imposé par NGINX, tandis que chaque backend vérifie son propriétaire. La suppression des anciens comptes ne transfère pas ces états vers les nouveaux utilisateurs. La recette historique de connaissance commune + personnelle sous RLS reste dans [multi-utilisateur](multi-utilisateur.md).

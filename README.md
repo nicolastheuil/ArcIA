@@ -101,7 +101,7 @@ Un MCP expose des fonctions à l’agent : rechercher dans SharePoint, consulter
 
 La cible sépare les **sources d’entreprise communes aux personnes habilitées**, les espaces restreints à un groupe et les espaces personnels. Les conversations, mémoires et connexions personnelles restent distinctes. Chaque recherche, téléchargement, outil et cache doit respecter les droits côté serveur ; un agent délégué hérite d’un périmètre borné. [Modèle de partage et de cloisonnement](docs/plateforme-arcia.md#partage-et-cloisonnement).
 
-**Aujourd’hui :** deux espaces Hermes de qualification avec authentification locale, états/outils/volumes distincts et connaissance commune + personnelle sous RLS. La recette vérifie sessions, accès concurrents, redémarrages et refus croisés. Le SSO d’entreprise, les groupes et l’onboarding général restent à intégrer ; les essais utilisent uniquement des données synthétiques. [Séparation et recette multi-utilisateur](docs/multi-utilisateur.md).
+**Aujourd’hui :** comptes locaux permanents Keycloak, administration dans `/admin/users` et espace personnel vide attribué automatiquement au premier login via `/portal/`. Le pool est borné, avec états/outils/volumes propres et refus croisés. Le rôle `ArcIA.User` est requis. SSO d’entreprise, ACL de groupes, restore et HA restent à qualifier ; les recettes utilisent des données synthétiques. [Administration et fonctionnement](docs/identite-utilisateurs.md).
 
 ## Modèles cloud et confidentialité
 

@@ -92,8 +92,14 @@ class ArcIAIdentityProvider(SelfHostedOIDCProvider):
             if id_claims['sub'] != claims['sub']:
                 raise InvalidCodeError('ARCIA_SUBJECT_MISMATCH')
             return self._session(token, refresh_token_from(payload, previous_refresh_token), claims)
-        except (InvalidCodeError, ProviderError):
-            raise bad_request_exc('ARCIA_LOGIN_REFUSED') from None
+        except ProviderError:
+            raise ProviderError('ARCIA_IDENTITY_UNAVAILABLE') from None
+        except InvalidCodeError as exc:
+            messages={
+                'ARCIA_RUNTIME_OWNER_REQUIRED':"ARCIA_PERSONAL_SPACE_REQUIRED: Ouvrez la page d'accueil ArcIA pour acceder a votre espace personnel.",
+                'ARCIA_USER_ROLE_REQUIRED':"ARCIA_USER_ROLE_REQUIRED: Votre administrateur doit attribuer le role ArcIA.User.",
+            }
+            raise bad_request_exc(messages.get(str(exc),'ARCIA_LOGIN_REFUSED')) from None
 
     def _session(self, token, refresh_token, claims):
         return session_from_claims(self.name, claims, access_token=token, refresh_token=refresh_token,

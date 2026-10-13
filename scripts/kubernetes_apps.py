@@ -245,6 +245,57 @@ http {
     }
 '''
         nginx=nginx.replace('    location / {',identity_route+'    location / {')
+    if lock.get('identity',{}).get('personal_portal_enabled'):
+        resolver=str(ipaddress.ip_network(config['network']['service_cidr']).network_address+10)
+        count=config.get('identity',{}).get('personal_slots',lock['identity'].get('personal_slots',8))
+        if not isinstance(count,int) or not 1<=count<=32:raise ValueError('PERSONAL_RUNTIME_CAPACITY_INVALID')
+        slots='|'.join('p'+str(i).zfill(2) for i in range(1,count+1))
+        route='''    location = / { return 302 /portal/; }
+    location = /qualification-a { return 302 /qualification-a/; }
+    location ^~ /qualification-a/ {
+      resolver '''+resolver+''' valid=10s ipv6=off;
+      set $qualification_a http://hermes-pilot.arcia-hermes.svc.cluster.local:9119;
+      rewrite ^/qualification-a/(.*)$ /$1 break;
+      proxy_pass $qualification_a;
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Prefix /qualification-a;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
+      proxy_buffering off;
+      proxy_read_timeout 600s;
+    }
+    location = /portal { return 302 /portal/; }
+    location ^~ /portal/ {
+      resolver '''+resolver+''' valid=10s ipv6=off;
+      set $portal_service http://arcia-portal.arcia-access.svc.cluster.local:8080;
+      proxy_pass $portal_service;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header X-Forwarded-Prefix "";
+      proxy_http_version 1.1;
+      proxy_buffering off;
+    }
+    location /u/ { return 404; }
+    location ~ ^/u/(?<personal_slot>'''+slots+''')/(?<personal_path>.*)$ {
+      resolver '''+resolver+''' valid=10s ipv6=off;
+      set $personal_service http://hermes-pilot.arcia-user-$personal_slot.svc.cluster.local:9119;
+      proxy_pass $personal_service/$personal_path$is_args$args;
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Prefix /u/$personal_slot;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $connection_upgrade;
+      proxy_buffering off;
+      proxy_read_timeout 600s;
+    }
+'''
+        nginx=nginx.replace('    location / {',route+'    location / {')
     return [namespace(ns,True),deny_all(ns),quota(ns,{'pods':'6','requests.cpu':'1','requests.memory':'1Gi',
         'limits.cpu':'3','limits.memory':'2Gi','persistentvolumeclaims':'0'}),
         {'apiVersion':'v1','kind':'Secret','metadata':{'name':'pilot-tls','namespace':ns},'type':'kubernetes.io/tls',
@@ -255,6 +306,11 @@ http {
                 'ingress':[{'ports':[{'port':8443,'protocol':'TCP'}]}],
                 'egress':[{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-hermes'}},
                     'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]},
+                    *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-access'}},
+                        'podSelector':{'matchLabels':{'app':'arcia-portal'}}}],'ports':[{'port':8080,'protocol':'TCP'}]},
+                       {'to':[{'namespaceSelector':{'matchLabels':{'arcia.io/personal-pool':'true'}},
+                        'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]}]
+                        if lock.get('identity',{}).get('personal_portal_enabled') else []),
                     *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-hermes-qualification-b'}},
                         'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]}] if lock.get('multiuser',{}).get('enabled') else []),
                     *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-identity'}},

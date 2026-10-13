@@ -52,7 +52,10 @@ def verify(payload):
         checks[who+'_other_session_update_denied']=request(who,'PATCH','/api/sessions/'+other_id,{'title':'synthetic forbidden rename'})[0]==404
         checks[who+'_cookie_other_runtime_denied']=request(who,'GET','/api/config',route='B' if who=='A' else 'A',remember=False)[0]==401
         checks[who+'_identity_header_spoof_no_session_access']=request(who,'GET','/api/sessions/'+other_id,extra={'X-User-Id':other['username'],'X-Forwarded-Prefix':'/qualification-b' if who=='A' else '/','X-ArcIA-Scope':'qualification-'+('b' if who=='A' else 'a')})[0]==404
-        status,html=request(who,'GET','/')
+        from pathlib import Path
+        public_lock=json.loads((Path(__file__).resolve().parents[1]/'versions.lock.yaml').read_text())
+        html_path='/qualification-a/' if who=='A' and public_lock.get('identity',{}).get('personal_portal_enabled') else '/'
+        status,html=request(who,'GET',html_path)
         checks[who+'_dashboard_html']=status==200 and b'<html' in html.lower()
         # Follow the actual SPA asset paths to verify trusted-prefix handling.
         assets=re.findall(rb'(?:src|href)="([^"?#]+\.(?:js|css))',html)

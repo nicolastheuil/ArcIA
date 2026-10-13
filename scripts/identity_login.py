@@ -9,6 +9,7 @@ from html.parser import HTMLParser
 import re
 import socket
 import ssl
+import json
 from urllib.parse import urljoin, urlsplit, urlencode
 
 
@@ -31,7 +32,7 @@ class Browser:
         self.context=ssl.create_default_context(cadata=pilot['tls_certificate'])
         leaf=re.search(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',pilot['tls_certificate'],re.S).group()
         self.pin=hashlib.sha256(ssl.PEM_cert_to_DER_cert(leaf)).digest()
-    def request(self,method,url,data=None):
+    def request(self,method,url,data=None,extra_headers=None):
         url=urljoin('https://'+self.host+'/',url);parts=urlsplit(url)
         if parts.scheme!='https' or parts.hostname!=self.host or parts.port not in (None,443):
             raise ValueError('IDENTITY_LOGIN_REDIRECT_REFUSED')
@@ -39,6 +40,7 @@ class Browser:
         connection._create_connection=lambda dest,timeout,source_address=None:socket.create_connection((self.address,443),timeout)
         cookie='; '.join(k+'='+v.coded_value for k,v in self.cookies.items() if parts.path.startswith(v['path'] or '/'))
         headers={'Origin':'https://'+self.host,'Cookie':cookie}
+        if extra_headers:headers.update(extra_headers)
         if data is not None:headers['Content-Type']='application/x-www-form-urlencoded'
         try:
             connection.connect()
@@ -77,3 +79,14 @@ class Browser:
                 if text.encode() in body:raise ValueError(code)
             raise ValueError('IDENTITY_SESSION_NOT_ESTABLISHED')
         return self.native
+
+    def portal_login(self,username,password):
+        status,body=self.follow('/portal/login')
+        form=Form();form.feed(body.decode())
+        if status!=200 or not form.action:raise ValueError('PERSONAL_PORTAL_LOGIN_FORM_MISSING')
+        status,body,location=self.request('POST',form.action,{**form.inputs,'username':username,'password':password,'credentialId':''})
+        if status not in (302,303) or not location:raise ValueError('PERSONAL_PORTAL_LOGIN_REFUSED')
+        status,body=self.follow(location)
+        match=re.search(rb'const csrf=("[A-Za-z0-9_-]+")',body)
+        if status!=200 or not match:raise ValueError('PERSONAL_PORTAL_SESSION_REFUSED')
+        return json.loads(match.group(1))

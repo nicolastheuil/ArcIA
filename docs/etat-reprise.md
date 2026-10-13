@@ -7,6 +7,13 @@ portail déployés sur la cible existante ; qualification synthétique, sans
 ouverture de données privées ni tenant Microsoft. Le lot remplace l'hypothèse
 d'une identité locale seulement temporaire.
 
+Complément : le point d'entrée `/portal/` crée automatiquement un espace
+personnel vide pour chaque nouvelle identité habilitée (`ArcIA.User`), dans
+un pool borné de huit places. Les anciens propriétaires synthétiques ont été
+supprimés dans le realm par l'administrateur ; leurs volumes et UUID liés
+restent conservés, sans transfert vers les nouveaux comptes. Voir
+[le handoff du portail](handoff-2026-10-13-portail-personnel.md).
+
 Complément documentaire et de configuration :
 [handoff Microsoft 365](handoff-2026-10-13-microsoft365.md). Annexe admin et
 contrat YAML/validation hors ligne livrés ; aucun service Microsoft 365 actif,

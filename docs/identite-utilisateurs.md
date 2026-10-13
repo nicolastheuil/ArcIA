@@ -17,6 +17,8 @@ Sur le domaine HTTPS existant de l'instance :
 
 | Chemin | Usage | Autorisation |
 |---|---|---|
+| `/` puis `/portal/` | Première connexion, préparation et accès à l'espace personnel | Compte actif avec `ArcIA.User` |
+| `/u/pNN/` | Dashboard Hermes personnel ; adresse attribuée par le portail | Propriétaire du runtime uniquement |
 | `/admin/users` | Gestion des utilisateurs ; redirection vers la console Keycloak du realm ArcIA | Administrateurs d'identité habilités, MFA |
 | `/identity/admin/arcia/console/` | Console complète du realm ArcIA | Administration déléguée du realm |
 | `/account` | Profil, credentials, MFA, sessions et identités liées | Utilisateur authentifié, selon politique |
@@ -45,6 +47,46 @@ une fenêtre locale demande de choisir l'instance par son domaine et son chemin.
 L'annulation n'ouvre aucun portail ; aucune copie n'est supprimée ou fusionnée.
 Un `ARCIA_STATE_ROOT` explicitement défini reste prioritaire et doit être cohérent.
 Les commandes automatisées conservent le refus d'une sélection ambiguë.
+
+## Créer un compte utilisable dans Hermes
+
+1. Dans `/admin/users`, créer et activer le compte, définir son mot de passe
+   temporaire et ses actions de première connexion (changement de mot de passe,
+   TOTP selon la politique souhaitée).
+2. Dans **Role mapping**, attribuer le rôle de realm **ArcIA.User**. Les droits
+   d'administration Keycloak ne remplacent pas cette habilitation applicative.
+3. L'utilisateur ouvre la racine du domaine ArcIA, s'identifie et termine les
+   actions demandées par Keycloak. Le portail prépare automatiquement un espace
+   vide et ouvre son dashboard. Aucun script de provisioning par utilisateur.
+4. Une connexion suivante reprend le même espace, même après changement de nom
+   ou d'email. Désactiver le compte et révoquer ses sessions retire son accès.
+
+Les huit emplacements initiaux sont bornés ; deux peuvent être occupés par les
+identités synthétiques de recette, désactivées à la fin du test. La première
+préparation installe les outils épinglés et peut prendre plusieurs minutes.
+L'interface montre l'avancement ou un blocage ; elle ne copie aucun historique.
+La capacité se règle avec `identity.personal_slots` (1 à 32, défaut 8) dans la
+configuration protégée de bootstrap, puis réapplication après dimensionnement.
+Les PVC sont `WaitForFirstConsumer` : les volumes ne sont attachés qu'à l'usage.
+
+La suppression d'un compte ne supprime pas son espace et ne le libère pas pour
+un autre UUID. Un compte recréé avec le même nom reçoit un autre espace.
+Le transfert ou la purge des anciens volumes nécessite une opération distincte.
+Les deux anciens runtimes de qualification restent liés à leurs anciens UUID.
+Un ancien callback en erreur doit être abandonné : ouvrir `/` pour commencer
+un nouveau parcours, car un code OIDC ne se réutilise pas.
+
+Sur le poste de qualification sans DNS d'entreprise, ouvrir le parcours
+personnel avec `./scripts/Open-ArcIA.ps1`. Le helper utilise les paramètres
+protégés et un profil Edge distinct du portail d'administration, avec contrôle
+TLS conservé. Aucun mot de passe n'est lu ni affiché par ce helper. Les postes
+utilisateurs disposant du DNS privé ouvrent simplement le domaine ArcIA.
+
+Le contrôleur `/portal/` possède un ServiceAccount administratif étroit, limité
+aux objets déjà préparés dans le pool : ConfigMap de binding, Secret OIDC,
+Job fixé et sous-ressource scale. Aucun agent ne reçoit ce compte technique ni
+un droit de création Kubernetes. Les providers vérifient aussi le subject et
+le rôle à l'entrée de chaque runtime. [Décision et limites](adr/0017-espaces-personnels-premiere-connexion.md).
 
 ## Fonctionnement et identité stable
 
@@ -196,6 +238,8 @@ possédées ; elle refuse un realm étranger ou une dérive de credential de bas
 ./scripts/Invoke-ClusterFoundation.ps1 -Action verify_identity
 ./scripts/Invoke-ClusterFoundation.ps1 -Action connect_identity
 ./scripts/Invoke-ClusterFoundation.ps1 -Action verify_identity_access
+./scripts/Invoke-ClusterFoundation.ps1 -Action install_personal_portal
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_personal_portal
 ```
 
 Les étapes font partie du bootstrap. `identity.dpapi` est généré une seule fois,
@@ -204,14 +248,12 @@ deux utilisateurs synthétiques `qualification-a`/`qualification-b` à leurs
 états existants, avec clients et Secrets distincts, sans copie des volumes.
 Une liaison existante n'est jamais remplacée par un nouveau `sub` à la réapplication.
 
-La base centrale permet d'administrer un nombre arbitraire de comptes. Le
-provisionnement automatique d'un **nouvel espace Hermes** est une capacité
-distincte du compte : les deux espaces de qualification sont les seuls
-runtimes actuellement provisionnés. La console ne prétend pas créer un PVC ou
-un runtime en créant un utilisateur. Le launcher général et la propagation
-des groupes aux ACL de corpus restent à développer ; un compte non rattaché
-n'a pas accès aux espaces existants. Cette limite ne rend pas l'annuaire local
-temporaire : il reste la source d'identité par défaut pour ces futures capacités.
+La base centrale permet d'administrer les comptes indépendamment des espaces.
+Le portail attribue un nouvel espace vide au premier login d'une identité
+habilitée, dans le pool borné décrit plus haut. La création du compte seule
+n'alloue pas de volume actif. Un compte ne reçoit jamais l'espace d'une autre
+identité. La propagation des groupes aux ACL de corpus, les transferts et
+les purges restent des opérations distinctes à construire et qualifier.
 
 Sauvegarder ensemble la base identité, la configuration des providers et les
 références de secrets ; les exports de realm contenant des utilisateurs sont
@@ -234,5 +276,5 @@ sans fusion de comptes sur email ni réactivation implicite d'un accès local.
 
 L'administration native Keycloak et son déploiement ne constituent pas seuls
 une qualification de tous les usages d'entreprise. Les options SSO, SMTP,
-passkeys, provisioning arbitraire, ACL de groupes et restauration exigent leurs
+passkeys, capacités au-delà du pool borné, ACL de groupes et restauration exigent leurs
 propres preuves. Aucune donnée privée réelle n'est ouverte par ce lot.

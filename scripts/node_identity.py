@@ -194,15 +194,16 @@ def inspect(values):
         for ns in ('arcia-hermes','arcia-hermes-qualification-b'):
             pods=json.loads(kube('get','pods','-n',ns,'-l','app=hermes-pilot','-o','json'))['items']
             pod=next(p for p in pods if not p['metadata'].get('deletionTimestamp') and p['status']['phase']=='Running')
-            source="""import os,httpx,json
+            source="""import os,httpx,json,hashlib,pathlib
 r={'binding_present':bool(os.environ.get('ARCIA_IDENTITY_ISSUER'))}
+r['provider_sha256']=hashlib.sha256(pathlib.Path('/opt/data/plugins/arcia-identity/__init__.py').read_bytes()).hexdigest()
 try:
  u=os.environ['ARCIA_IDENTITY_ISSUER'];d=httpx.get(u+'/.well-known/openid-configuration',timeout=10)
  r['discovery_status']=d.status_code
  r['jwks_status']=httpx.get(d.json()['jwks_uri'],timeout=10).status_code
  t=httpx.get(u+'/protocol/openid-connect/userinfo',headers={'Authorization':'Bearer invalid-synthetic'},timeout=10)
  r['userinfo_status']=t.status_code;r['invalid_token_denied']=t.status_code==401
- r['identity_admin_credentials_absent']=not bool(os.environ.get('ARCIA_IDENTITY_CLIENT_SECRET'))
+ r['runtime_client_secret_absent']=not bool(os.environ.get('ARCIA_IDENTITY_CLIENT_SECRET'))
 except Exception as e:r['probe_exception_type']=type(e).__name__ if type(e).__name__ in ('ConnectError','ConnectTimeout','ReadTimeout','KeyError') else 'OTHER'
 print(json.dumps(r))"""
             probes.append(json.loads(kube('exec',pod['metadata']['name'],'-n',ns,'--','/opt/hermes/.venv/bin/python','-c',source)))
@@ -210,6 +211,45 @@ print(json.dumps(r))"""
             probes[-1]['error_codes']=[code for code in ('ARCIA_LOGIN_REFUSED','ARCIA_USER_ROLE_REQUIRED','ARCIA_IDENTITY_UNAVAILABLE',
                 'ARCIA_RUNTIME_OWNER_REQUIRED','ARCIA_RUNTIME_CLIENT_REQUIRED','ARCIA_NONCE_MISMATCH','ARCIA_TOKEN_REFUSED','ARCIA_SESSION_INACTIVE') if code in log]
         result['runtime_probes']=probes
+        with forward() as base:
+            admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+            if admin.resource().get('attributes',{}).get('arcia.operation-id')!=operation:
+                raise ValueError('IDENTITY_FOREIGN_REALM')
+            clients=[];owners={}
+            for name,namespace in (('arcia-runtime-a','arcia-hermes'),('arcia-runtime-b','arcia-hermes-qualification-b')):
+                client=admin.client(name)
+                binding=owned('Secret','arcia-oidc-runtime',namespace,operation)
+                subject=base64.b64decode(binding['data']['ARCIA_IDENTITY_OWNER_SUBJECT']).decode()
+                owners[name]=subject
+                try:
+                    user=admin.resource('/users/'+subject)
+                    roles=admin.resource('/users/'+subject+'/role-mappings/realm/composite')
+                except urllib.error.HTTPError as exc:
+                    if exc.code!=404:raise
+                    user={};roles=[]
+                clients.append({'public_client':client.get('publicClient') is True,
+                    'pkce_s256':client.get('attributes',{}).get('pkce.code.challenge.method')=='S256',
+                    'standard_flow':client.get('standardFlowEnabled') is True,
+                    'password_grant_disabled':client.get('directAccessGrantsEnabled') is False,
+                    'owner_exists':bool(user),
+                    'owner_enabled':user.get('enabled') is True,
+                    'owner_login_unchanged':user.get('username')=='qualification-'+name[-1],
+                    'owner_user_role':any(r['name']=='ArcIA.User' for r in roles),
+                    'owner_required_actions_pending':bool(user.get('requiredActions'))})
+            result['runtime_client_checks']=clients
+            result['recent_auth_events']=[]
+            allowed_errors={'invalid_code','expired_code','invalid_redirect_uri','invalid_client_credentials',
+                'user_disabled','user_not_found','invalid_user_credentials','user_session_not_found',
+                'resolve_required_actions','invalid_request','not_allowed','session_expired'}
+            for event in admin.resource('/events?max=40'):
+                kind=event.get('type')
+                if kind not in ('LOGIN','LOGIN_ERROR','CODE_TO_TOKEN','CODE_TO_TOKEN_ERROR','REFRESH_TOKEN_ERROR'):continue
+                client=event.get('clientId')
+                client=client if client in ('arcia-runtime-a','arcia-runtime-b','security-admin-console') else 'other'
+                error=event.get('error')
+                result['recent_auth_events'].append({'type':kind,'client':client,
+                    'runtime_owner_matches':event.get('userId')==owners[client] if client in owners else None,
+                    'error':error if error in allowed_errors else ('other' if error else None)})
     return result
 
 
@@ -435,8 +475,254 @@ def qualify_revocation(values):
     return {'passed':status in (401,403),'disabled_session_refused':status in (401,403)}
 
 
+def prepare_personal_portal(values):
+    operation=values['operation_id']
+    dns=owned('Service','private-dns','arcia-privacy',operation)['spec']['clusterIP']
+    return {'dns_ip':dns}
+
+
+def inspect_personal_portal(values):
+    config=owned('ConfigMap','portal-config','arcia-access',values['operation_id'])
+    settings=json.loads(config['data']['portal.json']);slots=[]
+    for slot in settings['slots']:
+        binding=owned('ConfigMap','slot-binding',slot['namespace'],values['operation_id'])
+        job=owned('Job',slot['job'],slot['namespace'],values['operation_id'])
+        record={'assigned':bool(json.loads(binding['data']['binding.json'])),'installer_failed':bool(job.get('status',{}).get('failed')),
+            'installer_completed':bool(job.get('status',{}).get('succeeded')),'installer_suspended':job['spec'].get('suspend',False)}
+        pods=json.loads(kube('get','pods','-n',slot['namespace'],'-o','json'))['items']
+        record['containers']=[]
+        for pod in pods:
+            for status in pod.get('status',{}).get('containerStatuses',[]):
+                state=status.get('state',{});reason=next((s.get('reason') for s in state.values()),None)
+                record['containers'].append({'ready':status.get('ready'),
+                    'reason':reason if reason in ('Completed','Error','OOMKilled','ContainerCreating','CrashLoopBackOff','ErrImagePull','ImagePullBackOff','CreateContainerConfigError','PodInitializing') else None})
+            if pod['metadata'].get('labels',{}).get('app')=='hermes-tools-installer':
+                try:log=kube('logs',pod['metadata']['name'],'-n',slot['namespace'],'--tail=60')
+                except Exception:log=''
+                record['installer_error_codes']=sorted(set(re.findall(r'\b(?:HERMES|SKILLS|RTK|NPM|PIP|ARCHIVE)_[A-Z0-9_]{3,60}\b',log)))
+                record['installer_exception_types']=sorted(set(re.findall(r'\b([A-Za-z]+(?:Error|Exception)):',log)))
+                record['disk_full']='No space left on device' in log
+        slots.append(record)
+    portal=owned('Deployment','arcia-portal','arcia-access',values['operation_id'])
+    logs=kube('logs','deployment/arcia-portal','-n','arcia-access','--tail=40')
+    return {'passed':portal.get('status',{}).get('availableReplicas',0)==1,'slots':slots,
+        'portal_error_codes':sorted(set(re.findall(r'\bARCIA_PORTAL_[A-Z0-9_]{3,80}\b',logs)))}
+
+
+def prepare_portal_fixtures(values):
+    fixtures=[]
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=values['operation_id']:raise ValueError('IDENTITY_FOREIGN_REALM')
+        for fixture in values['fixtures']:
+            name=fixture['username'];users=admin.resource('/users?username='+urllib.parse.quote(name,safe='')+'&exact=true')
+            if not users:
+                if fixture.get('subject'):raise ValueError('PERSONAL_PORTAL_FIXTURE_REMOVED')
+                admin.resource('/users','POST',{'username':name,'enabled':True,'firstName':'Synthetic','lastName':'Portal validation',
+                    'email':name+'@example.invalid','emailVerified':True,'attributes':{'arcia.qualification-owner':[values['operation_id']]},
+                    'credentials':[{'type':'password','value':fixture['password'],'temporary':False}]})
+                users=admin.resource('/users?username='+urllib.parse.quote(name,safe='')+'&exact=true')
+                role=admin.resource('/roles/ArcIA.User')
+                admin.resource('/users/'+users[0]['id']+'/role-mappings/realm','POST',[role])
+            if len(users)!=1:raise ValueError('PERSONAL_PORTAL_FIXTURE_AMBIGUOUS')
+            user=admin.resource('/users/'+users[0]['id'])
+            if user.get('attributes',{}).get('arcia.qualification-owner')!=[values['operation_id']]:raise ValueError('PERSONAL_PORTAL_FOREIGN_FIXTURE')
+            if fixture.get('subject') and fixture['subject']!=user['id']:raise ValueError('PERSONAL_PORTAL_FIXTURE_REBIND_REFUSED')
+            if not user['enabled']:admin.resource('/users/'+user['id'],'PUT',{'enabled':True})
+            fixtures.append({**fixture,'subject':user['id']})
+    return {'fixtures':fixtures}
+
+
+def finish_portal_qualification(values):
+    checks={};volumes=[]
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=values['operation_id']:raise ValueError('IDENTITY_FOREIGN_REALM')
+        for item in values['sessions']:
+            ns=item['namespace'];subject=item['subject']
+            user=admin.resource('/users/'+subject)
+            if user.get('attributes',{}).get('arcia.qualification-owner')!=[values['operation_id']]:raise ValueError('PERSONAL_PORTAL_FOREIGN_FIXTURE')
+            binding=owned('Secret','arcia-oidc-runtime',ns,values['operation_id'])
+            if base64.b64decode(binding['data']['ARCIA_IDENTITY_OWNER_SUBJECT']).decode()!=subject:raise ValueError('PERSONAL_PORTAL_SUBJECT_MISMATCH')
+            deployment=owned('Deployment','hermes-pilot',ns,values['operation_id'])
+            checks[ns+'_single_owner']=deployment['spec']['replicas']==1 and deployment['spec']['strategy']['type']=='Recreate'
+            checks[ns+'_agent_has_no_service_account']=deployment['spec']['template']['spec']['automountServiceAccountToken'] is False
+            for name in ('hermes-pilot-state','hermes-tools'):
+                pvc=owned('PersistentVolumeClaim',name,ns,values['operation_id'])
+                volumes.append(pvc['spec']['volumeName']);checks[ns+'_'+name+'_rwop']=pvc['spec']['accessModes']==['ReadWriteOncePod']
+            admin.resource('/users/'+subject,'PUT',{'enabled':False})
+            admin.resource('/users/'+subject+'/logout','POST')
+            context=ssl.create_default_context(cadata=values['pilot']['tls_certificate'])
+            connection=http.client.HTTPSConnection(values['hostname'],context=context,timeout=20)
+            connection._create_connection=lambda dest,timeout,source_address=None:socket.create_connection((values['https_ip'],443),timeout)
+            connection.request('GET',item['prefix']+'/api/config',headers={'Cookie':item['cookie'],'Origin':'https://'+values['hostname']})
+            response=connection.getresponse();response.read();checks[ns+'_disabled_session_denied']=response.status==401;connection.close()
+    checks['distinct_state_and_tools_volumes']=len(volumes)==len(set(volumes))==4
+    portal=owned('Deployment','arcia-portal','arcia-access',values['operation_id'])
+    checks['single_active_portal']=portal['spec']['replicas']==1 and portal['spec']['strategy']['type']=='Recreate'
+    checks['no_cluster_role_bound']=not any(b.get('roleRef',{}).get('kind')=='ClusterRole' for slot in values['sessions']
+        for b in json.loads(kube('get','rolebindings','-n',slot['namespace'],'-o','json'))['items'])
+    return {'checks':checks,'passed':all(checks.values()),'fixture_accounts_disabled':True}
+
+
+def disable_portal_fixtures(values):
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=values['operation_id']:raise ValueError('IDENTITY_FOREIGN_REALM')
+        for fixture in values['fixtures']:
+            try:user=admin.resource('/users/'+fixture['subject'])
+            except urllib.error.HTTPError as exc:
+                if exc.code==404:continue
+                raise
+            if user.get('attributes',{}).get('arcia.qualification-owner')!=[values['operation_id']]:raise ValueError('PERSONAL_PORTAL_FOREIGN_FIXTURE')
+            admin.resource('/users/'+user['id'],'PUT',{'enabled':False})
+            admin.resource('/users/'+user['id']+'/logout','POST')
+    return {'disabled':True}
+
+
+def install_personal_portal(values):
+    operation=values['operation_id'];documents=values['documents'];scope={};exec(values['realm_source'],scope)
+    existing_pool=json.loads(kube('get','namespaces','-l','arcia.io/personal-pool=true','-o','json'))['items']
+    desired={slot['namespace'] for slot in values['slots']}
+    if any(ns['metadata']['name'] not in desired for ns in existing_pool):
+        raise ValueError('PERSONAL_CAPACITY_SHRINK_REQUIRES_MIGRATION')
+    portal=owned('Deployment','arcia-portal','arcia-access',operation,True)
+    if portal:
+        # Stop allocation while taking/reapplying the pool snapshot. Existing
+        # personal runtimes keep serving their independently authenticated users.
+        kube('scale','deployment/arcia-portal','-n','arcia-access','--replicas=0')
+        kube('wait','pods','-l','app=arcia-portal','-n','arcia-access','--for=delete','--timeout=90s',timeout=100)
+    # Explicit removal of an obsolete confidential-client field. SSA stringData
+    # alone cannot remove a previously managed Secret.data key.
+    for ns in ('arcia-hermes','arcia-hermes-qualification-b'):
+        binding=owned('Secret','arcia-oidc-runtime',ns,operation,True)
+        if binding and 'ARCIA_IDENTITY_CLIENT_SECRET' in binding.get('data',{}):
+            kube('patch','secret','arcia-oidc-runtime','-n',ns,'--type=merge','-p',json.dumps({
+                'metadata':{'resourceVersion':binding['metadata']['resourceVersion']},
+                'data':{'ARCIA_IDENTITY_CLIENT_SECRET':None}}))
+            kube('rollout','restart','deployment/hermes-pilot','-n',ns)
+            kube('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=300s',timeout=320)
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=operation:raise ValueError('IDENTITY_FOREIGN_REALM')
+        for client_id,callback in [('arcia-portal','/portal/callback')]+[
+            ('arcia-'+slot['id'],slot['prefix']+'/auth/callback') for slot in values['slots']]:
+            expected=scope['runtime_client'](client_id,'https://'+values['hostname']+callback,None)
+            matches=admin.resource('/clients?clientId='+client_id)
+            if not matches:admin.resource('/clients','POST',expected)
+            else:
+                client=admin.client(client_id)
+                if (client.get('redirectUris')!=expected['redirectUris'] or client.get('publicClient') is not True
+                    or client.get('attributes',{}).get('pkce.code.challenge.method')!='S256'):
+                    raise ValueError('PERSONAL_PORTAL_CLIENT_DRIFT')
+    # Preserve existing bindings, volumes, credentials, scales and install progress.
+    preserved_bindings={};preserved_claims={};skip=set()
+    for slot in values['slots']:
+        ns=slot['namespace'];binding=owned('ConfigMap','slot-binding',ns,operation,True)
+        previous_pvc=owned('PersistentVolumeClaim','hermes-pilot-state',ns,operation,True)
+        if previous_pvc and not binding:raise ValueError('PERSONAL_SLOT_OWNERSHIP_RECORD_MISSING')
+        current_binding=json.loads(binding['data']['binding.json']) if binding else {}
+        if binding:
+            preserved_bindings[ns]=dict(binding['data']);skip.add(('ConfigMap',ns,'slot-binding'))
+        for name in ('hermes-pilot-state','hermes-tools'):
+            claim=owned('PersistentVolumeClaim',name,ns,operation,True)
+            if claim:preserved_claims[(ns,name)]=(claim['metadata']['uid'],claim['spec'].get('volumeName'))
+        previous_job=owned('Job',slot['job'],ns,operation,True)
+        if current_binding and not previous_job:raise ValueError('PERSONAL_SLOT_TOOL_MIGRATION_REQUIRED')
+        for doc in documents:
+            if doc['metadata'].get('namespace')!=ns:continue
+            if doc['kind']=='ConfigMap' and doc['metadata']['name']=='slot-binding' and binding:
+                doc['data']=dict(binding['data'])
+            if doc['kind']=='Secret' and doc['metadata']['name']=='arcia-oidc-runtime':
+                old=owned('Secret','arcia-oidc-runtime',ns,operation,True)
+                if old:
+                    previous_owner=base64.b64decode(old['data'].get('ARCIA_IDENTITY_OWNER_SUBJECT','')).decode()
+                    if previous_owner!=current_binding.get('subject',''):raise ValueError('PERSONAL_SLOT_BINDING_DRIFT')
+                    expected=doc['stringData']
+                    if any(base64.b64decode(old['data'][key]).decode()!=expected[key]
+                           for key in ('ARCIA_IDENTITY_ISSUER','ARCIA_IDENTITY_CLIENT_ID')):
+                        raise ValueError('PERSONAL_SLOT_ISSUER_CLIENT_DRIFT')
+                    skip.add(('Secret',ns,'arcia-oidc-runtime'))
+                    doc['stringData']['ARCIA_IDENTITY_OWNER_SUBJECT']=previous_owner
+            if doc['kind']=='Deployment':
+                old=owned('Deployment',doc['metadata']['name'],ns,operation,True)
+                if old and not current_binding and old['spec'].get('replicas',0):
+                    raise ValueError('PERSONAL_UNBOUND_WORKLOAD_ACTIVE')
+                if old:doc['spec']['replicas']=old['spec']['replicas']
+            if doc['kind']=='Job' and previous_job:
+                doc['spec']['suspend']=previous_job.get('spec',{}).get('suspend',False)
+    documents=[d for d in documents if (d['kind'],d['metadata'].get('namespace'),d['metadata']['name']) not in skip]
+    apply([d for d in documents if d['kind']=='Namespace' or
+           (d['kind']=='ConfigMap' and d['metadata']['name']=='slot-binding')],operation)
+    hmac_secret=owned('Secret','portal-hmac','arcia-access',operation,True)
+    if not hmac_secret:
+        apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'portal-hmac','namespace':'arcia-access'},
+                'type':'Opaque','stringData':{'hmac':secrets.token_urlsafe(48)}}],operation)
+    for secret_name,service_ns,key in [('knowledge-credentials','arcia-knowledge','tokens.json'),('privacy-policy','arcia-privacy','policy.json')]:
+        secret=owned('Secret',secret_name,service_ns,operation)
+        content=json.loads(base64.b64decode(secret['data'][key]).decode());before=json.dumps(content,sort_keys=True)
+        tokens=content if key=='tokens.json' else content['tokens']
+        for slot in values['slots']:
+            scope_name='personal-'+slot['id']
+            token=next((k for k,v in tokens.items() if v.get('scope')==scope_name and
+                        (key!='tokens.json' or v.get('role')=='reader')),None)
+            if token is None:
+                token=secrets.token_urlsafe(36)
+                tokens[token]={'scope':scope_name,**({'role':'reader','read_scopes':[scope_name]} if key=='tokens.json'
+                    else {'classification':'synthetic','identifiers':[]})}
+            apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'knowledge-reader' if key=='tokens.json' else 'privacy-client',
+                'namespace':slot['namespace']},'type':'Opaque','stringData':{'token':token}}],operation)
+        if json.dumps(content,sort_keys=True)!=before:
+            secret=clean(secret);secret['data'][key]=base64.b64encode(json.dumps(content).encode()).decode()
+            apply([secret],operation)
+            name='knowledge' if key=='tokens.json' else 'privacy'
+            kube('rollout','restart','deployment/'+name,'-n',service_ns)
+            kube('rollout','status','deployment/'+name,'-n',service_ns,'--timeout=300s',timeout=320)
+    # Service-side allowlists admit only the fixed pool label and runtime selector.
+    peer={'namespaceSelector':{'matchLabels':{'arcia.io/personal-pool':'true'}},'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}
+    for ns,name in [('arcia-knowledge','knowledge-private-only'),('arcia-privacy','local-sanitizer-only'),('arcia-privacy','static-dns-only')]:
+        doc=clean(owned('NetworkPolicy',name,ns,operation))
+        for rule in doc['spec']['ingress']:
+            if peer not in rule['from']:rule['from'].append(peer)
+        apply([doc],operation)
+    keycloak=clean(owned('NetworkPolicy','keycloak-private-only',NS,operation))
+    portal_peer={'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-access'}},'podSelector':{'matchLabels':{'app':'arcia-portal'}}}
+    if portal_peer not in keycloak['spec']['ingress'][0]['from']:keycloak['spec']['ingress'][0]['from'].append(portal_peer)
+    apply([keycloak],operation)
+    records_doc=clean(owned('ConfigMap','private-dns-records','arcia-privacy',operation))
+    records=json.loads(records_doc['data']['records.json'])
+    # Deploy immutable renderer output; binding records were applied first.
+    apply([d for d in documents if not(d['kind']=='Namespace' or
+        (d['kind']=='ConfigMap' and d['metadata']['name']=='slot-binding'))],operation)
+    for slot in values['slots']:
+        service=owned('Service','context7-docs',slot['namespace'],operation)
+        records['context7-docs.'+slot['namespace']+'.svc.cluster.local']=service['spec']['clusterIP']
+    records_doc['data']['records.json']=json.dumps(records)
+    apply([records_doc],operation)
+    kube('rollout','restart','deployment/private-dns','-n','arcia-privacy')
+    kube('rollout','status','deployment/private-dns','-n','arcia-privacy','--timeout=120s',timeout=140)
+    kube('rollout','status','deployment/arcia-portal','-n','arcia-access','--timeout=180s',timeout=200)
+    apply(values['ingress'],operation)
+    kube('rollout','status','daemonset/pilot-https','-n','arcia-ingress','--timeout=180s',timeout=200)
+    bindings_ok=all(owned('ConfigMap','slot-binding',ns,operation)['data']==data for ns,data in preserved_bindings.items())
+    claims_ok=True
+    for (ns,name),expected in preserved_claims.items():
+        current=owned('PersistentVolumeClaim',name,ns,operation)
+        claims_ok=claims_ok and current['metadata']['uid']==expected[0] and (
+            expected[1] is None or current['spec'].get('volumeName')==expected[1])
+    if not bindings_ok or not claims_ok:raise ValueError('PERSONAL_PORTAL_REAPPLICATION_DRIFT')
+    return {'passed':True,'capacity':len(values['slots']),'automatic_first_login':True,'legacy_owners_preserved':True,
+            'existing_bindings_preserved':bindings_ok,'existing_pvcs_preserved':claims_ok,
+            'bindings_rechecked':len(preserved_bindings),'pvcs_rechecked':len(preserved_claims),
+            'sso_provider_enabled':False,'fresh_cluster_rebuilt':False}
+
+
 if __name__ == '__main__':
     print(json.dumps({'install_identity': install, 'verify_identity': verify,
                       'inspect_identity': inspect,'prepare_identity':prepare,
                       'connect_identity':connect,'cleanup_identity_fixture':cleanup_unbound_fixture,
+                      'prepare_personal_portal':prepare_personal_portal,'install_personal_portal':install_personal_portal,
+                      'inspect_personal_portal':inspect_personal_portal,
+                      'prepare_portal_fixtures':prepare_portal_fixtures,'finish_portal_qualification':finish_portal_qualification,
+                      'disable_portal_fixtures':disable_portal_fixtures,
                       'qualify_identity_revocation':qualify_revocation}[ARCIA_INPUT['action']](ARCIA_INPUT)))

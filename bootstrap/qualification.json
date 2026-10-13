@@ -687,8 +687,7 @@
         "connect_identity"
       ],
       "profiles": [
-        "fresh",
-        "reconcile"
+        "fresh"
       ],
       "after": [
         "verify_identity"
@@ -709,9 +708,7 @@
         "verify_identity_access"
       ],
       "profiles": [
-        "fresh",
-        "reconcile",
-        "verify"
+        "fresh"
       ],
       "after": [
         "connect_identity"
@@ -721,6 +718,73 @@
         "IDENTITY_ACCESS_VERIFIED"
       ],
       "timeout_seconds": 600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "install_personal_portal",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_personal_portal"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_identity",
+        "install_multiuser"
+      ],
+      "status_file": "cluster-install_personal_portal-status.json",
+      "success_codes": [
+        "PERSONAL_PORTAL_INSTALLED"
+      ],
+      "timeout_seconds": 2400,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_personal_portal",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_personal_portal"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "install_personal_portal"
+      ],
+      "status_file": "cluster-verify_personal_portal-status.json",
+      "success_codes": [
+        "PERSONAL_PORTAL_VERIFIED"
+      ],
+      "timeout_seconds": 3600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_personal_portal",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_personal_portal"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "install_personal_portal"
+      ],
+      "status_file": "cluster-inspect_personal_portal-status.json",
+      "success_codes": [
+        "PERSONAL_PORTAL_INSPECTED"
+      ],
+      "timeout_seconds": 180,
       "engine": "pwsh",
       "provision_only": false
     },
@@ -954,9 +1018,7 @@
         "verify_multiuser"
       ],
       "profiles": [
-        "fresh",
-        "reconcile",
-        "verify"
+        "fresh"
       ],
       "after": [
         "verify_privacy"
@@ -974,10 +1036,7 @@
       "script": "scripts/Verify-PilotAccess.ps1",
       "arguments": [],
       "profiles": [
-        "fresh",
-        "reconcile",
-        "verify",
-        "audit"
+        "fresh"
       ],
       "after": [
         "verify_privacy"
@@ -1071,7 +1130,14 @@
       "account_portal_path": "/account",
       "admin_access_script": "scripts/Show-IdentityAccess.ps1",
       "state_selection": "complete_scoped_identity_local_choice",
-      "lock": "bootstrap/identity.lock.json"
+      "lock": "bootstrap/identity.lock.json",
+      "personal_portal": "/portal/",
+      "automatic_first_login": true,
+      "stable_ownership": "issuer_subject_never_reassigned",
+      "capacity_default": 8,
+      "controller_scope": "fixed_slots_scale_and_suspend_only",
+      "legacy_fixtures": "fresh_qualification_only_no_recreation_on_reconcile",
+      "personal_access_script": "scripts/Open-ArcIA.ps1"
     }
   }
 }

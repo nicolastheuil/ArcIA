@@ -24,6 +24,12 @@ def validate(root=ROOT):
             content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
             if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_IDENTITY_LOCK_HASH')
         required_identity=['install_identity','verify_identity','connect_identity','verify_identity_access','inspect_identity']
+        if lock['identity'].get('personal_portal_enabled'):
+            required_identity+=['install_personal_portal','verify_personal_portal','inspect_personal_portal']
+            if contract.get('automatic_first_login') is not True or contract.get('stable_ownership')!='issuer_subject_never_reassigned':
+                raise ValueError('BOOTSTRAP_PERSONAL_PORTAL_CONTRACT')
+            if not {'services/identity/portal.py','services/identity/slots.py','scripts/portal_deploy.py'}<=set(identity_lock['files']):
+                raise ValueError('BOOTSTRAP_PERSONAL_PORTAL_LOCK')
         if not set(required_identity)<={step['id'] for step in definition['steps']}:
             raise ValueError('BOOTSTRAP_IDENTITY_STEPS_REQUIRED')
     m365=definition.get('configuration_contracts',{}).get('microsoft365',{})

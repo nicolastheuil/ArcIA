@@ -154,6 +154,76 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action=='inspect_personal_portal':
+        target,nodes,base=transport(payload)
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {'action':action,'operation_id':operation},root=True)
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'inspected',
+            'code':'PERSONAL_PORTAL_INSPECTED',**result}}
+    if action=='verify_personal_portal':
+        from identity_login import Browser
+        target,nodes,base=transport(payload)
+        common={'operation_id':operation,'hostname':payload['pilot']['hostname'],'credentials':payload['identity'],
+            'pilot':payload['pilot'],'https_ip':payload['instance']['endpoint_design']['https_ip']}
+        prepared=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {**common,'action':'prepare_portal_fixtures','fixtures':payload['portal_fixtures']['fixtures']},root=True)
+        fixtures=prepared['fixtures'];checks={};sessions=[];browsers=[]
+        try:
+            for index,fixture in enumerate(fixtures):
+                browser=Browser(payload['pilot'],common['https_ip']);csrf=browser.portal_login(fixture['username'],fixture['password'])
+                checks[str(index)+'_portal_oidc_login']=True;deadline=time.monotonic()+1500;prefix=None
+                while time.monotonic()<deadline:
+                    status,body,_=browser.request('POST','/portal/provision',extra_headers={'X-ArcIA-CSRF':csrf})
+                    result=json.loads(body)
+                    if status!=200:raise ValueError('PERSONAL_PORTAL_PROVISION_REFUSED')
+                    phase=result.get('phase')
+                    if phase not in ('installing','starting','ready'):raise ValueError('PERSONAL_PORTAL_INSTALL_FAILED')
+                    Path(payload['private_root'],'personal-portal-progress.json').write_text(json.dumps({'fixture':index+1,'phase':phase}))
+                    if phase=='ready':prefix=result['prefix'];break
+                    time.sleep(4)
+                if not prefix:raise ValueError('PERSONAL_PORTAL_START_TIMEOUT')
+                if not re.fullmatch(r'/u/p[0-9]{2}',prefix):raise ValueError('PERSONAL_PORTAL_PREFIX_REFUSED')
+                browser.follow(prefix+'/auth/login?provider=arcia')
+                checks[str(index)+'_personal_hermes_login']=browser.request('GET',prefix+'/api/config')[0]==200
+                status,body,_=browser.request('GET',prefix+'/api/sessions')
+                data=json.loads(body) if status==200 else None
+                # No prior chats are imported. Repeated qualification may keep its own synthetic state.
+                checks[str(index)+'_sessions_api_access']=status==200
+                session_list=data if isinstance(data,list) else data.get('sessions') if isinstance(data,dict) else None
+                checks[str(index)+'_empty_personal_history']=isinstance(session_list,list) and len(session_list)==0
+                checks[str(index)+'_no_legacy_qualification_session']=b'arcia-multiuser-qualification-' not in body
+                status,body,_=browser.request('POST','/portal/provision',extra_headers={'X-ArcIA-CSRF':csrf})
+                checks[str(index)+'_repeated_login_same_space']=status==200 and json.loads(body).get('prefix')==prefix
+                browsers.append(browser)
+                sessions.append({'subject':fixture['subject'],'prefix':prefix,'namespace':'arcia-user-'+prefix.rsplit('/',1)[1],
+                    'cookie':'; '.join(k+'='+v.coded_value for k,v in browser.native.items())})
+            for index,browser in enumerate(browsers):
+                anonymous=Browser(payload['pilot'],common['https_ip'])
+                checks[str(index)+'_anonymous_api_denied']=anonymous.request('GET',sessions[index]['prefix']+'/api/config')[0]==401
+                checks[str(index)+'_other_space_cookie_denied']=browser.request('GET',sessions[1-index]['prefix']+'/api/config')[0]==401
+                checks[str(index)+'_csrf_spoof_denied']=browser.request('POST','/portal/provision',extra_headers={'X-ArcIA-CSRF':'invalid-synthetic'})[0]==403
+            finished=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+                {**common,'action':'finish_portal_qualification','sessions':sessions},root=True)
+            checks.update(finished['checks']);passed=all(checks.values())
+            return {'private':{'operation_id':operation,'checks':checks,'fixtures':fixtures},'safe':{
+                'status':'verified' if passed else 'blocked','code':'PERSONAL_PORTAL_VERIFIED' if passed else 'PERSONAL_PORTAL_FAILED',
+                'checks':checks,'synthetic_only':True,'fixture_accounts_disabled':True,'fresh_cluster_rebuilt':False,'ha_qualified':False}}
+        finally:
+            guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+                {**common,'action':'disable_portal_fixtures','fixtures':fixtures},root=True)
+    if action=='install_personal_portal':
+        import portal_deploy
+        target,nodes,base=transport(payload)
+        prepared=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {'action':'prepare_personal_portal','operation_id':operation},root=True)
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+        rendered=portal_deploy.payload(lock,payload['instance']['config'],payload['pilot'],operation,
+            prepared['dns_ip'],payload['instance']['endpoint_design']['https_ip'])
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {'action':action,'operation_id':operation,'hostname':payload['pilot']['hostname'],
+             'credentials':payload['identity'],**rendered},root=True,timeout=2400)
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'verified' if result['passed'] else 'blocked',
+            'code':'PERSONAL_PORTAL_INSTALLED' if result['passed'] else 'PERSONAL_PORTAL_FAILED',**result}}
     if action=='verify_identity_access':
         from identity_login import Browser
         target,nodes,base=transport(payload)
@@ -199,7 +269,9 @@ def collect(payload):
             'status':'inspected' if action=='inspect_identity' else ('verified' if passed else 'blocked'),
             'code':('IDENTITY_INSPECTED' if action=='inspect_identity' else
                     ('IDENTITY_RUNTIMES_CONNECTED' if action=='connect_identity' else ('IDENTITY_PORTAL_DEPLOYED' if action=='install_identity' else 'IDENTITY_PORTAL_VERIFIED'))) if passed else 'IDENTITY_PORTAL_FAILED',
-            'checks':result.get('checks',{}),'runtime_probes':result.get('runtime_probes',[]),'ha_qualified':False,'hermes_oidc_qualified':False,
+            'checks':result.get('checks',{}),'runtime_probes':result.get('runtime_probes',[]),
+            'runtime_client_checks':result.get('runtime_client_checks',[]),
+            'recent_auth_events':result.get('recent_auth_events',[]),'ha_qualified':False,'hermes_oidc_qualified':False,
             'sso_provider_enabled':False,'secrets_disclosed':False}}
     if action not in ('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser'): raise ValueError('UNKNOWN_FOUNDATION_ACTION')
     target, nodes, base = transport(payload)

@@ -65,5 +65,22 @@ class IdentityProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(ProviderError,'^ARCIA_IDENTITY_UNAVAILABLE$'):
             self.provider._claims_for('token-fixture')
 
+    def test_owner_refusal_explains_personal_onboarding_without_leaking_claims(self):
+        self.provider._get_discovery=Mock(return_value={'token_endpoint':'https://id.example.invalid/token'})
+        self.provider._token_endpoint_auth=Mock(return_value=({},{}))
+        self.provider._verify_id_token=Mock(return_value={'sub':'owner-a'})
+        self.provider._claims_for=Mock(side_effect=InvalidCodeError('ARCIA_RUNTIME_OWNER_REQUIRED'))
+        self.module.exchange_token.return_value=('synthetic-token',{'id_token':'synthetic-id-token'})
+        with self.assertRaisesRegex(InvalidCodeError,'ARCIA_PERSONAL_SPACE_REQUIRED') as caught:
+            self.provider._grant({'grant_type':'refresh_token'},bad_request_exc=InvalidCodeError)
+        self.assertNotIn('owner-a',str(caught.exception))
+
+    def test_identity_outage_is_not_reported_as_invalid_authorization_code(self):
+        self.provider._get_discovery=Mock(return_value={'token_endpoint':'https://id.example.invalid/token'})
+        self.provider._token_endpoint_auth=Mock(return_value=({},{}))
+        self.module.exchange_token.side_effect=ProviderError('private-fixture-unavailable')
+        with self.assertRaisesRegex(ProviderError,'^ARCIA_IDENTITY_UNAVAILABLE$'):
+            self.provider._grant({'grant_type':'refresh_token'},bad_request_exc=InvalidCodeError)
+
 
 if __name__=='__main__':unittest.main()

@@ -23,6 +23,21 @@ restante se résout dans une fenêtre locale, sans choisir l'état le plus réce
 Les commandes automatiques continuent à refuser plusieurs états. Ne pas effacer
 un état pour contourner ce contrôle. Voir la [procédure d'accès](../identite-utilisateurs.md#portails).
 
+`install_personal_portal` prépare le pool borné et le contrôleur à `/portal/` ;
+les runtimes sont arrêtés et leurs Jobs suspendus jusqu'à allocation au premier
+login. Il conserve tout binding, état d'installation et volume existant. Une
+modification du bundle d'outils d'un emplacement déjà attribué impose une
+migration administrative ; le bootstrap la refuse sans réutiliser son PVC.
+`verify_personal_portal` exerce deux identités synthétiques propres à cette
+recette, teste le parcours complet, les accès croisés et la révocation, puis
+désactive ces comptes de test. `inspect_personal_portal` produit uniquement
+états, compteurs et codes d'erreur assainis, sans identité ou contenu privé.
+Les anciennes recettes HTTP à deux propriétaires et `connect_identity`
+concernent Fresh ; Reconcile ne recrée pas des comptes supprimés par un admin.
+Les comptes réels nécessitent le rôle explicite `ArcIA.User`. La limite
+`identity.personal_slots` fait partie de la configuration protégée (défaut 8,
+maximum 32) et n'autorise pas un scaling arbitraire par le modèle.
+
 Le contrat Microsoft 365 v1 est référencé par `configuration_contracts` dans
 le manifeste et `bootstrap/microsoft365.lock.json` (hashes des artefacts).
 Il couvre uniquement annexe, schéma, gabarit et validation/plan hors ligne ;

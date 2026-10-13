@@ -289,6 +289,11 @@
     "ha_qualified": false,
     "hermes_oidc_qualified": true,
     "proof": "docs/qualification/2026-10-13-identite.json",
-    "runtime_client_mode": "public_pkce_no_client_secret"
+    "runtime_client_mode": "public_pkce_no_client_secret",
+    "personal_portal_enabled": true,
+    "personal_slots": 8,
+    "automatic_first_login": true,
+    "personal_portal_qualified": true,
+    "personal_portal_proof": "docs/qualification/2026-10-13-portail-personnel.json"
   }
 }

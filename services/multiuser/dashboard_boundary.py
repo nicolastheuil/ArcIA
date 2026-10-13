@@ -63,6 +63,14 @@ class SessionRevocation:
             if not any(path.startswith(p) for p in PUBLIC):
                 for token in tokens:
                     if await asyncio.to_thread(self.store.contains,token):return await self.deny(scope,send,401)
+                if os.environ.get('ARCIA_IDENTITY_ISSUER'):
+                    if not tokens and scope['type']=='http' and scope.get('method')=='GET' and path=='/':
+                        url=os.environ['HERMES_DASHBOARD_PUBLIC_URL'].rstrip('/')+'/auth/login?provider=arcia'
+                        await send({'type':'http.response.start','status':303,'headers':[(b'location',url.encode()),(b'cache-control',b'no-store')]})
+                        return await send({'type':'http.response.body','body':b''})
+                    if not tokens:return await self.deny(scope,send,401)
+                    sessions=[await asyncio.to_thread(self.verifier,token) for token in tokens]
+                    if not any(session is not None for session in sessions):return await self.deny(scope,send,401)
             if scope['type']=='http' and path=='/auth/logout' and scope.get('method')=='POST':
                 for token in tokens:
                     session=await asyncio.to_thread(self.verifier,token)
@@ -96,6 +104,8 @@ class SessionRevocation:
 def main():
     sys.path.insert(0,'/opt/hermes')
     if os.environ.get('ARCIA_IDENTITY_ISSUER'):
+        if not all(os.environ.get(name) for name in ('ARCIA_IDENTITY_CLIENT_ID','ARCIA_IDENTITY_OWNER_SUBJECT')):
+            raise SystemExit('ARCIA_PERSONAL_BINDING_REQUIRED')
         # A centrally disabled user cannot bypass the IdP with the historical
         # qualification password. Its hash remains preserved for explicit rollback.
         for name in tuple(os.environ):

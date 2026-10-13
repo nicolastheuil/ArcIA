@@ -14,6 +14,14 @@
     "gates"
   ],
   "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["personal_slots"],
+      "properties": {
+        "personal_slots": {"type": "integer", "minimum": 1, "maximum": 32, "default": 8}
+      }
+    },
     "schema_version": {
       "const": 1
     },
