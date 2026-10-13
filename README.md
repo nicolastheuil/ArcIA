@@ -4,6 +4,11 @@
 
 ## Comment fonctionne ArcIA ?
 
+**L'identification par défaut repose sur des comptes locaux permanents,
+administrés dans le portail utilisateurs Keycloak.** Entra ID et les autres
+SSO peuvent fonctionner en parallèle. Le portail `/admin/users` et le compte
+personnel `/account` font partie du socle. [Identité, administration et coexistence SSO](docs/identite-utilisateurs.md).
+
 [Intégration Microsoft365](docs/annexes/integration-microsoft365.md) : annexe à
 remettre à l'administrateur du tenant pour Entra ID, bot Teams personnel,
 synthèses de réunions, SharePoint et Outlook ; contrat YAML d'instance sans secrets.

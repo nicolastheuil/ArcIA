@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "default_provider": "keycloak_local",
+  "local_accounts": "permanent",
+  "files": {
+    "services/identity/realm.py": "6d932856edb0ee04f00659c59e24145a5bbde86859c848a9919ba5f676466ac1",
+    "services/identity/provider.py": "c6ac1bc4a5ee6d93f2dc9a95f53615f98fb91a1eea13493b2fde15b815a9d25a",
+    "scripts/identity_deploy.py": "a87577fb466fec535b248b6407f19b62f67c3ad71ed5bb033a828ad86404d7ef",
+    "scripts/node_identity.py": "0554bae1d0fee76761842b7907183fb1fcc63e32d955b2ce13a6e7de9d3c4636",
+    "scripts/identity_login.py": "1bffbe60e91833966c43585bdc80f72dabacb2b1f6f4ef002dc2d25df58f750e",
+    "services/multiuser/dashboard_boundary.py": "36e7861f5b62aeea321f5a4e39fc8d6761f576f2a14a7bab4936b17d50b86c37"
+  }
+}

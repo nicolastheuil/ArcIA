@@ -4,6 +4,21 @@ Le point d’entrée unique est `scripts/Bootstrap-Harness.ps1`. Son manifeste v
 
 ## Prérequis et saisies externes
 
+L'identité locale permanente fait partie du socle par défaut : Keycloak épinglé,
+base dédiée, portail `/admin/users`, comptes et SSO en parallèle.
+`install_identity` génère une seule fois `identity.dpapi`, déploie puis prépare
+le realm possédé ; `verify_identity` exerce l'administration avec un compte
+synthétique supprimé en fin de test ; `connect_identity` rattache les deux
+espaces synthétiques existants par subject/client distincts.
+`inspect_identity` inspecte le service et ses flux sans modifier le realm.
+`verify_identity_access` exerce le login OIDC réel, les refus croisés et la
+suspension/révocation centrale sur les deux propriétaires synthétiques.
+La réapplication conserve identités, passwords/MFA, volumes, clients et
+fédérations ; elle refuse les rebinding ou credentials divergents.
+[Administration et limites](../identite-utilisateurs.md). Aucun tenant Microsoft
+ni SMTP n'est requis pour gérer les comptes locaux. Les comptes initiaux se
+consultent uniquement avec `Show-IdentityAccess.ps1`, dans le formulaire local.
+
 Le contrat Microsoft 365 v1 est référencé par `configuration_contracts` dans
 le manifeste et `bootstrap/microsoft365.lock.json` (hashes des artefacts).
 Il couvre uniquement annexe, schéma, gabarit et validation/plan hors ligne ;
@@ -78,7 +93,7 @@ Si une VM vient de démarrer et n’est pas prête, attendre sa disponibilité p
 
 La CI compare manifeste, components du lock, outils, features activées et dossiers services. Ajouter un service sans bootstrap fait échouer la validation. Les tests vérifient ordre, arrêt sur erreur, reprise et refus d’une instance étrangère. Les profils Plan n’exigent aucun secret.
 
-Le manifeste compte 43 étapes. La réconciliation fondatrice du 12 octobre a réussi ses 25 étapes sélectionnées ; un Audit a également réussi sur le cluster existant. Le lot skills du 13 octobre a réussi les installations/réapplications d'outillage des deux runtimes puis les 7 étapes de Verify sur la révision publiée, avec 55 contrôles d'outillage par runtime et 200 contrôles multi-utilisateur agrégés. Les preuves datées distinguent ces parcours. **Aucun cluster neuf complet n’a encore été reconstruit.** Backup/restore cohérent des bases/corpus, fencing brutal, compatibilité/support de release, verrouillage de certains paquets système et renouvellement DNS automatisé restent des gates. Git + bootstrap reconstruisent le logiciel avec les entrées protégées requises ; ils ne restaurent pas les données perdues sans backup.
+Le manifeste compte 48 étapes, dont cinq pour l’identité permanente. La réconciliation fondatrice du 12 octobre a réussi ses 25 étapes sélectionnées ; un Audit a également réussi sur le cluster existant. Le lot skills du 13 octobre a réussi les installations/réapplications d'outillage des deux runtimes puis les 7 étapes de Verify sur la révision publiée, avec 55 contrôles d'outillage par runtime et 200 contrôles multi-utilisateur agrégés. Les preuves datées distinguent ces parcours. **Aucun cluster neuf complet n’a encore été reconstruit.** Backup/restore cohérent des bases/corpus, fencing brutal, compatibilité/support de release, verrouillage de certains paquets système et renouvellement DNS automatisé restent des gates. Git + bootstrap reconstruisent le logiciel avec les entrées protégées requises ; ils ne restaurent pas les données perdues sans backup.
 
 À chaque évolution : modifier locks/renderers/worker et manifeste, compléter recette/tests/docs, exécuter les vérifications pertinentes, livrer sur main puis conserver la référence du commit. Une instance spécifique fixe cette révision dans son propre dépôt et ajoute son bootstrap de customisations.
 

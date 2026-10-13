@@ -6,6 +6,9 @@ $ErrorActionPreference='Stop'
 $root=Get-ArcIAPrivateRoot
 $credentialFile=if($User -eq 'B'){'multiuser-credentials.dpapi'}else{'pilot-credentials.dpapi'}
 $pilot=(Read-ProtectedBundle (Join-Path $root $credentialFile))|ConvertFrom-Json
+if(Test-Path -LiteralPath (Join-Path $root 'cluster-connect_identity.dpapi')){
+    $pilot.username=if($User -eq 'B'){'qualification-b'}else{'qualification-a'}
+}
 $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
 if($pilot.operation_id -ne $operation.id){throw 'PILOT_CREDENTIAL_SCOPE_CONFLICT'}
 Add-Type -AssemblyName System.Windows.Forms

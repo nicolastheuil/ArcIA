@@ -173,13 +173,13 @@ Utiliser l’image officielle résolue puis fixée par digest, un PVC propre et 
 
 Premiers essais uniquement synthétiques. Le backend de terminal local d’Hermes s’exécute dans le Pod, pas sur le nœud. Pas de montage de socket containerd/Docker ni clé SSH administrateur.
 
-Desktop distant utilise le backend dashboard, généralement sur 9119, pas l’API compatible OpenAI 8642. Pour les premiers tests, utiliser un accès privé/port-forward et une authentification de qualification ; pas de NAT public tant que le contrôle Entra métier n’est pas validé.
+Desktop distant utilise le backend dashboard, généralement sur 9119, pas l’API compatible OpenAI 8642. Pour les premiers tests, utiliser un accès privé/port-forward et une authentification de qualification ; pas de NAT public avant qualification de l'IAM et des sessions. La solution par défaut est l'identité locale Keycloak permanente ; Entra est optionnel. [Portail et procédures](identite-utilisateurs.md).
 
 Une duplication de ce Pod avec le même état n’est pas un test de scaling autorisé.
 
 ## 14. Développer puis activer les intégrations métier
 Codex construit les lots, teste puis déploie :
-1. Identité Entra, registre périmètres/tâches et RBAC serveur.
+1. Identité locale permanente Keycloak/OIDC, portail utilisateurs, SSO optionnels, registre périmètres/tâches et RBAC serveur.
 2. Passerelle d’assainissement et contrôle des sorties cloud.
 3. Opérations typées, plan immuable et validation Teams.
 4. Connecteurs de coffres persistants individuels.

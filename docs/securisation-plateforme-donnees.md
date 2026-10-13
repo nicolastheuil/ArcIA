@@ -23,6 +23,16 @@ Les originaux, vecteurs et représentations de tokens sont calculés et conserv�
 
 ## Identité, sessions et état personnel
 
+Complément du 13 octobre : les comptes locaux **permanents** Keycloak sont le
+mode d'identification par défaut, avec [portail d'administration](identite-utilisateurs.md).
+Les espaces rattachés utilisent un provider OIDC ArcIA qui exige signature,
+issuer/audience, client et propriétaire exacts, rôle `ArcIA.User` et validation UserInfo
+centrale. Le provider basic de qualification est désactivé dans ces processus.
+La suspension centrale et le logout des sessions ne réinitialisent ni état ni
+volumes. Entra et les autres SSO restent optionnels et compatibles en parallèle.
+Les descriptions des secrets basic ci-dessous restent l'historique et le mode
+de seed avant rattachement ; ils ne sont plus le mode d'accès des espaces liés.
+
 Chaque espace de qualification dispose d’un runtime Hermes, d’un namespace, d’un secret d’authentification, d’un PVC d’état et d’un PVC d’outillage distincts. Le préfixe HTTPS sélectionne un backend ; **il ne prouve pas l’identité**. Le backend vérifie son propre mot de passe et ses cookies signés. Les cookies sont Secure/HttpOnly ; NGINX impose le préfixe et les informations de proxy attendues. Des profils de navigateur distincts évitent de mélanger les cookies des espaces lors des essais.
 
 Le harness ajoute une frontière de révocation autour de l’application Hermes épinglée. Une déconnexion enregistre l’empreinte du jeton vérifié jusqu’à son expiration ; le jeton brut n’est pas conservé dans ce registre. Les demandes suivantes présentant ce cookie ou ce bearer sont refusées. Le registre est propre au runtime et persistant ; une indisponibilité de sa vérification refuse la demande. Ce complément corrige le cas où la déconnexion native efface les cookies du navigateur sans invalider immédiatement une copie du jeton d’accès.

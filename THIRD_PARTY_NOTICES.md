@@ -70,6 +70,7 @@ code du harness. Leur existence ne les transforme pas en produits upstream tiers
 | [vSphere CSI](https://github.com/kubernetes-sigs/vsphere-csi-driver) | Kubernetes SIGs et contributeurs | Apache-2.0 |
 | [vSphere CPI](https://github.com/kubernetes/cloud-provider-vsphere) | Kubernetes et contributeurs | Apache-2.0 |
 | [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) | Contributeurs CloudNativePG | Apache-2.0 |
+| [Keycloak](https://github.com/keycloak/keycloak) | Contributeurs Keycloak | [Apache-2.0](https://github.com/keycloak/keycloak/blob/26.8.1/LICENSE.txt) |
 | [Keepalived](https://github.com/acassen/keepalived) | Alexandre Cassen et contributeurs | GPL-2.0 ; consulter les notices des fichiers |
 
 Cette page couvre les composants directs présentés par ArcIA. Les distributions

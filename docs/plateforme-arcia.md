@@ -21,6 +21,12 @@ Un dépôt privé ne remplace pas le chiffrement. Les documents et secrets bruts
 
 ## Partage et cloisonnement
 
+L'identité par défaut repose sur des comptes locaux permanents Keycloak,
+administrés via `/admin/users`. Les SSO comme Entra ID peuvent fonctionner
+en parallèle et se lier explicitement à la même identité. Le provider OIDC
+impose propriétaire et client du runtime ; authentification, provisioning et
+ACL restent des responsabilités distinctes. [Référence identité](identite-utilisateurs.md).
+
 | Niveau cible | Lecture et partage | État actuel |
 |---|---|---|
 | Connaissance commune | Sources approuvées accessibles aux utilisateurs habilités de l’entreprise | Corpus commun synthétique accessible aux lecteurs A/B |
@@ -32,7 +38,10 @@ L’authentification identifie l’utilisateur. Une politique serveur calcule le
 
 Le service Knowledge impose une liste de lecture et un périmètre d’écriture liés au jeton serveur. FORCE RLS PostgreSQL applique « commun + personnel » avant recherche et téléchargement. Les groupes, l’identité Entra et leur cycle de révocation restent à intégrer. La [recette multi-utilisateur](multi-utilisateur.md) distingue ces limites des refus croisés réellement testés.
 
-Chaque runtime Hermes conserve un propriétaire unique de son état SQLite. Des profils ou sous-agents ne constituent pas une isolation de sécurité. Les deux espaces de qualification utilisent déjà des runtimes et états distincts ; leur gestion centrale par annuaire reste à intégrer.
+Chaque runtime Hermes conserve un propriétaire unique de son état SQLite. Des
+profils ou sous-agents ne constituent pas une isolation de sécurité. Les deux
+espaces de qualification sont rattachés à l'annuaire local central ; le
+provisioning général de nouveaux runtimes et les ACL dynamiques restent à livrer.
 
 ## Parcours d’une demande
 

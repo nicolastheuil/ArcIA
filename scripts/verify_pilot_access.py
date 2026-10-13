@@ -39,9 +39,14 @@ def verify(payload):
     checks['tls_hostname_and_pinned_certificate']=request('GET','/api/health')[0]==200
     checks['anonymous_config_denied']=request('GET','/api/config')[0] in (401,403)
     checks['wrong_password_denied']=request('POST','/auth/password-login',
-        {'provider':'basic','username':pilot['username'],'password':'synthetic-invalid-password'})[0] in (401,403)
-    checks['local_password_login']=request('POST','/auth/password-login',
-        {'provider':'basic','username':pilot['username'],'password':pilot['password']})[0]==200
+        {'provider':'basic','username':pilot['username'],'password':'synthetic-invalid-password'})[0] in (401,403,404)
+    if b'"arcia"' in request('GET','/api/auth/providers')[1]:
+        from identity_login import Browser
+        cookies=Browser(pilot,address).login('', 'qualification-a',pilot['password'])
+        checks['local_password_login']=True
+    else:
+        checks['local_password_login']=request('POST','/auth/password-login',
+            {'provider':'basic','username':pilot['username'],'password':pilot['password']})[0]==200
     checks['secure_httponly_session_cookie']=bool(cookies) and all(
         bool(value['secure']) and bool(value['httponly']) for value in cookies.values())
     checks['authenticated_config_access']=request('GET','/api/config',authenticated=True)[0]==200
@@ -53,6 +58,11 @@ def verify(payload):
 
 if __name__=='__main__':
     try: result=verify(json.load(sys.stdin))
-    except Exception: result={'status':'blocked','code':'PILOT_HTTPS_CONNECTION_OR_AUTH_FAILED'}
+    except Exception as exc:
+        allowed={'IDENTITY_LOGIN_REDIRECT_REFUSED','IDENTITY_LOGIN_TLS_PIN_FAILED',
+                 'IDENTITY_LOGIN_TOO_MANY_REDIRECTS','IDENTITY_LOGIN_FORM_MISSING',
+                 'IDENTITY_LOGIN_REFUSED','IDENTITY_SESSION_NOT_ESTABLISHED'}
+        allowed.update({'IDENTITY_PKCE_COOKIE_MISSING','IDENTITY_STATE_MISMATCH','IDENTITY_CODE_REFUSED','IDENTITY_PROVIDER_UNAVAILABLE'})
+        result={'status':'blocked','code':str(exc) if str(exc) in allowed else 'PILOT_HTTPS_CONNECTION_OR_AUTH_FAILED'}
     print(json.dumps(result))
     sys.exit(0 if result['status']=='verified' else 2)

@@ -26,7 +26,15 @@ Distinguer données publiques, synthétiques, privées et confidentielles selon 
 
 ## 6. Identité et autorisation
 
-La cible utilise une identité stable et une politique serveur sur utilisateur, groupe, périmètre, ressource et action. OIDC authentifie ; il ne suffit pas à établir les permissions. Entra est un adaptateur envisagé, pas une obligation universelle. Deux identités et runtimes locaux sont qualifiés ; IAM central, groupes, provisioning général et révocation des connexions ouvertes restent à qualifier.
+L'identification par défaut utilise des **comptes locaux permanents Keycloak**,
+avec portail d'administration `/admin/users` et compte personnel `/account`.
+Entra ID et d'autres SSO sont optionnels et peuvent fonctionner en parallèle
+via brokering, sans supprimer l'identité locale. La clé stable est `(issuer,
+sub)` ; une liaison vérifiée à Entra conserve le même subject. OIDC authentifie ;
+propriétaire de runtime, rôles, groupes, périmètre, ressource et action sont
+contrôlés côté serveur. Le portail et les deux rattachements synthétiques ont
+leur recette ; provisioning général, ACL de groupes, fédération réelle et
+restauration demandent des preuves distinctes. [Référence identité](identite-utilisateurs.md).
 
 ## 7. Partage et cloisonnement
 

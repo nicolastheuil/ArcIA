@@ -10,6 +10,7 @@ le handoff courant ; les anciens handoffs restent des instantanés historiques.
 | Besoin | Documentation complète |
 |---|---|
 | Comprendre la plateforme et son périmètre | [Philosophie ArcIA](plateforme-arcia.md) |
+| Administrer les comptes locaux permanents et ajouter un SSO | [Identité par défaut et portail utilisateurs](identite-utilisateurs.md) |
 | Ajouter des sources et outils | [Connecteurs MCP](connecteurs-mcp.md) |
 | Préparer Entra ID, Teams, réunions, SharePoint et Outlook | [Intégration Microsoft365 — annexe administrateur](annexes/integration-microsoft365.md) |
 | Protéger les appels modèles | [Confidentialité cloud](confidentialite-cloud.md) |
@@ -64,6 +65,9 @@ effectivement exécuté avec une preuve. Une spécification n’est pas une preu
 
 [ADR 0015 — préparation Microsoft 365](adr/0015-preparation-microsoft365.md) :
 identités séparées, droits bornés et configuration d'instance hors ligne.
+
+[ADR 0016 — identité locale permanente](adr/0016-identite-locale-permanente.md) :
+comptes locaux par défaut, portail et SSO complémentaire en parallèle.
 
 Le [handoff du 11 octobre](handoff-2026-10-11.md) et le
 [premier arrêt du 12 octobre](handoff-2026-10-12-socle-qualification.md) sont

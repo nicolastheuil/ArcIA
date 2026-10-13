@@ -32,10 +32,16 @@ def verify(payload):
             return response.status,content
         finally:connection.close()
     for who,identity in [('A',main),('B',second)]:
+        oidc=b'"arcia"' in request(who,'GET','/api/auth/providers',send_cookie=False)[1]
         checks[who+'_anonymous_denied']=request(who,'GET','/api/config',send_cookie=False)[0]==401
         other=second if who=='A' else main
-        checks[who+'_other_password_denied']=request(who,'POST','/auth/password-login',{'provider':'basic','username':other['username'],'password':other['password']},False)[0] in (401,403)
-        checks[who+'_login']=request(who,'POST','/auth/password-login',{'provider':'basic','username':identity['username'],'password':identity['password']},False)[0]==200
+        checks[who+'_other_password_denied']=request(who,'POST','/auth/password-login',{'provider':'basic','username':other['username'],'password':other['password']},False)[0] in (401,403,404)
+        if oidc:
+            from identity_login import Browser
+            cookies[who]=Browser(main,address).login('/qualification-b' if who=='B' else '', 'qualification-'+who.lower(),identity['password'])
+            checks[who+'_login']=True
+        else:
+            checks[who+'_login']=request(who,'POST','/auth/password-login',{'provider':'basic','username':identity['username'],'password':identity['password']},False)[0]==200
         checks[who+'_secure_httponly_cookie']=bool(cookies[who]) and all(v['secure'] and v['httponly'] for v in cookies[who].values())
         checks[who+'_own_config']=request(who,'GET','/api/config')[0]==200
         own='arcia-multiuser-qualification-'+who.lower();other_id='arcia-multiuser-qualification-'+('b' if who=='A' else 'a')

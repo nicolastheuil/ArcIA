@@ -1,5 +1,12 @@
 # État de reprise d’ArcIA — 13 octobre 2026
 
+Identité par défaut : comptes locaux permanents Keycloak, portail `/admin/users`,
+SSO optionnel en parallèle. Lire le [handoff identité](handoff-2026-10-13-identite.md)
+et [les procédures administrateur](identite-utilisateurs.md). Base dédiée et
+portail déployés sur la cible existante ; qualification synthétique, sans
+ouverture de données privées ni tenant Microsoft. Le lot remplace l'hypothèse
+d'une identité locale seulement temporaire.
+
 Complément documentaire et de configuration :
 [handoff Microsoft 365](handoff-2026-10-13-microsoft365.md). Annexe admin et
 contrat YAML/validation hors ligne livrés ; aucun service Microsoft 365 actif,

@@ -11,6 +11,17 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
+    if lock.get('identity',{}).get('enabled'):
+        contract=definition.get('configuration_contracts',{}).get('identity',{})
+        if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':
+            raise ValueError('BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED')
+        identity_lock=json.loads((root/'bootstrap/identity.lock.json').read_text(encoding='utf-8'))
+        for relative,digest in identity_lock['files'].items():
+            content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
+            if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_IDENTITY_LOCK_HASH')
+        required_identity=['install_identity','verify_identity','connect_identity','verify_identity_access','inspect_identity']
+        if not set(required_identity)<={step['id'] for step in definition['steps']}:
+            raise ValueError('BOOTSTRAP_IDENTITY_STEPS_REQUIRED')
     m365=definition.get('configuration_contracts',{}).get('microsoft365',{})
     if m365.get('lock')!='bootstrap/microsoft365.lock.json' or m365.get('runtime_implemented') is not False:
         raise ValueError('BOOTSTRAP_M365_CONTRACT')

@@ -66,6 +66,11 @@ Le mode streaming actuel restitue des événements SSE après réception de la r
 
 ## 4. Partage entreprise et isolation : cible
 
+L'identification par défaut passe par Keycloak : comptes locaux permanents,
+portail d'administration et fédération SSO optionnelle en parallèle. Le
+raccordement des deux espaces synthétiques ne qualifie pas encore le
+provisioning général ni les ACL de groupes. [Identité](identite-utilisateurs.md).
+
 ```mermaid
 flowchart TB
   UA[Utilisateur A] --> IAM[Identité et autorisation serveur]

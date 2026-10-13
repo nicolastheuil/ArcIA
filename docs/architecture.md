@@ -10,6 +10,13 @@ La bascule contrôlée des VIP est vérifiée ; panne brutale de nœud, fencing 
 
 ## Services, données et états
 
+L'identité locale permanente Keycloak est le choix par défaut. Le portail
+utilisateurs est exposé en HTTPS privé sur `/admin/users`, avec un compte
+personnel sur `/account`. Le namespace `arcia-identity` héberge Keycloak et sa
+base CNPG dédiés. Les deux runtimes existants ont un client OIDC et un
+propriétaire distincts ; les SSO s'ajoutent par brokering sans remplacer les
+comptes locaux. [Administration et limites](identite-utilisateurs.md).
+
 | Namespace | Composants | État et stockage |
 |---|---|---|
 | kube-system / vmware-system-csi | K3s, CPI et CSI | Administration et stockage VMware |

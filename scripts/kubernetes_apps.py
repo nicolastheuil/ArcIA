@@ -147,6 +147,9 @@ def hermes(lock, config, pilot):
         container['volumeMounts'].append({'name':'dashboard-boundary','mountPath':'/opt/arcia-dashboard','readOnly':True})
         spec['volumes'].append({'name':'dashboard-boundary','configMap':{'name':'dashboard-session-boundary'}})
         deployment['spec']['template']['metadata']['annotations']['arcia.io/session-boundary-sha256']=hashlib.sha256(boundary.encode()).hexdigest()
+    if lock.get('identity',{}).get('enabled'):
+        import identity_deploy
+        identity_deploy.augment_hermes(docs)
     # A content-addressed immutable mount avoids kubelet caching an older value
     # during a rollout. The stable ConfigMap remains the administrative interface.
     cm=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name']=='hermes-pilot-config')
@@ -180,6 +183,7 @@ http {
     ssl_certificate /tls/tls.crt;
     ssl_certificate_key /tls/tls.key;
     ssl_protocols TLSv1.2 TLSv1.3;
+    port_in_redirect off;
     client_max_body_size 20m;
     location / {
       proxy_pass http://hermes-pilot.arcia-hermes.svc.cluster.local:9119;
@@ -218,6 +222,29 @@ http {
         nginx=nginx.replace('    location / {',route+'    location / {')
         # Never trust a caller-supplied prefix or identity on the main route.
         nginx=nginx.replace('    location / {','    location / {\n      proxy_set_header X-Forwarded-Prefix "";')
+    if lock.get('identity',{}).get('enabled'):
+        resolver=str(ipaddress.ip_network(config['network']['service_cidr']).network_address+10)
+        identity_route='''    location = /admin/users { return 302 "/identity/admin/arcia/console/#/arcia/users"; }
+    location = /account { return 302 /identity/realms/arcia/account/; }
+    location = /identity { return 302 /identity/; }
+    location ^~ /identity/realms/master/ { return 404; }
+    location ^~ /identity/admin/master/ { return 404; }
+    location ^~ /identity/admin/realms/master { return 404; }
+    location ^~ /identity/ {
+      resolver '''+resolver+''' valid=10s ipv6=off;
+      set $identity_service http://keycloak.arcia-identity.svc.cluster.local:8080;
+      proxy_pass $identity_service;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Port 443;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header X-Forwarded-Prefix "";
+      proxy_http_version 1.1;
+      proxy_buffering off;
+    }
+'''
+        nginx=nginx.replace('    location / {',identity_route+'    location / {')
     return [namespace(ns,True),deny_all(ns),quota(ns,{'pods':'6','requests.cpu':'1','requests.memory':'1Gi',
         'limits.cpu':'3','limits.memory':'2Gi','persistentvolumeclaims':'0'}),
         {'apiVersion':'v1','kind':'Secret','metadata':{'name':'pilot-tls','namespace':ns},'type':'kubernetes.io/tls',
@@ -230,6 +257,8 @@ http {
                     'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]},
                     *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-hermes-qualification-b'}},
                         'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}],'ports':[{'port':9119,'protocol':'TCP'}]}] if lock.get('multiuser',{}).get('enabled') else []),
+                    *([{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-identity'}},
+                        'podSelector':{'matchLabels':{'app':'keycloak'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}] if lock.get('identity',{}).get('enabled') else []),
                     {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'kube-system'}},
                         'podSelector':{'matchLabels':{'k8s-app':'kube-dns'}}}],
                         'ports':[{'port':53,'protocol':'UDP'},{'port':53,'protocol':'TCP'}]}]}},

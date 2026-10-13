@@ -10,6 +10,7 @@ pas une preuve de déploiement ; celle-ci est dans
 
 | Composant | Version déployée | Preuve / limite |
 |---|---|---|
+| Keycloak | 26.8.1, image officielle amd64 fixée par digest | Portail et 2 espaces OIDC qualifiés sur synthétique ; HA/restore/Entra réels non qualifiés |
 | Debian amd64 | 13, image generic 20261001-2618 | SHA512, conversion/import/boot et préflight 3 VM vérifiés |
 | K3s | v1.37.1+k3s1 | 3 serveurs Ready, API/VIP/chiffrement ; rebuild non qualifié |
 | vSphere CPI | v1.37.0 | Rollout et providerID/taints vérifiés 3/3 |

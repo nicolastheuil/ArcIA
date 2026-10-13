@@ -6,6 +6,14 @@ Les noms `ArcIA-*` ci-dessous sont des noms proposés, à adapter à l'instance.
 
 ## 1. Objet, livrables et état réel
 
+L'identification **par défaut** d'ArcIA repose sur des comptes locaux permanents
+Keycloak, administrables sans tenant Microsoft. Entra peut coexister avec eux
+par brokering. Le callback du broker et les règles de liaison sont dans
+[Identité et portail utilisateurs](../identite-utilisateurs.md). Le profil
+Entra-Web direct décrit ci-dessous reste une option ; il n'est pas un
+prérequis pour utiliser ou administrer ArcIA. Les identités et permissions
+Graph des connecteurs Microsoft demeurent séparées de cette authentification.
+
 Ce dossier permet de préparer côté Microsoft l'authentification Entra ID, un bot
 Teams personnel, la synthèse de réunions après transcription, SharePoint Online
 et Outlook/Exchange Online. L'administrateur remet les identifiants et états

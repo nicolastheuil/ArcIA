@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser')][string]$Action='inspect')
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access')][string]$Action='inspect')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot
@@ -15,6 +15,27 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access')){
+        $identityPath=Join-Path $root 'identity.dpapi'
+        if(-not(Test-Path -LiteralPath $identityPath)){
+            if($Action -ne 'install_identity'){throw 'IDENTITY_ENROLLMENT_REQUIRED'}
+            function New-IdentityCredential {
+                $bytes=[byte[]]::new(32);[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+                return [Convert]::ToBase64String($bytes)
+            }
+            $identity=@{operation_id=$operation.id;bootstrap_username='arcia-bootstrap';
+                bootstrap_password=(New-IdentityCredential);admin_username='arcia-admin-initial';
+                admin_password=(New-IdentityCredential);db_password=(New-IdentityCredential);
+                reconciler_secret=(New-IdentityCredential)}
+            Save-ProtectedBundle $identityPath ($identity|ConvertTo-Json -Compress)
+            $identity=$null
+        }
+        if($Action -in @('connect_identity','verify_identity_access')){$payload.second_pilot=(Read-ProtectedBundle (Join-Path $root 'multiuser-credentials.dpapi'))|ConvertFrom-Json;if($payload.second_pilot.operation_id -ne $operation.id){throw 'IDENTITY_SECOND_RUNTIME_SCOPE'}}
+        $payload.identity=(Read-ProtectedBundle $identityPath)|ConvertFrom-Json
+        if($payload.identity.operation_id -ne $operation.id){throw 'IDENTITY_ENROLLMENT_SCOPE_CONFLICT'}
+        $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
+        if($payload.pilot.operation_id -ne $operation.id){throw 'IDENTITY_TLS_SCOPE_CONFLICT'}
+    }
     if($Action -in @('install_multiuser','verify_multiuser')){
         $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
         if($payload.pilot.operation_id -ne $operation.id){throw 'MULTIUSER_PILOT_SCOPE_CONFLICT'}

@@ -635,6 +635,117 @@
       "provision_only": false
     },
     {
+      "id": "install_identity",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_identity"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_multiuser"
+      ],
+      "status_file": "cluster-install_identity-status.json",
+      "success_codes": [
+        "IDENTITY_PORTAL_DEPLOYED"
+      ],
+      "timeout_seconds": 3600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_identity",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_identity"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "install_identity"
+      ],
+      "status_file": "cluster-verify_identity-status.json",
+      "success_codes": [
+        "IDENTITY_PORTAL_VERIFIED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "connect_identity",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "connect_identity"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "verify_identity"
+      ],
+      "status_file": "cluster-connect_identity-status.json",
+      "success_codes": [
+        "IDENTITY_RUNTIMES_CONNECTED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_identity_access",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_identity_access"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "connect_identity"
+      ],
+      "status_file": "cluster-verify_identity_access-status.json",
+      "success_codes": [
+        "IDENTITY_ACCESS_VERIFIED"
+      ],
+      "timeout_seconds": 600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_identity",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_identity"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "install_identity"
+      ],
+      "status_file": "cluster-inspect_identity-status.json",
+      "success_codes": [
+        "IDENTITY_INSPECTED"
+      ],
+      "timeout_seconds": 180,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "qualify_apps",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -887,7 +998,8 @@
     "DNS API prive resolu sur les trois VM avant network_dns",
     "Certificat public valide et cle : Import-BootstrapTls.ps1, ou pilot-credentials.dpapi existant",
     "VM vierges existantes, ou -ProvisionVMs avec qemu-img 10.2.1 administratif sous WSL",
-    "Cle OpenRouter DPAPI existante (Configure-Integrations.ps1), qualification gratuite seule"
+    "Cle OpenRouter DPAPI existante (Configure-Integrations.ps1), qualification gratuite seule",
+    "Identite locale permanente : identity.dpapi genere une seule fois par install_identity ; acces initial via Show-IdentityAccess.ps1"
   ],
   "coverage": {
     "components": [
@@ -898,13 +1010,15 @@
       "postgres_pgvector",
       "hermes",
       "ingress",
-      "omniroute"
+      "omniroute",
+      "keycloak"
     ],
     "services": [
       "knowledge",
       "privacy",
       "multiuser",
-      "skills"
+      "skills",
+      "identity"
     ],
     "tools": [
       "context7",
@@ -922,14 +1036,16 @@
       "privacy",
       "multiuser",
       "skills_catalog",
-      "tokenmaxing"
+      "tokenmaxing",
+      "identity"
     ]
   },
   "limitations": [
     "fresh_cluster_rebuild_not_executed",
     "coherent_data_backup_restore_not_implemented",
     "manual_dns01_not_unattended",
-    "business_integrations_disabled"
+    "business_integrations_disabled",
+    "identity_ha_and_restore_not_qualified"
   ],
   "catalogue_contract": {
     "lock": "builder/skills.lock.json",
@@ -946,6 +1062,14 @@
       "instance_path": "instance/microsoft365.yaml",
       "validation": "scripts/microsoft365_config.py",
       "documentation": "docs/annexes/integration-microsoft365.md"
+    },
+    "identity": {
+      "default_provider": "keycloak_local",
+      "local_accounts": "permanent",
+      "sso_mode": "parallel_optional_broker",
+      "admin_portal_path": "/admin/users",
+      "account_portal_path": "/account",
+      "lock": "bootstrap/identity.lock.json"
     }
   }
 }

@@ -1,6 +1,11 @@
 # Qualification multi-utilisateur d’ArcIA
 
-Le socle fournit deux identités **locales et synthétiques** pour éprouver la séparation des espaces. Le contrôle d’accès d’entreprise Entra/OIDC, les groupes dynamiques et le provisioning général restent une étape distincte. Les sous-agents et profils Hermes ne sont pas considérés comme des frontières de sécurité.
+Le socle qualifie deux identités **locales et synthétiques** pour éprouver la
+séparation des espaces. L'annuaire d'identité par défaut est désormais Keycloak,
+avec comptes locaux permanents et [portail d'administration](identite-utilisateurs.md).
+Les identités fédérées peuvent coexister avec ces comptes. Les groupes dynamiques
+et le provisioning général des runtimes restent des capacités distinctes.
+Les sous-agents et profils Hermes ne sont pas des frontières de sécurité.
 
 ## Frontières déployées
 

@@ -68,10 +68,38 @@ class SessionRevocation:
                     session=await asyncio.to_thread(self.verifier,token)
                     if session is not None:await asyncio.to_thread(self.store.revoke,token,session.expires_at)
         except Exception:return await self.deny(scope,send,503)
+        if os.environ.get('ARCIA_IDENTITY_ISSUER') and (
+                scope['type']=='websocket' or (scope['type']=='http' and 'text/event-stream' in headers.get('accept',''))):
+            # Long connections recheck the parent session; a disabled account cannot
+            # keep a previously authenticated WebSocket/SSE alive indefinitely.
+            if not tokens:return await self.deny(scope,send,401)
+            task=asyncio.create_task(self.app(scope,receive,send))
+            try:
+                while not task.done():
+                    done,_=await asyncio.wait({task},timeout=5)
+                    if done:break
+                    try:
+                        valid=any([await asyncio.to_thread(self.verifier,token) is not None for token in tokens])
+                    except Exception:valid=False
+                    if not valid:
+                        task.cancel()
+                        if scope['type']=='websocket':await send({'type':'websocket.close','code':4401})
+                        else:await send({'type':'http.response.body','body':b'','more_body':False})
+                        return
+                await task
+            finally:
+                if not task.done():task.cancel()
+                await asyncio.gather(task,return_exceptions=True)
+            return
         await self.app(scope,receive,send)
 
 def main():
     sys.path.insert(0,'/opt/hermes')
+    if os.environ.get('ARCIA_IDENTITY_ISSUER'):
+        # A centrally disabled user cannot bypass the IdP with the historical
+        # qualification password. Its hash remains preserved for explicit rollback.
+        for name in tuple(os.environ):
+            if name.startswith('HERMES_DASHBOARD_BASIC_AUTH_'):del os.environ[name]
     Path('/tmp/hermes-runtime').mkdir(mode=0o700,exist_ok=True)
     from hermes_cli.web_server import app
     app.add_middleware(SessionRevocation)
