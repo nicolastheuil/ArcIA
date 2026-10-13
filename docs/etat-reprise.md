@@ -31,6 +31,11 @@ sur exception administrative explicitement autorisée pour ce seul correctif.
 Règle Keycloak TCP/443 sur 14 IPv4 `/32`, TLS Microsoft/Graph 4/4 et refus
 hors liste vérifiés. Login Microsoft/MFA utilisateur encore à confirmer ;
 pas de refresh automatique ni de qualification SSO complète revendiquée.
+Suite : l'utilisateur confirme un login Microsoft fonctionnel sur le second PC.
+Récupération de son nouvel admin et admission automatique du tenant préparées,
+mais non appliquées avant l'exception d'élévation demandée ; capacité cinq places
+libres sur huit. Bot Teams à créer entièrement après reprise de ces accès.
+[État détaillé et demandes en attente](handoff-2026-10-13-tenant-admission-admin-recovery.md).
 
 Lire le [handoff courant](handoff-2026-10-13-skills-catalogue.md), puis le [socle précédent](handoff-2026-10-12-arcia-cloud-bootstrap.md). Travailler sur **main** ; ne pas créer de branche. `arcia-harness` contient la plateforme générique ArcIA ; les customisations d’organisation vivent dans leur dépôt d’instance distinct.
 

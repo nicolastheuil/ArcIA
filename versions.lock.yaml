@@ -304,6 +304,13 @@
       "automatic_deployment_enabled": false,
       "repair_implemented": true,
       "inspection_step": "inspect_identity_microsoft_egress"
+    },
+    "tenant_admission": {
+      "status": "coded_not_applied",
+      "default_role": "ArcIA.User",
+      "scope": "verified_microsoft_tenant_only",
+      "automatic_admin_grants": false,
+      "source": "scripts/identity_access.py"
     }
   }
 }

@@ -37,6 +37,12 @@ signale `IDENTITY_MICROSOFT_EGRESS_REPLAN_REQUIRED` en cas de dérive ; il ne
 rafraîchit pas le réseau. Sans règle, il constate simplement l'absence, pour
 préserver le fonctionnement local par défaut.
 [Décision et limites](../adr/0018-plan-reparation-sortie-keycloak.md).
+`inspect_identity_access_policy` vérifie la politique d'admission Microsoft
+enregistrée dans `identity-access-policy.dpapi`, si elle existe. Il exige le
+tenant attendu et le mapper `ArcIA.User` FORCE ; aucune élévation n'est rejouée
+par Audit. Les actions plan/apply de récupération nommée et d'admission du
+tenant sont administratives, hors parcours automatique. Voir
+[récupération et admission](../identite-utilisateurs.md#récupération-dun-administrateur-et-admission-automatique-du-tenant).
 `verify_identity_access` exerce le login OIDC réel, les refus croisés et la
 suspension/révocation centrale sur les deux propriétaires synthétiques.
 La réapplication conserve identités, passwords/MFA, volumes, clients et

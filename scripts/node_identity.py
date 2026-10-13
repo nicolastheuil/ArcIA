@@ -265,6 +265,36 @@ def plan_microsoft_egress(values):
             'address_count': len({ip for items in addresses.values() for ip in items})}
 
 
+def identity_access_repair(values):
+    operation = values['operation_id']
+    owned('Deployment', 'keycloak', NS, operation)
+    scope = {}
+    exec(values['access_source'], scope)
+    with forward() as base:
+        admin = Admin(base, values['hostname'])
+        admin.authenticate(values['credentials'])
+        if values['action'] == 'inspect_identity_access_policy':
+            policy = values['policy']
+            return scope['tenant_mapper'](admin, operation, policy['provider_alias'], policy['tenant_id'])
+        if values['action'] == 'plan_identity_access_repair':
+            providers = [p for p in admin.resource('/identity-provider/instances')
+                         if p.get('providerId') == 'microsoft' and p.get('enabled')]
+            if len(providers) != 1:
+                raise ValueError('IDENTITY_ACCESS_PROVIDER_AMBIGUOUS')
+            provider = providers[0]
+            plan = scope['repair_plan'](admin, operation, values['recovery_username'],
+                                       provider['alias'], provider.get('config', {}).get('tenantId'))
+            return {'plan': plan}
+        if values['action'] != 'apply_identity_access_repair':
+            raise ValueError('IDENTITY_ACCESS_UNKNOWN_ACTION')
+        result = scope['apply_repair'](admin, operation, values['repair_plan'], values['authorized_plan_sha256'])
+        plan = values['repair_plan']
+        result['policy'] = {'operation_id': operation, 'provider_alias': plan['provider_alias'],
+                            'tenant_id': plan['tenant_id'], 'assigned_role': 'ArcIA.User',
+                            'mapper_type': scope['MAPPER_TYPE'], 'mapper_sync_mode': 'FORCE'}
+        return result
+
+
 def resolve_microsoft_egress(values):
     scope = {}
     exec(values['egress_source'], scope)
@@ -803,6 +833,9 @@ def install_personal_portal(values):
 if __name__ == '__main__':
     print(json.dumps({'install_identity': install, 'verify_identity': verify,
                       'plan_identity_microsoft_egress': plan_microsoft_egress,
+                      'plan_identity_access_repair': identity_access_repair,
+                      'apply_identity_access_repair': identity_access_repair,
+                      'inspect_identity_access_policy': identity_access_repair,
                       'resolve_identity_microsoft_egress': resolve_microsoft_egress,
                       'inspect_identity_microsoft_egress': inspect_microsoft_egress,
                       'apply_identity_microsoft_egress_repair': apply_microsoft_egress_repair,

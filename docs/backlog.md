@@ -30,6 +30,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | IAM-LOCAL-03 | Coexistence local/SSO, nouveaux runtimes et ACL de groupes | Brokering documenté ; tenant réel, launcher général, ACL dynamiques et restore/HA à qualifier |
 | IAM-LOCAL-04 | Espace personnel vide au premier login | Portail PKCE, pool borné, binding issuer/subject et contrôle administratif limité ; [handoff](handoff-2026-10-13-portail-personnel.md) |
 | IAM-LOCAL-05 | Cycle de vie et capacité des espaces | Transfert explicite, purge, récupération d'emplacements, migration d'outils actifs et sauvegarde/restore restent à qualifier ; aucun recyclage automatique |
+| IAM-LOCAL-06 | Récupération admin nommé et admission automatique du tenant Microsoft | Code/plan/tests préparés ; exception d'élévation attendue ; cinq places libres sur huit, population à préciser ; [reprise](handoff-2026-10-13-tenant-admission-admin-recovery.md) |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |

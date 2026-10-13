@@ -17,6 +17,7 @@ $steps=@($definition.steps|Where-Object {$selection -in $_.profiles -and (-not $
 if($Mode -eq 'Plan'){
     @{status='planned';profile=$Profile;target='qualification';steps=@($steps|ForEach-Object {$_.id});
       private_inputs=$definition.private_inputs;configuration_contracts=$definition.configuration_contracts;
+      tenant_admission=$definition.configuration_contracts.identity.tenant_admission;
       business_services_enabled=$false;fresh_cluster_tested=$false}|ConvertTo-Json -Depth 8
     exit 0
 }

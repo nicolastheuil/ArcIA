@@ -25,6 +25,12 @@ def validate(root=ROOT):
             if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_IDENTITY_LOCK_HASH')
         required_identity=['install_identity','verify_identity','connect_identity','verify_identity_access','inspect_identity']
         required_identity += ['plan_identity_microsoft_egress', 'inspect_identity_microsoft_egress']
+        required_identity.append('inspect_identity_access_policy')
+        admission = contract.get('tenant_admission', {})
+        if (admission.get('role') != 'ArcIA.User' or admission.get('automatic_privilege_repair') is not False or
+                admission.get('inspection_step') != 'inspect_identity_access_policy' or
+                'scripts/identity_access.py' not in identity_lock['files']):
+            raise ValueError('BOOTSTRAP_IDENTITY_TENANT_ADMISSION_CONTRACT')
         if (contract.get('microsoft_egress', {}).get('automatic_deployment_enabled') is not False or
                 contract['microsoft_egress'].get('planning_step') != 'plan_identity_microsoft_egress' or
                 contract['microsoft_egress'].get('approval_required') != 'server_verified_teams' or

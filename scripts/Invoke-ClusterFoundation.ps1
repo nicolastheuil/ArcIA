@@ -1,13 +1,14 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress')][string]$Action='inspect',
-    [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256)
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy')][string]$Action='inspect',
+    [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256,
+    [string]$RecoveryUsername)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot
 $process=$null;$lockStream=$null
 try{
     Initialize-PrivateDirectory $root
-    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress')){
+    if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress','plan_identity_access_repair','inspect_identity_access_policy')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
     $payload=@{action=$Action;private_root=$root}
@@ -16,6 +17,20 @@ try{
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -eq 'inspect_identity_access_policy'){
+        $policyPath=Join-Path $root 'identity-access-policy.dpapi'
+        if(Test-Path -LiteralPath $policyPath){$payload.access_policy=(Read-ProtectedBundle $policyPath)|ConvertFrom-Json}
+    }
+    if($Action -eq 'plan_identity_access_repair'){
+        if(-not $RecoveryUsername){throw 'IDENTITY_ACCESS_USERNAME_REQUIRED'}
+        $payload.recovery_username=$RecoveryUsername
+    }
+    if($Action -eq 'apply_identity_access_repair'){
+        if(-not $AuthorizedRepairPlanSha256){throw 'IDENTITY_ACCESS_EXPLICIT_NAMED_EXCEPTION_REQUIRED'}
+        $payload.access_repair=(Read-ProtectedBundle (Join-Path $root 'cluster-plan_identity_access_repair.dpapi'))|ConvertFrom-Json
+        if($payload.access_repair.operation_id -ne $operation.id -or $payload.access_repair.plan.plan_sha256 -ne $AuthorizedRepairPlanSha256){throw 'IDENTITY_ACCESS_REPAIR_PLAN_SCOPE'}
+        $payload.authorized_plan_sha256=$AuthorizedRepairPlanSha256
+    }
     if($Action -eq 'apply_identity_microsoft_egress_repair'){
         if(-not $AuthorizedRepairPlanSha256){throw 'IDENTITY_EGRESS_EXPLICIT_EXCEPTION_REQUIRED'}
         $payload.repair=(Read-ProtectedBundle (Join-Path $root 'cluster-plan_identity_microsoft_egress.dpapi'))|ConvertFrom-Json
@@ -37,7 +52,7 @@ try{
         $payload.portal_fixtures=(Read-ProtectedBundle $fixturePath)|ConvertFrom-Json
         if($payload.portal_fixtures.operation_id -ne $operation.id){throw 'PERSONAL_PORTAL_FIXTURE_SCOPE'}
     }
-    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal')){
+    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy')){
         $identityPath=Join-Path $root 'identity.dpapi'
         if(-not(Test-Path -LiteralPath $identityPath)){
             if($Action -ne 'install_identity'){throw 'IDENTITY_ENROLLMENT_REQUIRED'}
@@ -125,6 +140,12 @@ try{
         $fixtureUpdate=Join-Path $root ('portal-fixtures-'+[guid]::NewGuid().ToString('N')+'.dpapi')
         Save-ProtectedBundle $fixtureUpdate (@{operation_id=$operation.id;fixtures=$response.private.fixtures}|ConvertTo-Json -Depth 8 -Compress)
         [IO.File]::Replace($fixtureUpdate,(Join-Path $root 'portal-fixtures.dpapi'),[NullString]::Value)
+    }
+    if($Action -eq 'apply_identity_access_repair' -and $response.private.policy){
+        $temporaryPolicy=Join-Path $root ('identity-access-policy-'+[guid]::NewGuid().ToString('N')+'.dpapi')
+        Save-ProtectedBundle $temporaryPolicy ($response.private.policy|ConvertTo-Json -Depth 8 -Compress)
+        $policyDestination=Join-Path $root 'identity-access-policy.dpapi'
+        if(Test-Path -LiteralPath $policyDestination){[IO.File]::Replace($temporaryPolicy,$policyDestination,[NullString]::Value)}else{Move-Item -LiteralPath $temporaryPolicy -Destination $policyDestination}
     }
     if($response.private){
         $temporary=Join-Path $root ('cluster-'+[guid]::NewGuid().ToString('N')+'.dpapi')

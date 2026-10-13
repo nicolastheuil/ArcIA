@@ -154,6 +154,45 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action == 'inspect_identity_access_policy':
+        policy = payload.get('access_policy')
+        if not policy:
+            return {'safe': {'status': 'inspected', 'code': 'IDENTITY_ACCESS_POLICY_INSPECTED',
+                             'configured': False, 'resources_modified': False}}
+        if policy['operation_id'] != operation or payload['identity']['operation_id'] != operation:
+            raise ValueError('IDENTITY_ACCESS_POLICY_SCOPE')
+        target, nodes, base = transport(payload)
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),
+                       {'action': action, 'operation_id': operation, 'credentials': payload['identity'],
+                        'hostname': payload['pilot']['hostname'], 'policy': policy,
+                        'access_source': (ROOT/'scripts/identity_access.py').read_text(encoding='utf-8')}, root=True)
+        passed = not result['mapper_change_required']
+        return {'private': {'operation_id': operation, **result}, 'safe': {
+            'status': 'inspected' if passed else 'blocked', 'configured': True,
+            'code': 'IDENTITY_ACCESS_POLICY_INSPECTED' if passed else 'IDENTITY_ACCESS_POLICY_DRIFT',
+            'resources_modified': False, **result}}
+    if action in ('plan_identity_access_repair', 'apply_identity_access_repair'):
+        if payload['identity']['operation_id'] != operation:
+            raise ValueError('IDENTITY_ACCESS_REPAIR_SCOPE')
+        target, nodes, base = transport(payload)
+        values = {'action': action, 'operation_id': operation, 'credentials': payload['identity'],
+                  'hostname': payload['pilot']['hostname'],
+                  'access_source': (ROOT/'scripts/identity_access.py').read_text(encoding='utf-8')}
+        if action == 'plan_identity_access_repair':
+            values['recovery_username'] = payload['recovery_username']
+        else:
+            if payload['access_repair']['operation_id'] != operation:
+                raise ValueError('IDENTITY_ACCESS_REPAIR_PLAN_SCOPE')
+            values.update(repair_plan=payload['access_repair']['plan'], authorized_plan_sha256=payload['authorized_plan_sha256'])
+        result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(), values, root=True)
+        safe = {'status': 'planned' if action == 'plan_identity_access_repair' else 'verified',
+                'code': 'IDENTITY_ACCESS_REPAIR_PLANNED' if action == 'plan_identity_access_repair' else 'IDENTITY_ACCESS_REPAIR_VERIFIED',
+                'secrets_disclosed': False, 'full_browser_login_verified': False}
+        if 'plan' in result:
+            safe.update(plan_sha256=result['plan']['plan_sha256'], resources_modified=False)
+        else:
+            safe.update({k:v for k,v in result.items() if k != 'policy'})
+        return {'private': {'operation_id': operation, **result}, 'safe': safe}
     if action == 'inspect_identity_microsoft_egress':
         target, nodes, base = transport(payload)
         result = guest(target, nodes[0], base, (ROOT/'scripts/node_identity.py').read_bytes(),

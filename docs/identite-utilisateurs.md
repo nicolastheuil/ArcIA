@@ -164,6 +164,43 @@ restent dans l'administration privée de l'instance.
 
 ## Administrateurs et séparation des pouvoirs
 
+### Récupération d'un administrateur et admission automatique du tenant
+
+La suppression de l'administrateur initial n'accorde aucun droit à un nouveau
+compte de même usage. Un compte portant seulement `ArcIA.Admin` n'administre
+pas Keycloak. Le contrôleur technique protégé permet de préparer la réparation
+d'un **compte existant nommé**, sans recréer l'utilisateur, son mot de passe,
+ses credentials MFA ou ses données.
+
+L'admission du tenant utilise un mapper **Hardcoded Role** propre au fournisseur
+Microsoft activé et au tenant UUID vérifié : `ArcIA.User`, synchronisation FORCE.
+Ce rôle s'applique au premier login fédéré et aux connexions suivantes ; les
+comptes locaux, les rôles administratifs et les autres fournisseurs ne reçoivent
+aucun droit automatiquement. La fusion de comptes sur email reste interdite.
+Une éventuelle affectation obligatoire côté application Entra doit être traitée
+une fois par l'opérateur du tenant ; le mapper Keycloak ne peut pas la lever.
+
+La préparation et l'application sont distinctes :
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action plan_identity_access_repair -RecoveryUsername <COMPTE_EXISTANT>
+./scripts/Invoke-ClusterFoundation.ps1 -Action apply_identity_access_repair -AuthorizedRepairPlanSha256 <HASH_AUTORISE>
+./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_identity_access_policy
+```
+
+Ces actions d'élévation nécessitent leur propre approbation selon AGENTS.md ou
+une exception explicitement limitée par le propriétaire. Le hash lie le plan
+à l'opération, au realm, au compte UUID et au tenant ; un plan expire après dix
+minutes. Le plan et la politique d'admission restent DPAPI hors Git. Audit
+détecte la dérive du mapper sans réattribuer de privilèges. Le bootstrap
+préserve les décisions administratives et ne restaure pas silencieusement un
+compte supprimé ou ses droits. Ces commandes ne qualifient pas un login MFA.
+
+L'absence d'habilitation manuelle par utilisateur ne supprime pas les limites
+de capacité : le pool actuel doit contenir assez de places et de ressources
+pour la population prévue. Un emplacement déjà attribué n'est jamais recyclé
+automatiquement pour un autre compte.
+
 `ArcIA.User`, `ArcIA.Approver` et `ArcIA.Admin` sont des rôles **applicatifs**.
 Ils ne donnent pas par eux-mêmes le droit de gérer l'annuaire Keycloak.
 Les administrateurs d'identité reçoivent des rôles du client `realm-management`

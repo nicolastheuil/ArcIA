@@ -810,6 +810,27 @@
       "provision_only": false
     },
     {
+      "id": "inspect_identity_access_policy",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_identity_access_policy"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "inspect_identity"
+      ],
+      "status_file": "cluster-inspect_identity_access_policy-status.json",
+      "success_codes": [
+        "IDENTITY_ACCESS_POLICY_INSPECTED"
+      ],
+      "timeout_seconds": 180,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "inspect_identity_microsoft_egress",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -1198,6 +1219,18 @@
         "repair_action": "apply_identity_microsoft_egress_repair",
         "repair_requires": "explicit_operator_exception_for_named_plan",
         "inspection_step": "inspect_identity_microsoft_egress"
+      },
+      "tenant_admission": {
+        "mode": "explicit_setup_microsoft_verified_tenant_mapper",
+        "role": "ArcIA.User",
+        "mapper_type": "oidc-hardcoded-role-idp-mapper",
+        "mapper_sync_mode": "FORCE",
+        "protected_policy": "identity-access-policy.dpapi",
+        "admin_recovery": "existing_named_account_only_explicit_exception",
+        "plan_action": "plan_identity_access_repair",
+        "apply_action": "apply_identity_access_repair",
+        "inspection_step": "inspect_identity_access_policy",
+        "automatic_privilege_repair": false
       }
     }
   }
