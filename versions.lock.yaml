@@ -68,6 +68,13 @@
       "version": "3.8.51",
       "image_digest": null,
       "status": "package_installed_providers_disabled"
+    },
+    "keycloak": {
+      "version": "26.8.1",
+      "image": "quay.io/keycloak/keycloak@sha256:ed1cab21814c7d18ce8f0e11d5a1fa1c6923de12dd4c7625a18c5d34452a57a4",
+      "source": "https://github.com/keycloak/keycloak/releases/tag/26.8.1",
+      "manifest_digest": "sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244",
+      "platform": "linux/amd64"
     }
   },
   "vmware_foundation": {
@@ -268,5 +275,20 @@
     "graph_api": "v1.0",
     "cloud": "public",
     "qualification": "offline_preparation_only"
+  },
+  "identity": {
+    "enabled": true,
+    "default_provider": "keycloak_local",
+    "local_accounts": "permanent",
+    "sso_mode": "parallel_optional_broker",
+    "realm": "arcia",
+    "admin_portal_path": "/admin/users",
+    "account_portal_path": "/account",
+    "keycloak_replicas": 1,
+    "database_instances": 1,
+    "ha_qualified": false,
+    "hermes_oidc_qualified": true,
+    "proof": "docs/qualification/2026-10-13-identite.json",
+    "runtime_client_mode": "public_pkce_no_client_secret"
   }
 }
