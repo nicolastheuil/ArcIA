@@ -1,5 +1,10 @@
 # État de reprise d’ArcIA — 13 octobre 2026
 
+**Fin de session demandée par le propriétaire.** Reprendre avec le
+[handoff de clôture](handoff-2026-10-13-fin-session.md). Révision fonctionnelle
+`1361605` publiée sur main, CI terminée avec succès. Aucun travail ni reprise
+automatique programmé pour ce soir ; services laissés en fonctionnement.
+
 Mise à jour courante : sortie IPv4 publique TCP/443 Keycloak appliquée sur
 instruction explicite, filtrage des destinations au pare-feu amont. Snapshot
 `/32` retiré ; DNS courant, TLS Microsoft/Graph 4/4, HTTPS public et refus
