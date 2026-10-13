@@ -53,6 +53,13 @@ texte de plus de 2 Mio ne sont pas intégrés ; les instructions SKILL.md dépas
 la limite font échouer le build. Les packs externes ne sont pas installés comme
 plugins globaux.
 
+Le panneau Skills et les commandes slash natives montrent le catalogue natif
+Hermes et les adaptations. Les 539 entrées du miroir sont accessibles par la
+recherche de compétences dans la conversation, via le MCP local ; elles ne sont
+pas toutes transformées en commandes slash ou installées dans le profil. Lire
+une entrée par ce chemin ne déclenche pas de prétraitement shell upstream. Ce
+choix conserve un petit index natif et évite les collisions entre fournisseurs.
+
 Exemples de recherches : `rédaction`, `research`, `pdf`, `presentation`, `market
 research`, `security`, `postgres`. Un besoin absent du miroir demande d'ajouter
 une source au harness ou une skill propre à l'instance ; l'agent ne prétend pas

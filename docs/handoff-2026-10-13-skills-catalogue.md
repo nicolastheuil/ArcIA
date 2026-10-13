@@ -50,13 +50,29 @@ ne déploie rien. Un workflow GitHub manuel inspecte les candidats upstream sans
 
 ## Vérification exécutée et état de livraison
 
-142 tests Linux réussis, dont 13 tests de catalogue/plugin/chemins et contrats ;
-validation sources/locks/couverture bootstrap et gardes PowerShell réussies.
-47 contrôles d'outillage réussis dans le premier runtime : catalogue, MCP,
-intégrité des 539 instructions, provenance/licences, chargeur natif, plugin réel,
-orientation, hook RTK et outil Headroom, original accessible et configuration
-privée refusée. Les résultats finaux des deux runtimes et de Verify sont ajoutés
-dans ce fichier après leur exécution ; ne pas déduire leur réussite de ce paragraphe.
+**151 tests Linux réussis**, dont 22 tests ajoutés de catalogue, plugin, migration,
+chemins, compression et cache. Validation sources/locks/couverture bootstrap et
+gardes PowerShell réussies. [CI verte sur le code qualifié](https://github.com/nicolastheuil/arcia-harness/actions/runs/38369447167).
+
+**55 contrôles d'outillage réussis par runtime**, incluant l'intégrité des 539
+instructions, MCP, crédits/licences, chargeur natif, plugin réel, orientation,
+hook RTK, outil Headroom, réduction automatique avant contexte, original exact
+récupérable, refus d'une référence inconnue, référence préservée après Presidio,
+exclusions RAG/écritures et digest correspondant au catalogue courant.
+
+**200 contrôles multi-utilisateur réussis** : les 90 contrôles d'isolation et de
+corpus précédents, plus les 55 sondes d'outillage de chacun des deux runtimes.
+Les autres recettes conservent leurs 25 contrôles Knowledge et 15 Privacy.
+Les installations/réapplications d'outillage et du second runtime ont réussi ;
+un **Bootstrap Verify complet de 7 étapes** a réussi sur la révision publiée
+`ae07bd0a109a29b6c6a96df882e07b9c7965f8eb`.
+[Preuves assainies](qualification/2026-10-13-skills.json).
+
+L'extension de la recette a révélé une sonde d'outillage qui recherchait le guide
+privé de A depuis B. Le refus était correct ; la sonde commune utilise désormais
+la fixture `1-COMMON`, sans élargir les droits. Les refus croisés restent testés.
+La préparation/merge de configuration se fait dans le contrôleur protégé, avec
+contrôle de dérive, pour permettre la reprise quand le propriétaire est arrêté.
 
 ## Limites conservées
 

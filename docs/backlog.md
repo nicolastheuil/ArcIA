@@ -1,6 +1,6 @@
 # Backlog ArcIA — 12 octobre 2026
 
-Référence : [handoff courant](handoff-2026-10-12-arcia-cloud-bootstrap.md).
+Référence : [handoff courant](handoff-2026-10-13-skills-catalogue.md).
 La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
 Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Hermes/K3s et recherche documentaire locale. Les adaptations d’usage appartiennent aux dépôts d’instance ; qualification multi-utilisateur locale exécutée sur fixtures synthétiques.
 
