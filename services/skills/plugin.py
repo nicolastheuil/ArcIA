@@ -34,6 +34,20 @@ def rewrite(tool_name=None, args=None, **kwargs):
     # Structured/raw formats are contracts and must remain byte-preserving.
     if words[:2] != ['git', 'log'] or any(w.startswith(('--oneline','--format','--pretty','--raw','--numstat','--stat','--patch','-p')) for w in words[2:]):
         return
+    # Unknown git flags can write files (--output), change raw contracts, or
+    # have semantics RTK does not preserve. Only bounded count options qualify.
+    remaining=iter(words[2:])
+    for word in remaining:
+        if word in ('-n','--max-count'):
+            count=next(remaining,'')
+        elif word.startswith('--max-count='):
+            count=word.split('=',1)[1]
+        elif word.startswith('-') and word[1:].isdigit():
+            count=word[1:]
+        else:
+            return
+        if not count.isdigit() or not 1 <= int(count) <= 200:
+            return
     args['command'] = shlex.join(['/opt/arcia-tools/bin/rtk', *words])
 
 

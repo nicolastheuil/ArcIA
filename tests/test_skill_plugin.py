@@ -19,7 +19,7 @@ class SkillPluginTests(unittest.TestCase):
         self.assertEqual(args,{'command':'/opt/arcia-tools/bin/rtk git log -n 15','cwd':'/synthetic'})
 
     def test_raw_formats_writes_shell_and_other_tools_are_preserved(self):
-        for text in ('git log --oneline','git log --format=%H','git --no-pager log','git push','git status','git log; env','git log $(env)','git log | cat','git log -p'):
+        for text in ('git log --oneline','git log --format=%H','git --no-pager log','git push','git status','git log; env','git log $(env)','git log | cat','git log -p','git log --output=fixture.txt','git log --max-count=999999','git log main'):
             args={'command':text};plugin.rewrite(tool_name='terminal',args=args)
             self.assertEqual(args['command'],text)
         args={'command':'git log'};plugin.rewrite(tool_name='other',args=args)
