@@ -1,5 +1,6 @@
 """Public bootstrap coverage contract. Adding a component requires updating it."""
 import json
+import hashlib
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -10,6 +11,22 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
+    m365=definition.get('configuration_contracts',{}).get('microsoft365',{})
+    if m365.get('lock')!='bootstrap/microsoft365.lock.json' or m365.get('runtime_implemented') is not False:
+        raise ValueError('BOOTSTRAP_M365_CONTRACT')
+    m365_lock=json.loads((root/m365['lock']).read_text(encoding='utf-8'))
+    if lock.get('microsoft365',{}).get('contract_lock')!=m365['lock'] or lock['microsoft365'].get('enabled') is not False:
+        raise ValueError('BOOTSTRAP_M365_RUNTIME_GATE')
+    required_m365={'schemas/microsoft365.schema.json','examples/microsoft365/microsoft365.yaml',
+                   'scripts/microsoft365_config.py','docs/annexes/integration-microsoft365.md'}
+    if set(m365_lock.get('files',{}))!=required_m365:
+        raise ValueError('BOOTSTRAP_M365_LOCK_COVERAGE')
+    for relative,digest in m365_lock['files'].items():
+        # Hash normalized text, independent of Git's checkout line ending policy.
+        content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
+        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_M365_LOCK_HASH')
+    import microsoft365_config
+    microsoft365_config.validate(microsoft365_config.load_config(root/'examples/microsoft365/microsoft365.yaml'))
     catalogue=definition.get('catalogue_contract',{})
     if lock.get('skills_catalog',{}).get('enabled'):
         for key,expected_step in (('installation_step','install_hermes_tools_base'),('verification_step','verify_hermes_tools'),('secondary_runtime_step','install_multiuser')):

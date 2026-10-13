@@ -1,0 +1,175 @@
+# Contrat de préparation Microsoft 365 v1, inactif. Aucun secret en clair.
+# Copier dans le dépôt d'instance ; lire docs/annexes/integration-microsoft365.md.
+schema_version: 1
+kind: arcia.microsoft365
+environment: qualification
+cloud: public
+enabled: false
+tenant_id: null
+endpoints:
+  portal_base_url: null
+  bot_base_url: null
+  web_redirect_path: /auth/callback
+  logout_path: /auth/logout/callback
+  outlook_redirect_path: /auth/microsoft365/callback
+  bot_messages_path: /api/teams/messages
+  notifications_path: /api/microsoft365/notifications
+  lifecycle_path: /api/microsoft365/lifecycle
+applications:
+  web:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: certificate
+      reference: secretref://m365/web
+      expires_on: null
+    delegated_permissions: [openid, profile]
+    application_permissions: []
+    admin_consent: pending
+  bot:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: client_secret
+      reference: secretref://m365/bot
+      expires_on: null
+    delegated_permissions: [openid, profile]
+    application_permissions: []
+    admin_consent: pending
+  meetings:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: certificate
+      reference: secretref://m365/meetings
+      expires_on: null
+    delegated_permissions: []
+    application_permissions: [OnlineMeetingTranscript.Read.All, OnlineMeetings.Read.All]
+    admin_consent: pending
+  sharepoint:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: certificate
+      reference: secretref://m365/sharepoint
+      expires_on: null
+    delegated_permissions: []
+    application_permissions: [Sites.Selected]
+    admin_consent: pending
+  outlook_delegated:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: certificate
+      reference: secretref://m365/outlook-user
+      expires_on: null
+    delegated_permissions: [openid, profile, offline_access, Mail.Read, Calendars.Read]
+    application_permissions: []
+    admin_consent: pending
+  outlook_application:
+    client_id: null
+    registration_object_id: null
+    service_principal_object_id: null
+    credential:
+      mode: certificate
+      reference: secretref://m365/outlook-service
+      expires_on: null
+    delegated_permissions: []
+    # Autorisation via RBAC Exchange seulement ; aucun grant Mail.* global Entra.
+    application_permissions: []
+    admin_consent: not_required
+identity:
+  enabled: false
+  assignment_required: true
+  allow_guests: false
+  stable_subject: tid_oid
+  scopes: [openid, profile]
+  role_group_ids:
+    ArcIA.User: null
+    ArcIA.Approver: null
+    ArcIA.Admin: null
+  web_role_ids:
+    ArcIA.User: null
+    ArcIA.Approver: null
+    ArcIA.Admin: null
+  bot_role_ids:
+    ArcIA.User: null
+    ArcIA.Approver: null
+    ArcIA.Admin: null
+  conditional_access_verified: false
+teams:
+  enabled: false
+  hosting: azure_bot
+  tenant_mode: single_tenant
+  azure_bot_resource_id: null
+  package_app_id: null
+  catalog_object_id: null
+  manifest_version: null
+  oauth_connection_name: ArcIA-Teams-SSO
+  oauth_redirect_uri: https://token.botframework.com/.auth/web/redirect
+  api_uri: null
+  exposed_scope: access_as_user
+  preauthorized_client_ids:
+    - 1fec8e78-bce4-4aaf-ab1b-5451cc387264
+    - 5e3ce6c0-2b1f-4285-8d4b-75ee78787346
+  bot_scopes: [personal]
+  resource_specific_permissions: []
+  pilot_group_id: null
+  publication_verified: false
+meetings:
+  enabled: false
+  authorization: organizer_policy
+  application_access_policy_name: null
+  organizer_object_ids: []
+  transcription_policy_name: null
+  transcription_verified: false
+  graph_transcript_access_verified: false
+  speaker_attribution: unknown
+  trigger: registered_meetings_polling
+  polling_interval_seconds: 300
+  transcript_format: application/vnd.microsoft.graph.transcript+text
+  summary_delivery: personal_private_link
+  recordings_enabled: false
+sharepoint:
+  enabled: false
+  authorization: application_selected
+  sites: []
+  # Une entrée sites :
+  # - site_id: "<host>,<siteCollectionGuid>,<webGuid>"
+  #   permission_id: "<id du grant Graph>"
+  #   role: read
+  #   drive_ids: ["<id bibliotheque>"]
+  #   audience_group_ids: ["<GUID groupe autorise>"]
+  #   acl_mode: dedicated_library_uniform
+  #   grant_verified: false
+  fail_closed_on_unknown_acl: true
+outlook:
+  delegated_enabled: false
+  application_enabled: false
+  authorization: exchange_rbac
+  pilot_group_id: null
+  exchange_management_scope_name: null
+  exchange_role_assignment_names: []
+  exchange_roles: [Application Mail.Read, Application Calendars.Read]
+  mailbox_object_ids: []
+  scope_verified: false
+  outside_scope_denied_verified: false
+  writes_enabled: false
+webhooks:
+  enabled: false
+  include_resource_data: false
+  client_state_reference: secretref://m365/webhook-client-state
+  encryption_private_key_reference: null
+  encryption_certificate_id: null
+governance:
+  synthetic_only: true
+  risky_actions_require_server_approval: true
+  raw_private_data_to_cloud: false
+  runtime_qualification_verified: false
+  retention_days: null
+  evidence_reference: null

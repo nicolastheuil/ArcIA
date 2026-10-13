@@ -13,7 +13,8 @@ $selection=if($Mode -eq 'Apply' -or $Mode -eq 'Plan'){$Profile.ToLowerInvariant(
 $steps=@($definition.steps|Where-Object {$selection -in $_.profiles -and (-not $_.provision_only -or $ProvisionVMs)})
 if($Mode -eq 'Plan'){
     @{status='planned';profile=$Profile;target='qualification';steps=@($steps|ForEach-Object {$_.id});
-      private_inputs=$definition.private_inputs;business_services_enabled=$false;fresh_cluster_tested=$false}|ConvertTo-Json -Depth 8
+      private_inputs=$definition.private_inputs;configuration_contracts=$definition.configuration_contracts;
+      business_services_enabled=$false;fresh_cluster_tested=$false}|ConvertTo-Json -Depth 8
     exit 0
 }
 $root=Get-ArcIAStateRoot

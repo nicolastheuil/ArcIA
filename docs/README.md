@@ -11,6 +11,7 @@ le handoff courant ; les anciens handoffs restent des instantanés historiques.
 |---|---|
 | Comprendre la plateforme et son périmètre | [Philosophie ArcIA](plateforme-arcia.md) |
 | Ajouter des sources et outils | [Connecteurs MCP](connecteurs-mcp.md) |
+| Préparer Entra ID, Teams, réunions, SharePoint et Outlook | [Intégration Microsoft365 — annexe administrateur](annexes/integration-microsoft365.md) |
 | Protéger les appels modèles | [Confidentialité cloud](confidentialite-cloud.md) |
 | Installer et réconcilier automatiquement | [Bootstrap exhaustif](runbooks/bootstrap.md) |
 | Comprendre le socle et trouver le code | [Architecture réelle](architecture.md) |
@@ -60,6 +61,9 @@ effectivement exécuté avec une preuve. Une spécification n’est pas une preu
 | [0013](adr/0013-qualification-multi-utilisateur.md) | Runtimes personnels, RLS commun/personnel et révocation locale |
 
 ## Historique et maintenance
+
+[ADR 0015 — préparation Microsoft 365](adr/0015-preparation-microsoft365.md) :
+identités séparées, droits bornés et configuration d'instance hors ligne.
 
 Le [handoff du 11 octobre](handoff-2026-10-11.md) et le
 [premier arrêt du 12 octobre](handoff-2026-10-12-socle-qualification.md) sont

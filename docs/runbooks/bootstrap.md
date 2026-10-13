@@ -4,6 +4,17 @@ Le point d’entrée unique est `scripts/Bootstrap-Harness.ps1`. Son manifeste v
 
 ## Prérequis et saisies externes
 
+Le contrat Microsoft 365 v1 est référencé par `configuration_contracts` dans
+le manifeste et `bootstrap/microsoft365.lock.json` (hashes des artefacts).
+Il couvre uniquement annexe, schéma, gabarit et validation/plan hors ligne ;
+`runtime_implemented=false`, aucun nouveau service ou secret runtime obligatoire.
+Plan expose ce statut ; aucune étape K3s ne contacte Microsoft. La préparation
+tenant et le YAML d'instance suivent l'[annexe Microsoft365](../annexes/integration-microsoft365.md).
+L'ancien formulaire Configure-Integrations ne consomme pas ce YAML. Son
+adaptation, les adaptateurs et les recettes sont requis avant activation ; ne
+pas convertir cette préparation en succès de déploiement. Les locks utilisent
+du texte UTF-8 avec fins de lignes normalisées pour rester portables Windows/Linux.
+
 Contrôleur Windows PowerShell 7.4+, Git, OpenSSH et WSL Debian existants. Windows PowerShell 5.1 est requis pour le client SSO .NET Framework. Qemu-img 10.2.1 sous WSL est nécessaire uniquement pour fabriquer l’image et provisionner les VM. Les dépendances du contrôleur sont installées dans des venv administratifs fixés par hashes ; aucun runtime applicatif ArcIA n’est installé sur le poste.
 
 Avant Apply, enregistrer localement avec les formulaires protégés :

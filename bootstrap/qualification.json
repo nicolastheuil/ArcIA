@@ -938,5 +938,14 @@
     "secondary_runtime_step": "install_multiuser",
     "permissions": "read_only_local_stdio",
     "tokenmaxing": "native_plugin_in_tools_job_and_both_runtime_probes"
+  },
+  "configuration_contracts": {
+    "microsoft365": {
+      "lock": "bootstrap/microsoft365.lock.json",
+      "runtime_implemented": false,
+      "instance_path": "instance/microsoft365.yaml",
+      "validation": "scripts/microsoft365_config.py",
+      "documentation": "docs/annexes/integration-microsoft365.md"
+    }
   }
 }

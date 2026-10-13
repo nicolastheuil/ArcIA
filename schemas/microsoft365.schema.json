@@ -1,0 +1,1183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arcia:microsoft365:1",
+  "title": "ArcIA Microsoft 365 preparation contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "environment",
+    "cloud",
+    "enabled",
+    "tenant_id",
+    "endpoints",
+    "applications",
+    "identity",
+    "teams",
+    "meetings",
+    "sharepoint",
+    "outlook",
+    "webhooks",
+    "governance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "arcia.microsoft365"
+    },
+    "environment": {
+      "enum": [
+        "qualification",
+        "staging",
+        "production"
+      ]
+    },
+    "cloud": {
+      "const": "public"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "tenant_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "portal_base_url",
+        "bot_base_url",
+        "web_redirect_path",
+        "logout_path",
+        "outlook_redirect_path",
+        "bot_messages_path",
+        "notifications_path",
+        "lifecycle_path"
+      ],
+      "properties": {
+        "portal_base_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^https://[a-z0-9.-]+$"
+        },
+        "bot_base_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^https://[a-z0-9.-]+$"
+        },
+        "web_redirect_path": {
+          "const": "/auth/callback"
+        },
+        "logout_path": {
+          "const": "/auth/logout/callback"
+        },
+        "outlook_redirect_path": {
+          "const": "/auth/microsoft365/callback"
+        },
+        "bot_messages_path": {
+          "const": "/api/teams/messages"
+        },
+        "notifications_path": {
+          "const": "/api/microsoft365/notifications"
+        },
+        "lifecycle_path": {
+          "const": "/api/microsoft365/lifecycle"
+        }
+      }
+    },
+    "applications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "web",
+        "bot",
+        "meetings",
+        "sharepoint",
+        "outlook_delegated",
+        "outlook_application"
+      ],
+      "properties": {
+        "web": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "openid",
+                  "profile",
+                  "email"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 0
+            },
+            "application_permissions": {
+              "const": []
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        },
+        "bot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "openid",
+                  "profile",
+                  "offline_access"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 0
+            },
+            "application_permissions": {
+              "const": []
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        },
+        "meetings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "const": []
+            },
+            "application_permissions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "OnlineMeetingTranscript.Read.All",
+                  "OnlineMeetings.Read.All"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 0
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        },
+        "sharepoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "const": []
+            },
+            "application_permissions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "Sites.Selected"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 0
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        },
+        "outlook_delegated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "openid",
+                  "profile",
+                  "offline_access",
+                  "Mail.ReadBasic",
+                  "Mail.Read",
+                  "Calendars.ReadBasic",
+                  "Calendars.Read"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 0
+            },
+            "application_permissions": {
+              "const": []
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        },
+        "outlook_application": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "client_id",
+            "registration_object_id",
+            "service_principal_object_id",
+            "credential",
+            "delegated_permissions",
+            "application_permissions",
+            "admin_consent"
+          ],
+          "properties": {
+            "client_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "registration_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "service_principal_object_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "credential": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "reference",
+                "expires_on"
+              ],
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "certificate",
+                    "client_secret"
+                  ]
+                },
+                "reference": {
+                  "type": "string",
+                  "pattern": "^secretref://m365/[a-z0-9-]+$"
+                },
+                "expires_on": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                }
+              }
+            },
+            "delegated_permissions": {
+              "const": []
+            },
+            "application_permissions": {
+              "const": []
+            },
+            "admin_consent": {
+              "enum": [
+                "pending",
+                "granted",
+                "not_required"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "assignment_required",
+        "allow_guests",
+        "stable_subject",
+        "scopes",
+        "role_group_ids",
+        "web_role_ids",
+        "bot_role_ids",
+        "conditional_access_verified"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "assignment_required": {
+          "const": true
+        },
+        "allow_guests": {
+          "const": false
+        },
+        "stable_subject": {
+          "const": "tid_oid"
+        },
+        "scopes": {
+          "const": [
+            "openid",
+            "profile"
+          ]
+        },
+        "role_group_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ArcIA.User",
+            "ArcIA.Approver",
+            "ArcIA.Admin"
+          ],
+          "properties": {
+            "ArcIA.User": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Approver": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Admin": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        },
+        "web_role_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ArcIA.User",
+            "ArcIA.Approver",
+            "ArcIA.Admin"
+          ],
+          "properties": {
+            "ArcIA.User": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Approver": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Admin": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        },
+        "bot_role_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ArcIA.User",
+            "ArcIA.Approver",
+            "ArcIA.Admin"
+          ],
+          "properties": {
+            "ArcIA.User": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Approver": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            },
+            "ArcIA.Admin": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            }
+          }
+        },
+        "conditional_access_verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "teams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "hosting",
+        "tenant_mode",
+        "azure_bot_resource_id",
+        "package_app_id",
+        "catalog_object_id",
+        "manifest_version",
+        "oauth_connection_name",
+        "oauth_redirect_uri",
+        "api_uri",
+        "exposed_scope",
+        "preauthorized_client_ids",
+        "bot_scopes",
+        "resource_specific_permissions",
+        "pilot_group_id",
+        "publication_verified"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "hosting": {
+          "const": "azure_bot"
+        },
+        "tenant_mode": {
+          "const": "single_tenant"
+        },
+        "azure_bot_resource_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[A-Za-z0-9_.()-]+/providers/Microsoft.BotService/botServices/[A-Za-z0-9_-]+$"
+        },
+        "package_app_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "catalog_object_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        },
+        "manifest_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[0-9]+[.][0-9]+$"
+        },
+        "oauth_connection_name": {
+          "const": "ArcIA-Teams-SSO"
+        },
+        "oauth_redirect_uri": {
+          "const": "https://token.botframework.com/.auth/web/redirect"
+        },
+        "api_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^api://botid-[0-9a-fA-F-]{36}$"
+        },
+        "exposed_scope": {
+          "const": "access_as_user"
+        },
+        "preauthorized_client_ids": {
+          "const": [
+            "1fec8e78-bce4-4aaf-ab1b-5451cc387264",
+            "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"
+          ]
+        },
+        "bot_scopes": {
+          "const": [
+            "personal"
+          ]
+        },
+        "resource_specific_permissions": {
+          "const": []
+        },
+        "pilot_group_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "publication_verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "meetings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "authorization",
+        "application_access_policy_name",
+        "organizer_object_ids",
+        "transcription_policy_name",
+        "transcription_verified",
+        "graph_transcript_access_verified",
+        "speaker_attribution",
+        "trigger",
+        "polling_interval_seconds",
+        "transcript_format",
+        "summary_delivery",
+        "recordings_enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "authorization": {
+          "const": "organizer_policy"
+        },
+        "application_access_policy_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        },
+        "organizer_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "transcription_policy_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        },
+        "transcription_verified": {
+          "type": "boolean"
+        },
+        "graph_transcript_access_verified": {
+          "type": "boolean"
+        },
+        "speaker_attribution": {
+          "enum": [
+            "unknown",
+            "allowed",
+            "disabled"
+          ]
+        },
+        "trigger": {
+          "enum": [
+            "registered_meetings_polling",
+            "organizer_webhooks"
+          ]
+        },
+        "polling_interval_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 86400
+        },
+        "transcript_format": {
+          "enum": [
+            "text/vtt",
+            "application/vnd.microsoft.graph.transcript+text"
+          ]
+        },
+        "summary_delivery": {
+          "const": "personal_private_link"
+        },
+        "recordings_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sharepoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "authorization",
+        "sites",
+        "fail_closed_on_unknown_acl"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "authorization": {
+          "const": "application_selected"
+        },
+        "sites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "site_id",
+              "permission_id",
+              "role",
+              "drive_ids",
+              "audience_group_ids",
+              "acl_mode",
+              "grant_verified"
+            ],
+            "properties": {
+              "site_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9.-]+,[0-9a-fA-F-]{36},[0-9a-fA-F-]{36}$"
+              },
+              "permission_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "const": "read"
+              },
+              "drive_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              },
+              "audience_group_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              },
+              "acl_mode": {
+                "const": "dedicated_library_uniform"
+              },
+              "grant_verified": {
+                "type": "boolean"
+              }
+            }
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "fail_closed_on_unknown_acl": {
+          "const": true
+        }
+      }
+    },
+    "outlook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delegated_enabled",
+        "application_enabled",
+        "authorization",
+        "pilot_group_id",
+        "exchange_management_scope_name",
+        "exchange_role_assignment_names",
+        "exchange_roles",
+        "mailbox_object_ids",
+        "scope_verified",
+        "outside_scope_denied_verified",
+        "writes_enabled"
+      ],
+      "properties": {
+        "delegated_enabled": {
+          "type": "boolean"
+        },
+        "application_enabled": {
+          "type": "boolean"
+        },
+        "authorization": {
+          "const": "exchange_rbac"
+        },
+        "pilot_group_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "exchange_management_scope_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        },
+        "exchange_role_assignment_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "exchange_roles": {
+          "const": [
+            "Application Mail.Read",
+            "Application Calendars.Read"
+          ]
+        },
+        "mailbox_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "scope_verified": {
+          "type": "boolean"
+        },
+        "outside_scope_denied_verified": {
+          "type": "boolean"
+        },
+        "writes_enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "webhooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "include_resource_data",
+        "client_state_reference",
+        "encryption_private_key_reference",
+        "encryption_certificate_id"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "include_resource_data": {
+          "const": false
+        },
+        "client_state_reference": {
+          "const": "secretref://m365/webhook-client-state"
+        },
+        "encryption_private_key_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^secretref://m365/[a-z0-9-]+$"
+        },
+        "encryption_certificate_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "synthetic_only",
+        "risky_actions_require_server_approval",
+        "raw_private_data_to_cloud",
+        "runtime_qualification_verified",
+        "retention_days",
+        "evidence_reference"
+      ],
+      "properties": {
+        "synthetic_only": {
+          "const": true
+        },
+        "risky_actions_require_server_approval": {
+          "const": true
+        },
+        "raw_private_data_to_cloud": {
+          "const": false
+        },
+        "runtime_qualification_verified": {
+          "type": "boolean"
+        },
+        "retention_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 3650
+        },
+        "evidence_reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "pattern": "^evidence://m365/[a-z0-9-]+$"
+        }
+      }
+    }
+  }
+}

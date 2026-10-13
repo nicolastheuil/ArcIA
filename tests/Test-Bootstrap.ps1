@@ -18,4 +18,9 @@ $bad.steps[0].after=@('missing')
 $blocked=$false
 try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$true}
 if(-not $blocked){throw 'BOOTSTRAP_DEPENDENCY_GUARD_FAILED'}
+$bad=$definition|ConvertTo-Json -Depth 20|ConvertFrom-Json
+$bad.configuration_contracts.microsoft365.runtime_implemented=$true
+$blocked=$false
+try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$true}
+if(-not $blocked){throw 'BOOTSTRAP_M365_ACTIVATION_GUARD_FAILED'}
 Write-Output 'BOOTSTRAP_FAIL_CLOSED_REPLAY_AND_DEPENDENCY_GUARDS_VERIFIED'

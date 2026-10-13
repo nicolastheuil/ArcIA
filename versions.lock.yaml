@@ -259,5 +259,14 @@
     "original_reference_ttl_seconds": 300,
     "history_owner": "hermes",
     "shared_memory": false
+  },
+  "microsoft365": {
+    "enabled": false,
+    "runtime_implemented": false,
+    "contract_version": 1,
+    "contract_lock": "bootstrap/microsoft365.lock.json",
+    "graph_api": "v1.0",
+    "cloud": "public",
+    "qualification": "offline_preparation_only"
   }
 }

@@ -4,6 +4,10 @@
 
 ## Comment fonctionne ArcIA ?
 
+[Intégration Microsoft365](docs/annexes/integration-microsoft365.md) : annexe à
+remettre à l'administrateur du tenant pour Entra ID, bot Teams personnel,
+synthèses de réunions, SharePoint et Outlook ; contrat YAML d'instance sans secrets.
+
 Une demande arrive au moteur d’agents Hermes. Celui-ci peut rechercher des sources, appeler des outils MCP, déléguer une partie du travail à des agents spécialisés et réunir les résultats. La réponse doit conserver ses références et ses incertitudes. Les permissions sont imposées par les services ; ni un document ni un agent ne peut s’octroyer des droits. Les actions externes sensibles nécessiteront une autorisation vérifiée côté serveur. [Fonctionnement et frontières](docs/plan-integration-hermes.md).
 
 ```mermaid

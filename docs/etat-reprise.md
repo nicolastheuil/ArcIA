@@ -1,5 +1,10 @@
 # État de reprise d’ArcIA — 13 octobre 2026
 
+Complément documentaire et de configuration :
+[handoff Microsoft 365](handoff-2026-10-13-microsoft365.md). Annexe admin et
+contrat YAML/validation hors ligne livrés ; aucun service Microsoft 365 actif,
+aucun tenant contacté. La qualification K3s précédente reste inchangée.
+
 Lire le [handoff courant](handoff-2026-10-13-skills-catalogue.md), puis le [socle précédent](handoff-2026-10-12-arcia-cloud-bootstrap.md). Travailler sur **main** ; ne pas créer de branche. `arcia-harness` contient la plateforme générique ArcIA ; les customisations d’organisation vivent dans leur dépôt d’instance distinct.
 
 Socle K3s/VMware, PostgreSQL, Hermes, outils et Knowledge opérationnels en qualification synthétique. Presidio et le relais cloud gratuit filtré sont déployés ; une réponse réelle HTTP 200 avec ZDR/prix nul a été obtenue. DNS externe et Internet direct depuis Hermes sont refusés ; Context7 externe reste fermé. OmniRoute est installé, son automatisation reste différée. Aucune autorisation payante.

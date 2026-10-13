@@ -1,6 +1,7 @@
 # Backlog ArcIA — 13 octobre 2026
 
 Référence : [handoff courant](handoff-2026-10-13-skills-catalogue.md).
+Complément : [préparation Microsoft 365](handoff-2026-10-13-microsoft365.md).
 La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
 Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Hermes/K3s et recherche documentaire locale. Les adaptations d’usage appartiennent aux dépôts d’instance ; qualification multi-utilisateur locale exécutée sur fixtures synthétiques.
 
@@ -20,6 +21,9 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-02a | Hermes et HTTPS locaux | Déployé ; 6 checks Hermes, 6 HTTPS/auth ; Desktop/WS/SSE restants |
 | L0-02b | TLS public pour les deux noms demandés | Certificat Let’s Encrypt émis/collecté/déployé ; renouvellement DNS manuel et migration du compte ACME restants |
 | L0-02c | Entra/OIDC métier et bot Teams | À développer ; hors socle actuel |
+| M365-01 | Annexe administrateur, YAML d'instance, schéma strict et plan hors ligne | Codés ; aucun accès/configuration tenant ; [annexe](annexes/integration-microsoft365.md) |
+| M365-02 | Wizard/importeur protégé, adaptateurs OIDC/Bot/Graph et export assaini | À développer ; contrat v1 interdit toute activation |
+| M365-03 | IAM/ACL, approbations Teams, collecte/synthèse, scopes et révocation | À développer puis recette synthétique ; aucune donnée réelle autorisée |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
