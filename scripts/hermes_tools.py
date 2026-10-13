@@ -9,10 +9,15 @@ NS='arcia-hermes'
 
 
 def settings():
-    return {'mcp_servers':{'arcia_context7':{'command':'/opt/arcia-tools/bin/context7','args':[],
+    return {'mcp_servers':{'arcia_skills':{'command':'/opt/hermes/.venv/bin/python',
+            'args':['/opt/arcia-tools/skills-service/server.py'],'connect_timeout':30,'timeout':60,
+            'env':{'PYTHONDONTWRITEBYTECODE':'1','DISABLE_TELEMETRY':'1'}},
+        'arcia_context7':{'command':'/opt/arcia-tools/bin/context7','args':[],
         'connect_timeout':30,'timeout':60,'env':{'DISABLE_TELEMETRY':'1',
             'CONTEXT7_API_URL':'http://context7-docs.arcia-hermes.svc.cluster.local:8080/api'}}},
-        'skills':{'external_dirs':['/opt/arcia-tools/skills'],'project_discovery':False}}
+        'skills':{'external_dirs':['/opt/arcia-tools/skills','/opt/arcia-tools/catalog/content/hermes/skills'],'project_discovery':False},
+        'memory':{'memory_enabled':True,'user_profile_enabled':True},
+        'plugins':{'enabled':['arcia-platform']}}
 
 
 def augment(docs):
@@ -26,6 +31,7 @@ def augment(docs):
     template['metadata']['annotations'].update({'arcia.io/tools-sha256':value['catalog_sha256'],
         'arcia.io/config-sha256':hashlib.sha256(cm['data']['config.yaml'].encode()).hexdigest()})
     container['volumeMounts'].append({'name':'tools','mountPath':'/opt/arcia-tools','readOnly':True})
+    container['volumeMounts'].append({'name':'tools','mountPath':'/opt/data/plugins/arcia-platform','subPath':'plugins/arcia-platform','readOnly':True})
     container['env'].extend([{'name':'PATH','value':'/opt/arcia-tools/bin:/opt/arcia-tools/python/bin:/opt/hermes/.venv/bin:/usr/local/bin:/usr/bin:/bin'},
         {'name':'RTK_TELEMETRY_DISABLED','value':'1'}])
     spec['volumes'].append({'name':'tools','persistentVolumeClaim':{'claimName':'hermes-tools','readOnly':True}})
@@ -49,11 +55,16 @@ def payload():
         'requirements.lock.txt':(ROOT/'builder/requirements-tools.lock.txt').read_text(encoding='utf-8'),
         'installer.py':(ROOT/'scripts/install_hermes_tools.py').read_text(encoding='utf-8'),
         'AGENTS.md':(ROOT/'AGENTS.md').read_text(encoding='utf-8'),'role.md':(ROOT/'builder/role.md').read_text(encoding='utf-8')}
+    data['skills.lock.json']=(ROOT/'builder/skills.lock.json').read_text(encoding='utf-8')
+    for name in ('bundle.py','install.py','catalog.py','server.py','plugin.py','headroom_file.py'):
+        data[name if name=='bundle.py' else 'skills-'+name]=(ROOT/'services/skills'/name).read_text(encoding='utf-8')
     digest=hashlib.sha256(json.dumps({'data':data,'skills':skills,'tools':tools},sort_keys=True).encode()).hexdigest()
     data['catalog.json']=json.dumps({'skills':skills,'skill_hashes':hashes,'tools':tools,'catalog_sha256':digest})
     lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
     return {'catalog_sha256':digest,'documents':documents(lock,data,digest),'config_append':yaml.safe_dump(settings(),sort_keys=False),
-        'expected_skills':list(catalog['sources']),'verify_source':(ROOT/'scripts/probe_hermes_tools.py').read_text(encoding='utf-8')}
+        'expected_skills':list(catalog['sources']),'settings':settings(),
+        'skills_count':json.loads(data['skills.lock.json'])['skill_count'],
+        'verify_source':(ROOT/'scripts/probe_hermes_tools.py').read_text(encoding='utf-8')}
 
 
 def documents(lock,data,digest):

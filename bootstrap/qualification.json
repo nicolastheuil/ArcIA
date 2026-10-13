@@ -903,7 +903,8 @@
     "services": [
       "knowledge",
       "privacy",
-      "multiuser"
+      "multiuser",
+      "skills"
     ],
     "tools": [
       "context7",
@@ -919,7 +920,8 @@
       "hermes_tools",
       "knowledge",
       "privacy",
-      "multiuser"
+      "multiuser",
+      "skills_catalog"
     ]
   },
   "limitations": [
@@ -927,5 +929,12 @@
     "coherent_data_backup_restore_not_implemented",
     "manual_dns01_not_unattended",
     "business_integrations_disabled"
-  ]
+  ],
+  "catalogue_contract": {
+    "lock": "builder/skills.lock.json",
+    "installation_step": "install_hermes_tools_base",
+    "verification_step": "verify_hermes_tools",
+    "secondary_runtime_step": "install_multiuser",
+    "permissions": "read_only_local_stdio"
+  }
 }

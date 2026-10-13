@@ -186,9 +186,19 @@ def collect(payload):
     if action in ('inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools'):
         values={'action':'install_hermes_tools' if action=='install_hermes_tools_base' else action,'operation_id':operation,
                 'require_knowledge':action!='install_hermes_tools_base'}
-        if action in ('install_hermes_tools','install_hermes_tools_base','verify_hermes_tools'):
+        if action in ('install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','inspect_hermes_tools'):
             import hermes_tools
             values.update(hermes_tools.payload())
+        if action=='inspect_hermes_tools':
+            values['benchmark_source']=(ROOT/'scripts/benchmark_token_tools.py').read_text(encoding='utf-8')
+        if action in ('install_hermes_tools','install_hermes_tools_base'):
+            import copy,hashlib,yaml
+            prepared=guest(target,nodes[0],base,(ROOT/'scripts/node_hermes_tools.py').read_bytes(),
+                           {'action':'prepare_hermes_tools_config','operation_id':operation},root=True,timeout=180)
+            current=yaml.safe_load(prepared['config']);desired=copy.deepcopy(values['settings'])
+            current.setdefault('mcp_servers',{}).update(desired.pop('mcp_servers'));current.update(desired)
+            values['merged_config']=yaml.safe_dump(current,sort_keys=False)
+            values['original_config_sha256']=hashlib.sha256(prepared['config'].encode()).hexdigest()
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_hermes_tools.py').read_bytes(),values,root=True,timeout=1500)
         return {'private':{'operation_id':operation,'result':result},'safe':{
             'status':'inspected' if action=='inspect_hermes_tools' else ('verified' if result.get('passed') else 'blocked'),

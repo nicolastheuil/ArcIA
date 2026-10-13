@@ -38,3 +38,15 @@ Aucun conteneur factice ne remplace un service métier manquant.
 La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM
 du [plan complet](plan-integration-hermes.md). Le stockage et la réplication ne
 constituent pas une sauvegarde. Ne pas publier de release avant recette/rebuild.
+
+## Évolution du 13 octobre — skills et réduction du contexte
+
+Catalogue complet des sources retenues : 539 entrées, découverte locale MCP,
+58 skills Hermes embarquées exposées nativement, sept adaptations/orientations.
+Mémoire/délégation Hermes ; pas de mémoire/apprentissage ECC ni d’orchestrateur
+supplémentaire. RTK automatique borné à git log ; Headroom en outil de lecture
+JSON personnelle, sans proxy ni mémoire partagée. Sources, crédits et licences
+verrouillés ; vérification upstream par script/workflow manuel. Voir le
+[handoff du 13 octobre](handoff-2026-10-13-skills-catalogue.md) pour les résultats
+exécutés. Qualification individuelle des centaines de procédures et comparaison
+de qualité sur des missions représentatives restent à faire.

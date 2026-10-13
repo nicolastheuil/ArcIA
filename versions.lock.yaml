@@ -231,5 +231,19 @@
     "qualification_only": true,
     "runtime_count": 2,
     "central_sso_enabled": false
+  },
+  "skills_catalog": {
+    "enabled": true,
+    "lock": "builder/skills.lock.json",
+    "skill_count": 539,
+    "discovery": "local_mcp_stdio",
+    "memory_owner": "hermes",
+    "delegation_owner": "hermes",
+    "runtime_external_discovery": false,
+    "native_plugin": "arcia-platform",
+    "headroom_mode": "personal_json_file",
+    "rtk_automatic_commands": [
+      "git log"
+    ]
   }
 }

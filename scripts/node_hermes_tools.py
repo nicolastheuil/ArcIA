@@ -49,6 +49,8 @@ for name in ('node','npm','uv'):
 print(json.dumps(value))
 """
     result=json.loads(python(pod, source))
+    if values.get('benchmark_source') and result['installed_tools_volume']:
+        result['token_tools_benchmark']=json.loads(python(pod,values['benchmark_source'],timeout=180,tools=True))
     jobs=json.loads(kube('get','jobs','-n',NS,'-o','json'))['items']
     result['installer_jobs']=[{'active':j.get('status',{}).get('active',0),
         'succeeded':j.get('status',{}).get('succeeded',0),'failed':j.get('status',{}).get('failed',0)}
@@ -96,6 +98,14 @@ def verify(values):
     return json.loads(python(pod,source,timeout=400,tools=True))
 
 
+def configuration(values):
+    workload(values,allow_stopped=True)
+    config=json.loads(kube('get','configmap','hermes-pilot-config','-n',NS,'-o','json'))
+    if config['metadata'].get('annotations',{}).get('arcia.io/operation-id')!=values['operation_id']:
+        raise ValueError('HERMES_CONFIG_OWNERSHIP_REQUIRED')
+    return {'config':config['data']['config.yaml']}
+
+
 def install(values):
     deployment,pod=workload(values,allow_stopped=True)
     installed='arcia.io/tools-sha256' in deployment['spec']['template']['metadata'].get('annotations',{})
@@ -108,7 +118,9 @@ def install(values):
     original=config['data']['config.yaml']
     if not installed and any(line.startswith(('mcp_servers:','skills:')) for line in original.splitlines()):
         raise ValueError('EXISTING_TOOLS_CONFIG_REQUIRES_EXPLICIT_MERGE')
-    new_yaml=original if installed else original.rstrip()+'\n'+values['config_append']
+    if hashlib.sha256(original.encode()).hexdigest()!=values['original_config_sha256']:
+        raise ValueError('HERMES_CONFIG_CHANGED_DURING_PREPARATION')
+    new_yaml=values['merged_config']
     # All sources are prepared and owned before the first mutation.
     apply_owned([d for d in values['documents'] if d['kind']!='Job'],values['operation_id'])
     if installed:
@@ -140,6 +152,9 @@ def install(values):
     spec=deployment['spec']['template']['spec']
     next(v for v in spec['volumes'] if v['name']=='config')['configMap']['name']=config_name
     container=next(c for c in spec['containers'] if c['name']=='hermes')
+    plugin_mount={'name':'tools','mountPath':'/opt/data/plugins/arcia-platform','subPath':'plugins/arcia-platform','readOnly':True}
+    if not any(m['mountPath']==plugin_mount['mountPath'] for m in container['volumeMounts']):
+        container['volumeMounts'].append(plugin_mount)
     if not installed:
         container['volumeMounts'].append({'name':'tools','mountPath':'/opt/arcia-tools','readOnly':True})
         spec['volumes'].append({'name':'tools','persistentVolumeClaim':{'claimName':'hermes-tools','readOnly':True}})
@@ -155,4 +170,4 @@ def install(values):
 
 
 if __name__ == '__main__':
-    print(json.dumps({'inspect_hermes_tools': inspect,'install_hermes_tools':install,'verify_hermes_tools':verify,'cleanup_failed_hermes_tools':cleanup_failed}[ARCIA_INPUT['action']](ARCIA_INPUT)))
+    print(json.dumps({'prepare_hermes_tools_config':configuration,'inspect_hermes_tools': inspect,'install_hermes_tools':install,'verify_hermes_tools':verify,'cleanup_failed_hermes_tools':cleanup_failed}[ARCIA_INPUT['action']](ARCIA_INPUT)))

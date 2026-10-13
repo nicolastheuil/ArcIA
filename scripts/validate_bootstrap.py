@@ -10,6 +10,11 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
+    catalogue=definition.get('catalogue_contract',{})
+    if lock.get('skills_catalog',{}).get('enabled'):
+        for key,expected_step in (('installation_step','install_hermes_tools_base'),('verification_step','verify_hermes_tools'),('secondary_runtime_step','install_multiuser')):
+            if catalogue.get(key)!=expected_step:raise ValueError('BOOTSTRAP_SKILLS_CONTRACT')
+        if catalogue.get('lock')!='builder/skills.lock.json' or not (root/catalogue['lock']).is_file():raise ValueError('BOOTSTRAP_SKILLS_LOCK')
     expected={
         'components':set(lock['components']),
         'tools':set(tools['tools']),

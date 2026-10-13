@@ -20,22 +20,59 @@ flowchart LR
 
 Le socle tourne dans **K3s sur trois VM Debian/VMware**. PostgreSQL/pgvector conserve la connaissance et ses index ; Hermes conserve son propre état sur un volume exclusif. Les outils applicatifs sont installés dans le cluster. Le poste sert uniquement à administrer le déploiement avec un état protégé. [Architecture et schémas](docs/architecture.md) · [Schémas détaillés](docs/schemas-plateforme-hermes.md).
 
-## À quoi servent les composants ?
+## Outils et composants par catégorie
 
-| Composant | Apport à ArcIA | Activation actuelle |
+Chaque outil garde un rôle explicite. Les liens mènent à ses sources ; les [crédits et licences](THIRD_PARTY_NOTICES.md) détaillent les auteurs, notices et exceptions.
+
+### Skills
+
+| Outil | Rôle | État |
 |---|---|---|
-| **Hermes** | Conversations, outils, profils, skills et délégation à des sous-agents | Moteur et dashboard de qualification |
-| **Knowledge / PostgreSQL / pgvector** | RAG avec versions, citations, recherche textuelle, vecteurs et reclassement multi-vecteur | Déployé ; corpus synthétique |
-| **Presidio** | Détection FR/EN, pseudonymisation et suppression de secrets avant cloud | Déployé avec filtres techniques et contrôle du payload complet |
-| **OmniRoute** | Choix et routage entre modèles/fournisseurs | Installé ; routage automatique à qualifier |
-| **Headroom** | Réduction du contexte transmis aux modèles | Installé ; compression automatique différée |
-| **RTK** | Réduction des sorties de commandes pour limiter le contexte | Installé ; sans interception automatique |
-| **Context7 MCP** | Recherche de documentation de bibliothèques | Installé ; requêtes externes bloquées en attendant leur adaptateur filtrant |
-| **Superpowers / ECC** | Skills sélectionnés de méthode, vérification et développement | Six skills natifs chargés ; aucun apprentissage partagé automatique |
-| **skills CLI / LintLang** | Distribution contrôlée des skills et analyse statique des instructions | Installés et versions vérifiées |
-| **NGINX / Certbot** | Entrée HTTPS et certificats | TLS actif ; renouvellement DNS manuel à automatiser |
+| [Hermes skills](https://github.com/NousResearch/hermes-agent) | Compétences natives et optionnelles, chargement progressif | 212 entrées cataloguées, dont 58 embarquées exposées au chargeur natif |
+| [ECC](https://github.com/affaan-m/ECC) | Méthodes et compétences de nombreux domaines | 311 skills canoniques cataloguées ; mémoire/apprentissage ECC non activés |
+| [Superpowers](https://github.com/obra/superpowers) | Préparation, développement, diagnostic et vérification | 15 skills cataloguées ; sans hooks ni orchestrateur supplémentaire |
+| [Vercel skills](https://github.com/vercel-labs/skills) | Découverte et distribution dans l’écosystème ouvert | CLI installé ; workflow find-skills adapté à la recherche locale |
+| [LintLang](https://github.com/hermes-labs-ai/lintlang) | Analyse statique des instructions | Installé ; rapports, sans garantie d’efficacité ou de sécurité |
 
-Installation, versions, limites et provenance : [outillage](docs/outillage-builder.md), [locks](versions.lock.yaml). Aucun outil de compression ne remplace le filtrage de confidentialité.
+**539 entrées upstream sont recherchables localement**, puis leurs instructions et références sont chargées à la demande. Les sept adaptations/orientations ArcIA sont exposées nativement. Disponibilité ne signifie pas que chaque script, dépendance ou connecteur est opérationnel. Le catalogue ne transmet pas les demandes à GitHub. Un plugin natif guide automatiquement la découverte. Hermes conserve la mémoire personnelle et la délégation ; la connaissance commune reste dans le RAG. [Fonctionnement, choix et mises à jour des skills](docs/skills.md).
+
+### Tokenmaxing
+
+| Outil | Rôle | État |
+|---|---|---|
+| [RTK](https://github.com/rtk-ai/rtk) | Réduit les sorties CLI pour économiser du contexte | Automatique pour `git log` simple ; autres commandes explicites |
+| [Headroom](https://github.com/headroomlabs-ai/headroom) | Compression du contexte | Outil natif pour prévisualiser les JSON volumineux du workspace ; original conservé |
+
+### Model Routing
+
+| Composant | Rôle | État |
+|---|---|---|
+| [OmniRoute](https://github.com/diegosouzapw/OmniRoute) | Routage entre modèles et fournisseurs | Installé ; automatisation différée |
+| [OpenRouter](https://openrouter.ai/docs) | Accès aux modèles cloud | Route gratuite uniquement, via la passerelle filtrée ArcIA |
+
+### Agents, connaissance et confidentialité
+
+| Composant | Rôle | État |
+|---|---|---|
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | Conversations, outils, mémoire personnelle et délégation | Moteur et dashboard de qualification |
+| Knowledge ArcIA | Recherche documentaire privée, versions, sources et citations | Hybride et reclassement multi-vecteur ; corpus synthétique |
+| [PostgreSQL](https://github.com/postgres/postgres) | Base documentaire et contrôle des lignes par périmètre | Déployé avec réplication |
+| [pgvector](https://github.com/pgvector/pgvector) | Index vectoriels locaux | Déployé |
+| [Context7](https://github.com/upstash/context7) | Documentation de bibliothèques via MCP | Installé ; requêtes externes bloquées en attendant l’adaptateur filtrant |
+| [Presidio](https://github.com/microsoft/presidio) | Détection, pseudonymisation et retrait de secrets | Déployé avec filtres techniques et politique de sortie |
+
+### Infrastructure et HTTPS
+
+| Composant | Rôle | État |
+|---|---|---|
+| [K3s](https://github.com/k3s-io/k3s) | Exécution de la plateforme | Trois VM Debian sur VMware |
+| [vSphere CSI](https://github.com/kubernetes-sigs/vsphere-csi-driver) | Volumes persistants et états exclusifs | Déployé ; panne brutale/fencing à qualifier |
+| [vSphere CPI](https://github.com/kubernetes/cloud-provider-vsphere) | Intégration des nœuds VMware | Déployé |
+| [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) | Exploitation de PostgreSQL | Déployé |
+| [NGINX](https://github.com/nginx/nginx) | Entrée HTTPS | TLS actif |
+| [Certbot](https://github.com/certbot/certbot) | Certificats Let’s Encrypt | Installé ; renouvellement DNS manuel à automatiser |
+
+Installation, versions, limites et provenance : [outillage](docs/outillage-builder.md), [locks](versions.lock.yaml), [crédits et licences par outil](THIRD_PARTY_NOTICES.md). Aucun outil de compression ne remplace le filtrage de confidentialité.
 
 ## Donner de la matière au RAG
 

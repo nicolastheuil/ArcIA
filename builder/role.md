@@ -13,16 +13,18 @@ frontières, revue du diff, preuve, reprise. Les accès périmètres, les écrit
 la publication publique restent soumis aux gates du plan. Une préparation locale
 n'est pas une release. Ne pas installer automatiquement des hooks ou plugins.
 
-§25 : Superpowers comme méthode adaptée, ECC ciblé, Context7 pour les requêtes
-génériques. LintLang en rapport après qualification. RTK, Headroom, Ponytail et
-Graphify restent des pilotes désactivés ; aucun apprentissage, export de sessions
-ou mémoire entre périmètres. Distribution de skills par révision revue avec licence,
-DISABLE_TELEMETRY=1 et catalogue interne. Aucun sous-agent nécessaire à ce lot.
-
-Installation autorisée explicitement le 12 octobre : Context7, CLI skills,
-LintLang et sélection Superpowers/ECC. Versions dans tools.lock.json, catalogue
-adapté dans ../.agents/skills et empreintes dans catalog.lock.json. Invocation
-explicite, sans hook ni bootstrap global, sans apprentissage/export de sessions.
-Context7 reçoit uniquement produit/version et requêtes génériques, jamais des
-inventaires ou données privéess. LintLang reste en rapport, pas une preuve de sécurité.
-Voir ../docs/outillage-builder.md pour installation, usages et désactivation.
+Catalogue riche : toutes les skills canoniques des sources retenues sont
+recherchables et lisibles localement. Sources, révisions, licences et empreintes
+dans skills.lock.json et skills-index.json. Le CLI Vercel complète les opérations
+de découverte/import d'ingénierie ; il n'installe pas depuis une conversation.
+Hermes conserve la mémoire personnelle et la délégation ; aucun hook,
+apprentissage ECC, export ou mémoire entre utilisateurs n'est activé.
+RTK réécrit seulement git log simple par un hook natif contrôlé ; les autres
+commandes restent explicites. Headroom compresse les fichiers JSON du workspace
+avec un outil natif, sans proxy, mémoire partagée ou apprentissage. Hermes
+conserve la compaction de l’historique.
+OmniRoute automatique reste différé ; la passerelle filtrée impose les modèles.
+Context7 externe est fermé jusqu'à qualification de son adaptateur. LintLang
+reste un rapport, pas une preuve de sécurité. Les catalogues et outils sont dans
+Hermes/K3s, readonly. Voir ../docs/skills.md, ../docs/outillage-builder.md et
+../THIRD_PARTY_NOTICES.md. Les compétences ne confèrent aucune permission.

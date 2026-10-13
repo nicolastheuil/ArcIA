@@ -3,7 +3,7 @@
   "checked_at": "2026-10-12",
   "scope": "hermes_k3s_qualification",
   "telemetry_enabled": false,
-  "hooks_enabled": false,
+  "hooks_enabled": true,
   "tools": {
     "context7": {
       "package": "@upstash/context7-mcp",
@@ -20,7 +20,7 @@
       "revision": "671e8c320810d36fed80fac5f1a2c1bf7e82d812",
       "license": "MIT",
       "integrity": "sha512-j+GzyF/oNahsjjjup6y3lJpFkC1lQjIkf4kAMXICA1hboBqi0fAGXAGoE4x9FRZiP1br/YE9+L3/Tqq6PIAe0A==",
-      "purpose": "reviewed internal catalog only; no free installation from agent runtimes"
+      "purpose": "engineer discovery/import/update utility; runtime uses the complete pinned offline catalogue"
     },
     "lintlang": {
       "package": "lintlang",
@@ -39,7 +39,8 @@
         "receiving-code-review",
         "test-driven-development"
       ],
-      "automatic_bootstrap": false
+      "automatic_bootstrap": false,
+      "catalogue_scope": "all 15 canonical skills via local catalogue; four native adaptations"
     },
     "ecc": {
       "source": "https://github.com/affaan-m/ECC",
@@ -50,7 +51,8 @@
         "postgres-patterns"
       ],
       "learning_enabled": false,
-      "session_export_enabled": false
+      "session_export_enabled": false,
+      "catalogue_scope": "all 311 canonical skills via local catalogue; two native adaptations; native Hermes memory"
     },
     "rtk": {
       "version": "0.51.0",
@@ -58,14 +60,20 @@
       "license": "MIT",
       "asset_url": "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk-x86_64-unknown-linux-musl.tar.gz",
       "sha256": "5028d3b19a8f0990d30fec9fbb07e32782bc5698e618fb1861aad8a9ccba4eb5",
-      "hooks_enabled": false
+      "hooks_enabled": true,
+      "automatic_readonly_commands": [
+        "git log"
+      ],
+      "raw_bypass": "git --no-pager log"
     },
     "headroom": {
       "package": "headroom-ai",
       "version": "0.40.0",
       "source": "https://github.com/headroomlabs-ai/headroom",
-      "compression_mode": "local_explicit",
-      "memory_enabled": false
+      "compression_mode": "native_tool_personal_json_file",
+      "memory_enabled": false,
+      "proxy_enabled": false,
+      "learning_enabled": false
     },
     "omniroute": {
       "package": "omniroute",

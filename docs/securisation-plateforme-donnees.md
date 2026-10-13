@@ -61,6 +61,20 @@ Le protocole MCP n’est pas un mécanisme de sécurité en soi. Un MCP externe 
 
 ## Secrets, chiffrement et exploitation
 
+Le catalogue de skills est désormais un miroir local readonly : 539 entrées
+upstream, révisions/archives fixées et empreintes de fichiers. Les recherches
+restent locales. Les contenus des packs ne sont pas des plugins exécutables
+automatiquement ; les droits, dépendances, hooks, apprentissages et connexions
+qu'ils évoquent ne sont pas activés par leur lecture. La provenance et les hashes
+ne constituent pas un audit exhaustif de chaque procédure.
+
+Un plugin natif du harness guide la découverte et intègre deux usages bornés :
+RTK sur git log simple, Headroom sur fichiers JSON du workspace personnel avant
+lecture complète. Le sous-processus Headroom n'hérite pas des clés fournisseur ou
+session ; l'original reste dans le workspace et les sorties repassent par Presidio.
+Aucune mémoire ECC ou Headroom partagée n'est activée. [Skills](skills.md) ·
+[Décisions et mesures](tokenmaxing.md).
+
 | Emplacement | Protection réelle | Limite à conserver |
 |---|---|---|
 | Contrôleur administratif | DPAPI CurrentUser, ACL, stdin privé et diagnostics chiffrés | Le compte Windows administrateur/enrôlé reste une autorité de confiance |

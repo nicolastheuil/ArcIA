@@ -26,11 +26,11 @@ Distinguer données publiques, synthétiques, privées et confidentielles selon 
 
 ## 6. Identité et autorisation
 
-La cible utilise une identité stable et une politique serveur sur utilisateur, groupe, périmètre, ressource et action. OIDC authentifie ; il ne suffit pas à établir les permissions. Entra est un adaptateur envisagé, pas une obligation universelle. L’authentification locale actuelle ne représente qu’un pilote à un propriétaire ; IAM complet, révocation et droits croisés restent à qualifier.
+La cible utilise une identité stable et une politique serveur sur utilisateur, groupe, périmètre, ressource et action. OIDC authentifie ; il ne suffit pas à établir les permissions. Entra est un adaptateur envisagé, pas une obligation universelle. Deux identités et runtimes locaux sont qualifiés ; IAM central, groupes, provisioning général et révocation des connexions ouvertes restent à qualifier.
 
 ## 7. Partage et cloisonnement
 
-Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Le service Knowledge actuel impose un périmètre par token et FORCE RLS ; l’agrégation entreprise/groupe/personnel reste à développer. [Détails](plateforme-arcia.md#partage-et-cloisonnement).
+Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Le service Knowledge actuel impose un périmètre par token et FORCE RLS ; la lecture commun + personnel est qualifiée ; les groupes et ACL d’annuaire restent à développer. [Détails](plateforme-arcia.md#partage-et-cloisonnement).
 
 ## 8. Agents et état
 
@@ -50,7 +50,7 @@ Cible : OmniRoute automatique → OpenRouter free → OpenRouter auto. Chaque br
 
 ## 12. Compression et caches
 
-RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des anonymiseurs. Ne pas cumuler plusieurs compressions sans mesure. Toute récupération d’original repasse par droits et filtre avant cloud. Pas de mémoire globale ni apprentissage automatique partagé. Les caches doivent être cloisonnés, bornés et révocables.
+RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des anonymiseurs. Hermes gère l’historique ; RTK raccourcit automatiquement git log simple et Headroom prévisualise les JSON du workspace. Les mesures et limites sont dans [tokenmaxing](tokenmaxing.md). Toute récupération d’original repasse par droits et filtre avant cloud. Pas de mémoire globale ni apprentissage automatique partagé. Les caches doivent être cloisonnés, bornés et révocables.
 
 ## 13. Connaissance documentaire
 
@@ -62,7 +62,7 @@ PostgreSQL full-text et deux vecteurs E5 par fragment produisent les candidats, 
 
 ## 15. Rôle de construction et catalogue
 
-Codex assure le build initial depuis AGENTS.md. Les outils et skills sont sélectionnés, revus et versionnés : Superpowers/ECC, skills CLI, LintLang, RTK, Headroom, Context7 et OmniRoute. Les outils applicatifs sont installés dans K3s ; le poste ne porte que le contrôleur d’administration. [Catalogue et limites](outillage-builder.md).
+Codex assure le build initial depuis AGENTS.md. Les sources sont versionnées : 539 entrées upstream dans un catalogue local, chargeur natif Hermes et sept adaptations/orientations. Vercel skills complète la découverte/import d’ingénierie. [Fonctionnement](skills.md). Les outils applicatifs sont installés dans K3s ; le poste ne porte que le contrôleur d’administration. [Catalogue et limites](outillage-builder.md).
 
 ## 16. Actions externes
 
@@ -102,7 +102,7 @@ Une livraison du code n’est pas une release de production. Versionner digests,
 
 ## 25. Intégration des outils
 
-Retenir uniquement les composants listés dans les locks et le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. Headroom/OmniRoute/RTK sont installés sans automatisations non démontrées ; Graphify/Ponytail restent différés. La CI vérifie les sources, pas l’activation des fournisseurs.
+Retenir uniquement les composants listés dans les locks et le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables ; OmniRoute automatique reste différé ; Graphify/Ponytail restent différés. La CI vérifie les sources, pas l’activation des fournisseurs.
 
 ## 26. Cible Kubernetes, VMware et build initial Codex
 

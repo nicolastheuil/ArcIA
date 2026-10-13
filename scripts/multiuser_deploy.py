@@ -34,4 +34,5 @@ def payload(lock,config,pilot,second_pilot):
     return {'documents':documents,'deployment':deployment,'job':job,'catalog_sha256':tools['catalog_sha256'],
             'ingress':kubernetes_apps.ingress(lock,config,pilot),
             'probe':(ROOT/'services/multiuser/probe.py').read_text(encoding='utf-8'),
+            'tools_probe':tools['verify_source'],
             'knowledge_probe':(ROOT/'services/multiuser/knowledge_probe.py').read_text(encoding='utf-8')}

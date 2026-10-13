@@ -30,6 +30,10 @@
       "provider": "superpowers",
       "original_skill_sha256": "2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3",
       "adaptation": "Hermes K3s qualification, no hooks/delegation/learning"
+    },
+    "arcia-skills": {
+      "provider": "arcia-harness",
+      "adaptation": "Offline catalogue discovery; native Hermes memory and delegation"
     }
   },
   "files": {
@@ -49,6 +53,7 @@
     "deploy/hermes/skills/systematic-debugging/test-pressure-3.md": "96b50a52e2c7989c9cf20fb752c47c1e9a3a70dc362f8f7989f8f5b64dac7708",
     "deploy/hermes/skills/test-driven-development/SKILL.md": "8202375f8db5f1b3925f11cd3dfa5e9bcac0eb3681bb6e6c582ceadbd6bc84c4",
     "deploy/hermes/skills/test-driven-development/writing-good-tests.md": "51471c853306ff92ca8bb41dcaea05f31c0e46b03651f8f3c99754b7172f4ae1",
-    "deploy/hermes/skills/verification-before-completion/SKILL.md": "d05029f0fb1bfb4fd79f20b269b01741fd59f5b0e625e41422ad48de932edf39"
+    "deploy/hermes/skills/verification-before-completion/SKILL.md": "d05029f0fb1bfb4fd79f20b269b01741fd59f5b0e625e41422ad48de932edf39",
+    "deploy/hermes/skills/arcia-skills/SKILL.md": "bb14ce1826ebbc8d3e216fb0cae10b4c75c2c2c044b6bfe059b1bb254f56a41f"
   }
 }

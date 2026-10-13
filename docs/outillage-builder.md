@@ -18,13 +18,13 @@ Namespace `arcia-hermes`, PVC `hermes-tools` 10 Gi RWOP, monté à `/opt/arcia-t
 
 Sources : [RTK](https://github.com/rtk-ai/rtk), [Headroom](https://github.com/headroomlabs-ai/headroom), [OmniRoute](https://github.com/diegosouzapw/OmniRoute), [Context7](https://github.com/upstash/context7), [skills](https://github.com/vercel-labs/skills), [LintLang](https://github.com/hermes-labs-ai/lintlang). Les sources Superpowers/ECC et licences sont conservées dans [le catalogue de licences](../builder/licenses/README.md).
 
-Six skills sont versionnés sous `deploy/hermes/skills` et chargés via `skills.external_dirs` : verification-before-completion, systematic-debugging, receiving-code-review, test-driven-development, python-patterns et postgres-patterns. Aucun bootstrap, hook, export de sessions ou apprentissage automatique n’est activé.
+Les six adaptations initiales et l'orientation `arcia-skills` sont versionnées sous `deploy/hermes/skills`. Le catalogue complet ajoute 539 entrées upstream recherchables localement, avec crédits et licences par entrée ; les 58 skills embarquées Hermes sont aussi exposées au chargeur natif. Un plugin ArcIA natif guide la découverte, borne RTK et fournit la lecture compressée de JSON Headroom. Aucun hook de pack, export de sessions ou apprentissage ECC/Headroom n'est activé. [Fonctionnement et mises à jour](skills.md) · [Crédits et licences](../THIRD_PARTY_NOTICES.md).
 
 ## Réseau et activation
 
 Hermes accède au DNS statique privé, à Knowledge et à la passerelle Presidio. Les requêtes Context7 externes sont désormais refusées : leur adaptateur filtrant reste à qualifier. Hermes n’a ni Internet direct, ni clé fournisseur, ni identifiants PostgreSQL ; il dispose seulement d’un token de passerelle et de lecture documentaire. [Confidentialité cloud](confidentialite-cloud.md).
 
-RTK est installé sans interception automatique des commandes. Headroom est disponible sans compression automatique ni mémoire entre périmètres. OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés en attendant la qualification de son routage automatique. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
+RTK réécrit automatiquement seulement les commandes `git log` simples ; les formats structurés, écritures et shells composés restent inchangés. Headroom fournit `arcia_compress_json_file` pour les JSON du workspace personnel, avant lecture complète par le modèle, sans proxy global ni mémoire partagée. Hermes conserve la mémoire personnelle et la compaction de l'historique. [Mesures, choix et limites](tokenmaxing.md). OmniRoute est installé, sa version CLI est vérifiée, mais son serveur et ses fournisseurs restent désactivés en attendant la qualification de son routage automatique. Graphify et Ponytail restent optionnels ; le catalogue public-apis est une veille, pas un service.
 
 ## Installer et vérifier
 
@@ -42,3 +42,8 @@ Une mise à jour de catalogue arrête Hermes de façon contrôlée, attend la di
 `Uninstall-WorkstationTools.ps1` a supprimé les anciennes installations utilisateur ArcIA-Builder et leur enregistrement MCP Codex, après sauvegarde protégée de la configuration. Les autres paramètres Codex et les runtimes d’administration préexistants sont conservés. Les anciennes commandes d’installation locale sont désactivées. Le compte/runtime ACME WSL reste temporairement nécessaire à la reprise du certificat jusqu’à sa migration protégée ; Certbot est également installé dans K3s.
 
 GitHub : dépôt privé `nicolastheuil/arcia-harness`, livraison directe sur **main**, sans nouvelle branche ni PR. Les sources génériques, locks et preuves assainies sont versionnés ; les scripts de debug privés et inventaires ne le sont pas. La CI ne reçoit aucun secret ni accès entreprise. [Handoff et preuves](handoff-2026-10-12-arcia-cloud-bootstrap.md).
+
+La présentation par catégories, une ligne par outil, est dans le README. La veille
+de catalogue est disponible par script et workflow GitHub manuel
+`Check upstream skills candidates` ; elle ne modifie ni Git ni un cluster.
+La promotion d'une mise à jour reste une révision du harness suivie de sa recette.

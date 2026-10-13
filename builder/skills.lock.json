@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "hermes",
+      "repository": "https://github.com/NousResearch/hermes-agent",
+      "revision": "818c13be1dc4fd28987e1e881a9408224afd4535",
+      "roots": [
+        "skills",
+        "optional-skills"
+      ],
+      "credit": "Nous Research and Hermes contributors",
+      "license": "MIT; individual skills may override",
+      "license_path": "LICENSE",
+      "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/818c13be1dc4fd28987e1e881a9408224afd4535",
+      "archive_sha256": "9deddf1d5325361b18f2281f21c4229fe699a62eec6fb809b3a5a83e0a1e88da"
+    },
+    {
+      "id": "ecc",
+      "repository": "https://github.com/affaan-m/ECC",
+      "revision": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+      "roots": [
+        "skills"
+      ],
+      "credit": "Affaan Mustafa and ECC contributors",
+      "license": "MIT; individual files may override",
+      "license_path": "LICENSE",
+      "archive_url": "https://codeload.github.com/affaan-m/ECC/tar.gz/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+      "archive_sha256": "da317d1336814f99abc9de9ed69a2e3a7ade382216aa2c74deb49d88e3068ae7"
+    },
+    {
+      "id": "superpowers",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+      "roots": [
+        "skills"
+      ],
+      "credit": "Jesse Vincent and Superpowers contributors",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "archive_url": "https://codeload.github.com/obra/superpowers/tar.gz/bb92a77741419a4ab5f06e711a283343f1ada0c3",
+      "archive_sha256": "496b576d4a4a62c0d72cce4a9e99ff46c57026c07fe503931cbb8afd33006cf2"
+    },
+    {
+      "id": "vercel",
+      "repository": "https://github.com/vercel-labs/skills",
+      "revision": "671e8c320810d36fed80fac5f1a2c1bf7e82d812",
+      "roots": [
+        "skills"
+      ],
+      "credit": "Vercel Labs and skills contributors",
+      "license": "MIT",
+      "license_path": "LICENSE",
+      "archive_url": "https://codeload.github.com/vercel-labs/skills/tar.gz/671e8c320810d36fed80fac5f1a2c1bf7e82d812",
+      "archive_sha256": "f52de1b4b6590edfdec174d5a8c654b339f5cf3d147e080ddbaed22b8a299086"
+    }
+  ],
+  "index_sha256": "2ebad9038cb7a1e9be69bfa27b17023fd2ab26b48adc549fca6726f50ace4bb6",
+  "skill_count": 539,
+  "runtime_network": false,
+  "memory_owner": "hermes",
+  "delegation_owner": "hermes",
+  "auto_hooks": false
+}

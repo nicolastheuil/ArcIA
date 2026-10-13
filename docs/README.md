@@ -72,3 +72,10 @@ les artefacts correspondants et une qualification proportionnée.
 - [Multi-utilisateur : espaces locaux, corpus commun et recette](multi-utilisateur.md).
 
 - [Sécurisation de la plateforme et des données](securisation-plateforme-donnees.md) : frontières, contrôles, preuves et limites.
+
+## Skills, choix d’outillage et crédits
+
+- [Skills natifs, ECC, Superpowers et Vercel : fonctionnement et mises à jour](skills.md).
+- [Tokenmaxing : mesures RTK/Headroom et fonctions concurrentes écartées](tokenmaxing.md).
+- [ADR 0014 : catalogue complet local et responsables des fonctions](adr/0014-catalogue-skills-et-responsabilites.md).
+- [Crédits, GitHub et licences par outil](../THIRD_PARTY_NOTICES.md).

@@ -49,6 +49,10 @@ def main():
     for relative, expected in value['skill_hashes'].items():
         if hashlib.sha256((ROOT/'skills'/relative).read_bytes()).hexdigest() != expected:
             raise ValueError('CATALOG_HASH_MISMATCH')
+    # Skill catalogue is built from immutable public archives, separate from
+    # Hermes' small native prompt index. No upstream install/hook is executed.
+    run(str(ROOT/'python/bin/python'),str(INPUT/'skills-install.py'))
+    skills_count=json.loads((INPUT/'skills.lock.json').read_text())['skill_count']
     (ROOT/'bin').mkdir(exist_ok=True)
     rtk = value['tools']['rtk']
     with urllib.request.urlopen(rtk['asset_url'], timeout=60) as response:
@@ -73,6 +77,8 @@ def main():
     shutil.copyfile(INPUT/'AGENTS.md', ROOT/'AGENTS.md')
     shutil.copyfile(INPUT/'role.md', ROOT/'role.md')
     (ROOT/'installed.json').write_text(json.dumps({'catalog_sha256':value['catalog_sha256'],
+        'skills_count':skills_count,
+        'skills_index_sha256':json.loads((INPUT/'skills.lock.json').read_text())['index_sha256'],
         'versions':{k:v.get('version',v.get('revision')) for k,v in value['tools'].items()}}))
     print('HERMES_PINNED_TOOLS_INSTALLED', flush=True)
 

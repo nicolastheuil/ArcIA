@@ -117,6 +117,8 @@ def verify(values):
         source=values['probe'].replace('__OTHER_IP__',pod(SECOND if ns==FIRST else FIRST)['status']['podIP']).replace('__WHO__',who)
         result=json.loads(kube('exec',p['metadata']['name'],'-n',ns,'--','/opt/hermes/.venv/bin/python','-c',source,timeout=120))
         checks.update({ns+'_'+k:v for k,v in result['checks'].items()})
+        tools=json.loads(kube('exec',p['metadata']['name'],'-n',ns,'--','/opt/arcia-tools/python/bin/python','-c',values['tools_probe'],timeout=400))
+        checks.update({ns+'_tools_'+k:v for k,v in tools['checks'].items()})
         pseudonyms.append(result['pseudonym_sha256'])
         kube('rollout','restart','deployment/hermes-pilot','-n',ns)
         kube('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=600s',timeout=620)

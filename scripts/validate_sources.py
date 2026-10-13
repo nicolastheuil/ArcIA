@@ -61,6 +61,17 @@ if (ROOT/'builder/catalog.lock.json').exists():
         if package['version']!=tool['version'] or package['integrity']!=tool['integrity']:
             raise RuntimeError('BUILDER_NPM_LOCK_MISMATCH')
     print('BUILDER_SKILL_HASHES_AND_NPM_LOCK_OK')
+if (ROOT/'builder/skills.lock.json').exists():
+    skills_lock=json.loads((ROOT/'builder/skills.lock.json').read_text(encoding='utf-8'))
+    skills_index=json.loads((ROOT/'builder/skills-index.json').read_text(encoding='utf-8'))
+    encoded=json.dumps(skills_index,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
+    if hashlib.sha256(encoded).hexdigest()!=skills_lock['index_sha256'] or len(skills_index['entries'])!=skills_lock['skill_count']:
+        raise RuntimeError('SKILLS_CATALOGUE_LOCK_MISMATCH')
+    if any(not re.fullmatch('[a-f0-9]{40}',s['revision']) or not re.fullmatch('[a-f0-9]{64}',s['archive_sha256']) for s in skills_lock['sources']):
+        raise RuntimeError('SKILLS_SOURCE_NOT_IMMUTABLE')
+    if skills_lock['runtime_network'] or skills_lock['auto_hooks'] or skills_lock['memory_owner']!='hermes':
+        raise RuntimeError('SKILLS_RUNTIME_POLICY_CONFLICT')
+    print('RICH_SKILLS_CATALOGUE_LOCK_OK')
 if sys.platform != "win32":
     lock = json.loads((ROOT / "versions.lock.yaml").read_text())
     with tempfile.TemporaryDirectory(prefix="arcia-synthetic-") as directory:
