@@ -37,6 +37,15 @@ administrateur initial et son mot de passe initial. Rien de confidentiel n'est
 enrôlement TOTP. Après changement, utiliser le nouveau mot de passe personnel :
 le formulaire conserve uniquement la valeur initiale, sans pouvoir lire la nouvelle.
 
+La recherche de l'état protégé exige les bundles d'opération VMware, d'instance
+et d'identité lisibles par le compte Windows courant, avec le même identifiant
+d'opération. Les anciens états incomplets sont ignorés et les alias MSIX d'un
+même répertoire sont dédupliqués. Si plusieurs états complets correspondent,
+une fenêtre locale demande de choisir l'instance par son domaine et son chemin.
+L'annulation n'ouvre aucun portail ; aucune copie n'est supprimée ou fusionnée.
+Un `ARCIA_STATE_ROOT` explicitement défini reste prioritaire et doit être cohérent.
+Les commandes automatisées conservent le refus d'une sélection ambiguë.
+
 ## Fonctionnement et identité stable
 
 ```mermaid

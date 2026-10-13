@@ -1,13 +1,7 @@
 # This file never returns a secret to stdout. Call only from a local trusted program.
 Add-Type -AssemblyName System.Security
 
-function Get-ArcIAStateRoot {
-    # Shared by every administrative entry point, including before pilot creation.
-    if($env:ARCIA_STATE_ROOT){
-        $candidate=[IO.Path]::GetFullPath($env:ARCIA_STATE_ROOT)
-        Initialize-PrivateDirectory $candidate
-        return $candidate
-    }
+function Get-ArcIAStateCandidates {
     $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
     $candidates=@($primary)
     $packages=Join-Path $env:USERPROFILE 'AppData\Local\Packages'
@@ -15,10 +9,73 @@ function Get-ArcIAStateRoot {
         $candidates+=@(Get-ChildItem -LiteralPath $packages -Directory -Filter '*Codex*' |
             ForEach-Object {Join-Path $_.FullName 'LocalCache\Local\ArcIA-Harness'})
     }
+    return @($candidates|Select-Object -Unique)
+}
+
+function Test-ArcIAIdentityState {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    $operation=$null;$instance=$null;$identity=$null
+    try{
+        $operation=(Read-ProtectedBundle (Join-Path $Path 'vmware-operation.dpapi'))|ConvertFrom-Json
+        $instance=(Read-ProtectedBundle (Join-Path $Path 'instance.dpapi'))|ConvertFrom-Json
+        $identity=(Read-ProtectedBundle (Join-Path $Path 'identity.dpapi'))|ConvertFrom-Json
+        return [bool]($operation.id -and $operation.id -eq $instance.operation_id -and
+            $operation.id -eq $identity.operation_id -and $identity.admin_username -and
+            $identity.admin_password -and $instance.config.network.public_hostname -and
+            $instance.endpoint_design.https_ip)
+    }catch{return $false}finally{$operation=$null;$instance=$null;$identity=$null}
+}
+
+function Select-ArcIAStateRootLocally {
+    param([Parameter(Mandatory=$true)][string[]]$Candidates)
+    # Private hostnames and paths stay in this local UI. Never log a choice.
+    Add-Type -AssemblyName System.Windows.Forms
+    $form=[Windows.Forms.Form]::new();$form.Text="ArcIA — choisir l'instance à administrer"
+    $form.Width=900;$form.Height=340;$form.StartPosition='CenterScreen'
+    $note=[Windows.Forms.Label]::new()
+    $note.Text="Plusieurs états protégés sont disponibles. Choisissez l'instance voulue ; aucun compte ni fichier ne sera modifié."
+    $note.SetBounds(15,15,850,45);$form.Controls.Add($note)
+    $list=[Windows.Forms.ListBox]::new();$list.SetBounds(15,65,850,170)
+    $list.HorizontalScrollbar=$true
+    foreach($candidate in $Candidates){
+        $instance=$null
+        try{
+            $instance=(Read-ProtectedBundle (Join-Path $candidate 'instance.dpapi'))|ConvertFrom-Json
+            $null=$list.Items.Add(($instance.config.network.public_hostname+' — '+$candidate))
+        }finally{$instance=$null}
+    }
+    $form.Controls.Add($list)
+    $open=[Windows.Forms.Button]::new();$open.Text='Utiliser cette instance';$open.Enabled=$false
+    $open.SetBounds(430,250,220,30);$open.DialogResult=[Windows.Forms.DialogResult]::OK
+    $cancel=[Windows.Forms.Button]::new();$cancel.Text='Annuler'
+    $cancel.SetBounds(665,250,200,30);$cancel.DialogResult=[Windows.Forms.DialogResult]::Cancel
+    $form.Controls.Add($open);$form.Controls.Add($cancel)
+    $list.Add_SelectedIndexChanged({$open.Enabled=$list.SelectedIndex -ge 0})
+    $form.AcceptButton=$open;$form.CancelButton=$cancel
+    try{
+        if($form.ShowDialog() -ne [Windows.Forms.DialogResult]::OK -or $list.SelectedIndex -lt 0){
+            throw 'PROTECTED_ARCIA_STATE_SELECTION_CANCELLED'
+        }
+        return $Candidates[$list.SelectedIndex]
+    }finally{$form.Dispose()}
+}
+
+function Get-ArcIAStateRoot {
+    param([switch]$Identity,[switch]$SelectLocally)
+    # Automated entry points still refuse ambiguity; only an interactive caller
+    # explicitly requests a local choice. Identity requires all three scopes.
+    if($env:ARCIA_STATE_ROOT){
+        $candidate=[IO.Path]::GetFullPath($env:ARCIA_STATE_ROOT)
+        if($Identity -and -not(Test-ArcIAIdentityState $candidate)){throw 'PROTECTED_ARCIA_IDENTITY_STATE_NOT_FOUND'}
+        Initialize-PrivateDirectory $candidate
+        return $candidate
+    }
+    $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
     $valid=@()
-    foreach($candidate in ($candidates|Select-Object -Unique)){
+    foreach($candidate in (Get-ArcIAStateCandidates)){
         if(-not(Test-Path -LiteralPath $candidate)){continue}
         if((Get-Item -LiteralPath $candidate).Attributes -band [IO.FileAttributes]::ReparsePoint){continue}
+        if($Identity -and -not(Test-ArcIAIdentityState $candidate)){continue}
         foreach($name in @('vmware-operation.dpapi','vmware.dpapi','instance.dpapi')){
             $path=Join-Path $candidate $name
             if(-not(Test-Path -LiteralPath $path)){continue}
@@ -31,9 +88,15 @@ function Get-ArcIAStateRoot {
             }catch{}finally{$value=$null}
         }
     }
-    $valid=@($valid|Select-Object -Unique)
-    if($valid.Count -gt 1){throw 'MULTIPLE_PROTECTED_ARCIA_STATES_REFUSED'}
+    # Windows paths are case insensitive, including MSIX aliases of one state.
+    $unique=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $valid=@($valid|Where-Object {$unique.Add([IO.Path]::GetFullPath($_).TrimEnd('\'))})
+    if($valid.Count -gt 1){
+        if($Identity -and $SelectLocally){return Select-ArcIAStateRootLocally -Candidates $valid}
+        throw 'MULTIPLE_PROTECTED_ARCIA_STATES_REFUSED'
+    }
     if($valid.Count -eq 1){return $valid[0]}
+    if($Identity){throw 'PROTECTED_ARCIA_IDENTITY_STATE_NOT_FOUND'}
     return $primary
 }
 

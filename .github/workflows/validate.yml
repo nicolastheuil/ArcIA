@@ -48,6 +48,8 @@ jobs:
       - shell: pwsh
         run: ./tests/Test-ProtectedState.ps1
       - shell: pwsh
+        run: ./tests/Test-IdentityState.ps1
+      - shell: pwsh
         run: ./tests/Test-Bootstrap.ps1
       - shell: pwsh
         run: ./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs

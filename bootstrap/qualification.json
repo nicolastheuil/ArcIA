@@ -1069,6 +1069,8 @@
       "sso_mode": "parallel_optional_broker",
       "admin_portal_path": "/admin/users",
       "account_portal_path": "/account",
+      "admin_access_script": "scripts/Show-IdentityAccess.ps1",
+      "state_selection": "complete_scoped_identity_local_choice",
       "lock": "bootstrap/identity.lock.json"
     }
   }

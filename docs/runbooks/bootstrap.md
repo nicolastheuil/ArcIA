@@ -18,6 +18,10 @@ fédérations ; elle refuse les rebinding ou credentials divergents.
 [Administration et limites](../identite-utilisateurs.md). Aucun tenant Microsoft
 ni SMTP n'est requis pour gérer les comptes locaux. Les comptes initiaux se
 consultent uniquement avec `Show-IdentityAccess.ps1`, dans le formulaire local.
+Ce script filtre les états complets et cohérents avec l'opération ; une ambiguïté
+restante se résout dans une fenêtre locale, sans choisir l'état le plus récent.
+Les commandes automatiques continuent à refuser plusieurs états. Ne pas effacer
+un état pour contourner ce contrôle. Voir la [procédure d'accès](../identite-utilisateurs.md#portails).
 
 Le contrat Microsoft 365 v1 est référencé par `configuration_contracts` dans
 le manifeste et `bootstrap/microsoft365.lock.json` (hashes des artefacts).

@@ -16,6 +16,10 @@ def validate(root=ROOT):
         if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':
             raise ValueError('BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED')
         identity_lock=json.loads((root/'bootstrap/identity.lock.json').read_text(encoding='utf-8'))
+        if contract.get('state_selection')!='complete_scoped_identity_local_choice' or contract.get('admin_access_script')!='scripts/Show-IdentityAccess.ps1':
+            raise ValueError('BOOTSTRAP_IDENTITY_ACCESS_CONTRACT')
+        if not {'scripts/ProtectedState.ps1','scripts/Show-IdentityAccess.ps1'}<=set(identity_lock['files']):
+            raise ValueError('BOOTSTRAP_IDENTITY_ACCESS_LOCK')
         for relative,digest in identity_lock['files'].items():
             content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
             if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_IDENTITY_LOCK_HASH')

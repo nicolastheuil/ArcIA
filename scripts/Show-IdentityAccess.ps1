@@ -3,10 +3,13 @@
 param([switch]$OpenPortal)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
-$root=Get-ArcIAStateRoot
+$root=Get-ArcIAStateRoot -Identity -SelectLocally
 $identity=(Read-ProtectedBundle (Join-Path $root 'identity.dpapi'))|ConvertFrom-Json
 $instance=(Read-ProtectedBundle (Join-Path $root 'instance.dpapi'))|ConvertFrom-Json
-if($identity.operation_id -ne $instance.operation_id){throw 'IDENTITY_ACCESS_SCOPE_CONFLICT'}
+$operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
+if(-not $operation.id -or $identity.operation_id -ne $instance.operation_id -or
+    $identity.operation_id -ne $operation.id){throw 'IDENTITY_ACCESS_SCOPE_CONFLICT'}
+$operation=$null
 $url='https://'+$instance.config.network.public_hostname+'/admin/users'
 if($OpenPortal){
     $browser=@((Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'),

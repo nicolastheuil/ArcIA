@@ -69,6 +69,21 @@ L'administrateur doit créer les admins nominatifs et traiter son compte initial
 
 ## Limites et lots suivants
 
+### Correction de l'accès depuis un terminal Windows
+
+Le retour utilisateur `MULTIPLE_PROTECTED_ARCIA_STATES_REFUSED` a montré que
+le helper du portail utilisait la découverte générique des états VMware.
+`Show-IdentityAccess` exige désormais un état d'identité complet, lié au même
+identifiant d'opération que l'instance et VMware. Les alias physiques MSIX sont
+dédupliqués sans sensibilité à la casse ; plusieurs états complets demandent
+un choix dans le formulaire local. L'automatisation reste fermée en cas
+d'ambiguïté. Aucun état privé, credential ni compte n'est modifié par ce correctif.
+La régression Windows DPAPI couvre les anciens états, les scopes incompatibles,
+les alias, le refus d'ambiguïté automatique et le choix explicite simulé. Le
+lock et le contrat du bootstrap incluent les deux scripts d'accès.
+
+### Fonctionnalités restant à qualifier
+
 La gestion d'un nombre arbitraire de **comptes** est native dans le portail.
 Le provisioning de nouveaux runtimes/PVC, ACL dynamiques de groupes, intégration
 réelle Entra et connecteurs Microsoft, SMTP, passkeys et délégation fine des
