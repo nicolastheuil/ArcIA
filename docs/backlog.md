@@ -9,6 +9,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | PREP-01 | Sources intégrales, inventaire, backlog/ADR | Réalisé ; documentation actualisée |
 | PREP-02 | Versions et artefacts épinglés | Images/hashes fixés ; support et lock de release incomplets |
 | PREP-03 | Wizard, DPAPI/ACL, configuration privée | Codé et utilisé ; export portable actuel à renouveler |
+| CI-01 | Import portable : test de rollback Windows | Échec `PUBLICATION_FAILURE_ROLLBACK_FAILED` sur la CI de `18d45ee`, reproduit sur `9d3654c` ; cause à diagnostiquer avant de déclarer la CI verte. [Résultats](etat-reprise.md#validation-du-nettoyage-documentaire) |
 | PREP-04 | SSH hors bande et préflight | Vérifié 3/3 |
 | PREP-05 | K3s trois serveurs | Déployé/vérifié ; wrappers et extraction au démarrage à revoir |
 | PREP-06 | Namespaces, quotas, comptes et réseau | Appliqué pour apps ; refus Hermes observés, admission métier à compléter |

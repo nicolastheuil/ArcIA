@@ -41,7 +41,7 @@ La clôture du 13 octobre concernait cette soirée ; elle reste archivée. Aucun
 
 ## Validation du nettoyage documentaire
 
-Exécuté localement : 74 Markdown suivis, 369 liens locaux et leurs ancres,
+Exécuté localement : 74 Markdown suivis, 370 liens locaux et leurs ancres,
 15 schémas Mermaid ; sources JSON Schema/YAML et hashes vérifiés sur une copie
 des seuls fichiers suivis. Couverture du bootstrap : 56 étapes, neuf composants
 et huit outils/catalogues. Six tests Python bootstrap et neuf tests du contrat
@@ -49,5 +49,13 @@ Microsoft 365 réussis ; contrôles PowerShell du bootstrap et Plan Fresh réuss
 Les tests Microsoft 365 ont été relancés avec un répertoire temporaire dans le
 workspace après un refus d’accès au Temp du sandbox Windows.
 Ces résultats ne comprennent aucune inspection ou réapplication du cluster,
-recette HA ou reconstruction neuve. La CI de ce lot se consulte dans GitHub
-sur sa révision ; les CI historiques restent liées à leurs propres commits.
+recette HA ou reconstruction neuve.
+
+[CI de la réorganisation `9d3654c`](https://github.com/nicolastheuil/arcia-harness/actions/runs/38533027839) :
+job `sources` réussi, incluant la suite Python complète, sources/Ansible,
+liens/ancres, couverture bootstrap et Mermaid. Job `powershell` en échec sur
+`Test-PortableState.ps1`, code `PUBLICATION_FAILURE_ROLLBACK_FAILED`.
+Le même échec est présent dans la
+[CI antérieure `18d45ee`](https://github.com/nicolastheuil/arcia-harness/actions/runs/38530048606).
+La cause reste à diagnostiquer ; le nettoyage documentaire ne la corrige pas
+et la CI complète n’est pas déclarée verte. Voir `CI-01` dans le backlog.
