@@ -1,4 +1,15 @@
-# État de reprise d’ArcIA — 13 octobre 2026
+# État de reprise d’ArcIA — 14 octobre 2026
+
+Export du poste administratif terminé et vérifié, sans modification du cluster :
+347 fichiers, dont les 254 bundles DPAPI inventoriés. Archive chiffrée et
+SHA-256 dans `secrets/local/`, hors Git ; synchronisation OneDrive à attendre.
+Conserver le projet OneDrive ; remplacer seulement l'ancien état local ArcIA
+hors OneDrive, via l'import explicite `-ReplaceExisting`. Lire le
+[handoff de transfert](handoff-2026-10-14-transfert-pc.md) et le
+[runbook](runbooks/transfert-second-pc.md). La restauration réelle sur le PC
+cible reste à exécuter ; les originaux du PC source sont conservés. Les
+contrôles courants sont dans `portable-export-status.json` et le fichier
+`arcia-private.arciap.sha256`, avec une date de vérification du 14 octobre.
 
 **Fin de session demandée par le propriétaire.** Reprendre avec le
 [handoff de clôture](handoff-2026-10-13-fin-session.md). Révision fonctionnelle

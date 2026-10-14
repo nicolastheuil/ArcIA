@@ -326,5 +326,15 @@
       "automatic_deletion": false,
       "source": "scripts/personal_cleanup.py"
     }
+  },
+  "portable_state": {
+    "contract_lock": "bootstrap/portable.lock.json",
+    "format": "ARCIAP01",
+    "cipher": "AES-256-GCM",
+    "kdf": "PBKDF2-SHA256",
+    "iterations": 1000000,
+    "status": "coded_synthetic_replacement_and_real_export_verified_target_restore_pending",
+    "automatic_restore": false,
+    "proof": "docs/qualification/2026-10-14-portable-state.json"
   }
 }

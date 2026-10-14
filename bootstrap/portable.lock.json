@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "format": "ARCIAP01",
+  "scope": "local_protected_arcia_enrollment",
+  "automatic_restore": false,
+  "files": {
+    "scripts/PortableState.ps1": "0c23fa6cfb82678c0adbecee68d094aa72a6f831bd91b1c15a29964ffac280e4",
+    "scripts/Manage-PortableState.ps1": "23052dbe15cb03730ad9d3d654ff5edd7872fc0b0b6194995f7fc137e472c96b",
+    "scripts/ProtectedState.ps1": "d01f8a4633f5a21a9601e1a052bb35257fb6511ffb1ef854bef210ffe63e13fb",
+    "tests/Test-PortableState.ps1": "3ce724dc7c37e576ed09191eb2897be56dc13241ebe675563f252252c73f9f14"
+  }
+}

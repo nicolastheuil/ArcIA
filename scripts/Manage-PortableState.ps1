@@ -1,21 +1,24 @@
 [CmdletBinding()]
-param([ValidateSet('Export','Import')][string]$Action='Export')
+param([ValidateSet('Export','Import')][string]$Action='Export',[switch]$ReplaceExisting)
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSVersion -lt [version]'7.4'){Write-Output 'POWERSHELL_7_4_OR_NEWER_REQUIRED';exit 2}
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 . (Join-Path $PSScriptRoot 'PortableState.ps1')
 $workspace=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $directory=Join-Path $workspace 'secrets/local';$archive=Join-Path $directory 'arcia-private.arciap'
-$localRoot=Get-ArcIAStateRoot
+$localRoot=$null
 try{
+    $localRoot=Get-ArcIAStateRoot
     $null=New-Item -ItemType Directory -Path $directory -Force
-    if((Get-Item -LiteralPath $directory).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_FOLDER_LINK_REFUSED'}
+    # OneDrive Cloud Files placeholders are expected here; actual filesystem
+    # redirections are refused. Plaintext state is still outside OneDrive.
+    if((Get-Item -LiteralPath $directory -Force).LinkType -in @('SymbolicLink','Junction')){throw 'PORTABLE_FOLDER_LINK_REFUSED'}
     & git -C $workspace check-ignore --quiet -- 'secrets/local/arcia-private.arciap'
     if($LASTEXITCODE -ne 0){throw 'PORTABLE_FOLDER_NOT_GIT_IGNORED'}
     Add-Type -AssemblyName System.Windows.Forms;Add-Type -AssemblyName System.Drawing
     $form=[Windows.Forms.Form]::new();$form.Text='ArcIA - Archive portable protegee';$form.ClientSize=[Drawing.Size]::new(830,400);$form.StartPosition='CenterScreen';$form.TopMost=$true
     $label=[Windows.Forms.Label]::new();$label.Location=[Drawing.Point]::new(15,15);$label.Size=[Drawing.Size]::new(800,100)
-    $label.Text=if($Action -eq 'Export'){'Archive complete dans secrets\local\arcia-private.arciap, exclue de Git. Tous les bundles DPAPI seront rendus transportables, avec cles SSH et fichiers references. Choisissez un mot de passe d''au moins 16 caracteres, conserve dans votre gestionnaire de mots de passe, jamais dans ce dossier ni le chat.'}else{'Restauration sur ce PC dans le dossier local protege ArcIA-Harness. Les bundles seront rechiffres pour votre compte Windows et les chemins adaptes. Aucun deploiement automatique. Refus si un etat local existe deja.'}
+    $label.Text=if($Action -eq 'Export'){'Archive complete dans secrets\local\arcia-private.arciap, exclue de Git. Tous les bundles DPAPI, cles SSH et fichiers references ; profils navigateur/caches exclus. Saisissez la cle de votre gestionnaire de mots de passe (au moins 16 caracteres), jamais dans le chat.'}elseif($ReplaceExisting){'Remplacement de l''ancien etat local ArcIA-Harness hors OneDrive. L''archive et le staging seront verifies avant de vider la cible ; aucune fusion avec les anciens secrets. Le dossier OneDrive est conserve. Aucun deploiement automatique.'}else{'Restauration sur ce PC dans le dossier local protege ArcIA-Harness. Les bundles seront rechiffres pour votre compte Windows et les chemins adaptes. Aucun deploiement automatique. Refus si un etat local existe deja.'}
     $form.Controls.Add($label)
     $boxes=@()
     for($i=0;$i -lt $(if($Action -eq 'Export'){2}else{1});$i++){
@@ -29,10 +32,13 @@ try{
             if($boxes[0].Text.Length -lt 16){$message.Text='Mot de passe d''au moins 16 caracteres requis.';return}
             if($Action -eq 'Export' -and $boxes[0].Text -cne $boxes[1].Text){$message.Text='Les deux saisies different.';return}
             $button.Enabled=$false;$message.Text='Archive et verification en cours. Patientez sans fermer cette fenetre...';$form.Refresh()
-            $result=if($Action -eq 'Export'){Export-PortableState $localRoot $workspace $archive $boxes[0].Text}else{Import-PortableState $archive $localRoot $workspace $boxes[0].Text}
+            $result=if($Action -eq 'Export'){Export-PortableState $localRoot $workspace $archive $boxes[0].Text}else{Import-PortableState $archive $localRoot $workspace $boxes[0].Text -ReplaceExisting:$ReplaceExisting}
+            if($Action -eq 'Export'){
+                [IO.File]::WriteAllText(($archive+'.sha256'),($result.archive_sha256+'  '+[IO.Path]::GetFileName($archive)+[Environment]::NewLine),[Text.UTF8Encoding]::new($false))
+            }
             [IO.File]::WriteAllText((Join-Path $directory 'portable-status.json'),($result|ConvertTo-Json),[Text.Encoding]::UTF8)
             foreach($box in $boxes){$box.Clear()}
-            $message.Text=if($Action -eq 'Export'){'Archive creee et relue integralement. Copiez tout le dossier de travail sur le second PC, puis lancez ce programme avec -Action Import. Gardez le mot de passe separement.'}else{'Etat restaure et protege pour ce compte Windows. Aucun deploiement lance.'};$form.Refresh()
+            $message.Text=if($Action -eq 'Export'){'Archive creee et relue integralement. Attendez sa synchronisation OneDrive. Sur le second PC : -Action Import -ReplaceExisting pour remplacer les anciens secrets locaux. Gardez la cle separement.'}else{'Etat restaure et protege pour ce compte Windows, chemins adaptes. Aucun deploiement lance.'};$form.Refresh()
         }catch{
             [IO.File]::WriteAllText((Join-Path $directory 'portable-status.json'),'{"status":"failed","code":"PORTABLE_OPERATION_FAILED"}')
             $message.Text='Operation interrompue : mot de passe, etat existant, fichier ou verification. Les originaux sont conserves.';$button.Enabled=$true

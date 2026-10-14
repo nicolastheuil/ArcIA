@@ -34,6 +34,69 @@ function Get-PortableDigest([byte[]]$Bytes){
 function Get-PortableKey([string]$Password,[byte[]]$Salt){
     return ,[Security.Cryptography.Rfc2898DeriveBytes]::Pbkdf2($Password,$Salt,1000000,[Security.Cryptography.HashAlgorithmName]::SHA256,32)
 }
+function Get-PortableSourceFiles([string]$Root){
+    if((Get-Item -LiteralPath $Root -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_SOURCE_LINK_REFUSED'}
+    $pending=[Collections.Generic.Queue[string]]::new();$pending.Enqueue($Root)
+    while($pending.Count){
+        $directory=$pending.Dequeue()
+        foreach($item in (Get-ChildItem -LiteralPath $directory -Force)){
+            if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_SOURCE_LINK_REFUSED'}
+            if($item.PSIsContainer){
+                # Browser cookies, sessions and caches are Windows/browser-bound,
+                # not the ArcIA enrollment. Never omit a DPAPI bundle silently.
+                if($directory -eq $Root -and $item.Name -match '(^|-)browser($|-)'){
+                    if(@(Get-ChildItem -LiteralPath $item.FullName -Recurse -File -Filter '*.dpapi' -Force).Count){throw 'PORTABLE_SECRET_IN_BROWSER_PROFILE_REFUSED'}
+                    continue
+                }
+                $pending.Enqueue($item.FullName)
+            }elseif($item.Extension -ne '.lock'){$item}
+        }
+    }
+}
+function Assert-PortableRestoreRoot([string]$Root,[string]$Workspace,[string]$Archive){
+    $rootPath=[IO.Path]::GetFullPath($Root).TrimEnd('\')
+    $workspacePath=[IO.Path]::GetFullPath($Workspace).TrimEnd('\')
+    if(-not [IO.Path]::GetFileName($rootPath) -or
+       $rootPath -eq [IO.Path]::GetPathRoot($rootPath).TrimEnd('\') -or
+       $rootPath -eq [IO.Path]::GetFullPath($env:USERPROFILE).TrimEnd('\') -or
+       $rootPath -eq [IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\') -or
+       [IO.Path]::GetFileName($rootPath) -in @('Windows','Program Files','Program Files (x86)','Users','AppData','Local','Packages')){throw 'PORTABLE_RESTORE_ROOT_SCOPE'}
+    foreach($protected in @($workspacePath,$env:OneDrive,$env:OneDriveCommercial,$env:OneDriveConsumer)){
+        if(-not $protected){continue}
+        $protected=[IO.Path]::GetFullPath($protected).TrimEnd('\')
+        if(($rootPath+'\').StartsWith($protected+'\',[StringComparison]::OrdinalIgnoreCase) -or
+           ($protected+'\').StartsWith($rootPath+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'PORTABLE_RESTORE_SYNC_OR_WORKSPACE_REFUSED'}
+    }
+    if(([IO.Path]::GetFullPath($Archive)).StartsWith($rootPath+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'PORTABLE_ARCHIVE_INSIDE_DESTINATION'}
+    $current=$rootPath
+    while($current){
+        if(Test-Path -LiteralPath $current){
+            if((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_DESTINATION_LINK_REFUSED'}
+        }
+        $current=[IO.Path]::GetDirectoryName($current)
+    }
+    return $rootPath
+}
+function Assert-PortableTreeWithoutLinks([string]$Root){
+    $pending=[Collections.Generic.Queue[string]]::new();$pending.Enqueue($Root)
+    while($pending.Count){
+        foreach($item in (Get-ChildItem -LiteralPath $pending.Dequeue() -Force)){
+            if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_REPLACEMENT_TREE_LINK_REFUSED'}
+            if($item.PSIsContainer){$pending.Enqueue($item.FullName)}
+        }
+    }
+}
+function Remove-PortableTemporaryTree([string]$Path,[string]$Root,[string]$Kind){
+    $checked=[IO.Path]::GetFullPath($Path);$rootPath=[IO.Path]::GetFullPath($Root).TrimEnd('\')
+    if($Kind -notin @('restore','previous') -or
+       $checked -notmatch ([regex]::Escape($rootPath+'.'+$Kind+'-')+'[a-f0-9]{32}$') -or
+       [IO.Path]::GetDirectoryName($checked) -ne [IO.Path]::GetDirectoryName($rootPath)){throw 'PORTABLE_TEMPORARY_DELETE_SCOPE'}
+    if(Test-Path -LiteralPath $checked){
+        if((Get-Item -LiteralPath $checked -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'PORTABLE_TEMPORARY_LINK_REFUSED'}
+        Assert-PortableTreeWithoutLinks $checked
+        Remove-Item -LiteralPath $checked -Recurse -Force
+    }
+}
 function Get-PortableStrings($Value){
     if($Value -is [string]){return $Value}
     if($Value -is [Collections.IDictionary]){foreach($v in $Value.Values){Get-PortableStrings $v};return}
@@ -99,7 +162,7 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
     $temporary=$null
     if($Password.Length -lt 16){throw 'PORTABLE_PASSWORD_TOO_SHORT'}
     $sourceRoot=[IO.Path]::GetFullPath($Source).TrimEnd('\')
-    $files=@(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Force|Where-Object {$_.Extension -ne '.lock'})
+    $files=@(Get-PortableSourceFiles $sourceRoot)
     if(-not $files.Count -or ($files|Measure-Object Length -Sum).Sum -gt 900MB){throw 'PORTABLE_SOURCE_SIZE_INVALID'}
     $physicalRoot=[ArcIAPortablePaths]::Resolve($sourceRoot)
     $included=@{};foreach($file in $files){$included[[ArcIAPortablePaths]::Resolve($file.FullName)]=[IO.Path]::GetRelativePath($sourceRoot,$file.FullName).Replace('\','/')}
@@ -156,19 +219,31 @@ function Export-PortableState([string]$Source,[string]$Workspace,[string]$Archiv
         $verified=Read-PortableArchive $temporary $Password
         try{$null=Get-PortableManifest $verified.bytes}finally{[Array]::Clear($verified.bytes)}
         foreach($name in $originals.Keys){if((Get-PortableDigest ([IO.File]::ReadAllBytes($name))) -ne $originals[$name]){throw 'PORTABLE_SOURCE_CHANGED_RETRY'}}
+        $currentFiles=@(Get-PortableSourceFiles $sourceRoot)
+        if(($currentFiles.FullName|Sort-Object|ConvertTo-Json -Compress) -cne ($files.FullName|Sort-Object|ConvertTo-Json -Compress)){throw 'PORTABLE_SOURCE_FILE_SET_CHANGED_RETRY'}
         if(Test-Path -LiteralPath $Archive){
             $previous=$Archive+'.previous';if(Test-Path -LiteralPath $previous){Remove-Item -LiteralPath $previous}
             [IO.File]::Replace($temporary,$Archive,$previous)
         }else{Move-Item -LiteralPath $temporary -Destination $Archive}
         return @{status='verified';code='PORTABLE_ARCHIVE_CREATED_AND_VERIFIED';file_count=$records.Count;
-            rebound_dpapi_count=@($records|Where-Object {$_.dpapi -eq $true}).Count;referenced_file_count=$references.Count;portable_across_windows_accounts=$true}
+            rebound_dpapi_count=@($records|Where-Object {$_.dpapi -eq $true}).Count;referenced_file_count=$references.Count;portable_across_windows_accounts=$true;
+            archive_sha256=(Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant();verified_at=[DateTime]::UtcNow.ToString('o');browser_profiles_included=$false}
     }finally{$memory.Dispose();if($temporary -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary}}
 }
-function Import-PortableState([string]$Archive,[string]$Destination,[string]$Workspace,[string]$Password){
-    $root=[IO.Path]::GetFullPath($Destination).TrimEnd('\')
-    if((Test-Path -LiteralPath $root) -and @(Get-ChildItem -LiteralPath $root -Force).Count){throw 'PORTABLE_DESTINATION_NOT_EMPTY'}
-    if((Test-Path -LiteralPath $root) -and ((Get-Item -LiteralPath $root).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'PORTABLE_DESTINATION_LINK_REFUSED'}
+function Import-PortableState([string]$Archive,[string]$Destination,[string]$Workspace,[string]$Password,[switch]$ReplaceExisting){
+    $root=Assert-PortableRestoreRoot $Destination $Workspace $Archive
+    $existing=Test-Path -LiteralPath $root
+    if($existing -and @(Get-ChildItem -LiteralPath $root -Force).Count -and -not $ReplaceExisting){throw 'PORTABLE_DESTINATION_NOT_EMPTY'}
+    if($existing){
+        Assert-PortableTreeWithoutLinks $root
+        if(@(Get-ChildItem -LiteralPath $root -Force).Count -and
+           -not(Test-Path -LiteralPath (Join-Path $root 'instance.dpapi')) -and
+           -not(Test-Path -LiteralPath (Join-Path $root 'vmware-operation.dpapi')) -and
+           -not(Test-Path -LiteralPath (Join-Path $root 'vmware.dpapi'))){throw 'PORTABLE_EXISTING_STATE_UNRECOGNIZED'}
+    }
     $stage=$root+'.restore-'+[guid]::NewGuid().ToString('N')
+    $previous=$root+'.previous-'+[guid]::NewGuid().ToString('N')
+    $published=$false;$movedPrevious=$false
     $data=Read-PortableArchive $Archive $Password
     try{
         $manifest=Get-PortableManifest $data.bytes
@@ -196,18 +271,33 @@ function Import-PortableState([string]$Archive,[string]$Destination,[string]$Wor
                 [Array]::Clear($bytes)
             }
         }finally{$zip.Dispose();$stream.Dispose()}
-        if(Test-Path -LiteralPath $root){[IO.Directory]::Delete($root,$false)} # Empty only; never erase existing state.
-        [IO.Directory]::Move($stage,$root)
-        return @{status='restored';code='PORTABLE_STATE_RESTORED_FOR_CURRENT_WINDOWS_USER';file_count=$manifest.files.Count;deployment_started=$false}
+        # Old data stays at the destination until the archive and staged files
+        # have been verified. Moving the old root empties the exact target before
+        # promotion, and permits rollback if publishing fails. No merge occurs.
+        $null=Assert-PortableRestoreRoot $root $Workspace $Archive
+        if(Test-Path -LiteralPath $root){
+            Assert-PortableTreeWithoutLinks $root
+            if(-not $ReplaceExisting -and @(Get-ChildItem -LiteralPath $root -Force).Count){throw 'PORTABLE_DESTINATION_CHANGED'}
+            [IO.Directory]::Move($root,$previous);$movedPrevious=$true
+        }
+        try{
+            [IO.Directory]::Move($stage,$root);$published=$true
+            foreach($file in $manifest.files){
+                $path=Join-Path $root $file.name
+                if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'PORTABLE_FINAL_READBACK_FAILED'}
+                if($file.dpapi){$null=(Read-ProtectedBundle $path)|ConvertFrom-Json -AsHashtable}
+            }
+        }catch{
+            if($published){[IO.Directory]::Move($root,$stage);$published=$false}
+            if($movedPrevious){[IO.Directory]::Move($previous,$root);$movedPrevious=$false}
+            throw
+        }
+        if($movedPrevious){Remove-PortableTemporaryTree $previous $root 'previous';$movedPrevious=$false}
+        return @{status='restored';code='PORTABLE_STATE_RESTORED_FOR_CURRENT_WINDOWS_USER';file_count=$manifest.files.Count;
+            replaced_existing_state=($existing -and [bool]$ReplaceExisting);old_state_removed=$existing;
+            merge_performed=$false;deployment_started=$false}
     }finally{
         [Array]::Clear($data.bytes)
-        # Exact generated staging directory, checked inside the explicitly named parent.
-        $checked=[IO.Path]::GetFullPath($stage)
-        if($checked.StartsWith($root+'.restore-',[StringComparison]::OrdinalIgnoreCase) -and
-            [IO.Path]::GetDirectoryName($checked) -eq [IO.Path]::GetDirectoryName($root) -and
-            (Test-Path -LiteralPath $checked) -and
-            -not ((Get-Item -LiteralPath $checked).Attributes -band [IO.FileAttributes]::ReparsePoint)){
-            [IO.Directory]::Delete($checked,$true)
-        }
+        Remove-PortableTemporaryTree $stage $root 'restore'
     }
 }

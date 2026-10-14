@@ -1303,6 +1303,24 @@
         "preservation": "all_remaining_bindings_and_pvcs",
         "recovery": "install_personal_portal_no_repeated_deletion"
       }
+    },
+    "portable_state": {
+      "lock": "bootstrap/portable.lock.json",
+      "program": "scripts/Manage-PortableState.ps1",
+      "export_action": "Export",
+      "import_action": "Import",
+      "archive": "secrets/local/arcia-private.arciap",
+      "archive_git_ignored": true,
+      "password_entry": "local_gui_only_never_chat",
+      "automatic_restore": false,
+      "replacement_flag": "-ReplaceExisting",
+      "replacement_scope": "local_arcia_state_outside_onedrive_only",
+      "workspace_preserved": true,
+      "validation_before_target_cleanup": true,
+      "merge_existing_state": false,
+      "rollback_on_publication_failure": true,
+      "browser_profiles_exported": false,
+      "documentation": "docs/runbooks/transfert-second-pc.md"
     }
   }
 }

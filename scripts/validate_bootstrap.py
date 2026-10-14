@@ -11,6 +11,22 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
+    portable=definition.get('configuration_contracts',{}).get('portable_state',{})
+    if (portable.get('lock')!='bootstrap/portable.lock.json' or
+            portable.get('automatic_restore') is not False or
+            portable.get('replacement_scope')!='local_arcia_state_outside_onedrive_only' or
+            portable.get('replacement_flag')!='-ReplaceExisting'):
+        raise ValueError('BOOTSTRAP_PORTABLE_STATE_CONTRACT')
+    portable_lock=json.loads((root/portable['lock']).read_text(encoding='utf-8'))
+    if lock.get('portable_state',{}).get('contract_lock')!=portable['lock']:
+        raise ValueError('BOOTSTRAP_PORTABLE_STATE_LOCK')
+    required_portable={'scripts/PortableState.ps1','scripts/Manage-PortableState.ps1',
+                       'scripts/ProtectedState.ps1','tests/Test-PortableState.ps1'}
+    if set(portable_lock.get('files',{}))!=required_portable:
+        raise ValueError('BOOTSTRAP_PORTABLE_STATE_COVERAGE')
+    for relative,digest in portable_lock['files'].items():
+        content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
+        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_PORTABLE_STATE_LOCK_HASH')
     if lock.get('identity',{}).get('enabled'):
         contract=definition.get('configuration_contracts',{}).get('identity',{})
         if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':
