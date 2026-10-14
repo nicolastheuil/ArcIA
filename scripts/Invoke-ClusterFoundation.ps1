@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup','install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access')][string]$Action='inspect',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256,
-    [string]$RecoveryUsername, [switch]$RepairUnqualifiedRouter)
+    [string]$RecoveryUsername, [switch]$RepairUnqualifiedRouter, [switch]$AuthorizePrivateRouterController, [switch]$AuthorizeAllPrivateRouterSources)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot
@@ -11,12 +11,19 @@ try{
     if($Action -notin @('inspect_cluster','inspect_vmware','inspect_k3s','inspect_vip','inspect','inspect_omniroute','read_omniroute_access','inspect_apps','inspect_hermes_tools','cleanup_failed_hermes_tools','inspect_knowledge','inspect_privacy','plan_identity_microsoft_egress','inspect_identity_microsoft_egress','plan_identity_access_repair','inspect_identity_access_policy','plan_personal_cleanup')){
         $lockStream=[IO.File]::Open((Join-Path $root 'cluster-operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::Write,[IO.FileShare]::None)
     }
-    $payload=@{action=$Action;private_root=$root};if($RepairUnqualifiedRouter){if($Action -ne 'install_omniroute'){throw 'ROUTING_REPAIR_ACTION_REQUIRED'};$payload.repair_unqualified_runtime=$true}
+    $payload=@{action=$Action;private_root=$root};if($AuthorizeAllPrivateRouterSources){if($Action -ne 'install_omniroute'){throw 'ROUTING_NETWORK_ENROLLMENT_ACTION_REQUIRED'};$payload.authorize_all_private_router_sources=$true};if($AuthorizePrivateRouterController){if($Action -ne 'install_omniroute'){throw 'ROUTING_NETWORK_ENROLLMENT_ACTION_REQUIRED'};$payload.authorize_private_router_controller=$true};if($RepairUnqualifiedRouter){if($Action -ne 'install_omniroute'){throw 'ROUTING_REPAIR_ACTION_REQUIRED'};$payload.repair_unqualified_runtime=$true}
     foreach($mapping in @(@('target','vmware-target.dpapi'),@('trust','ssh-trust.dpapi'),@('instance','instance.dpapi'))){
         $payload[$mapping[0]]=(Read-ProtectedBundle (Join-Path $root $mapping[1]))|ConvertFrom-Json
     }
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     $payload.operation_id=$operation.id
+    if($Action -in @('install_omniroute','verify_omniroute','read_omniroute_access','inspect_omniroute')){
+        $routingCertificate=Join-Path $root 'routing-ip-tls.dpapi'
+        if(Test-Path -LiteralPath $routingCertificate){
+            $payload.routing_ip_tls=(Read-ProtectedBundle $routingCertificate)|ConvertFrom-Json
+            if($payload.routing_ip_tls.operation_id -ne $operation.id){throw 'ROUTING_IP_TLS_SCOPE_CONFLICT'}
+        }
+    }
     if($Action -eq 'apply_personal_cleanup'){
         if(-not $AuthorizedRepairPlanSha256){throw 'PERSONAL_CLEANUP_EXPLICIT_NAMED_EXCEPTION_REQUIRED'}
         $payload.cleanup_plan=(Read-ProtectedBundle (Join-Path $root 'cluster-plan_personal_cleanup.dpapi'))|ConvertFrom-Json
@@ -165,3 +172,4 @@ try{
     [IO.File]::WriteAllText((Join-Path $root ('cluster-'+$Action+'-status.json')),'{"status":"blocked","code":"LOCAL_CLUSTER_ACTION_FAILED"}')
     exit 2
 }finally{$payload=$null;$response=$null;if($process){$process.Dispose()};if($lockStream){$lockStream.Dispose()}}
+exit 0

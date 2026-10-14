@@ -7,6 +7,7 @@ import subprocess
 import time
 
 NS='arcia-routing'
+LAN_NS='arcia-routing-lan'
 
 
 def kube(*args,document=None,timeout=90):
@@ -74,7 +75,7 @@ def native(operation,method,path,data=None):
 def inspect(values):
     op=values['operation_id'];owned('Namespace',NS,None,op)
     deployment=owned('Deployment','omniroute',NS,op)
-    lan=owned('DaemonSet','routing-lan',NS,op)
+    lan=owned('DaemonSet','routing-lan',LAN_NS,op)
     policy=json.loads(owned('ConfigMap','routing-policy',NS,op)['data']['policy.json'])
     return {'router_ready':deployment.get('status',{}).get('readyReplicas',0)==1,
         'lan_ready_nodes':lan.get('status',{}).get('numberReady',0),'lan_port':20129,'public_ingress_created':False,
@@ -93,6 +94,15 @@ def install(values):
             raise ValueError('QUALIFIED_ROUTER_REPAIR_REFUSED')
         repair=True
     apply(values['documents'],op)
+    # Remove only the owned, never-started relay from the initial PSA failure.
+    # No application workload, provider state or volume is touched.
+    old_lan=owned('DaemonSet','routing-lan',NS,op,True)
+    if old_lan:
+        if old_lan.get('status',{}).get('currentNumberScheduled',0)!=0:
+            raise ValueError('ACTIVE_ROUTING_RELAY_MIGRATION_REQUIRED')
+        kube('delete','daemonset','routing-lan','-n',NS,'--wait=true','--timeout=90s')
+        for kind,name in [('ConfigMap','routing-nginx'),('NetworkPolicy','lan-only'),('Secret','routing-tls')]:
+            if owned(kind,name,NS,op,True):kube('delete',kind,name,'-n',NS,'--wait=true','--timeout=90s')
     secret=owned('Secret','routing-credentials',NS,op,True)
     if not secret:
         credentials={key:secrets.token_urlsafe(48) for key in ('JWT_SECRET','INITIAL_PASSWORD')}
@@ -100,7 +110,16 @@ def install(values):
         apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'routing-credentials','namespace':NS},'type':'Opaque',
             'stringData':credentials}],op)
     tls=owned('Secret','pilot-tls','arcia-ingress',op)
-    apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'routing-tls','namespace':NS},'type':'kubernetes.io/tls','data':tls['data']}],op)
+    apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'routing-tls','namespace':LAN_NS},'type':'kubernetes.io/tls','data':tls['data']}],op)
+    if values['policy'].get('ip_https_enabled'):
+        ip_tls=owned('Secret','routing-ip-tls',LAN_NS,op,True)
+        supplied=values.get('ip_tls')
+        if supplied:
+            data={k:base64.b64encode(supplied[v].encode()).decode() for k,v in [('tls.crt','certificate_pem'),('tls.key','private_key_pem')]}
+            if ip_tls and ip_tls.get('data')!=data:raise ValueError('CONTROLLED_ROUTING_IP_TLS_ROTATION_REQUIRED')
+            if not ip_tls:apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'routing-ip-tls','namespace':LAN_NS},
+                'type':'kubernetes.io/tls','data':data}],op)
+        elif not ip_tls:raise ValueError('PROTECTED_ROUTING_IP_CERTIFICATE_REQUIRED')
     if repair:
         kube('scale','deployment/omniroute','-n',NS,'--replicas=0')
         kube('wait','--for=delete','pods','-l','app=omniroute','-n',NS,'--timeout=180s',timeout=200)
@@ -123,7 +142,7 @@ def install(values):
     # The initial password may have been changed by the administrator. Never
     # reset it or overwrite settings during reconciliation.
     if not previous:native(op,'PATCH','/api/settings',{'requireLogin':True})
-    kube('rollout','status','daemonset/routing-lan','-n',NS,'--timeout=300s',timeout=320)
+    kube('rollout','status','daemonset/routing-lan','-n',LAN_NS,'--timeout=300s',timeout=320)
     result=inspect(values)
     result.update(passed=result['router_ready'] and result['lan_ready_nodes']==3,credentials_preserved=bool(secret),
                   existing_volumes_preserved=bool(previous),providers_automatically_activated=False)
@@ -150,5 +169,21 @@ def access(values):
     return {'initial_password':base64.b64decode(credentials['data']['INITIAL_PASSWORD']).decode()}
 
 
+def network_policy(values):
+    op=values['operation_id']
+    if not owned('Namespace',NS,None,op,True):return {'lan_cidrs':[]}
+    current=owned('ConfigMap','routing-policy',NS,op,True)
+    policy=json.loads(current['data']['policy.json']) if current else {}
+    return {'lan_cidrs':policy.get('lan_cidrs',[]),'private_firewall_boundary':policy.get('private_firewall_boundary',False),
+        'ip_https_enabled':policy.get('ip_https_enabled',False)}
+
+
+def public_ip_certificate(values):
+    secret=owned('Secret','routing-ip-tls',LAN_NS,values['operation_id'])
+    return {'certificate_pem':base64.b64decode(secret['data']['tls.crt']).decode()}
+
+
 if __name__=='__main__':
-    print(json.dumps({'install_omniroute':install,'inspect_omniroute':inspect,'verify_omniroute':verify,'read_omniroute_access':access}[ARCIA_INPUT['action']](ARCIA_INPUT)))
+    print(json.dumps({'install_omniroute':install,'inspect_omniroute':inspect,'verify_omniroute':verify,
+        'read_omniroute_access':access,'read_omniroute_network':network_policy,
+        'read_omniroute_public_ip_certificate':public_ip_certificate}[ARCIA_INPUT['action']](ARCIA_INPUT)))

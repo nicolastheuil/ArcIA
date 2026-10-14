@@ -1,6 +1,8 @@
 # OmniRoute : routage, configuration et abonnements
 
-OmniRoute constitue le premier choix de routage d'ArcIA. Un utilisateur
+OmniRoute constitue le premier choix de routage d'ArcIA. Son portail privé
+est déployé et vérifié ; le raccordement générique de l'inférence reste à intégrer.
+Un utilisateur
 standard utilise toujours le mode intelligent/automatique choisi par
 l'administrateur ; il ne choisit ni destination libre, ni credential, ni
 repli depuis son prompt. Le budget, les fournisseurs et les exigences
@@ -27,11 +29,18 @@ que cette migration n'est pas qualifiée.
 
 ## Portail d'administration privé
 
-Namespace `arcia-routing`, Service interne `omniroute:20128` ; relais TLS LAN
-sur **20129**, filtré par les CIDR RFC1918 explicites du réseau cible.
+Namespace applicatif `arcia-routing` sous PSA restricted, Service interne
+`omniroute:20128` ; relais TLS LAN dans `arcia-routing-lan`
+sur **20129**, accessible par la **VIP HTTPS privée**. Le défaut filtre les
+CIDR RFC1918 explicites du réseau cible. Une instance dont les VM/VIP sont
+exclusivement LAN/VPN derrière son firewall peut autoriser explicitement toutes
+les IP sources : `-AuthorizeAllPrivateRouterSources` enregistre cette frontière
+privée dans sa politique, préservée à la réapplication. Ce choix ne publie
+aucun service sur Internet. L'authentification reste obligatoire.
 Le nom HTTPS de l'instance sert de SNI ; le navigateur administratif le résout
-vers un nÅ“ud privé. Aucun Ingress, LoadBalancer, NAT ou tunnel public n'est
-créé. Une connexion venant d'un autre réseau est refusée ; les chemins
+vers la VIP. Aucun Ingress, LoadBalancer, NAT ou tunnel public n'est
+créé. Avec le filtre CIDR par défaut, une connexion venant d'un autre réseau
+est refusée ; les chemins
 d'inférence du dashboard sont fermés sur ce relais de gestion.
 
 ```powershell
@@ -45,13 +54,43 @@ JWT, chiffrement du stockage, signature des API keys et mot de passe initial
 sont générés localement côté worker. Les valeurs ne sortent que par I/O
 protégée vers DPAPI et formulaire local. Changer le mot de passe initial
 dans le dashboard ; sa valeur nouvelle n'est pas récupérable par le helper.
-Vérifier le certificat et le DNS privé après renouvellement. Ajouter une
-éventuelle plage VPN/administrative par configuration contrôlée et vérifier
-sa route ; ne jamais élargir à `0.0.0.0/0`.
+Vérifier le certificat et le DNS privé après renouvellement. Une adresse
+administrative VPN privée peut être enrôlée seule avec
+`-AuthorizePrivateRouterController`, sur autorisation explicite. Une autorisation
+de toutes les sources exige la déclaration de frontière firewall privée ci-dessus ;
+elle n'est pas le défaut d'une nouvelle instance.
+
+### Accès HTTPS directement par IP
+
+Un certificat public pour le domaine ne couvre pas une VIP RFC1918. Le listener
+IP nécessite un certificat interne avec cette VIP dans son SAN, et une confiance
+explicite sur chaque poste client. Le domaine conserve son certificat public.
+Le listener IP accepte le Host de la VIP et refuse les autres noms ; le proxy
+conserve le port dans Host/Origin pour les contrôles d'authentification/CSRF.
+
+```powershell
+# Générer/enrôler le certificat IP sans modifier la confiance du poste
+./scripts/Enable-RoutingIpAccess.ps1
+# Seulement après accord de l'opérateur : confiance pour ce compte Windows
+./scripts/Enable-RoutingIpAccess.ps1 -TrustCurrentUser
+./scripts/Show-RoutingAccess.ps1 -OpenPortal -UseIp
+```
+
+La clé serveur reste dans `routing-ip-tls.dpapi` et le Secret TLS dédié ; seul
+le certificat public `.cer` est exporté. La confiance ne fait pas partie de
+Fresh/Reconcile ; aucun autre poste n'est modifié. Le certificat est valable
+un an et sa rotation exige une procédure contrôlée ; ni certificat ni clé
+existants ne sont régénérés silencieusement. Une autre instance peut fournir
+sa PKI interne après adaptation/qualification de l'enrôlement.
 
 Le dashboard natif donne une vue administrative globale des connexions.
 **Ne pas distribuer son mot de passe aux utilisateurs** : il ne fournit pas
 à lui seul la séparation de leurs comptes personnels.
+
+Le namespace du relais porte l'exception PSA nécessaire au hostPort, comme
+l'ingress HTTPS existant. Le routeur garde PSA restricted ; chaque conteneur
+du relais reste non-root, sans capacités, avec rootfs readonly et sans token
+Kubernetes. Cette exception ne donne aucun droit Kubernetes aux agents.
 
 ## Configuration de base administrateur
 
@@ -85,6 +124,36 @@ définissent les capacités natives. ArcIA ajoute ses propres contrôles de
 propriétaire et de sortie : une API key native ne remplace pas son RBAC.
 
 ## Entreprise et fournisseurs personnels
+
+### Capacités natives et responsabilité d'ArcIA
+
+Dans la version 3.8.51, l'unité de contrôle native est principalement **la clé
+API**, avec connexions autorisées, modèles/combos, quotas et réglages par clé.
+Les scopes self-service natifs `self:usage` et `self:account-quota` concernent
+la consultation de consommation/quota. Ils ne donnent pas le droit de créer
+une connexion fournisseur personnelle. L'API de création de providers utilise
+le contrôle de gestion ; une session dashboard authentifiée ou un token de
+gestion peut agir sur les connexions globales.
+
+Sources de la version épinglée :
+[permissions des clés](https://github.com/diegosouzapw/OmniRoute/blob/c1e30b7676975feb298b49eff6ff58923c04b89e/src/shared/validation/schemas/keys.ts),
+[scopes self-service](https://github.com/diegosouzapw/OmniRoute/blob/c1e30b7676975feb298b49eff6ff58923c04b89e/src/shared/constants/selfServiceScopes.ts),
+[contrôle des API de gestion](https://github.com/diegosouzapw/OmniRoute/blob/c1e30b7676975feb298b49eff6ff58923c04b89e/src/lib/api/requireManagementAuth.ts).
+
+ArcIA porte donc les comptes humains et leurs droits, et conserve OmniRoute
+comme routeur. Exemple : l'admin configure la chaîne d'entreprise et ses API
+keys ; tous les utilisateurs suivent cette chaîne automatique. Pour les seuls
+comptes `ArcIA.ProviderSelfService`, une page ArcIA permettra de saisir une clé
+personnelle par connexion HTTPS protégée. Le service vérifie rôle et identité,
+crée une connexion liée à ce propriétaire, émet une clé technique restreinte et
+applique un override borné. Il ne remet jamais le token global de gestion à
+l'utilisateur. La politique d'instance et Presidio cloud restent applicables.
+
+Ce parcours utilisateur n'est **pas encore implémenté**. La bibliothèque de
+sélection et ses contrôles de rôle/propriétaire sont présents ; ils ne doivent
+pas être présentés comme une interface de connexion personnelle opérationnelle.
+
+### Règles de connexion et de routage
 
 | Situation | Connexion et routage | Autorisation ArcIA |
 |---|---|---|
@@ -137,11 +206,14 @@ effectif. [Politique cloud et limites Presidio](confidentialite-cloud.md).
 
 ## Bootstrap, preuves et exploitation
 
-`bootstrap/routing.lock.json` couvre runtime, politique, renderer, worker et
-helper d'accès. Les contrôles rejettent dashboard public, absence du rôle
+`bootstrap/routing.lock.json` couvre runtime, politique, renderer, worker,
+helper d'accès et enrôlement TLS IP. Les contrôles rejettent dashboard public,
+ouverture de toutes les sources sans déclaration firewall privée, absence du rôle
 spécifique et sortie cloud sans défaut Presidio. Le [bootstrap](../runbooks/bootstrap.md)
 installe après Privacy, vérifie le service et les trois relais LAN, puis
-inspecte lors d'Audit. La vérification du portail n'exécute aucune inférence.
+inspecte lors d'Audit. La recette vérifie TLS/SNI et refus des routes de gestion,
+inférence et publication depuis le LAN et, si autorisé, le contrôleur et la VIP.
+La vérification du portail n'exécute aucune inférence et ne contourne pas TLS.
 
 Sauvegarder de manière cohérente le PVC des données et les secrets de
 chiffrement/signature dans le dispositif de sauvegarde de l'instance ; la

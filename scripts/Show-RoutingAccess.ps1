@@ -1,6 +1,6 @@
 # Show credentials only in a local Windows form; never return them to stdout.
 [CmdletBinding()]
-param([switch]$OpenPortal)
+param([switch]$OpenPortal,[switch]$UseIp)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ProtectedState.ps1')
 $root=Get-ArcIAStateRoot -Identity -SelectLocally
@@ -13,8 +13,9 @@ try{
     $operation=(Read-ProtectedBundle (Join-Path $root 'vmware-operation.dpapi'))|ConvertFrom-Json
     if($access.operation_id -ne $operation.id){throw 'ROUTING_ACCESS_SCOPE_CONFLICT'}
     if($access.hostname -notmatch '^[a-z0-9][a-z0-9.-]+[a-z0-9]$' -or $access.port -ne 20129){throw 'ROUTING_ACCESS_ENDPOINT_INVALID'}
-    $address=[Net.IPAddress]::Parse($access.node_address)
+    $address=[Net.IPAddress]::Parse($access.endpoint_address)
     $url='https://'+$access.hostname+':20129/dashboard'
+    if($UseIp){$url='https://'+$address.ToString()+':20129/dashboard'}
     if($OpenPortal){
         $browser=@((Join-Path ${env:ProgramFiles(x86)} 'Microsoft/Edge/Application/msedge.exe'),
             (Join-Path $env:ProgramFiles 'Microsoft/Edge/Application/msedge.exe'))|Where-Object {Test-Path -LiteralPath $_}|Select-Object -First 1

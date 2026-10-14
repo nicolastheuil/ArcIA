@@ -5,9 +5,10 @@
   "management_exposure": "private_lan_only",
   "files": {
     "services/routing/install.py": "f56db948da984a80e89d4a2f9ad9fd514f120dddcc1b8ed9631395ff295d37f2",
-    "services/routing/policy.py": "bf44542bab2b4afd8e19b4ad45fb59e728ef9f4caa020c65089208410b53dcfa",
-    "scripts/routing_deploy.py": "6b4fa2927295e140e73d4cc52d2a7f2122017e9a6e8d8b2f3b2a0723de370be5",
-    "scripts/node_routing.py": "0f59ad6c195657a5731287b294cc81241096937f8e6e948029d077320276f8f5",
-    "scripts/Show-RoutingAccess.ps1": "fb71edb9133ef42904917b119265e2560f0ea05ec823e5a860ebe9736a4ca471"
+    "services/routing/policy.py": "0c3b95219f861f258aefcb6989af01508045aa8a8f8f7b19fc5ac7400e5e6c50",
+    "scripts/routing_deploy.py": "b85873d8cbba0a35646d80d01738632634ad15d2cd7fe7cd4c7b53d934fda265",
+    "scripts/node_routing.py": "7ac8c70a5fcd428995abed77b58b97e83f8d2395b66a990014ad5cdc3e8d81ab",
+    "scripts/Show-RoutingAccess.ps1": "79f7d0fda3351f70567319dc4291666bc439670dd782b6d099d0a3f2ae021fb5",
+    "scripts/Enable-RoutingIpAccess.ps1": "dedbed06fd88ed835248af0f77c6b89630ba2554f96da71e266bc2d906c45243"
   }
 }

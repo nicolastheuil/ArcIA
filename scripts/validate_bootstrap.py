@@ -22,7 +22,7 @@ def validate(root=ROOT):
         raise ValueError('BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED')
     routing_lock=json.loads((root/routing['lock']).read_text(encoding='utf-8'))
     required_routing={'services/routing/install.py','services/routing/policy.py','scripts/routing_deploy.py',
-                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1'}
+                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1','scripts/Enable-RoutingIpAccess.ps1'}
     if set(routing_lock.get('files',{}))!=required_routing:raise ValueError('BOOTSTRAP_ROUTING_LOCK_COVERAGE')
     for relative,digest in routing_lock['files'].items():
         content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode()

@@ -587,7 +587,7 @@
       "success_codes": [
         "OMNIROUTE_PRIVATE_PORTAL_VERIFIED"
       ],
-      "timeout_seconds": 180,
+      "timeout_seconds": 420,
       "engine": "pwsh",
       "provision_only": false
     },
@@ -1386,7 +1386,14 @@
       "cost_and_zdr_owner": "instance",
       "installation_step": "install_omniroute",
       "verification_step": "verify_omniroute",
-      "inspection_step": "inspect_omniroute"
+      "inspection_step": "inspect_omniroute",
+      "management_endpoint": "private_https_vip",
+      "network_override": "explicit_private_firewall_boundary",
+      "ip_https": {
+        "enrollment_script": "scripts/Enable-RoutingIpAccess.ps1",
+        "secret_optional": "routing-ip-tls.dpapi",
+        "client_trust": "explicit_operator_current_user"
+      }
     }
   }
 }

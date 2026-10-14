@@ -78,12 +78,19 @@ portail si ces étapes n'ont pas déjà été exécutées par le bootstrap :
 ./scripts/Show-RoutingAccess.ps1 -OpenPortal
 ```
 
-Le helper ouvre `https://<domaine-instance>:20129/dashboard` vers une adresse
-privée de nÅ“ud, avec validation TLS conservée, et montre le mot de passe initial
+Le helper ouvre `https://<domaine-instance>:20129/dashboard` vers la VIP HTTPS
+privée, avec validation TLS conservée, et montre le mot de passe initial
 uniquement dans le formulaire local. Changer ce mot de passe dans OmniRoute.
-Pour les autres postes, résoudre ce nom vers le nÅ“ud privé sur le réseau
+Pour les autres postes, résoudre ce nom vers la VIP privée sur le réseau
 administratif, ou utiliser le helper avec VPN. **Ne créer aucun NAT, publication
 Internet, tunnel public ou règle d'Ingress publique pour ce port.**
+
+L'accès direct `https://<VIP>:20129/dashboard` est optionnel :
+`Enable-RoutingIpAccess.ps1` prépare un certificat interne avec SAN IP, sous
+protection locale, puis le déploie. Après accord de l'opérateur,
+`-TrustCurrentUser` installe uniquement ce certificat public pour son compte
+Windows. `Show-RoutingAccess.ps1 -OpenPortal -UseIp` ouvre ce parcours. Un autre
+poste doit établir sa propre confiance. [TLS IP et politiques LAN/VPN](../guides/omniroute.md#accès-https-directement-par-ip).
 
 Dans OmniRoute, préparer les connexions d'entreprise autorisées, leur
 authentification API/OAuth selon le fournisseur, puis le pool de modèles et

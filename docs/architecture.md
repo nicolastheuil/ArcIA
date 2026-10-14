@@ -4,9 +4,9 @@ Socle déployé sur une cible de qualification ; données synthétiques uniqueme
 
 ## Hébergement et disponibilité
 
-Trois VM Debian 13 amd64, paramètres initiaux 8 vCPU/32 Gio/150 Gio, réparties sur des ESXi distincts. K3s serveur/control-plane/etcd sur les trois nÅ“uds, containerd et Flannel VXLAN. Keepalived porte des VIP API/HTTPS privées. L’administration reste privée ; NGINX termine TLS et transmet au dashboard Hermes.
+Trois VM Debian 13 amd64, paramètres initiaux 8 vCPU/32 Gio/150 Gio, réparties sur des ESXi distincts. K3s serveur/control-plane/etcd sur les trois nœuds, containerd et Flannel VXLAN. Keepalived porte des VIP API/HTTPS privées. L’administration reste privée ; NGINX termine TLS et transmet au dashboard Hermes.
 
-La bascule contrôlée des VIP est vérifiée ; panne brutale de nÅ“ud, fencing et restauration complète restent à qualifier. Quorum etcd, réplication PostgreSQL et propriétaire SQLite unique sont des mécanismes distincts. Le datastore partagé demeure une dépendance commune.
+La bascule contrôlée des VIP est vérifiée ; panne brutale de nœud, fencing et restauration complète restent à qualifier. Quorum etcd, réplication PostgreSQL et propriétaire SQLite unique sont des mécanismes distincts. Le datastore partagé demeure une dépendance commune.
 
 ## Services, données et états
 
@@ -33,8 +33,8 @@ Le pool par défaut compte huit places ; le pilote a été porté à 32 par sa c
 | arcia-hermes | Hermes, outils, relais Context7 fermé | État Hermes 10 Gi RWOP ; outils 10 Gi readonly |
 | arcia-knowledge | Knowledge | Runtime/modèles 10 Gi readonly ; originaux/assets 20 Gi RWOP |
 | arcia-privacy | Presidio, cloud-egress, DNS statique | Runtime/modèles spaCy 5 Gi readonly ; secrets séparés |
-| arcia-routing | OmniRoute et relais TLS LAN 20129 | Runtime 5 Gi, données 5 Gi RWOP ; un écrivain ; raccordement générique à qualifier |
-| arcia-ingress | NGINX sur les trois nÅ“uds | Certificats protégés ; hostPort 443 vers 8443 non-root |
+| arcia-routing / arcia-routing-lan | OmniRoute restricted et relais TLS LAN 20129 isolé | Runtime 5 Gi, données 5 Gi RWOP ; un écrivain ; raccordement générique à qualifier |
+| arcia-ingress | NGINX sur les trois nœuds | Certificats protégés ; hostPort 443 vers 8443 non-root |
 
 La StorageClass utilise ext4, WaitForFirstConsumer, Retain et RWOP. Un seul propriétaire écrit chaque état Hermes. Les outils partagent l’image Hermes fixée par digest mais disposent de dépendances isolées. Les nouveaux modèles/documents ne sont pas téléchargés librement par l’agent.
 

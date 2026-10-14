@@ -8,15 +8,20 @@ AUTO_MODES={'auto','auto/smart','auto/coding','auto/fast','auto/cheap','auto/off
 
 
 def validate_admin_policy(value):
-    if set(value)-{'automatic_mode','lan_cidrs','personal_providers_enabled','personal_role'}:
+    if set(value)-{'automatic_mode','lan_cidrs','personal_providers_enabled','personal_role','private_firewall_boundary','ip_https_enabled'}:
         raise ValueError('ROUTING_POLICY_FIELDS')
     if value.get('automatic_mode') not in AUTO_MODES:raise ValueError('ADMIN_AUTO_MODE_REQUIRED')
     if value.get('personal_role',PERSONAL_ROLE)!=PERSONAL_ROLE:raise ValueError('PERSONAL_ROLE_REQUIRED')
     if not isinstance(value.get('personal_providers_enabled',False),bool):raise ValueError('PERSONAL_SWITCH_INVALID')
+    if not isinstance(value.get('private_firewall_boundary',False),bool):raise ValueError('FIREWALL_BOUNDARY_INVALID')
+    if not isinstance(value.get('ip_https_enabled',False),bool):raise ValueError('IP_HTTPS_FLAG_INVALID')
     cidrs=value.get('lan_cidrs',[])
     if not cidrs or len(cidrs)>32:raise ValueError('EXPLICIT_LAN_REQUIRED')
     private=[ipaddress.ip_network(n) for n in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')]
     for cidr in cidrs:
+        # Explicit instance/operator declaration: only private VM/VIP endpoints
+        # behind the LAN/VPN firewall; accept all source addresses there.
+        if cidr=='0.0.0.0/0' and value.get('private_firewall_boundary') is True:continue
         net=ipaddress.ip_network(cidr,strict=True)
         if net.version!=4 or not any(net.subnet_of(parent) for parent in private):raise ValueError('PRIVATE_LAN_ONLY')
     return value

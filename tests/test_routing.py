@@ -50,13 +50,25 @@ class RoutingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'PRIVATE_LAN'):policy.validate_admin_policy(dict(self.admin,lan_cidrs=[cidr]))
         with self.assertRaisesRegex(ValueError,'ADMIN_AUTO'):policy.validate_admin_policy(dict(self.admin,automatic_mode='paid/model'))
 
+    def test_all_sources_requires_explicit_private_firewall_boundary(self):
+        value=dict(self.admin,lan_cidrs=['0.0.0.0/0'])
+        with self.assertRaisesRegex(ValueError,'PRIVATE_LAN_ONLY'):policy.validate_admin_policy(value)
+        self.assertTrue(policy.validate_admin_policy(dict(value,private_firewall_boundary=True))['private_firewall_boundary'])
+        with self.assertRaisesRegex(ValueError,'PRIVATE_LAN_ONLY'):
+            policy.validate_admin_policy(dict(value,lan_cidrs=['8.8.8.0/24'],private_firewall_boundary=True))
+
     def test_private_renderer_has_no_public_ingress_or_hermes_bypass(self):
         lock=json.loads((ROOT/'versions.lock.yaml').read_text())
         config=json.loads((ROOT/'examples/synthetic/instance.json').read_text())
         payload=routing_deploy.payload(lock,config,self.admin['lan_cidrs'])
         docs=payload['documents']+[payload['deployment'],payload['lan'],payload['job']]
         self.assertFalse(any(d['kind']=='Ingress' or d['kind']=='Service' and d['spec'].get('type')=='LoadBalancer' for d in docs))
-        gateway=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name']=='routing-nginx')['data']['nginx.conf']
+        nginx=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name'].startswith('routing-nginx-'))
+        gateway=nginx['data']['nginx.conf']
+        self.assertTrue(nginx['immutable'])
+        self.assertIn('fastcgi_temp_path /tmp/fastcgi',gateway)
+        self.assertIn('uwsgi_temp_path /tmp/uwsgi',gateway)
+        self.assertIn('scgi_temp_path /tmp/scgi',gateway)
         self.assertIn('deny all;',gateway);self.assertIn('allow 192.168.40.0/24;',gateway)
         self.assertIn('return 403;',gateway)
         api=next(d for d in docs if d['kind']=='NetworkPolicy' and d['metadata']['name']=='omniroute-controlled')
@@ -64,6 +76,12 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(payload['deployment']['spec']['replicas'],1)
         self.assertEqual(payload['deployment']['spec']['strategy']['type'],'Recreate')
         self.assertFalse(payload['deployment']['spec']['template']['spec']['enableServiceLinks'])
+        namespaces={d['metadata']['name']:d['metadata']['labels']['pod-security.kubernetes.io/enforce'] for d in docs if d['kind']=='Namespace'}
+        self.assertEqual(namespaces['arcia-routing'],'restricted')
+        self.assertEqual(namespaces['arcia-routing-lan'],'privileged')
+        self.assertEqual(payload['lan']['metadata']['namespace'],'arcia-routing-lan')
+        relay=payload['lan']['spec']['template']['spec']['containers'][0]
+        self.assertEqual(relay['readinessProbe']['tcpSocket']['port'],8443)
 
     def test_foreign_resources_are_refused_before_apply(self):
         foreign={'metadata':{'annotations':{'arcia.io/operation-id':'other'}}}
@@ -71,6 +89,29 @@ class RoutingTests(unittest.TestCase):
         with patch.object(node_routing,'kube',return_value=json.dumps(foreign)) as kube:
             with self.assertRaisesRegex(ValueError,'FOREIGN_ROUTING_RESOURCE'):node_routing.apply([doc],'ours')
             self.assertEqual(kube.call_count,1)
+
+    def test_private_probe_refuses_public_address_before_any_connection(self):
+        with patch.object(routing_deploy.socket,'create_connection') as connect:
+            with self.assertRaisesRegex(ValueError,'PRIVATE_ROUTER_PROBE_TARGET_REQUIRED'):
+                routing_deploy.probe_lan('arcia.example.invalid',['192.168.40.1','192.168.40.2','8.8.8.8'])
+            connect.assert_not_called()
+
+    def test_ip_https_uses_a_private_vip_certificate_and_rejects_other_hosts(self):
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text());config=json.loads((ROOT/'examples/synthetic/instance.json').read_text())
+        result=routing_deploy.payload(lock,config,self.admin['lan_cidrs'],ip_https_vip='192.168.40.20')
+        nginx=next(d for d in result['documents'] if d['kind']=='ConfigMap' and d['metadata']['name'].startswith('routing-nginx-'))['data']['nginx.conf']
+        self.assertIn('server_name 192.168.40.20',nginx)
+        self.assertIn('ssl_certificate /ip-tls/tls.crt',nginx)
+        self.assertIn('if ($host != "192.168.40.20") { return 444; }',nginx)
+        pod=result['lan']['spec']['template']['spec']
+        self.assertIn('routing-ip-tls',{v.get('secret',{}).get('secretName') for v in pod['volumes']})
+        self.assertTrue(next(m for m in pod['containers'][0]['volumeMounts'] if m['name']=='ip-tls')['readOnly'])
+        self.assertTrue(result['policy']['ip_https_enabled'])
+
+    def test_public_vip_cannot_enable_private_ip_https(self):
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text());config=json.loads((ROOT/'examples/synthetic/instance.json').read_text())
+        with self.assertRaisesRegex(ValueError,'PRIVATE_ROUTING_VIP_REQUIRED'):
+            routing_deploy.payload(lock,config,self.admin['lan_cidrs'],ip_https_vip='8.8.8.8')
 
     def test_reconcile_preserves_credentials_and_does_not_reset_password(self):
         lock=json.loads((ROOT/'versions.lock.yaml').read_text());config=json.loads((ROOT/'examples/synthetic/instance.json').read_text())

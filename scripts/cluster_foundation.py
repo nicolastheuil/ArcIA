@@ -159,13 +159,63 @@ def collect(payload):
         target,nodes,base=transport(payload)
         config=harness.validate(payload['instance']['config'])
         lan=str(ipaddress.ip_interface(target['addresses'][0]).network)
+        previous=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),
+            {'action':'read_omniroute_network','operation_id':operation},root=True)
+        cidrs=list(dict.fromkeys(previous['lan_cidrs']+[lan]))
+        private_firewall=previous.get('private_firewall_boundary',False)
+        if payload.get('authorize_all_private_router_sources'):
+            if action!='install_omniroute':raise ValueError('ROUTING_NETWORK_ENROLLMENT_ACTION_REQUIRED')
+            private_firewall=True;cidrs=['0.0.0.0/0']
+        if payload.get('authorize_private_router_controller'):
+            if action!='install_omniroute':raise ValueError('ROUTING_NETWORK_ENROLLMENT_ACTION_REQUIRED')
+            source=b"import json,os;parts=os.environ.get('SSH_CONNECTION','').split();print(json.dumps({'peer_address':parts[0] if parts else None}))"
+            peer=guest(target,nodes[0],base,source,{},root=False)['peer_address']
+            if not peer:raise ValueError('PRIVATE_ROUTING_ADMIN_PEER_REQUIRED')
+            cidrs=list(dict.fromkeys(cidrs+[str(ipaddress.ip_network(peer+'/32',strict=True))]))
         lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
-        values={'action':action,'operation_id':operation,'repair_unqualified_runtime':payload.get('repair_unqualified_runtime',False),**routing_deploy.payload(lock,config,[lan])}
+        ip_tls=payload.get('routing_ip_tls')
+        vip=payload['instance']['endpoint_design']['https_ip']
+        if ip_tls and (ip_tls['operation_id']!=operation or ip_tls['vip']!=vip):raise ValueError('ROUTING_IP_TLS_SCOPE_CONFLICT')
+        ip_enabled=bool(ip_tls) or previous.get('ip_https_enabled',False)
+        values={'action':action,'operation_id':operation,'repair_unqualified_runtime':payload.get('repair_unqualified_runtime',False),
+            **routing_deploy.payload(lock,config,cidrs,private_firewall_boundary=private_firewall,ip_https_vip=vip if ip_enabled else None)}
+        if ip_tls and action=='install_omniroute':values['ip_tls']=ip_tls
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),values,root=True,timeout=2400)
         if action=='read_omniroute_access':
             return {'private':{'operation_id':operation,**result,'hostname':config['network']['public_hostname'],
-                'node_address':nodes[0]['address'],'port':20129},
+                'endpoint_address':payload['instance']['endpoint_design']['https_ip'],'port':20129},
                 'safe':{'status':'inspected','code':'OMNIROUTE_ACCESS_PROTECTED'}}
+        if action=='verify_omniroute':
+            import inspect
+            probe_source=('import json,ipaddress,http.client,socket,ssl\nPORT=20129\n'+
+                inspect.getsource(routing_deploy.probe_lan)+
+                "\nprint(json.dumps(probe_lan(ARCIA_INPUT['hostname'],ARCIA_INPUT['addresses'])))\n").encode()
+            probes=guest(target,nodes[0],base,probe_source,
+                {'hostname':config['network']['public_hostname'],'addresses':[n['address'] for n in nodes]},root=False,timeout=210)
+            result['passed']=result['passed'] and probes.pop('passed')
+            result.update(probes)
+            source=b"import json,os;parts=os.environ.get('SSH_CONNECTION','').split();print(json.dumps({'peer_address':parts[0] if parts else None}))"
+            peer=guest(target,nodes[0],base,source,{},root=False)['peer_address']
+            enrolled=bool(peer) and any(ipaddress.ip_address(peer) in ipaddress.ip_network(c) for c in cidrs)
+            result['controller_network_enrolled']=enrolled
+            result['controller_lan_access_verified']=False
+            if enrolled:
+                controller=routing_deploy.probe_lan(config['network']['public_hostname'],[n['address'] for n in nodes])
+                result['controller_lan_access_verified']=controller['passed']
+                result['passed']=result['passed'] and controller['passed']
+                vip=routing_deploy.probe_lan(config['network']['public_hostname'],[payload['instance']['endpoint_design']['https_ip']])
+                result['vip_https_dashboard_verified']=vip['tls_dashboard_nodes_verified']==1
+                result['vip_management_and_inference_denied']=vip['lan_management_denied_nodes']==1 and vip['lan_inference_denied_nodes']==1
+                result['vip_public_proxy_and_sync_denied']=vip['public_proxy_and_sync_denied_nodes']==1
+                result['passed']=result['passed'] and vip['passed']
+                if ip_enabled:
+                    certificate=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),
+                        {'action':'read_omniroute_public_ip_certificate','operation_id':operation},root=True)['certificate_pem']
+                    direct=routing_deploy.probe_lan(payload['instance']['endpoint_design']['https_ip'],
+                        [payload['instance']['endpoint_design']['https_ip']],trusted_certificate=certificate)
+                    result['vip_ip_https_verified']=direct['passed']
+                    result['ip_tls_validation_bypassed']=False
+                    result['passed']=result['passed'] and direct['passed']
         passed=result.get('passed',result.get('router_ready',False))
         return {'private':{'operation_id':operation,'result':result},'safe':{
             'status':'inspected' if action=='inspect_omniroute' else ('verified' if passed else 'blocked'),

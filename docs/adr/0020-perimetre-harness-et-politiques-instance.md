@@ -18,6 +18,13 @@ internes autorisés n’y passent pas par défaut ; une bascule cloud reprend le
 filtrage. Le portail OmniRoute est exclusivement privé sur le LAN et authentifié.
 Aucune route publique, tunnel ou publication NAT n’est autorisée.
 
+Complément du propriétaire : les VM de l'instance sont exclusivement LAN/VPN
+derrière son firewall ; toutes les IP sources du portail y sont autorisées
+sur instruction explicite. Ce choix d'instance est conservé, sans publication
+Internet. L'entrée est la VIP HTTPS ; accès IP optionnel avec SAN IP et confiance
+client explicite. Aucun secret/clé ni certificat de confiance d'un autre poste
+n'est changé par la réapplication.
+
 Teams est une entrée optionnelle par adaptateur authentifié appliquant les
 mêmes droits que le navigateur. Le quickstart couvre identité, configuration
 OmniRoute, premier usage et setup Teams.

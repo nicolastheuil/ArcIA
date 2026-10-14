@@ -231,7 +231,14 @@ OmniRoute est TLS, authentifié et limité aux CIDR LAN explicites sur 20129,
 sans Ingress public. Version et sources sont verrouillées dans
 `bootstrap/routing.lock.json`. Les clés et PVC existants sont préservés.
 La vérification du portail ne lance aucune requête modèle et refuse la gestion
-anonyme. Le hash du runtime protège contre une mise à jour automatique non
+anonyme. Elle teste également TLS/SNI, la VIP et le chemin IP optionnel sans
+désactiver la validation du certificat. L'enrôlement du certificat IP est
+optionnel via `Enable-RoutingIpAccess.ps1` ; sa confiance Windows nécessite
+le choix explicite `-TrustCurrentUser` et ne fait pas partie du bootstrap.
+L'autorisation de toutes les sources sur des VM/VIP uniquement LAN/VPN derrière
+firewall est un choix explicite d'instance, conservé à la réapplication ;
+le défaut générique reste le filtrage des CIDR privés déclarés.
+Le hash du runtime protège contre une mise à jour automatique non
 qualifiée. La réparation d'un premier démarrage échoué exige le switch
 administratif `-RepairUnqualifiedRouter`, refuse un runtime prêt ou déjà qualifié
 et une base SQLite existante ; aucune suppression de PVC ou rotation de clé.

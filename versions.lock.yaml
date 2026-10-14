@@ -67,7 +67,7 @@
       "source": "https://github.com/diegosouzapw/OmniRoute",
       "version": "3.8.51",
       "image_digest": null,
-      "status": "pinned_private_server_coded_not_deployed",
+      "status": "private_server_deployed_verified",
       "revision": "c1e30b7676975feb298b49eff6ff58923c04b89e",
       "runtime_image": "docker.io/nousresearch/hermes-agent@sha256:55e192fba0cd4fde61142abbff5adeacff40efdb482ccd0ff877924bd274f909"
     },
@@ -334,9 +334,11 @@
     "contract_lock": "bootstrap/routing.lock.json",
     "default_router": "omniroute",
     "management_public": false,
-    "status": "coded_private_portal_not_yet_deployed",
+    "status": "private_portal_deployed_verified",
     "default_mode": "auto/smart",
     "generic_inference_binding": "pending",
-    "personal_provider_role": "ArcIA.ProviderSelfService"
+    "personal_provider_role": "ArcIA.ProviderSelfService",
+    "ip_https": "optional_instance_certificate_explicit_client_trust",
+    "private_firewall_boundary": "explicit_instance_override_preserved"
   }
 }

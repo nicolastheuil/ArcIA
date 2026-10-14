@@ -14,7 +14,7 @@ Le socle est **déployé et partiellement vérifié en qualification**, sur troi
 | Identité | Keycloak local permanent, administration, portail personnel et SSO optionnel | Login Microsoft constaté sur le pilote ; groupes, restore, HA et recette SSO complète à qualifier |
 | Connaissance | RAG privé, PostgreSQL/pgvector, recherche hybride et reclassement multi-vecteur | Corpus synthétique ; OCR, import général, collecte et benchmark large à compléter |
 | Confidentialité | Presidio pour le cloud et relais authentifié ; pilote sous politique OpenRouter gratuit/ZDR | Détection imparfaite ; routes et politiques génériques d’instance à intégrer, dont modèles internes |
-| Routage | OmniRoute par défaut : mode auto administré, portail TLS privé et politique de droits codés | Raccordement générique de l'inférence et self-service fournisseur à intégrer/qualifier |
+| Routage | Portail OmniRoute privé déployé/vérifié sur la VIP ; HTTPS domaine/IP ; politique mode auto/rôle/propriétaire codée | Raccordement générique de l'inférence et self-service fournisseur à intégrer/qualifier |
 | Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé |
 | Infrastructure | K3s/etcd, CPI/CSI, CNPG, HTTPS et bascule contrôlée | Support des versions, fencing, reprise et renouvellement TLS automatique à terminer |
 | Intégrations | Contrat Microsoft 365 hors ligne et extension par MCP | Bot Teams, Graph métier, coffres, VPN et approbations serveur à développer |
@@ -101,7 +101,7 @@ Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programm
 
 | Chemin | Responsabilité |
 |---|---|
-| [`services/`](services/) | Services identité/portail, connaissance, confidentialité, isolation et skills |
+| [`services/`](services/) | Services identité/portail, routage, connaissance, confidentialité, isolation et skills |
 | [`scripts/`](scripts/) | Contrôleur PowerShell protégé, CLI Python, renderers, workers et sondes |
 | [`bootstrap/`](bootstrap/) | Parcours de qualification et locks de contrats |
 | [`infra/`](infra/) | Ansible Debian/K3s, image et spécification VMware |

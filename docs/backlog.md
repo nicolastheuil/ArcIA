@@ -9,7 +9,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | PREP-01 | Sources intégrales, inventaire, backlog/ADR | Réalisé ; documentation actualisée |
 | PREP-02 | Versions et artefacts épinglés | Images/hashes fixés ; support et lock de release incomplets |
 | PREP-03 | Wizard, DPAPI/ACL, configuration privée | Codé et utilisé ; récupération de plateforme à qualifier, transfert personnel entre PC hors périmètre |
-| CI-01 | Séparation du transfert personnel et de la plateforme | Scripts/test/lock/runbook/proof personnels retirés du dépôt et de la CI, copies locales conservées ; validation complète à confirmer sur GitHub |
+| CI-01 | Séparation du transfert personnel et de la plateforme | Scripts/test/lock/runbook/proof personnels retirés du dépôt et de la CI, copies locales conservées ; deux jobs GitHub réussis sur la livraison `e111ffc` |
 | PREP-04 | SSH hors bande et préflight | Vérifié 3/3 |
 | PREP-05 | K3s trois serveurs | Déployé/vérifié ; wrappers et extraction au démarrage à revoir |
 | PREP-06 | Namespaces, quotas, comptes et réseau | Appliqué pour apps ; refus Hermes observés, admission métier à compléter |
@@ -35,7 +35,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; le transfert personnel entre PC est hors projet |
 | L0-06 | Outils, catalogue, provenance/licences | Dans K3s ; 539 entrées upstream, 7 adaptations/orientations natives ; 55 sondes par runtime. RTK git log et Headroom JSON intégrés ; routage suivi sous ROUTE |
-| ROUTE-01 | OmniRoute premier routeur et portail de configuration LAN | Serveur épinglé, manifests, bootstrap, authentification et relais TLS LAN codés ; déploiement/recette en cours, voir état de reprise |
+| ROUTE-01 | OmniRoute premier routeur et portail de configuration LAN | Portail privé déployé/vérifié : serveur 1/1, relais 3/3, HTTPS VIP par domaine et IP ; confiance sur le PC explicitement autorisée ; raccordement d'inférence générique restant, voir état de reprise |
 | ROUTE-02 | Abonnements entreprise et overrides personnels autorisés | Bibliothèque mode/rôle/propriétaire/classe testée ; raccordement d'inférence, service de connexion, UI et révocation live à intégrer/qualifier |
 | ROUTE-03 | Politique d'instance et cloud/local | Presidio cloud par défaut ; gratuit/ZDR propres à l'instance ; routes Ollama/vLLM internes et repli filtré à qualifier |
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
