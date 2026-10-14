@@ -173,7 +173,7 @@ Utiliser l’image officielle résolue puis fixée par digest, un PVC propre et 
 
 Premiers essais uniquement synthétiques. Le backend de terminal local d’Hermes s’exécute dans le Pod, pas sur le nœud. Pas de montage de socket containerd/Docker ni clé SSH administrateur.
 
-Desktop distant utilise le backend dashboard, généralement sur 9119, pas l’API compatible OpenAI 8642. Pour les premiers tests, utiliser un accès privé/port-forward et une authentification de qualification ; pas de NAT public avant qualification de l'IAM et des sessions. La solution par défaut est l'identité locale Keycloak permanente ; Entra est optionnel. [Portail et procédures](identite-utilisateurs.md).
+Desktop distant utilise le backend dashboard, généralement sur 9119, pas l’API compatible OpenAI 8642. Pour les premiers tests, utiliser un accès privé/port-forward et une authentification de qualification ; pas de NAT public avant qualification de l'IAM et des sessions. La solution par défaut est l'identité locale Keycloak permanente ; Entra est optionnel. [Portail et procédures](guides/identite-utilisateurs.md).
 
 Une duplication de ce Pod avec le même état n’est pas un test de scaling autorisé.
 
@@ -230,4 +230,4 @@ Sources officielles consultées le 11 octobre 2026 :
 À la rédaction initiale du 11 octobre, ce guide était l’entrée du build. Le
 socle et ses scripts ont depuis été construits/déployés ; les services métier
 et la recette de reconstruction restent à réaliser. L’état courant est celui
-du [handoff](handoff-2026-10-12-qualification-verifiee.md).
+de l’[état de reprise](etat-reprise.md).

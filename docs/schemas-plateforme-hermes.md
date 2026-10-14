@@ -1,6 +1,6 @@
 # ArcIA — schémas explicatifs
 
-Les schémas 1–3 décrivent le socle actuellement déployé en qualification ; les schémas 4–5 décrivent des contrats cibles qui restent à intégrer. [Architecture](architecture.md) · [Partage](plateforme-arcia.md) · [Contrat complet](plan-integration-hermes.md).
+Les schémas 1–3 décrivent le socle actuellement déployé en qualification ; les schémas 4–5 décrivent des contrats cibles qui restent à intégrer. [Architecture](architecture.md) · [Partage](guides/plateforme-arcia.md) · [Contrat complet](plan-integration-hermes.md).
 
 ## 1. Composants du socle
 
@@ -69,7 +69,7 @@ Le mode streaming actuel restitue des événements SSE après réception de la r
 L'identification par défaut passe par Keycloak : comptes locaux permanents,
 portail d'administration et fédération SSO optionnelle en parallèle. Le
 raccordement des deux espaces synthétiques ne qualifie pas encore le
-provisioning général ni les ACL de groupes. [Identité](identite-utilisateurs.md).
+provisioning général ni les ACL de groupes. [Identité](guides/identite-utilisateurs.md).
 
 ```mermaid
 flowchart TB
@@ -84,7 +84,7 @@ flowchart TB
   KB --> PERSO[Documents personnels : propriétaire]
 ```
 
-Deux runtimes locaux distincts et une lecture « commun + personnel » existent en qualification synthétique. Le schéma reste une cible pour l’IAM central et les groupes. La [recette multi-utilisateur](multi-utilisateur.md) détaille les preuves et limites. Les agents délégués n’obtiennent pas des droits plus larges.
+Deux runtimes locaux distincts et une lecture « commun + personnel » existent en qualification synthétique. Le schéma reste une cible pour l’IAM central et les groupes. La [recette multi-utilisateur](guides/multi-utilisateur.md) détaille les preuves et limites. Les agents délégués n’obtiennent pas des droits plus larges.
 
 ## 5. Harness et instances
 

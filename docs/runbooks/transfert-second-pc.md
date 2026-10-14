@@ -103,8 +103,10 @@ ensuite la découverte de l'état complet, les références SSH/certificats et
 les accès de l'ingénieur. Les diagnostics privés restent sous DPAPI/ACL ;
 aucun dump de bundle, kubeconfig ou inventaire dans le chat.
 
-Lire le [handoff de transfert](../handoff-2026-10-14-transfert-pc.md), puis le
-[handoff fonctionnel de clôture](../handoff-2026-10-13-fin-session.md).
+Lire l’[état de reprise courant](../etat-reprise.md). Le
+[rapport de transfert](../archives/handoff-2026-10-14-transfert-pc.md) et la
+[clôture du 13 octobre](../archives/handoff-2026-10-13-fin-session.md)
+restent disponibles comme instantanés historiques.
 Ne pas régénérer les identités, VM, tokens ou volumes existants et ne pas
 rejouer un ancien plan destructif. Le bot Teams reste à créer après reprise
 explicite de ce travail.

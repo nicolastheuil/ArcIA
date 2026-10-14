@@ -10,6 +10,6 @@
     "schemas/microsoft365.schema.json": "723418ed4b8567ace42439cde143c871a06d0e3d1f5337d1d5ad8430fd3fa101",
     "examples/microsoft365/microsoft365.yaml": "64a7a6d621a117399c4cc06e2d8d46283a3ddf6f8d3f503f6f2b8c930aefdcb9",
     "scripts/microsoft365_config.py": "447a51518d921cc537dd25294e6d4b919c0ff3088cdf21b59d53dbbd39b04308",
-    "docs/annexes/integration-microsoft365.md": "707766fd26d08762aeea99e9989c0ba441ad166f397c9520463196b355626a0b"
+    "docs/annexes/integration-microsoft365.md": "ed87cfc05026bf5c4db4c8a37becdc53063bd49d4c8c6d9ebd92779a487a4a0b"
   }
 }

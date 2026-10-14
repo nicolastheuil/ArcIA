@@ -39,6 +39,7 @@ Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware av
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - Résultats distingués : proposé, codé, déployé, vérifié. Ne jamais annoncer un test non exécuté.
 - Maintenir un état de reprise en fichiers, sans dépendre de la mémoire du chat.
+- `docs/etat-reprise.md` est l’unique handoff courant, mis à jour en place ; ne pas créer de nouveaux `handoff-*.md`. Suivre `docs/organisation.md` et vérifier les liens avec `scripts/validate_docs.py`.
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 
 ## Bootstrap évolutif obligatoire

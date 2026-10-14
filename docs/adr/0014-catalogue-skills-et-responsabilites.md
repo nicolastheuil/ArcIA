@@ -62,7 +62,7 @@ chaque fichier texte. Les licences particulières sont référencées par entré
 leurs fichiers restent dans le miroir. Révision candidate → revue → tests → Job
 contrôlé → recettes des deux runtimes → livraison main. Aucun suivi flottant de
 main ni auto-update depuis une session utilisateur. Le rebuild neuf reste non
-exécuté. [Fonctionnement complet](../skills.md).
+exécuté. [Fonctionnement complet](../guides/skills.md).
 
 ## Sources primaires
 

@@ -27,4 +27,4 @@ Les incompatibilités de matrice de support demeurent visibles.
 
 La publication publique reste désactivée, même après émission éventuelle d’un
 certificat public. Voir [recette](../runbooks/recette-fondatrice.md),
-[TLS](../runbooks/certificats-dns.md) et [sécurité](../securite.md).
+[TLS](../runbooks/certificats-dns.md) et [sécurité](../guides/securite.md).

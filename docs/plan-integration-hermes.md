@@ -2,7 +2,7 @@
 
 Révision du 12 octobre 2026. Ce document décrit le **socle générique ArcIA**, distinct des usages et configurations de chaque organisation. Les noms de fichiers historiques contenant « hermes » sont conservés pour la stabilité des liens ; Hermes est un composant d’ArcIA.
 
-Les spécifications d’usage initiales ont été transférées dans l’archive du dépôt d’instance. Elles ne définissent plus le périmètre du harness. [Philosophie et partage](plateforme-arcia.md) · [Architecture déployée](architecture.md) · [État de reprise](etat-reprise.md).
+Les spécifications d’usage initiales ont été transférées dans l’archive du dépôt d’instance. Elles ne définissent plus le périmètre du harness. [Philosophie et partage](guides/plateforme-arcia.md) · [Architecture déployée](architecture.md) · [État de reprise](etat-reprise.md).
 
 ## 1. Finalité et périmètre
 
@@ -36,11 +36,11 @@ contrôlés côté serveur. Le portail `/portal/` attribue au premier login un
 espace vide dans un pool borné, à la clé issuer/subject et sans réaffectation
 d'un ancien état. Le rôle `ArcIA.User` est obligatoire. Les ACL de groupes,
 fédération réelle et restauration demandent des preuves distinctes.
-[Référence identité](identite-utilisateurs.md).
+[Référence identité](guides/identite-utilisateurs.md).
 
 ## 7. Partage et cloisonnement
 
-Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Le service Knowledge actuel impose un périmètre par token et FORCE RLS ; la lecture commun + personnel est qualifiée ; les groupes et ACL d’annuaire restent à développer. [Détails](plateforme-arcia.md#partage-et-cloisonnement).
+Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Le service Knowledge actuel impose un périmètre par token et FORCE RLS ; la lecture commun + personnel est qualifiée ; les groupes et ACL d’annuaire restent à développer. [Détails](guides/plateforme-arcia.md#partage-et-cloisonnement).
 
 ## 8. Agents et état
 
@@ -48,11 +48,11 @@ Hermes fournit profils, skills, mémoire et délégation. Ces primitives ne cons
 
 ## 9. Outils et connecteurs
 
-MCP expose des outils stdio/HTTP vérifiés et bornés. Les connecteurs propres à une organisation sont définis dans son dépôt d’instance. Permissions, destinations, versions, secrets, filtres de requêtes et résultats sont imposés avant activation. HubSpot/SharePoint sont des exemples d’intégration, pas des services déployés. [Guide MCP](connecteurs-mcp.md).
+MCP expose des outils stdio/HTTP vérifiés et bornés. Les connecteurs propres à une organisation sont définis dans son dépôt d’instance. Permissions, destinations, versions, secrets, filtres de requêtes et résultats sont imposés avant activation. HubSpot/SharePoint sont des exemples d’intégration, pas des services déployés. [Guide MCP](guides/connecteurs-mcp.md).
 
 ## 10. Confidentialité et cloud
 
-Tous les appels modèles passent par Presidio local, détecteurs supplémentaires et relais authentifié. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. La qualification autorise OpenRouter free, prix nul, ZDR et collecte interdite ; images, fichiers et formats opaques sont refusés. Les règles côté serveur ne sont pas modifiables dans un prompt. Détection imparfaite et résidence géographique doivent être évaluées selon les données. [Politique complète](confidentialite-cloud.md).
+Tous les appels modèles passent par Presidio local, détecteurs supplémentaires et relais authentifié. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. La qualification autorise OpenRouter free, prix nul, ZDR et collecte interdite ; images, fichiers et formats opaques sont refusés. Les règles côté serveur ne sont pas modifiables dans un prompt. Détection imparfaite et résidence géographique doivent être évaluées selon les données. [Politique complète](guides/confidentialite-cloud.md).
 
 ## 11. Routage et coûts
 
@@ -60,11 +60,11 @@ Cible : OmniRoute automatique → OpenRouter free → OpenRouter auto. Chaque br
 
 ## 12. Compression et caches
 
-RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des anonymiseurs. Hermes gère l’historique ; RTK raccourcit automatiquement git log simple et Headroom prévisualise les JSON du workspace. Les mesures et limites sont dans [tokenmaxing](tokenmaxing.md). Toute récupération d’original repasse par droits et filtre avant cloud. Pas de mémoire globale ni apprentissage automatique partagé. Les caches doivent être cloisonnés, bornés et révocables.
+RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des anonymiseurs. Hermes gère l’historique ; RTK raccourcit automatiquement git log simple et Headroom prévisualise les JSON du workspace. Les mesures et limites sont dans [tokenmaxing](guides/tokenmaxing.md). Toute récupération d’original repasse par droits et filtre avant cloud. Pas de mémoire globale ni apprentissage automatique partagé. Les caches doivent être cloisonnés, bornés et révocables.
 
 ## 13. Connaissance documentaire
 
-Le service privé conserve originaux, versions, provenance, empreintes, extraits et assets. PDF textuels, texte/Markdown, OpenAPI, JSON Schema, Mermaid/SVG/draw.io sont pris en charge dans les limites des parseurs. OCR et compréhension visuelle avancée sont différés. Les documents sont des données non fiables. [Pipeline complet](connaissance-documentaire.md).
+Le service privé conserve originaux, versions, provenance, empreintes, extraits et assets. PDF textuels, texte/Markdown, OpenAPI, JSON Schema, Mermaid/SVG/draw.io sont pris en charge dans les limites des parseurs. OCR et compréhension visuelle avancée sont différés. Les documents sont des données non fiables. [Pipeline complet](guides/connaissance-documentaire.md).
 
 ## 14. Recherche hybride et multi-vecteur
 
@@ -72,7 +72,7 @@ PostgreSQL full-text et deux vecteurs E5 par fragment produisent les candidats, 
 
 ## 15. Rôle de construction et catalogue
 
-Codex assure le build initial depuis AGENTS.md. Les sources sont versionnées : 539 entrées upstream dans un catalogue local, chargeur natif Hermes et sept adaptations/orientations. Vercel skills complète la découverte/import d’ingénierie. [Fonctionnement](skills.md). Les outils applicatifs sont installés dans K3s ; le poste ne porte que le contrôleur d’administration. [Catalogue et limites](outillage-builder.md).
+Codex assure le build initial depuis AGENTS.md. Les sources sont versionnées : 539 entrées upstream dans un catalogue local, chargeur natif Hermes et sept adaptations/orientations. Vercel skills complète la découverte/import d’ingénierie. [Fonctionnement](guides/skills.md). Les outils applicatifs sont installés dans K3s ; le poste ne porte que le contrôleur d’administration. [Catalogue et limites](guides/outillage-builder.md).
 
 ## 16. Actions externes
 

@@ -1,91 +1,53 @@
 # État de reprise d’ArcIA — 14 octobre 2026
 
-Export du poste administratif terminé et vérifié, sans modification du cluster :
-347 fichiers, dont les 254 bundles DPAPI inventoriés. Archive chiffrée et
-SHA-256 dans `secrets/local/`, hors Git ; synchronisation OneDrive à attendre.
-Conserver le projet OneDrive ; remplacer seulement l'ancien état local ArcIA
-hors OneDrive, via l'import explicite `-ReplaceExisting`. Lire le
-[handoff de transfert](handoff-2026-10-14-transfert-pc.md) et le
-[runbook](runbooks/transfert-second-pc.md). La restauration réelle sur le PC
-cible reste à exécuter ; les originaux du PC source sont conservés. Les
-contrôles courants sont dans `portable-export-status.json` et le fichier
-`arcia-private.arciap.sha256`, avec une date de vérification du 14 octobre.
+**Ce fichier est l’unique handoff courant.** Il remplace les consignes de reprise des [instantanés archivés](archives/README.md). Le [backlog](backlog.md) porte les travaux restants ; les [runbooks](README.md#exploitation) portent les procédures. Les résultats ci-dessous sont les dernières preuves consignées, sans nouvelle inspection du cluster pendant le nettoyage documentaire.
 
-**Fin de session demandée par le propriétaire.** Reprendre avec le
-[handoff de clôture](handoff-2026-10-13-fin-session.md). Révision fonctionnelle
-`1361605` publiée sur main, CI terminée avec succès. Aucun travail ni reprise
-automatique programmé pour ce soir ; services laissés en fonctionnement.
+## Référence et lot courant
 
-Mise à jour courante : sortie IPv4 publique TCP/443 Keycloak appliquée sur
-instruction explicite, filtrage des destinations au pare-feu amont. Snapshot
-`/32` retiré ; DNS courant, TLS Microsoft/Graph 4/4, HTTPS public et refus
-HTTP/80 vérifiés. Admin local nommé récupéré (`realm-admin` effectif), mapper
-tenant `ArcIA.User` appliqué sur exception limitée, rôle et espace d'un compte
-fédéré constatés. Nettoyage de l'unique espace d'un compte supprimé et de ses
-deux volumes autorisé par exception distincte ; deux comptes désactivés
-conservés, pool privé porté à 32 places pour trente collaborateurs. Voir le
-[handoff courant](handoff-2026-10-13-identity-public-https.md), qui remplace les
-états réseau et habilitation intermédiaires ci-dessous. Bot Teams à recréer ;
-identité administrative et cible Azure encore à enrôler localement.
+Dépôt privé `nicolastheuil/arcia-harness`, branche **main**. Dernière révision livrée avant ce lot : `18d45ee` (transfert administratif). Révision fonctionnelle du pilote : `1361605`, CI réussie selon la [clôture du 13 octobre](archives/handoff-2026-10-13-fin-session.md).
 
-Identité par défaut : comptes locaux permanents Keycloak, portail `/admin/users`,
-SSO optionnel en parallèle. Lire le [handoff identité](handoff-2026-10-13-identite.md)
-et [les procédures administrateur](identite-utilisateurs.md). Base dédiée et
-portail déployés sur la cible existante ; qualification synthétique, sans
-ouverture de données privées ni tenant Microsoft. Le lot remplace l'hypothèse
-d'une identité locale seulement temporaire.
+Lot courant : README synthétique, guides regroupés, 15 handoffs suivis et deux rapports historiques archivés, index complet et règles de maintenance. Les chemins imposés par AGENTS.md et les entrées techniques sont conservés. Aucun composant, version, secret requis, étape d’installation ou migration runtime ne change. Le runbook de bootstrap est aligné sur les 56 étapes existantes ; le hash documentaire Microsoft 365 est actualisé dans son lock après correction du lien vers le guide d’identité. Une validation des liens documentaires rejoint la CI. Les fichiers locaux non suivis préexistants restent en place et ne sont pas intégrés à la livraison.
 
-Complément : le point d'entrée `/portal/` crée automatiquement un espace
-personnel vide pour chaque nouvelle identité habilitée (`ArcIA.User`), dans
-un pool borné de huit places. Les anciens propriétaires synthétiques ont été
-supprimés dans le realm par l'administrateur ; leurs volumes et UUID liés
-restent conservés, sans transfert vers les nouveaux comptes. Voir
-[le handoff du portail](handoff-2026-10-13-portail-personnel.md).
+## Dernier état fonctionnel consigné
 
-Complément documentaire et de configuration :
-[handoff Microsoft 365](handoff-2026-10-13-microsoft365.md). Annexe admin et
-contrat YAML/validation hors ligne livrés ; aucun service Microsoft 365 actif,
-aucun tenant contacté. La qualification K3s précédente reste inchangée.
+| Domaine | Résultat acquis | Limite / prochaine vérification |
+|---|---|---|
+| Infrastructure | Trois serveurs K3s/VMware, CPI/CSI, CNPG/PostgreSQL, Hermes et HTTPS ; bascule contrôlée | Panne brutale, fencing, restore complet et rebuild neuf non qualifiés |
+| Knowledge / Privacy | RAG synthétique local, RLS, modèles locaux ; appel gratuit HTTP 200 sous ZDR/prix nul ; refus Internet/DNS depuis Hermes | Groupes, corpus large, OCR et collecte métier à compléter |
+| Skills / contexte | 539 entrées upstream, sept adaptations ; RTK et Headroom bornés ; 55 sondes par runtime | Context7 externe fermé, OmniRoute automatique différé ; aucune route payante |
+| Identité | Comptes locaux permanents, portail personnel, admin nommé récupéré ; rôle et espace d’un compte Microsoft relus | Login Microsoft confirmé par le propriétaire ; recette interactive complète, autre tenant, groupes et HA/restore à qualifier |
+| Réseau Keycloak | Sortie IPv4 publique TCP/443 configurée pour le pilote ; snapshot `/32` retiré ; TLS Microsoft/Graph 4/4 et refus HTTP/80 vérifiés | Filtrage des destinations au pare-feu amont ; IPv6 non qualifié ; défaut générique fermé |
+| Portail du pilote | Pool privé 32 places, trois liées et 29 libres au dernier relevé ; deux comptes désactivés conservés | Huit places par défaut dans le harness ; charge de trente utilisateurs non qualifiée |
+| Nettoyage d’espace | Un espace d’un compte absent et ses deux PVC/PV supprimés sur exception précise, puis place recréée vide ; autres bindings/volumes préservés | Ancien plan consommé : ne pas le rejouer ; nouvelle suppression = nouveau plan et autorisation |
+| Microsoft 365 métier | Annexe, contrat YAML, schéma et validation hors ligne codés | Bot Teams à créer ; identité administrative et cible Azure à enrôler localement ; Graph métier et approbations serveur absents |
 
-Authentification Microsoft : [diagnostic courant](handoff-2026-10-13-m365-auth-diagnostic.md).
-Redirection vers Microsoft vérifiée (HTTP 303) ; callback en erreur réseau dans
-les journaux récents, sans règle TCP/443 pour Keycloak. Correction non déployée,
-connexion complète non qualifiée ; preuves brutes protégées localement.
-Tests de routage exécutés : VM Microsoft IPv4/TLS 12/12, Pod Keycloak IPv4
-refusé avec compteur REJECT +4, DNS/PG OK, contrôle de sortie Pod TLS 2/2.
-IPv6 sans route sur les VM et Keycloak ; [preuves](qualification/2026-10-13-m365-routing.json).
-Correction suivante : [réparation réseau appliquée](handoff-2026-10-13-m365-egress-repair.md)
-sur exception administrative explicitement autorisée pour ce seul correctif.
-Règle Keycloak TCP/443 sur 14 IPv4 `/32`, TLS Microsoft/Graph 4/4 et refus
-hors liste vérifiés. Login Microsoft/MFA utilisateur encore à confirmer ;
-pas de refresh automatique ni de qualification SSO complète revendiquée.
-Suite : l'utilisateur confirme un login Microsoft fonctionnel sur le second PC.
-Récupération de son nouvel admin et admission automatique du tenant préparées,
-mais non appliquées avant l'exception d'élévation demandée ; capacité cinq places
-libres sur huit. Bot Teams à créer entièrement après reprise de ces accès.
-[État détaillé et demandes en attente](handoff-2026-10-13-tenant-admission-admin-recovery.md).
+Preuves : [skills et Verify du 13 octobre](qualification/2026-10-13-skills.json), [identité et portail](qualification/2026-10-13-portail-personnel.json), [réseau, admission et nettoyage](qualification/2026-10-13-identity-public-https.json). Les résultats à 25 étapes Reconcile, sept étapes Verify et 200 contrôles multi-utilisateur sont des recettes datées distinctes, pas une reconstruction complète. [Matrice et limites](runbooks/recette-fondatrice.md).
 
-Lire le [handoff courant](handoff-2026-10-13-skills-catalogue.md), puis le [socle précédent](handoff-2026-10-12-arcia-cloud-bootstrap.md). Travailler sur **main** ; ne pas créer de branche. `arcia-harness` contient la plateforme générique ArcIA ; les customisations d’organisation vivent dans leur dépôt d’instance distinct.
+## Transfert administratif
 
-Socle K3s/VMware, PostgreSQL, Hermes, outils et Knowledge opérationnels en qualification synthétique. Presidio et le relais cloud gratuit filtré sont déployés ; une réponse réelle HTTP 200 avec ZDR/prix nul a été obtenue. DNS externe et Internet direct depuis Hermes sont refusés ; Context7 externe reste fermé. OmniRoute est installé, son automatisation reste différée. Aucune autorisation payante.
+L’export du 14 octobre est terminé et vérifié : 347 fichiers opérationnels, dont les 254 bundles DPAPI inventoriés. Archive chiffrée et SHA-256 dans `secrets/local/`, hors Git. Les originaux du PC source sont conservés. La synchronisation effective OneDrive, la restauration de cet export et le nettoyage de l’état sur le PC cible restent à exécuter/confirmer.
 
-Le [bootstrap exhaustif](runbooks/bootstrap.md) porte les opérations jusqu’au point courant, avec couverture CI et journal protégé. La configuration runtime Hermes utilise une ConfigMap immuable par hash. Toute évolution doit être reportée dans bootstrap, locks, docs et tests avant livraison.
+Conserver le projet OneDrive et utiliser le programme versionné `Manage-PortableState.ps1 -Action Import -ReplaceExisting` selon le [runbook de transfert](runbooks/transfert-second-pc.md). La clé est saisie exclusivement dans le formulaire local. L’export administratif ne sauvegarde pas les bases/PVC et ne transporte pas les sessions personnelles. [Preuve assainie](qualification/2026-10-14-portable-state.json).
 
-La qualification multi-utilisateur locale a réussi sur deux identités synthétiques : 90 contrôles de corpus commun/personnels, sessions/historiques/exports, états et outils distincts, accès concurrents, refus croisés, redémarrages et déconnexion sans rejeu du cookie. Le rejeu de cookie et bearer après déconnexion est refusé. Le SSO, les groupes, le provisioning général et les connexions déjà ouvertes restent à qualifier. Voir [la recette multi-utilisateur](multi-utilisateur.md) et [la sécurisation complète](securisation-plateforme-donnees.md).
+## Ordre de reprise
 
-Secrets, inventaires et diagnostics complets restent sous DPAPI/ACL. Ne pas afficher de bundle/get secret/log brut. L’archive portable doit être renouvelée avant transfert. Rebuild neuf, restore complet et panne brutale/fencing restent des gates de release.
+1. Relire AGENTS.md et ses trois références, ce fichier et le backlog. Vérifier main et l’état Git ; examiner séparément les fichiers non suivis.
+2. Si reprise sur l’autre PC : confirmer archive/SHA-256 disponibles, restaurer selon le runbook et vérifier les bundles localement sans rendre leurs valeurs.
+3. Avant toute intervention sur le pilote, relire son état avec `inspect_identity_microsoft_egress`, `inspect_identity_access_policy` et `inspect_personal_portal` via les wrappers protégés. Une preuve historique n’autorise pas à sauter cette vérification.
+4. Suivre le backlog. Pour Teams/Azure, recueillir uniquement les accès manquants dans les programmes protégés ; aucune création Azure n’est déjà engagée.
+5. Pour une release : compléter backup/restore, fencing/perte de nœud, support des versions et reconstruction VMware neuve en mode sûr.
 
-[Historique](historique-qualification-2026-10-12.md) · [Backlog](backlog.md) · [Recette](runbooks/recette-fondatrice.md).
+La clôture du 13 octobre concernait cette soirée ; elle reste archivée. Aucune automation de reprise n’est programmée. Les exceptions humaines déjà consommées pour réseau/admin/nettoyage ne valent pas autorisation générale. Ne jamais afficher bundle, Secret, kubeconfig ou journal brut.
 
-Code courant qualifié : `ae07bd0a109a29b6c6a96df882e07b9c7965f8eb`, CI verte et Verify complet de 7 étapes réussi. 151 tests Linux, 55 contrôles d'outillage par runtime et 200 contrôles multi-utilisateur incluant les sondes des deux runtimes. [Preuves courantes](qualification/2026-10-13-skills.json). La réconciliation fondatrice à 25 étapes reste une preuve historique du 12 octobre ; aucun rebuild neuf n'est annoncé.
+## Validation du nettoyage documentaire
 
-Catalogue complet local : 539 entrées upstream, sept adaptations/orientations
-ArcIA, 58 skills Hermes embarquées exposées nativement. Découverte locale MCP et
-orientation par plugin natif ; aucun téléchargement depuis les conversations.
-Mémoire/délégation Hermes, pas d'apprentissage/mémoire ECC ni de proxy/mémoire
-Headroom. RTK automatique sur git log simple et borné ; Headroom automatique sur
-gros résultats JSON de lectures déclarées, avec originaux exacts dans un cache
-RAM privé borné, TTL de référence 5 minutes et exclusions RAG/skills/écritures.
-Voir [skills](skills.md), [tokenmaxing](tokenmaxing.md) et
-[crédits/licences](../THIRD_PARTY_NOTICES.md). Les MCP métiers restent à ajouter
-dans le dépôt d'instance avec leur propre recette.
+Exécuté localement : 74 Markdown suivis, 369 liens locaux et leurs ancres,
+15 schémas Mermaid ; sources JSON Schema/YAML et hashes vérifiés sur une copie
+des seuls fichiers suivis. Couverture du bootstrap : 56 étapes, neuf composants
+et huit outils/catalogues. Six tests Python bootstrap et neuf tests du contrat
+Microsoft 365 réussis ; contrôles PowerShell du bootstrap et Plan Fresh réussis.
+Les tests Microsoft 365 ont été relancés avec un répertoire temporaire dans le
+workspace après un refus d’accès au Temp du sandbox Windows.
+Ces résultats ne comprennent aucune inspection ou réapplication du cluster,
+recette HA ou reconstruction neuve. La CI de ce lot se consulte dans GitHub
+sur sa révision ; les CI historiques restent liées à leurs propres commits.

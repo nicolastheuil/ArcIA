@@ -3,6 +3,12 @@
 Statut : adopté pour la réparation ponctuelle autorisée le 13 octobre 2026 ;
 règle déployée et réseau vérifié, connexion utilisateur en attente de recette.
 
+Actualisation documentaire du 14 octobre : le snapshot `/32` ci-dessous est
+historique, remplacé sur le pilote par l’option explicite de sortie publique
+IPv4 TCP/443 et le filtrage amont. Consulter l’[état courant](../etat-reprise.md)
+avant toute reprise ; cet ADR conserve la décision et les limites du correctif
+initial et n’autorise pas sa réapplication.
+
 Les sondes réelles établissent une sortie IPv4/TLS fonctionnelle sur les trois
 VM et un refus des connexions Microsoft par la chaîne de politique de Keycloak.
 Les VM et ce Pod n'ont aucune route IPv6. Le réseau de l'organisation est en

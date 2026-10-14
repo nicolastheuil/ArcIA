@@ -25,4 +25,4 @@ La console native Keycloak couvre la gestion des comptes ; pas de second
 annuaire artisanal dans Hermes. Les deux runtimes existants servent à qualifier
 l'intégration ; la création de nouveaux runtimes et les ACL dynamiques sont des
 capacités séparées au backlog. HA et restore identité restent à qualifier.
-Voir [la documentation de référence](../identite-utilisateurs.md).
+Voir [la documentation de référence](../guides/identite-utilisateurs.md).

@@ -1,125 +1,107 @@
 # ArcIA — plateforme IA agentique d’entreprise
 
-**ArcIA associe des agents capables de collaborer, une connaissance documentaire privée et des outils pour consulter des systèmes ou produire des livrables.** La plateforme ne présuppose aucun métier : ce sont les données ingérées, les connecteurs et les droits configurés dans chaque instance qui déterminent ses usages. `arcia-harness` contient le socle réutilisable et son installation ; les adaptations d’une organisation vivent dans un dépôt d’instance distinct. [Périmètre et philosophie](docs/plateforme-arcia.md).
+**ArcIA réunit des agents Hermes, une connaissance documentaire privée et des outils contrôlés dans une plateforme réutilisable.** `arcia-harness` contient le code générique, le bootstrap et les procédures d’exploitation. Les usages, corpus, comptes, domaines et connecteurs d’une organisation appartiennent à son dépôt d’instance ; sa configuration sensible reste chiffrée, avec des clés externes.
 
-## Comment fonctionne ArcIA ?
+→ [Périmètre et principes](docs/guides/plateforme-arcia.md) · [Contrat complet](docs/plan-integration-hermes.md)
 
-**L'identification par défaut repose sur des comptes locaux permanents,
-administrés dans le portail utilisateurs Keycloak.** Entra ID et les autres
-SSO peuvent fonctionner en parallèle. Le portail `/admin/users` et le compte
-personnel `/account` font partie du socle. [Identité, administration et coexistence SSO](docs/identite-utilisateurs.md).
+## État du projet
 
-[Intégration Microsoft365](docs/annexes/integration-microsoft365.md) : annexe à
-remettre à l'administrateur du tenant pour Entra ID, bot Teams personnel,
-synthèses de réunions, SharePoint et Outlook ; contrat YAML d'instance sans secrets.
+Le socle est **déployé et partiellement vérifié en qualification**, sur trois VM Debian/K3s dans VMware avec stockage partagé. Les essais documentaires et d’isolation utilisent des fixtures synthétiques. **La release installable reste à qualifier** : reconstruction sur cluster neuf, sauvegarde/restauration complète, panne brutale et fencing sont encore ouverts.
 
-Une demande arrive au moteur d’agents Hermes. Celui-ci peut rechercher des sources, appeler des outils MCP, déléguer une partie du travail à des agents spécialisés et réunir les résultats. La réponse doit conserver ses références et ses incertitudes. Les permissions sont imposées par les services ; ni un document ni un agent ne peut s’octroyer des droits. Les actions externes sensibles nécessiteront une autorisation vérifiée côté serveur. [Fonctionnement et frontières](docs/plan-integration-hermes.md).
+| Domaine | Disponible | Limites principales |
+|---|---|---|
+| Agents | Hermes, dashboard, mémoire personnelle, délégation et outils | Un seul écrivain par état ; launcher de missions et kill switch à construire |
+| Identité | Keycloak local permanent, administration, portail personnel et SSO optionnel | Login Microsoft constaté sur le pilote ; groupes, restore, HA et recette SSO complète à qualifier |
+| Connaissance | RAG privé, PostgreSQL/pgvector, recherche hybride et reclassement multi-vecteur | Corpus synthétique ; OCR, import général, collecte et benchmark large à compléter |
+| Confidentialité | Presidio local, relais authentifié, OpenRouter gratuit/ZDR ; agents sans Internet direct | Détection imparfaite ; formats opaques refusés ; aucune route payante autorisée |
+| Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé ; OmniRoute automatique différé |
+| Infrastructure | K3s/etcd, CPI/CSI, CNPG, HTTPS et bascule contrôlée | Support des versions, fencing, reprise et renouvellement TLS automatique à terminer |
+| Intégrations | Contrat Microsoft 365 hors ligne et extension par MCP | Bot Teams, Graph métier, coffres, VPN et approbations serveur à développer |
+
+« Codé », « déployé » et « vérifié » désignent des résultats distincts. Les chiffres et preuves sont datés ; ils ne constituent pas une surveillance en temps réel.
+
+→ [État courant et prochaine reprise](docs/etat-reprise.md) · [Backlog](docs/backlog.md) · [Recette et gates de release](docs/runbooks/recette-fondatrice.md)
+
+## Architecture et parcours d’une demande
 
 ```mermaid
 flowchart LR
-  U[Utilisateur] --> E[Entrée HTTPS et identité]
-  E --> A[Hermes : agents et outils]
-  A --> R[RAG privé : sources et citations]
-  A --> M[Connecteurs MCP autorisés]
-  A --> P[Presidio et politique de sortie]
-  P --> G[Relais cloud contrôlé]
-  G --> L[Modèles autorisés]
-  R --> D[PostgreSQL et stockage privé]
+  U[Utilisateur] --> I[HTTPS, Keycloak et portail]
+  I --> H[Hermes : espace personnel]
+  H --> K[Knowledge : MCP et droits documentaires]
+  K --> D[PostgreSQL, index et originaux privés]
+  H --> T[Skills et outils autorisés]
+  H --> P[Presidio et politique de sortie]
+  P --> R[Relais authentifié]
+  R --> M[OpenRouter gratuit et ZDR]
 ```
 
-Le socle tourne dans **K3s sur trois VM Debian/VMware**. PostgreSQL/pgvector conserve la connaissance et ses index ; Hermes conserve son propre état sur un volume exclusif. Les outils applicatifs sont installés dans le cluster. Le poste sert uniquement à administrer le déploiement avec un état protégé. [Architecture et schémas](docs/architecture.md) · [Schémas détaillés](docs/schemas-plateforme-hermes.md).
+Les services imposent les droits avant recherche, téléchargement et appel d’outil. Les documents et résultats d’outils sont des données non fiables. Les agents délégués restent dans un périmètre borné. Hermes conserve son état sur un volume exclusif ; PostgreSQL réplique ses données indépendamment du quorum K3s. Les outils applicatifs tournent dans le cluster ; le poste porte le contrôleur d’administration protégé.
 
-## Outils et composants par catégorie
+→ [Architecture réelle et carte des composants](docs/architecture.md) · [Schémas détaillés, présent et cible](docs/schemas-plateforme-hermes.md)
 
-Chaque outil garde un rôle explicite. Les liens mènent à ses sources ; les [crédits et licences](THIRD_PARTY_NOTICES.md) détaillent les auteurs, notices et exceptions.
+## Utilisateurs, espaces et partage
 
-### Skills
+Les comptes locaux Keycloak sont permanents. `/admin/users` administre les utilisateurs, `/account` leur compte et `/portal/` attribue un espace vide au premier login autorisé par `ArcIA.User`. L’identité stable est `(issuer, subject)` ; conversations, état, outils et connexions restent personnels. Le pool est borné : huit places par défaut dans le harness, configuration distincte dans chaque instance. Une suppression de compte ne réaffecte pas automatiquement ses volumes.
 
-| Outil | Rôle | État |
-|---|---|---|
-| [Hermes skills](https://github.com/NousResearch/hermes-agent) | Compétences natives et optionnelles, chargement progressif | 212 entrées cataloguées, dont 58 embarquées exposées au chargeur natif |
-| [ECC](https://github.com/affaan-m/ECC) | Méthodes et compétences de nombreux domaines | 311 skills canoniques cataloguées ; mémoire/apprentissage ECC non activés |
-| [Superpowers](https://github.com/obra/superpowers) | Préparation, développement, diagnostic et vérification | 15 skills cataloguées ; sans hooks ni orchestrateur supplémentaire |
-| [Vercel skills](https://github.com/vercel-labs/skills) | Découverte et distribution dans l’écosystème ouvert | CLI installé ; workflow find-skills adapté à la recherche locale |
-| [LintLang](https://github.com/hermes-labs-ai/lintlang) | Analyse statique des instructions | Installé ; rapports, sans garantie d’efficacité ou de sécurité |
+Le RAG permet la lecture commune et personnelle avec contrôle serveur. Les ACL dynamiques de groupes restent à développer. Entra ID et les autres SSO s’ajoutent par brokering ; les comptes locaux restent disponibles.
 
-**539 entrées upstream sont recherchables localement**, puis leurs instructions et références sont chargées à la demande. Les sept adaptations/orientations ArcIA sont exposées nativement. Disponibilité ne signifie pas que chaque script, dépendance ou connecteur est opérationnel. Le catalogue ne transmet pas les demandes à GitHub. Un plugin natif guide automatiquement la découverte. Hermes conserve la mémoire personnelle et la délégation ; la connaissance commune reste dans le RAG. [Fonctionnement, choix et mises à jour des skills](docs/skills.md).
+→ [Comptes, portail et SSO](docs/guides/identite-utilisateurs.md) · [Partage et cloisonnement](docs/guides/plateforme-arcia.md#partage-et-cloisonnement) · [Recette multi-utilisateur](docs/guides/multi-utilisateur.md)
 
-### Tokenmaxing
+## Connaissance documentaire et connecteurs
 
-| Outil | Rôle | État |
-|---|---|---|
-| [RTK](https://github.com/rtk-ai/rtk) | Réduit les sorties CLI pour économiser du contexte | Automatique pour `git log` simple ; autres commandes explicites |
-| [Headroom](https://github.com/headroomlabs-ai/headroom) | Réduction de gros résultats JSON avant leur envoi au modèle | Automatique sur les lectures configurées ; récupération de l'original et outil de fichier personnel |
+L’ingestion locale conserve les originaux, empreintes, versions, provenance et périmètres. PDF textuels, texte/Markdown, OpenAPI, JSON Schema et schémas éditables alimentent la recherche. PostgreSQL full-text et vecteurs E5 produisent les candidats ; RRF puis MaxSim/mLateOn les classent. La réponse restitue les extraits autorisés avec leurs références. OCR et compréhension visuelle avancée restent différés.
 
-Hermes conserve la compaction de l'historique. Les mesures et les fonctions concurrentes écartées sont expliquées dans [Tokenmaxing](docs/tokenmaxing.md).
+Les MCP consultent des sources vivantes ou exposent des outils bornés ; le RAG indexe un corpus sélectionné. Chaque nouveau connecteur fixe version, destinations, outils, identité protégée et recette. Microsoft 365 dispose d’un contrat d’instance et d’une annexe administrateur ; ses services métier restent à construire.
 
-### Model Routing
+→ [Formats, ingestion, recherche et API](docs/guides/connaissance-documentaire.md) · [Guide des connecteurs MCP](docs/guides/connecteurs-mcp.md) · [Annexe Microsoft 365](docs/annexes/integration-microsoft365.md)
 
-| Composant | Rôle | État |
-|---|---|---|
-| [OmniRoute](https://github.com/diegosouzapw/OmniRoute) | Routage entre modèles et fournisseurs | Installé ; automatisation différée |
-| [OpenRouter](https://openrouter.ai/docs) | Accès aux modèles cloud | Route gratuite uniquement, via la passerelle filtrée ArcIA |
+## Modèles, confidentialité et sécurité
 
-### Agents, connaissance et confidentialité
+Les appels cloud passent par **Presidio → relais authentifié → OpenRouter**. Hermes ne reçoit aucune clé fournisseur et n’a ni Internet direct ni DNS général. La route de qualification impose gratuité, ZDR et collecte interdite ; une indisponibilité provoque un refus. OmniRoute est installé, son routage automatique et tout repli payant restent différés. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
 
-| Composant | Rôle | État |
-|---|---|---|
-| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | Conversations, outils, mémoire personnelle et délégation | Moteur et dashboard de qualification |
-| Knowledge ArcIA | Recherche documentaire privée, versions, sources et citations | Hybride et reclassement multi-vecteur ; corpus synthétique |
-| [PostgreSQL](https://github.com/postgres/postgres) | Base documentaire et contrôle des lignes par périmètre | Déployé avec réplication |
-| [pgvector](https://github.com/pgvector/pgvector) | Index vectoriels locaux | Déployé |
-| [Context7](https://github.com/upstash/context7) | Documentation de bibliothèques via MCP | Installé ; requêtes externes bloquées en attendant l’adaptateur filtrant |
-| [Presidio](https://github.com/microsoft/presidio) | Détection, pseudonymisation et retrait de secrets | Déployé avec filtres techniques et politique de sortie |
+DPAPI/ACL protège les entrées administratives du poste. Secrets, kubeconfigs et inventaires privés ne sont jamais transmis au modèle. Les actions externes sensibles exigent un plan et une approbation serveur ; l’intégration Teams correspondante reste à implémenter. La réplication et le stockage partagé doivent être complétés par des sauvegardes cohérentes.
 
-### Infrastructure et HTTPS
+→ [Politique cloud et limites](docs/guides/confidentialite-cloud.md) · [Frontières et preuves de sécurité](docs/guides/securisation-plateforme-donnees.md) · [Politique de sécurité](docs/guides/securite.md)
 
-| Composant | Rôle | État |
-|---|---|---|
-| [K3s](https://github.com/k3s-io/k3s) | Exécution de la plateforme | Trois VM Debian sur VMware |
-| [vSphere CSI](https://github.com/kubernetes-sigs/vsphere-csi-driver) | Volumes persistants et états exclusifs | Déployé ; panne brutale/fencing à qualifier |
-| [vSphere CPI](https://github.com/kubernetes/cloud-provider-vsphere) | Intégration des nœuds VMware | Déployé |
-| [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg) | Exploitation de PostgreSQL | Déployé |
-| [NGINX](https://github.com/nginx/nginx) | Entrée HTTPS | TLS actif |
-| [Certbot](https://github.com/certbot/certbot) | Certificats Let’s Encrypt | Installé ; renouvellement DNS manuel à automatiser |
+## Skills, outils et versions
 
-Installation, versions, limites et provenance : [outillage](docs/outillage-builder.md), [locks](versions.lock.yaml), [crédits et licences par outil](THIRD_PARTY_NOTICES.md). Aucun outil de compression ne remplace le filtrage de confidentialité.
+Le catalogue local contient 539 entrées upstream Hermes/ECC/Superpowers, 58 skills Hermes embarquées exposées au chargeur et sept adaptations/orientations ArcIA. Les instructions sont chargées à la demande ; chaque procédure garde ses dépendances et ses limites. Hermes porte la mémoire et la délégation. Vercel skills sert à la découverte/import d’ingénierie ; LintLang analyse les instructions.
 
-## Donner de la matière au RAG
+RTK raccourcit automatiquement `git log` simple. Headroom réduit les gros résultats JSON de lectures déclarées avec récupération de l’original dans un cache personnel borné. Context7 externe reste fermé jusqu’à qualification de son adaptateur filtrant.
 
-On sélectionne des PDF textuels, guides, spécifications OpenAPI, JSON Schema ou schémas éditables, puis on associe à chaque source **provenance, version et périmètre d’accès**. L’ingestion locale conserve l’original et son empreinte, extrait le contenu, découpe les passages et calcule les représentations de recherche. Une question retrouve des extraits autorisés avec leur page/opération, version et source ; les schémas originaux peuvent être téléchargés pour adaptation. [Formats, alimentation et API](docs/connaissance-documentaire.md).
+→ [Catalogue et mises à jour](docs/guides/skills.md) · [Tokenmaxing et mesures](docs/guides/tokenmaxing.md) · [Outillage et administration](docs/guides/outillage-builder.md) · [Versions et support](docs/guides/versions-officielles.md) · [Lock](versions.lock.yaml) · [Crédits et licences](THIRD_PARTY_NOTICES.md)
 
-Exemple : charger le guide PDF et la spécification OpenAPI d’un produit fictif, puis demander « Compare les paramètres de restauration entre les versions 1 et 2, avec les sources » ou « Retrouve le schéma d’architecture et prépare une adaptation ». Le parcours combine full-text, vecteurs titre/corps et **MaxSim multi-vecteur**. L’OCR des scans, la compréhension visuelle avancée et l’interface d’import générale restent à qualifier. [Choix et coûts](docs/connaissance-documentaire.md).
+## Installer, exploiter et reprendre
 
-## Brancher d’autres sources et outils MCP
-
-Un MCP expose des fonctions à l’agent : rechercher dans SharePoint, consulter HubSpot, lire une API interne, etc. On choisit un serveur ou un adaptateur vérifié, fixe sa version, limite ses outils, enregistre l’identité dans un stockage protégé, puis autorise uniquement les flux nécessaires. Ses résultats repassent par le filtre avant tout modèle cloud. Les connecteurs propres à une organisation se configurent dans son dépôt d’instance. [Guide MCP, exemples HubSpot/SharePoint et recette](docs/connecteurs-mcp.md).
-
-**MCP et RAG se complètent** : MCP interroge une source vivante ; le RAG indexe un corpus sélectionné et versionné. Un connecteur peut alimenter le RAG, mais la synchronisation et la reprise des droits doivent être développées explicitement. HubSpot/SharePoint ne sont pas installés dans le socle actuel.
-
-## Partager la connaissance sans partager tous les accès
-
-La cible sépare les **sources d’entreprise communes aux personnes habilitées**, les espaces restreints à un groupe et les espaces personnels. Les conversations, mémoires et connexions personnelles restent distinctes. Chaque recherche, téléchargement, outil et cache doit respecter les droits côté serveur ; un agent délégué hérite d’un périmètre borné. [Modèle de partage et de cloisonnement](docs/plateforme-arcia.md#partage-et-cloisonnement).
-
-**Aujourd’hui :** comptes locaux permanents Keycloak, administration dans `/admin/users` et espace personnel vide attribué automatiquement au premier login via `/portal/`. Le pool est borné, avec états/outils/volumes propres et refus croisés. Le rôle `ArcIA.User` est requis. SSO d’entreprise, ACL de groupes, restore et HA restent à qualifier ; les recettes utilisent des données synthétiques. [Administration et fonctionnement](docs/identite-utilisateurs.md).
-
-## Modèles cloud et confidentialité
-
-Les appels passent par **Presidio → relais authentifié → OpenRouter**, sans clé fournisseur dans Hermes, sans Internet direct ni DNS libre depuis ses agents. La qualification autorise seulement `openrouter/free`, avec ZDR, collecte interdite et plafond de prix nul ; aucune bascule payante. Images, fichiers encodés et payloads non pris en charge sont refusés. Presidio réduit les risques de fuite mais ne garantit pas une anonymisation exhaustive. [Politique, filtres et limites](docs/confidentialite-cloud.md).
-
-La protection combine identités, sessions, états séparés, droits documentaires serveur, segmentation réseau et filtrage du contexte. Les secrets, historiques, originaux et sauvegardes ont des exigences distinctes. [Sécurisation de la plateforme et des données : frontières, preuves et limites](docs/securisation-plateforme-donnees.md).
-
-La trajectoire de routage est OmniRoute automatique → OpenRouter free → OpenRouter auto, toujours sous la même politique. L’automatisation et le dernier repli payant restent différés ; un fournisseur indisponible ou non conforme provoque un refus.
-
-## Installer, vérifier et reprendre
-
-Le bootstrap couvre les VM/fondations, K3s, VMware CSI, PostgreSQL, Hermes, connaissance, outils, filtrage et vérifications. Il s’arrête à la première erreur et conserve un journal protégé. Secrets, domaines et inventaires réels restent hors Git en clair. [Procédure complète, prérequis et reprise](docs/runbooks/bootstrap.md).
+Le point d’entrée est `scripts/Bootstrap-Harness.ps1`, piloté par les 56 étapes de `bootstrap/qualification.json`. **Fresh** prépare une cible vierge désignée ; **Reconcile** réapplique la cible possédée en préservant identités et volumes ; **Verify** exécute les recettes ; **Audit** inspecte. Le bootstrap vérifie les résultats de l’exécution courante, journalise sous protection et s’arrête à la première erreur.
 
 ```powershell
+# Découvrir le parcours sans déploiement
 ./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs
-./scripts/Bootstrap-Harness.ps1 -Mode Apply -Profile Reconcile
-./scripts/Bootstrap-Harness.ps1 -Mode Verify
-./scripts/Show-PilotAccess.ps1
 ```
 
-Les livraisons vont directement sur `main`. La réconciliation du cluster existant est testée ; **rebuild sur cluster neuf, sauvegarde/restauration complète et panne brutale restent des gates de release**. [État de reprise](docs/etat-reprise.md) · [Backlog](docs/backlog.md) · [Documentation complète](docs/README.md).
+Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programmes locaux protégés. La cible d’exploitation est K3s/VMware ; Compose/Kilo restent des options de laboratoire. Un transfert du poste administratif conserve des bundles protégés ; le restore des bases et volumes suit une procédure distincte.
+
+→ [Bootstrap : prérequis, modes et reprise](docs/runbooks/bootstrap.md) · [Installation K3s/Codex](docs/installation-k3s-codex.md) · [Exploitation](docs/runbooks/exploitation-qualification.md) · [Certificats](docs/runbooks/certificats-dns.md) · [Sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md) · [Transfert de poste](docs/runbooks/transfert-second-pc.md)
+
+## Carte du dépôt et contribution
+
+| Chemin | Responsabilité |
+|---|---|
+| [`services/`](services/) | Services identité/portail, connaissance, confidentialité, isolation et skills |
+| [`scripts/`](scripts/) | Contrôleur PowerShell protégé, CLI Python, renderers, workers et sondes |
+| [`bootstrap/`](bootstrap/) | Parcours de qualification et locks de contrats |
+| [`infra/`](infra/) | Ansible Debian/K3s, image et spécification VMware |
+| [`deploy/`](deploy/README.md) | Fondations statiques, manifests fournisseurs et skills embarquées |
+| [`builder/`](builder/role.md) | Rôle d’ingénierie, catalogue, dépendances et licences d’outillage |
+| [`schemas/`](schemas/) / [`examples/`](examples/) | Contrats de configuration et fixtures synthétiques |
+| [`tests/`](tests/) / [`validation/`](validation/) / [`.github/workflows/`](.github/workflows/) | Tests de frontières, validation des sources, liens et schémas, CI |
+| [`docs/`](docs/README.md) | Références, guides, runbooks, ADR, preuves et archives historiques |
+| `versions.lock.yaml` / `requirements*` | Versions, digests et dépendances fixées |
+
+Les répertoires locaux `secrets/`, `artifacts/`, les environnements virtuels et caches sont ignorés par Git. Ils ne font pas partie du dépôt GitHub.
+
+Lire [AGENTS.md](AGENTS.md) avant toute modification. Les livraisons vont sur `main`. Chaque évolution technique actualise bootstrap, locks, couverture, runbooks et état de reprise. Un seul état de reprise est maintenu ; les anciens handoffs restent dans les archives et ne définissent pas la cible courante.
+
+→ [Organisation, règles documentaires et validation locale](docs/organisation.md) · [Index complet de documentation](docs/README.md) · [Décisions ADR](docs/README.md#decisions) · [Travaux restants](docs/backlog.md)

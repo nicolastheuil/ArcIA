@@ -42,18 +42,18 @@ enregistrée dans `identity-access-policy.dpapi`, si elle existe. Il exige le
 tenant attendu et le mapper `ArcIA.User` FORCE ; aucune élévation n'est rejouée
 par Audit. Les actions plan/apply de récupération nommée et d'admission du
 tenant sont administratives, hors parcours automatique. Voir
-[récupération et admission](../identite-utilisateurs.md#récupération-dun-administrateur-et-admission-automatique-du-tenant).
+[récupération et admission](../guides/identite-utilisateurs.md#récupération-dun-administrateur-et-admission-automatique-du-tenant).
 `verify_identity_access` exerce le login OIDC réel, les refus croisés et la
 suspension/révocation centrale sur les deux propriétaires synthétiques.
 La réapplication conserve identités, passwords/MFA, volumes, clients et
 fédérations ; elle refuse les rebinding ou credentials divergents.
-[Administration et limites](../identite-utilisateurs.md). Aucun tenant Microsoft
+[Administration et limites](../guides/identite-utilisateurs.md). Aucun tenant Microsoft
 ni SMTP n'est requis pour gérer les comptes locaux. Les comptes initiaux se
 consultent uniquement avec `Show-IdentityAccess.ps1`, dans le formulaire local.
 Ce script filtre les états complets et cohérents avec l'opération ; une ambiguïté
 restante se résout dans une fenêtre locale, sans choisir l'état le plus récent.
 Les commandes automatiques continuent à refuser plusieurs états. Ne pas effacer
-un état pour contourner ce contrôle. Voir la [procédure d'accès](../identite-utilisateurs.md#portails).
+un état pour contourner ce contrôle. Voir la [procédure d'accès](../guides/identite-utilisateurs.md#portails).
 
 `install_personal_portal` prépare le pool borné et le contrôleur à `/portal/` ;
 les runtimes sont arrêtés et leurs Jobs suspendus jusqu'à allocation au premier
@@ -144,7 +144,7 @@ Si une VM vient de démarrer et n’est pas prête, attendre sa disponibilité p
 
 La CI compare manifeste, components du lock, outils, features activées et dossiers services. Ajouter un service sans bootstrap fait échouer la validation. Les tests vérifient ordre, arrêt sur erreur, reprise et refus d’une instance étrangère. Les profils Plan n’exigent aucun secret.
 
-Le manifeste compte 48 étapes, dont cinq pour l’identité permanente. La réconciliation fondatrice du 12 octobre a réussi ses 25 étapes sélectionnées ; un Audit a également réussi sur le cluster existant. Le lot skills du 13 octobre a réussi les installations/réapplications d'outillage des deux runtimes puis les 7 étapes de Verify sur la révision publiée, avec 55 contrôles d'outillage par runtime et 200 contrôles multi-utilisateur agrégés. Les preuves datées distinguent ces parcours. **Aucun cluster neuf complet n’a encore été reconstruit.** Backup/restore cohérent des bases/corpus, fencing brutal, compatibilité/support de release, verrouillage de certains paquets système et renouvellement DNS automatisé restent des gates. Git + bootstrap reconstruisent le logiciel avec les entrées protégées requises ; ils ne restaurent pas les données perdues sans backup.
+Le manifeste courant compte 56 étapes ; les recettes ci-dessous portent sur des profils et révisions datés. La réconciliation fondatrice du 12 octobre a réussi ses 25 étapes sélectionnées ; un Audit a également réussi sur le cluster existant. Le lot skills du 13 octobre a réussi les installations/réapplications d'outillage des deux runtimes puis les 7 étapes de Verify sur la révision publiée, avec 55 contrôles d'outillage par runtime et 200 contrôles multi-utilisateur agrégés. Les preuves datées distinguent ces parcours. **Aucun cluster neuf complet n’a encore été reconstruit.** Backup/restore cohérent des bases/corpus, fencing brutal, compatibilité/support de release, verrouillage de certains paquets système et renouvellement DNS automatisé restent des gates. Git + bootstrap reconstruisent le logiciel avec les entrées protégées requises ; ils ne restaurent pas les données perdues sans backup.
 
 À chaque évolution : modifier locks/renderers/worker et manifeste, compléter recette/tests/docs, exécuter les vérifications pertinentes, livrer sur main puis conserver la référence du commit. Une instance spécifique fixe cette révision dans son propre dépôt et ajoute son bootstrap de customisations.
 
@@ -159,9 +159,9 @@ runtime. Les révisions existantes, identités, états et PVC sont conservés.
 Le feature lock `tokenmaxing` et la configuration native portent aussi la
 réduction automatique des résultats JSON de lecture et le cache d'originaux
 privé, avec tests de restauration, bornes et exclusions.
-Voir [skills](../skills.md), [tokenmaxing](../tokenmaxing.md) et
+Voir [skills](../guides/skills.md), [tokenmaxing](../guides/tokenmaxing.md) et
 [crédits](../../THIRD_PARTY_NOTICES.md). Les résultats historiques à 43 étapes
-restent datés ; les nouvelles preuves sont dans le handoff du 13 octobre.
+restent datés ; les dernières références sont dans [l’état de reprise](../etat-reprise.md).
 
 ## Sortie HTTPS Keycloak et nettoyage explicite des espaces
 
@@ -205,3 +205,14 @@ Si le nettoyage est fini mais la réapplication échoue, utiliser
 Ne pas rejouer le plan de suppression d'avant l'échec. Les plans, résultats
 intermédiaires et diagnostics restent sous DPAPI/ACL. Ce nettoyage ne supprime
 pas les sauvegardes et ne revendique pas d'effacement physique sécurisé.
+
+## Maintenance documentaire
+
+Le [handoff courant](../etat-reprise.md) est mis à jour en place à chaque lot ;
+ne pas créer une nouvelle chaîne de transmissions. Les guides sont dans
+`docs/guides/`, les recettes datées dans `docs/qualification/` et les anciennes
+transmissions dans `docs/archives/`. Le nettoyage du 14 octobre conserve
+les 56 étapes, les contrats et les locks runtime ; aucune réapplication ni
+reconstruction neuve ne découle du déplacement documentaire. Vérifier
+`python scripts/validate_docs.py` avec les autres contrôles de sources.
+Voir les [règles d’organisation](../organisation.md).

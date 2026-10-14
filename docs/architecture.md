@@ -1,6 +1,6 @@
 # Architecture d’ArcIA
 
-Socle déployé sur une cible de qualification ; données synthétiques uniquement. [Vue produit](plateforme-arcia.md), [schémas](schemas-plateforme-hermes.md), [recette](runbooks/recette-fondatrice.md) et [état de reprise](etat-reprise.md) distinguent le présent des fonctions cibles.
+Socle déployé sur une cible de qualification ; données synthétiques uniquement. [Vue produit](guides/plateforme-arcia.md), [schémas](schemas-plateforme-hermes.md), [recette](runbooks/recette-fondatrice.md) et [état de reprise](etat-reprise.md) distinguent le présent des fonctions cibles.
 
 ## Hébergement et disponibilité
 
@@ -15,7 +15,7 @@ utilisateurs est exposé en HTTPS privé sur `/admin/users`, avec un compte
 personnel sur `/account`. Le namespace `arcia-identity` héberge Keycloak et sa
 base CNPG dédiés. Les deux runtimes existants ont un client OIDC et un
 propriétaire distincts ; les SSO s'ajoutent par brokering sans remplacer les
-comptes locaux. [Administration et limites](identite-utilisateurs.md).
+comptes locaux. [Administration et limites](guides/identite-utilisateurs.md).
 
 Le namespace `arcia-access` porte le portail `/portal/`, point d'entrée de la
 racine du domaine. Un contrôleur unique attribue au premier login un emplacement
@@ -24,7 +24,7 @@ RWOP, clients et tokens propres ; les runtimes arrêtés et Jobs suspendus sont
 préparés par le bootstrap. Le contrôleur peut seulement modifier le binding,
 reprendre le Job fixé et scaler deux déploiements précis. Les agents n'ont
 aucun ServiceAccount. Un compte supprimé conserve son ancien espace réservé.
-Le pool par défaut compte huit places ; HA et restore ne sont pas qualifiés.
+Le pool par défaut compte huit places ; le pilote a été porté à 32 par sa configuration privée. HA, charge complète et restore ne sont pas qualifiés. Les derniers résultats sont dans [l’état de reprise](etat-reprise.md).
 
 | Namespace | Composants | État et stockage |
 |---|---|---|
@@ -39,7 +39,7 @@ La StorageClass utilise ext4, WaitForFirstConsumer, Retain et RWOP. Un seul prop
 
 ## Requête et réseau
 
-Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Les appels modèles passent à Presidio puis à un relais portant seul la clé OpenRouter. Le relais valide attestation, anti-rejeu et politique gratuite/ZDR avant TLS vers sa destination fixée. [Contrôles et limites](confidentialite-cloud.md).
+Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Les appels modèles passent à Presidio puis à un relais portant seul la clé OpenRouter. Le relais valide attestation, anti-rejeu et politique gratuite/ZDR avant TLS vers sa destination fixée. [Contrôles et limites](guides/confidentialite-cloud.md).
 
 Hermes utilise un DNS statique interne sans forwarding ; Internet direct, DNS général et accès direct au relais sont refusés. Context7 reste installé mais ne peut plus transmettre des requêtes externes non filtrées. Ajouter un MCP demande une autorisation réseau et une recette spécifiques. Les Jobs d’installation peuvent télécharger leurs artefacts HTTPS publics ; ils sont supprimés avant activation du volume runtime RWOP.
 
@@ -58,6 +58,7 @@ Le rendu Hermes conserve configuration, outils, MCP, DNS et passerelle cloud lor
 | scripts/Bootstrap-Harness.ps1 / BootstrapEngine.ps1 | Orchestration, verrous et journal protégé |
 | scripts/*VMware* / infra/ansible | Provisionnement, préflight et K3s |
 | scripts/kubernetes_apps.py / hermes_tools.py | Rendu canonique Hermes, outils et entrée |
+| services/identity / scripts/identity_deploy.py / portal_deploy.py | Keycloak, portail et allocation des espaces |
 | services/knowledge / scripts/knowledge_deploy.py | RAG local et intégration MCP |
 | services/privacy / scripts/privacy_deploy.py | DLP, protocole attesté, sortie cloud et DNS |
 | scripts/Invoke-ClusterFoundation.ps1 / cluster_foundation.py / node_*.py | Opérations administratives fixes sur la cible possédée |
@@ -67,8 +68,8 @@ Le rendu Hermes conserve configuration, outils, MCP, DNS et passerelle cloud lor
 
 ## Extension d’instance
 
-Les usages, corpus, sites, comptes, domaines, habilitations et connecteurs spécifiques sont externes au harness. Une instance fixe une révision d’ArcIA et fournit ses surcharges protégées. Le contrat multi-utilisateur, les espaces communs/restreints/personnels et leur limite actuelle sont détaillés dans [le modèle de partage](plateforme-arcia.md#partage-et-cloisonnement).
+Les usages, corpus, sites, comptes, domaines, habilitations et connecteurs spécifiques sont externes au harness. Une instance fixe une révision d’ArcIA et fournit ses surcharges protégées. Le contrat multi-utilisateur, les espaces communs/restreints/personnels et leur limite actuelle sont détaillés dans [le modèle de partage](guides/plateforme-arcia.md#partage-et-cloisonnement).
 
 ## Deux espaces locaux de qualification
 
-Les deux runtimes historiques restent dans leurs namespaces avec état et outillage propres, exposés sur `/qualification-a/` et `/qualification-b/`. Le domaine racine ouvre désormais le portail personnel. Le préfixe est imposé par NGINX, tandis que chaque backend vérifie son propriétaire. La suppression des anciens comptes ne transfère pas ces états vers les nouveaux utilisateurs. La recette historique de connaissance commune + personnelle sous RLS reste dans [multi-utilisateur](multi-utilisateur.md).
+Les deux runtimes historiques restent dans leurs namespaces avec état et outillage propres, exposés sur `/qualification-a/` et `/qualification-b/`. Le domaine racine ouvre désormais le portail personnel. Le préfixe est imposé par NGINX, tandis que chaque backend vérifie son propriétaire. La suppression des anciens comptes ne transfère pas ces états vers les nouveaux utilisateurs. La recette historique de connaissance commune + personnelle sous RLS reste dans [multi-utilisateur](guides/multi-utilisateur.md).

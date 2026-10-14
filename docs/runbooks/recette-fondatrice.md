@@ -3,7 +3,7 @@
 Les lignes « vérifié » correspondent aux scénarios exécutés sur les seules VM
 de qualification. Les preuves détaillées restent chiffrées ; leurs statuts
 assainis sont sous `%LOCALAPPDATA%\ArcIA-Harness`.
-La [vérification locale](../verification-preparation.md) est distincte de cette recette.
+La [vérification locale](../archives/verification-preparation.md) est distincte de cette recette.
 
 ## Matrice actuelle
 

@@ -1,7 +1,6 @@
-# Backlog ArcIA — 13 octobre 2026
+# Backlog ArcIA — 14 octobre 2026
 
-Référence : [handoff courant](handoff-2026-10-13-skills-catalogue.md).
-Complément : [préparation Microsoft 365](handoff-2026-10-13-microsoft365.md).
+Référence courante : [état de reprise](etat-reprise.md).
 La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
 Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Hermes/K3s et recherche documentaire locale. Les adaptations d’usage appartiennent aux dépôts d’instance ; qualification multi-utilisateur locale exécutée sur fixtures synthétiques.
 
@@ -20,17 +19,17 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-01 | CNPG/PostgreSQL/pgvector | Déployé 3/3 ; 6 checks SQL/réplication/switchover réussis |
 | L0-02a | Hermes et HTTPS locaux | Déployé ; 6 checks Hermes, 6 HTTPS/auth ; Desktop/WS/SSE restants |
 | L0-02b | TLS public pour les deux noms demandés | Certificat Let’s Encrypt émis/collecté/déployé ; renouvellement DNS manuel et migration du compte ACME restants |
-| L0-02c | Entra/OIDC métier et bot Teams | À développer ; hors socle actuel |
+| L0-02c | Entra/OIDC métier et bot Teams | Broker Microsoft actif sur le pilote, compte fédéré constaté ; recette SSO complète et bot Teams à développer/qualifier |
 | M365-01 | Annexe administrateur, YAML d'instance, schéma strict et plan hors ligne | Codés ; aucun accès/configuration tenant ; [annexe](annexes/integration-microsoft365.md) |
 | M365-02 | Wizard/importeur protégé, adaptateurs OIDC/Bot/Graph et export assaini | À développer ; contrat v1 interdit toute activation |
 | M365-03 | IAM/ACL, approbations Teams, collecte/synthèse, scopes et révocation | À développer puis recette synthétique ; aucune donnée réelle autorisée |
-| M365-AUTH-01 | Sortie HTTPS du broker Microsoft Keycloak | IPv4 publique TCP/443 déployée sur instruction explicite, destinations au pare-feu amont ; snapshot retiré, TLS Microsoft/Graph 4/4 et refus HTTP/80 vérifiés ; [reprise](handoff-2026-10-13-identity-public-https.md) |
+| M365-AUTH-01 | Sortie HTTPS du broker Microsoft Keycloak | IPv4 publique TCP/443 déployée sur instruction explicite, destinations au pare-feu amont ; snapshot retiré, TLS Microsoft/Graph 4/4 et refus HTTP/80 vérifiés ; [reprise](archives/handoff-2026-10-13-identity-public-https.md) |
 | IAM-LOCAL-01 | Annuaire local permanent par défaut et portail admins | Keycloak 26.8.1, PostgreSQL dédié, `/admin/users` ; administration native déployée, 15 contrôles exécutés |
-| IAM-LOCAL-02 | Raccordement des espaces, sessions et identité stable | Provider OIDC public PKCE, validation UserInfo/propriétaire ; 12 contrôles HTTPS et 200 d'isolation réussis ; [handoff](handoff-2026-10-13-identite.md) |
-| IAM-LOCAL-03 | Coexistence local/SSO, nouveaux runtimes et ACL de groupes | Brokering documenté ; tenant réel, launcher général, ACL dynamiques et restore/HA à qualifier |
-| IAM-LOCAL-04 | Espace personnel vide au premier login | Portail PKCE, pool borné, binding issuer/subject et contrôle administratif limité ; [handoff](handoff-2026-10-13-portail-personnel.md) |
+| IAM-LOCAL-02 | Raccordement des espaces, sessions et identité stable | Provider OIDC public PKCE, validation UserInfo/propriétaire ; 12 contrôles HTTPS et 200 d'isolation réussis ; [handoff](archives/handoff-2026-10-13-identite.md) |
+| IAM-LOCAL-03 | Coexistence local/SSO, nouveaux runtimes et ACL de groupes | Login Microsoft confirmé sur le pilote ; recette complète du tenant, launcher général, ACL dynamiques et restore/HA à qualifier |
+| IAM-LOCAL-04 | Espace personnel vide au premier login | Portail PKCE, pool borné, binding issuer/subject et contrôle administratif limité ; [handoff](archives/handoff-2026-10-13-portail-personnel.md) |
 | IAM-LOCAL-05 | Cycle de vie et capacité des espaces | Transfert explicite, purge, récupération d'emplacements, migration d'outils actifs et sauvegarde/restore restent à qualifier ; aucun recyclage automatique |
-| IAM-LOCAL-06 | Récupération admin nommé et admission automatique du tenant Microsoft | Appliquées sur exception limitée ; realm-admin et ArcIA.User fédéré relus ; pool privé 32 places, nettoyage explicite d'un compte supprimé ; recette interactive et charge simultanée à compléter ; [reprise](handoff-2026-10-13-identity-public-https.md) |
+| IAM-LOCAL-06 | Récupération admin nommé et admission automatique du tenant Microsoft | Appliquées sur exception limitée ; realm-admin et ArcIA.User fédéré relus ; pool privé 32 places, nettoyage explicite d'un compte supprimé ; recette interactive et charge simultanée à compléter ; [reprise](archives/handoff-2026-10-13-identity-public-https.md) |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
@@ -43,12 +42,19 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L5 | Réduction du contexte et autres options | RTK borné et Headroom sur lectures JSON qualifiés ; proxy/mémoire Headroom écartés. OmniRoute automatique, Graphify/Ponytail différés |
 
 | BOOT-01 | Bootstrap exhaustif et coverage CI | Codé, Audit/Reconcile existants vérifiés ; rebuild neuf restant |
-| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 200 contrôles réussis, dont 90 d'isolation/corpus et 55 sondes d'outillage par runtime ; SSO, groupes et provisioning général restants |
+| MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 200 contrôles réussis, dont 90 d'isolation/corpus et 55 sondes d'outillage par runtime ; SSO complet, groupes et provisioning général restants |
 
 Aucun conteneur factice ne remplace un service métier manquant.
 La réussite du socle n’atteste pas les contrôles IAM/DESK/SEC/VPN/APR/DLP/KB/LLM
 du [plan complet](plan-integration-hermes.md). Le stockage et la réplication ne
 constituent pas une sauvegarde. Ne pas publier de release avant recette/rebuild.
+
+## Lots documentaires
+
+DOC-01 — Réalisé : README synthétique, guides regroupés, 15 handoffs suivis et
+deux rapports historiques archivés, état de reprise unique, index exhaustif et
+validation des liens en CI. [Règles](organisation.md) et
+[ADR 0019](adr/0019-organisation-documentaire.md). Aucun changement de runtime.
 
 ## Évolution du 13 octobre — skills et réduction du contexte
 
@@ -59,6 +65,6 @@ supplémentaire. RTK automatique borné à git log ; Headroom réduit les gros
 résultats JSON de lectures déclarées avant contexte, avec original récupérable,
 sans proxy ni mémoire partagée. Sources, crédits et licences
 verrouillés ; vérification upstream par script/workflow manuel. Voir le
-[handoff du 13 octobre](handoff-2026-10-13-skills-catalogue.md) pour les résultats
+[handoff du 13 octobre](archives/handoff-2026-10-13-skills-catalogue.md) pour les résultats
 exécutés. Qualification individuelle des centaines de procédures et comparaison
 de qualité sur des missions représentatives restent à faire.

@@ -26,5 +26,10 @@ conserve la compaction de l’historique.
 OmniRoute automatique reste différé ; la passerelle filtrée impose les modèles.
 Context7 externe est fermé jusqu'à qualification de son adaptateur. LintLang
 reste un rapport, pas une preuve de sécurité. Les catalogues et outils sont dans
-Hermes/K3s, readonly. Voir ../docs/skills.md, ../docs/outillage-builder.md et
+Hermes/K3s, readonly. Voir ../docs/guides/skills.md, ../docs/guides/outillage-builder.md et
 ../THIRD_PARTY_NOTICES.md. Les compétences ne confèrent aucune permission.
+
+Maintenir un handoff unique dans docs/etat-reprise.md ; ne pas créer de
+nouveaux handoff-*.md. Les archives sont historiques. Suivre
+[les règles documentaires](../docs/organisation.md) et vérifier les liens suivis
+avec scripts/validate_docs.py avant livraison.

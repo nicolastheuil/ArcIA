@@ -6,7 +6,7 @@ Candidats : K3s v1.35.9+k3s1, CSI v3.7.3, CloudNativePG v1.30.1,
 Hermes v0.21.6. Révisions et empreintes de K3s résolues sur les sources officielles.
 Kubernetes 1.35 entre dans les plages documentées de CSI 3.7 et CNPG 1.30 ;
 cela ne qualifie ni Debian/K3s avec CNPG, ni la version vCenter/ESXi inconnue.
-Voir docs/versions-officielles.md. Aucun digest applicatif inventé.
+Voir docs/guides/versions-officielles.md. Aucun digest applicatif inventé.
 
 Installation K3s par binaire et bundle airgap vérifiés, script officiel par commit
 et SHA256, sans curl|sh ni téléchargement de version flottante. Bootstrap série
