@@ -688,6 +688,55 @@ def reconcile_runtime_network(values):
             'credentials_modified':False,'volumes_modified':False}
 
 
+def reconcile_session_boundary(values):
+    """Roll only the mounted boundary code; retain identities, claims and all data."""
+    operation=values['operation_id']
+    settings=json.loads(owned('ConfigMap','portal-config','arcia-access',operation)['data']['portal.json'])
+    namespaces=['arcia-hermes','arcia-hermes-qualification-b']+[s['namespace'] for s in settings['slots']]
+    if values.get('slot'):
+        ns='arcia-user-'+values['slot']
+        if ns not in namespaces:raise ValueError('IDENTITY_SESSION_BOUNDARY_SLOT_SCOPE')
+        namespaces=[ns]
+    source=values['boundary_source'];digest=hashlib.sha256(source.encode()).hexdigest()
+    name='dashboard-boundary-'+digest[:16];prepared=[];claims={}
+    for ns in namespaces:
+        deployment=owned('Deployment','hermes-pilot',ns,operation)
+        if deployment['spec']['strategy']['type']!='Recreate' or deployment['spec'].get('replicas',0) not in (0,1):
+            raise ValueError('IDENTITY_SESSION_BOUNDARY_SINGLE_OWNER_REQUIRED')
+        spec=deployment['spec']['template']['spec']
+        if spec.get('automountServiceAccountToken') is not False or spec['containers'][0]['command']!=['/opt/hermes/.venv/bin/python','/opt/arcia-dashboard/boundary.py']:
+            raise ValueError('IDENTITY_SESSION_BOUNDARY_RUNTIME_DRIFT')
+        volumes=[v for v in spec['volumes'] if v['name']=='dashboard-boundary']
+        if len(volumes)!=1:raise ValueError('IDENTITY_SESSION_BOUNDARY_MOUNT_DRIFT')
+        mounted=owned('ConfigMap',volumes[0]['configMap']['name'],ns,operation)
+        if set(mounted['data'])!={'boundary.py'}:raise ValueError('IDENTITY_SESSION_BOUNDARY_SOURCE_DRIFT')
+        for claim_name in ('hermes-pilot-state','hermes-tools'):
+            claim=owned('PersistentVolumeClaim',claim_name,ns,operation)
+            claims[(ns,claim_name)]=(claim['metadata']['uid'],claim['spec'].get('volumeName'))
+        if mounted['data']['boundary.py']!=source:
+            prepared.append((ns,deployment))
+    apply([{'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':name,'namespace':ns},
+            'immutable':True,'data':{'boundary.py':source}} for ns,_ in prepared],operation) if prepared else None
+    active=0
+    for ns,deployment in prepared:
+        template=deployment['spec']['template']
+        next(v for v in template['spec']['volumes'] if v['name']=='dashboard-boundary')['configMap']['name']=name
+        template['metadata'].setdefault('annotations',{})['arcia.io/session-boundary-sha256']=digest
+        kube('patch','deployment','hermes-pilot','-n',ns,'--type=merge','--field-manager=arcia-foundation','-p',json.dumps({
+            'metadata':{'resourceVersion':deployment['metadata']['resourceVersion']},'spec':{'template':template}}))
+        if deployment['spec'].get('replicas',0):
+            active+=1
+            kube('rollout','status','deployment/hermes-pilot','-n',ns,'--timeout=300s',timeout=320)
+    preserved=True
+    for (ns,claim_name),expected in claims.items():
+        current=owned('PersistentVolumeClaim',claim_name,ns,operation)
+        preserved=preserved and (current['metadata']['uid'],current['spec'].get('volumeName'))==expected
+    if not preserved:raise ValueError('IDENTITY_SESSION_BOUNDARY_VOLUME_DRIFT')
+    return {'passed':True,'boundary_sha256':digest,'runtimes_rechecked':len(namespaces),
+            'templates_updated':len(prepared),'active_rollouts':active,'existing_pvcs_preserved':preserved,
+            'credentials_modified':False,'users_modified':False}
+
+
 def runtime_oidc_probe(namespace, pod):
     source="""import os,json,httpx
 r={}
@@ -959,6 +1008,7 @@ if __name__ == '__main__':
                       'prepare_personal_portal':prepare_personal_portal,'install_personal_portal':install_personal_portal,
                       'inspect_personal_portal':inspect_personal_portal,
                       'reconcile_identity_runtime_network':reconcile_runtime_network,
+                      'reconcile_identity_session_boundary':reconcile_session_boundary,
                       'prepare_portal_fixtures':prepare_portal_fixtures,'finish_portal_qualification':finish_portal_qualification,
                       'disable_portal_fixtures':disable_portal_fixtures,
                       'qualify_identity_revocation':qualify_revocation}[ARCIA_INPUT['action']](ARCIA_INPUT)))

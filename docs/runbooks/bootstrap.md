@@ -33,6 +33,31 @@ vers l'identité, pas le retour Microsoft complet. Une modification réseau
 refusée par la revue automatique attend l'accord explicite demandé, sans
 contournement par restart ou déplacement du runtime.
 
+`reconcile_identity_session_boundary` met ensuite à jour uniquement le code
+de session monté des runtimes possédés. ConfigMaps immuables par hash,
+`resourceVersion`, stratégie Recreate et un seul propriétaire actif sont
+contrôlés avant toute écriture. Les mêmes PVC sont relus après rollout ;
+aucun compte, credential ou historique ne change. Le code déjà courant ne
+déclenche pas de restart. Une application neuve ou une évolution du code
+entraîne une courte interruption des runtimes actifs concernés.
+
+```powershell
+# Canari sur un espace synthétique déjà possédé, puis pool courant.
+./scripts/Invoke-ClusterFoundation.ps1 -Action reconcile_identity_session_boundary -SessionBoundarySlot p01
+./scripts/Invoke-ClusterFoundation.ps1 -Action reconcile_identity_session_boundary
+```
+
+La frontière permet le renouvellement natif single-flight d'Hermes lorsqu'un
+access token expire ou disparaît mais que le refresh token reste présent.
+Le nouveau token repasse par signature, issuer/audience, propriétaire, rôle
+et UserInfo ; une révocation locale ou une erreur d'identité ne devient pas
+une autorisation. Logout révoque aussi le hash du refresh token pour empêcher
+son rejeu après disparition du cookie d'accès. Les cookies personnels restent
+Secure/HttpOnly, sur leur préfixe, et les cookies racine hérités sont exclus.
+La recette doit exercer un accès HTTP réussi, l'expiration réelle, le refresh
+seul et un rejeu de logout refusé. Une sonde de début OIDC ne couvre pas cette
+durée ; conserver séparément code testé, rollout et recette exécutée.
+
 `plan_identity_microsoft_egress` prépare une règle additive IPv4 `/32` pour
 Keycloak seulement, sans apply. Elle est exclue d'Audit par défaut ; l'activer
 avec `Bootstrap-Harness.ps1 -Mode Audit -PlanMicrosoftEgress`, ou exécuter

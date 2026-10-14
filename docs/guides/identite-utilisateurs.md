@@ -121,6 +121,14 @@ l'accès. Les anciens credentials basic sont désactivés dans le processus dès
 qu'une liaison OIDC existe ; leur conservation protégée ne permet aucun
 contournement de la suspension centrale.
 
+Le contrôle ArcIA doit laisser renouveler un access token expiré par le refresh
+natif single-flight d'Hermes, puis revérifier le nouveau token en ligne avant
+l'accès. Logout conserve les empreintes des tokens d'accès et de refresh
+révoqués, sans valeur brute. Les cookies d'un espace personnel utilisent son
+préfixe HTTPS ; un ancien cookie racine ne doit pas masquer cette session.
+Le [runbook bootstrap](../runbooks/bootstrap.md) distingue rollout et recette
+après expiration réelle.
+
 ## Administration des utilisateurs sans SSO
 
 L'administrateur ouvre **Users** dans la console du realm `arcia`.

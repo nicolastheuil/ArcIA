@@ -857,6 +857,28 @@
       "provision_only": false
     },
     {
+      "id": "reconcile_identity_session_boundary",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "reconcile_identity_session_boundary"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "reconcile_identity_runtime_network"
+      ],
+      "status_file": "cluster-reconcile_identity_session_boundary-status.json",
+      "success_codes": [
+        "IDENTITY_SESSION_BOUNDARY_RECONCILED"
+      ],
+      "timeout_seconds": 2400,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "verify_personal_portal",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -870,7 +892,8 @@
       ],
       "after": [
         "install_personal_portal",
-        "reconcile_identity_runtime_network"
+        "reconcile_identity_runtime_network",
+        "reconcile_identity_session_boundary"
       ],
       "status_file": "cluster-verify_personal_portal-status.json",
       "success_codes": [
@@ -1394,7 +1417,8 @@
         "preservation": "all_remaining_bindings_and_pvcs",
         "recovery": "install_personal_portal_no_repeated_deletion"
       },
-      "runtime_https_path": "node_443_and_ingress_pods_8443"
+      "runtime_https_path": "node_443_and_ingress_pods_8443",
+      "session_refresh": "native_singleflight_and_online_owner_revalidation"
     },
     "routing": {
       "lock": "bootstrap/routing.lock.json",

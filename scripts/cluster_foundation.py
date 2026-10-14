@@ -367,6 +367,13 @@ def collect(payload):
         return {'private':{'operation_id':operation,'result':result},'safe':{
             'status':'verified' if result['passed'] else 'blocked',
             'code':'IDENTITY_RUNTIME_NETWORK_RECONCILED' if result['passed'] else 'IDENTITY_RUNTIME_NETWORK_FAILED',**result}}
+    if action=='reconcile_identity_session_boundary':
+        target,nodes,base=transport(payload)
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {'action':action,'operation_id':operation,'slot':payload.get('session_boundary_slot'),
+             'boundary_source':(ROOT/'services/multiuser/dashboard_boundary.py').read_text(encoding='utf-8')},root=True,timeout=2400)
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'verified' if result['passed'] else 'blocked','code':'IDENTITY_SESSION_BOUNDARY_RECONCILED',**result}}
     if action=='inspect_personal_portal':
         target,nodes,base=transport(payload)
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),

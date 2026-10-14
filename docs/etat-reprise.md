@@ -24,7 +24,7 @@ affiché. Les fichiers locaux non suivis préexistants sont conservés.
 
 OmniRoute 3.8.51 dispose de son renderer, worker, politique de droits,
 installation verrouillée et helper d'accès local. Le manifeste comprend
-**60 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
+**61 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
 [lock](../bootstrap/routing.lock.json), les contrôles de couverture, le
 [runbook](runbooks/bootstrap.md) et l'[ADR 0020](adr/0020-perimetre-harness-et-politiques-instance.md)
 sont alignés. La bibliothèque refuse dashboard public, override sans rôle,
@@ -121,6 +121,44 @@ consignées dans la preuve du lot. Une CI synthétique
 ne vaut ni réapplication du cluster entier ni reconstruction VMware neuve.
 
 ## Ordre de reprise
+
+### Incident SESSION_REVOKED — corrigé dans le harness générique
+
+Après le correctif réseau, le login Microsoft accédait au dashboard puis
+recevait un refus de session. Compte actif, rôle et binding relus sans
+modification. La recette synthétique a reproduit API 200 avant expiration,
+puis 401 avec access token expiré et 401 avec refresh seul ; le compte de
+recette a été remis désactivé.
+
+Correctif **codé, déployé et vérifié** après accord explicite pour le rollout :
+refresh natif single-flight, revalidation signature/issuer/audience,
+propriétaire/rôle et UserInfo ; cookies Secure/HttpOnly au préfixe de l'espace,
+révocation du refresh au logout et refus des rejeux. Les cookies racine
+hérités ne masquent plus une session personnelle. Le renderer neuf embarque
+le même code générique ; Fresh/Reconcile comportent sa réconciliation par
+ConfigMaps immuables et Recreate. Aucun domaine ou compte d'instance dans
+le code ; aucune nouvelle permission ni prolongation du TTL Keycloak.
+
+Canari synthétique : API 200 avant et après expiration réelle, refresh seul
+200 ; logout 302 puis rejeux AT et RT refusés (401). Déploiement du pool :
+34 runtimes relus, un canari puis 33 autres templates mis à jour, six rollouts
+actifs au total ; mêmes PVC, credentials et comptes conservés. Les quatre
+espaces personnels actifs montent exactement le nouveau hash ; OIDC/JWKS
+200, départ login 302, douze sondes nœuds réussies et anonyme p03 refusé.
+Le propriétaire doit confirmer son nouveau parcours Microsoft interactif.
+[Preuve assainie](qualification/2026-10-14-session-refresh.json).
+
+Validation : 75 tests ciblés (12 session/rollout, 46 identité, 12 portail,
+5 multi-utilisateur) et suite complète **254 tests sans échec, deux skips TLS
+faute d'OpenSSL Windows**. Les tests async ont réussi hors sandbox. Sources,
+locks, couverture bootstrap 61 étapes, PowerShell et liens vérifiés sur le
+lot isolé des travaux OmniRoute concurrents. La reconstruction VMware neuve
+et HA ne sont pas qualifiées.
+
+Les premiers rollouts avaient été rejetés par revue automatique ; l'accord
+explicite a permis le canari, puis le même accord couvrant p03 et les autres
+runtimes a été fourni au réexamen du rollout global. Aucune validation Teams
+n'est prétendue. [Procédure](runbooks/bootstrap.md).
 
 ### Incident OIDC du runtime personnel — corrigé
 

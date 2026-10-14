@@ -73,7 +73,9 @@ def validate(root=ROOT):
                 'scripts/identity_egress.py' not in identity_lock['files']):
             raise ValueError('BOOTSTRAP_IDENTITY_EGRESS_CONTRACT')
         if lock['identity'].get('personal_portal_enabled'):
-            required_identity+=['install_personal_portal','reconcile_identity_runtime_network','verify_personal_portal','inspect_personal_portal']
+            required_identity+=['install_personal_portal','reconcile_identity_runtime_network','reconcile_identity_session_boundary','verify_personal_portal','inspect_personal_portal']
+            if contract.get('session_refresh')!='native_singleflight_and_online_owner_revalidation':
+                raise ValueError('BOOTSTRAP_IDENTITY_SESSION_REFRESH_CONTRACT')
             if contract.get('runtime_https_path')!='node_443_and_ingress_pods_8443':
                 raise ValueError('BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT')
             if contract.get('automatic_first_login') is not True or contract.get('stable_ownership')!='issuer_subject_never_reassigned':

@@ -11,6 +11,9 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
     if($identity.runtime_https_path -ne 'node_443_and_ingress_pods_8443'){
         throw 'BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT'
     }
+    if($identity.session_refresh -ne 'native_singleflight_and_online_owner_revalidation'){
+        throw 'BOOTSTRAP_IDENTITY_SESSION_REFRESH_CONTRACT'
+    }
     if($null -eq $identity -or $identity.default_provider -ne 'keycloak_local' -or
        $identity.local_accounts -ne 'permanent' -or
        -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/identity.lock.json'))){throw 'BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED'}
