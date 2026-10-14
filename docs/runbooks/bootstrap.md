@@ -301,3 +301,17 @@ construire ; leur préparation documentaire ne les active pas.
 [Guide OmniRoute](../guides/omniroute.md) ·
 [Confidentialité](../guides/confidentialite-cloud.md) ·
 [État et preuves du lot](../etat-reprise.md).
+
+
+## Connexions personnelles OmniRoute et routage cloud
+
+Lot codé, recette en cours : `install_routing_access` vient après OmniRoute et
+le portail personnel. Il crée le client public PKCE `arcia-routing`, le rôle
+non attribué `ArcIA.ProviderSelfService`, le lecteur technique des rôles et les
+bindings de routage Hermes. `verify_routing_access` teste PKCE, CSRF, séparation
+admin/utilisateur, clé native scoped, propriétaire et retrait du rôle avec des
+fixtures locales puis nettoie les seuls objets de recette ; aucune inférence
+n'est exécutée. La réapplication préserve les deux bases, volumes et identités.
+Le pool d'entreprise et la fonction personnelle se configurent dans `/personal/`
+par un compte `ArcIA.Admin`, après connexion des fournisseurs dans le dashboard
+natif. [Parcours complet](../guides/omniroute.md#parcours-utilisateur-et-administrateur).

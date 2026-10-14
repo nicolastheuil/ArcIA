@@ -183,7 +183,20 @@ def public_ip_certificate(values):
     return {'certificate_pem':base64.b64decode(secret['data']['tls.crt']).decode()}
 
 
+def read_bindings(values):
+    result={};operation=values['operation_id']
+    for namespace in values['namespaces']:
+        if namespace not in ('arcia-hermes','arcia-hermes-qualification-b') and not __import__('re').fullmatch(r'arcia-user-p(?:0[1-9]|[12][0-9]|3[0-2])',namespace):
+            raise ValueError('FIXED_ROUTING_NAMESPACE_REQUIRED')
+        deployment=owned('Deployment','hermes-pilot',namespace,operation,True)
+        if not deployment:continue
+        spec=deployment['spec']['template']['spec']
+        name=next(v for v in spec['volumes'] if v['name']=='config')['configMap']['name']
+        result[namespace]={'deployment':deployment,'config':owned('ConfigMap',name,namespace,operation)}
+    return result
+
+
 if __name__=='__main__':
     print(json.dumps({'install_omniroute':install,'inspect_omniroute':inspect,'verify_omniroute':verify,
         'read_omniroute_access':access,'read_omniroute_network':network_policy,
-        'read_omniroute_public_ip_certificate':public_ip_certificate}[ARCIA_INPUT['action']](ARCIA_INPUT)))
+        'read_omniroute_public_ip_certificate':public_ip_certificate,'read_omniroute_runtime_bindings':read_bindings}[ARCIA_INPUT['action']](ARCIA_INPUT)))

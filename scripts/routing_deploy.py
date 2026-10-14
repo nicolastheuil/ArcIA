@@ -54,7 +54,7 @@ def probe_lan(hostname,addresses,trusted_certificate=None):
         'tls_validation_bypassed':False,'model_call_executed':False}
 
 
-def payload(lock,config,lan_cidrs,private_firewall_boundary=False,ip_https_vip=None):
+def payload(lock,config,lan_cidrs,private_firewall_boundary=False,ip_https_vip=None,operation_id=None):
     policy=validate_admin_policy({'automatic_mode':'auto/smart','lan_cidrs':lan_cidrs,
         'personal_providers_enabled':False,'personal_role':'ArcIA.ProviderSelfService',
         'private_firewall_boundary':private_firewall_boundary,'ip_https_enabled':bool(ip_https_vip)})
@@ -88,7 +88,9 @@ def payload(lock,config,lan_cidrs,private_firewall_boundary=False,ip_https_vip=N
             'persistentvolumeclaims':'2','requests.storage':'10Gi'}}),
         resource('ConfigMap','routing-install',data={'install.py':source,'runtime.json':json.dumps(runtime),**npm}),
         resource('ConfigMap','routing-policy',data={'policy.json':json.dumps(policy,sort_keys=True)}),
-        resource('Service','omniroute',{'selector':{'app':'omniroute'},'ports':[{'port':20128,'targetPort':20128}]})])
+        resource('Service','omniroute',{'selector':{'app':'omniroute'},'ports':[
+            {'name':'native','port':20128,'targetPort':20128},{'name':'personal','port':20130,'targetPort':20130},
+            {'name':'gateway','port':20131,'targetPort':20131}]})])
     for name,size in [('routing-runtime','5Gi'),('routing-data','5Gi')]:
         docs.append(resource('PersistentVolumeClaim',name,{'accessModes':['ReadWriteOncePod'],'storageClassName':'arcia-vsphere','resources':{'requests':{'storage':size}}}))
     base={'automountServiceAccountToken':False,'securityContext':context,'restartPolicy':'Never',
@@ -128,13 +130,50 @@ def payload(lock,config,lan_cidrs,private_firewall_boundary=False,ip_https_vip=N
             {'name':'cache','emptyDir':{'sizeLimit':'512Mi'}}]}
     deployment=resource('Deployment','omniroute',{'replicas':1,'strategy':{'type':'Recreate'},'selector':{'matchLabels':{'app':'omniroute'}},
         'template':{'metadata':{'labels':{'app':'omniroute'},'annotations':{'arcia.io/runtime-sha256':digest}},'spec':pod}})
+    personal_names=('self_service.py','store.py','native.py','policy.py','gateway.py','personal.html')
+    personal_code={name:(ROOT/'services/routing'/name).read_text(encoding='utf-8') for name in personal_names}
+    origins=['https://'+hostname+':20129']+(['https://'+ip_https_vip+':20129'] if ip_https_vip else [])
+    count=config.get('identity',{}).get('personal_slots',lock.get('identity',{}).get('personal_slots',8))
+    slots={'p'+str(i).zfill(2):'arcia-user-p'+str(i).zfill(2) for i in range(1,count+1)}
+    personal_config={'hostname':hostname,'origins':origins,'slots':slots,'operation_id':operation_id,'online_role_authority':True}
+    personal_code['config.json']=json.dumps(personal_config,sort_keys=True)
+    personal_digest=hashlib.sha256(json.dumps(personal_code,sort_keys=True).encode()).hexdigest()
+    personal_cm='routing-personal-'+personal_digest[:12]
+    docs.append(resource('ConfigMap',personal_cm,immutable=True,data=personal_code))
+    pod['volumes'].append({'name':'personal-code','configMap':{'name':personal_cm}})
+    pod['serviceAccountName']='routing-reader'
+    docs.append(resource('ServiceAccount','routing-reader',automountServiceAccountToken=False))
+    pod['volumes'].extend([
+        {'name':'routing-identity','secret':{'secretName':'routing-identity-checker','optional':True,'defaultMode':288}},
+        {'name':'routing-clients','secret':{'secretName':'routing-clients','optional':True,'defaultMode':288}},
+        {'name':'routing-account','projected':{'defaultMode':288,'sources':[
+            {'serviceAccountToken':{'path':'token','expirationSeconds':3600}},
+            {'configMap':{'name':'kube-root-ca.crt','items':[{'key':'ca.crt','path':'ca.crt'}]}}]}}])
+    pod['containers'].append({'name':'personal','image':image,'securityContext':security,
+        'command':['/opt/hermes/.venv/bin/python','/personal-code/self_service.py'],
+        'env':env[:1]+[env[2],{'name':'PYTHONDONTWRITEBYTECODE','value':'1'}],
+        'ports':[{'containerPort':20130},{'containerPort':20131}],
+        'resources':{'requests':{'cpu':'50m','memory':'128Mi'},'limits':{'cpu':'500m','memory':'512Mi'}},
+        'startupProbe':{'httpGet':{'path':'/personal/health','port':20130},'failureThreshold':24,'periodSeconds':5},
+        'readinessProbe':{'httpGet':{'path':'/personal/health','port':20130}},
+        'volumeMounts':[{'name':'personal-code','mountPath':'/personal-code','readOnly':True},
+            {'name':'data','mountPath':'/data'},{'name':'tmp','mountPath':'/tmp'},
+            {'name':'routing-identity','mountPath':'/routing-identity','readOnly':True},
+            {'name':'routing-clients','mountPath':'/routing-clients','readOnly':True},
+            {'name':'routing-account','mountPath':'/routing-account','readOnly':True}]})
+    deployment['spec']['template']['metadata']['annotations']['arcia.io/personal-code-sha256']=personal_digest
     allows='\n'.join('allow '+cidr+';' for cidr in lan_cidrs)
     proxy=f'''{allows}
     deny all;
     client_max_body_size 1m;
     location ~ ^/api/(cloud|tunnel)(/|$) {{ return 403; }}
+    location ~ ^/api/auth/oidc(/|$) {{ return 403; }}
     location ~ ^/api/settings/proxy/(cloudflare|deno|vercel)-deploy(/|$) {{ return 403; }}
     location ~ ^/(v1|api/(chat|playground|messages|responses|translator|batches|files|images|audio|video|combos/test))(/|$) {{ return 403; }}
+    location = /personal {{ return 303 /personal/; }}
+    location /personal/ {{ proxy_pass http://omniroute.arcia-routing.svc.cluster.local:20130;
+      proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-For $remote_addr; proxy_buffering off; }}
     location / {{ proxy_pass http://omniroute.arcia-routing.svc.cluster.local:20128;
       proxy_set_header Host $http_host; proxy_set_header X-Forwarded-Host $http_host;
       proxy_set_header X-Forwarded-Port 20129; proxy_set_header X-Forwarded-Proto https;
@@ -175,10 +214,23 @@ http {{
         resource('NetworkPolicy','installer-public-only',{'podSelector':{'matchLabels':{'app':'routing-installer'}},'policyTypes':['Egress'],'egress':[dns,public]}),
         resource('NetworkPolicy','omniroute-controlled',{'podSelector':{'matchLabels':{'app':'omniroute'}},'policyTypes':['Ingress','Egress'],
             'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':LAN_NS}},'podSelector':{'matchLabels':{'app':'routing-lan'}}},{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-privacy'}},
-                'podSelector':{'matchLabels':{'app':'cloud-egress'}}}],'ports':[{'port':20128,'protocol':'TCP'}]}],'egress':[dns,public]}),
+                'podSelector':{'matchLabels':{'app':'cloud-egress'}}}],'ports':[{'port':20128,'protocol':'TCP'},{'port':20130,'protocol':'TCP'}]}],
+            'egress':[dns,public,{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-identity'}},
+                'podSelector':{'matchLabels':{'app':'keycloak'}}}],'ports':[{'port':8080,'protocol':'TCP'}]},
+                {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-privacy'}},
+                    'podSelector':{'matchLabels':{'app':'privacy'}}}],'ports':[{'port':8091,'protocol':'TCP'}]},
+                {'to':[{'ipBlock':{'cidr':str(ipaddress.ip_network(config['network']['service_cidr']).network_address+1)+'/32'}}],
+                    'ports':[{'port':443,'protocol':'TCP'}]},
+                {'to':[{'ipBlock':{'cidr':c+'/32'}} for c in [n['address'] for n in config['nodes']]],
+                    'ports':[{'port':6443,'protocol':'TCP'}]}]}),
+        resource('NetworkPolicy','bound-runtime-inference',{'podSelector':{'matchLabels':{'app':'omniroute'}},'policyTypes':['Ingress'],
+            'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'arcia.io/personal-pool':'true'}},'podSelector':{'matchLabels':{'app':'hermes-pilot'}}},
+                *[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':namespace}},'podSelector':{'matchLabels':{'app':'hermes-pilot'}}}
+                    for namespace in ('arcia-hermes','arcia-hermes-qualification-b')]],'ports':[{'port':20131,'protocol':'TCP'}]}]}),
         lan_resource('NetworkPolicy','lan-only',{'podSelector':{'matchLabels':{'app':'routing-lan'}},'policyTypes':['Ingress','Egress'],
             'ingress':[{'from':[{'ipBlock':{'cidr':c}} for c in lan_cidrs],'ports':[{'port':8443,'protocol':'TCP'}]}],
-            'egress':[dns,{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},'podSelector':{'matchLabels':{'app':'omniroute'}}}],'ports':[{'port':20128,'protocol':'TCP'}]}]})])
+            'egress':[dns,{'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},'podSelector':{'matchLabels':{'app':'omniroute'}}}],
+                'ports':[{'port':20128,'protocol':'TCP'},{'port':20130,'protocol':'TCP'}]}]})])
     lan=lan_resource('DaemonSet','routing-lan',{'selector':{'matchLabels':{'app':'routing-lan'}},'template':{'metadata':{'labels':{'app':'routing-lan'},
         'annotations':{'arcia.io/config-sha256':nginx_hash}},'spec':{
         'automountServiceAccountToken':False,'securityContext':{**context,'runAsUser':101,'runAsGroup':101,'fsGroup':101},
@@ -196,4 +248,22 @@ http {{
         lan_pod=lan['spec']['template']['spec']
         lan_pod['volumes'].append({'name':'ip-tls','secret':{'secretName':'routing-ip-tls','defaultMode':288}})
         lan_pod['containers'][0]['volumeMounts'].append({'name':'ip-tls','mountPath':'/ip-tls','readOnly':True})
-    return {'documents':docs,'job':job,'deployment':deployment,'lan':lan,'runtime':runtime,'policy':policy,'digest':digest}
+    identity_documents=[{'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy',
+        'metadata':{'name':'routing-oidc-only','namespace':'arcia-identity'},
+        'spec':{'podSelector':{'matchLabels':{'app':'keycloak'}},'policyTypes':['Ingress'],
+            'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},
+                'podSelector':{'matchLabels':{'app':'omniroute'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}]}}]
+    access_documents=[]
+    for namespace in slots.values():
+        access_documents.extend([
+            {'apiVersion':'rbac.authorization.k8s.io/v1','kind':'Role','metadata':{'name':'routing-binding-reader','namespace':namespace},
+                'rules':[{'apiGroups':[''],'resources':['configmaps'],'resourceNames':['slot-binding'],'verbs':['get']}]},
+            {'apiVersion':'rbac.authorization.k8s.io/v1','kind':'RoleBinding','metadata':{'name':'routing-binding-reader','namespace':namespace},
+                'roleRef':{'apiGroup':'rbac.authorization.k8s.io','kind':'Role','name':'routing-binding-reader'},
+                'subjects':[{'kind':'ServiceAccount','name':'routing-reader','namespace':NS}]}])
+    access_documents.append({'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy',
+        'metadata':{'name':'routing-sanitizer-only','namespace':'arcia-privacy'},'spec':{'podSelector':{'matchLabels':{'app':'privacy'}},
+            'policyTypes':['Ingress'],'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},
+                'podSelector':{'matchLabels':{'app':'omniroute'}}}],'ports':[{'port':8091,'protocol':'TCP'}]}]}})
+    return {'documents':docs,'job':job,'deployment':deployment,'lan':lan,'runtime':runtime,'policy':policy,'digest':digest,
+        'identity_documents':identity_documents,'access_documents':access_documents,'personal_origins':origins,'personal_config':personal_config}

@@ -1,7 +1,7 @@
 # OmniRoute : routage, configuration et abonnements
 
 OmniRoute constitue le premier choix de routage d'ArcIA. Son portail privé
-est déployé et vérifié ; le raccordement générique de l'inférence reste à intégrer.
+est déployé et vérifié ; le self-service et le raccordement cloud sont codés, en cours de recette.
 Un utilisateur
 standard utilise toujours le mode intelligent/automatique choisi par
 l'administrateur ; il ne choisit ni destination libre, ni credential, ni
@@ -23,8 +23,7 @@ Le serveur et le portail LAN sont codés dans le bootstrap ; leurs résultats
 de déploiement sont consignés dans [l'état courant](../etat-reprise.md).
 La bibliothèque de politique contrôle mode, rôle, propriétaire et classe
 de route. **Le raccordement générique Hermes → OmniRoute, les fournisseurs
-personnels dans le portail utilisateur et les routes internes restent à
-intégrer/qualifier.** Le pilote conserve son relais historique filtré tant
+personnels dans le portail utilisateur sont codés et restent à qualifier ; les routes internes restent à intégrer/qualifier.** Le pilote conserve son relais historique filtré tant
 que cette migration n'est pas qualifiée.
 
 ## Portail d'administration privé
@@ -149,9 +148,53 @@ crée une connexion liée à ce propriétaire, émet une clé technique restrein
 applique un override borné. Il ne remet jamais le token global de gestion à
 l'utilisateur. La politique d'instance et Presidio cloud restent applicables.
 
-Ce parcours utilisateur n'est **pas encore implémenté**. La bibliothèque de
-sélection et ses contrôles de rôle/propriétaire sont présents ; ils ne doivent
-pas être présentés comme une interface de connexion personnelle opérationnelle.
+Ce parcours est **codé**, avec page `/personal/` sur le même portail LAN
+OmniRoute, OIDC/PKCE ArcIA et contrôle en ligne des rôles. Il reste en recette
+avant déclaration de déploiement/vérification. Le dashboard natif `/dashboard`
+reste une interface globale d'administration ; son login OIDC global est fermé
+sur le relais LAN pour éviter de transformer une connexion ArcIA en droit admin.
+
+#### Parcours utilisateur et administrateur
+
+L'administrateur configure les abonnements/endpoints d'entreprise dans le
+dashboard natif, puis ouvre `/personal/` avec son compte **ArcIA.User + ArcIA.Admin**.
+Il sélectionne les connexions d'entreprise, les modèles autorisés et le mode
+intelligent/automatique. Le pool initial est vide : aucune route ni dépense
+n'est activée implicitement. Il active ensuite les connexions personnelles
+et attribue **ArcIA.ProviderSelfService** aux seuls comptes concernés dans Keycloak.
+Ce rôle est créé par le bootstrap et n'est attribué automatiquement à personne.
+
+Un utilisateur standard suit le pool d'entreprise. Un utilisateur autorisé voit
+« Mes clés API », ajoute sa connexion puis choisit de l'utiliser ou de revenir
+au pool d'entreprise. Les fournisseurs API personnels initiaux sont OpenAI,
+Anthropic, Gemini et OpenRouter, restreints par l'admin. Aucun endpoint libre,
+proxy, priorité globale ou rôle ne vient du navigateur. Un pool personnel
+indisponible refuse la demande sans débiter implicitement le pool d'entreprise.
+Le retrait du rôle revient au pool d'entreprise ; la désactivation du compte
+ferme toute inférence. Les droits sont relus auprès de Keycloak à chaque demande.
+
+Hermes appelle le gateway interne sur 20131 avec son identité technique bornée ;
+le propriétaire vient du binding serveur, jamais du prompt. Le mode imposé et
+le pool choisi produisent une clé native limitée aux connexions/modèles, sans
+scope de gestion, sans logs ni cache partagé. Presidio filtre ensuite le contenu
+avant l'appel OmniRoute cloud. Le relais LAN n'expose pas cette API d'inférence.
+L'ajout d'une clé personnelle utilise l'API bulk sans validation automatique :
+aucun test de modèle payant n'est déclenché par ArcIA à la saisie.
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action install_omniroute
+./scripts/Invoke-ClusterFoundation.ps1 -Action install_routing_access
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_routing_access
+```
+
+Les sessions et clés techniques ArcIA sont chiffrées dans un SQLite distinct,
+`arcia-self-service/state.db`, sur le même PVC et le même propriétaire Pod que
+le routeur. Les clés fournisseurs restent dans le stockage natif chiffré
+OmniRoute. Un état de création incertain se réconcilie par nom serveur unique ;
+un restart ne rejoue pas la création. Sauvegarder les deux bases de manière
+cohérente, avec les clés de chiffrement externes. Le service technique Keycloak
+est limité à la lecture des utilisateurs/rôles ; le token Kubernetes du seul
+sidecar lit uniquement les ConfigMaps `slot-binding` des espaces fixés.
 
 ### Règles de connexion et de routage
 

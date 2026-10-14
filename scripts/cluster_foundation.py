@@ -154,7 +154,7 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
-    if action in ('install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access'):
+    if action in ('install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access','install_routing_access','verify_routing_access'):
         import routing_deploy
         target,nodes,base=transport(payload)
         config=harness.validate(payload['instance']['config'])
@@ -178,8 +178,37 @@ def collect(payload):
         if ip_tls and (ip_tls['operation_id']!=operation or ip_tls['vip']!=vip):raise ValueError('ROUTING_IP_TLS_SCOPE_CONFLICT')
         ip_enabled=bool(ip_tls) or previous.get('ip_https_enabled',False)
         values={'action':action,'operation_id':operation,'repair_unqualified_runtime':payload.get('repair_unqualified_runtime',False),
-            **routing_deploy.payload(lock,config,cidrs,private_firewall_boundary=private_firewall,ip_https_vip=vip if ip_enabled else None)}
+            **routing_deploy.payload(lock,config,cidrs,private_firewall_boundary=private_firewall,
+                ip_https_vip=vip if ip_enabled else None,operation_id=operation)}
         if ip_tls and action=='install_omniroute':values['ip_tls']=ip_tls
+        if action=='verify_routing_access':
+            if payload['identity']['operation_id']!=operation:raise ValueError('ROUTING_IDENTITY_SCOPE_CONFLICT')
+            result=guest(target,nodes[0],base,(ROOT/'scripts/verify_routing_access.py').read_bytes(),
+                {'operation_id':operation,'hostname':config['network']['public_hostname'],'vip':vip,
+                 'credentials':payload['identity'],
+                 'identity_worker_source':(ROOT/'scripts/node_identity.py').read_text(encoding='utf-8')},root=True,timeout=900)
+            return {'private':{'operation_id':operation,'result':result},'safe':{
+                'status':'verified' if result['passed'] else 'blocked',
+                'code':'OMNIROUTE_PERSONAL_ACCESS_VERIFIED' if result['passed'] else 'OMNIROUTE_PERSONAL_ACCESS_FAILED',**result}}
+        if action=='install_routing_access':
+            import routing_bindings
+            if payload['identity']['operation_id']!=operation:raise ValueError('ROUTING_IDENTITY_SCOPE_CONFLICT')
+            namespaces=['arcia-hermes','arcia-hermes-qualification-b',*values['personal_config']['slots'].values()]
+            records=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),
+                {'action':'read_omniroute_runtime_bindings','operation_id':operation,'namespaces':namespaces},root=True)
+            bindings=routing_bindings.render(records)
+            result=guest(target,nodes[0],base,(ROOT/'scripts/routing_identity.py').read_bytes(),
+                {'operation_id':operation,'hostname':config['network']['public_hostname'],
+                 'credentials':payload['identity'],'origins':values['personal_origins'],
+                 'identity_documents':values['identity_documents'],
+                 'access_documents':values['access_documents'],
+                 'binding_documents':bindings,'bound_namespaces':list(records),
+                 'sanitizer_server_source':(ROOT/'services/privacy/server.py').read_text(encoding='utf-8'),
+                 'identity_worker_source':(ROOT/'scripts/node_identity.py').read_text(encoding='utf-8')},root=True,timeout=1500)
+            return {'private':{'operation_id':operation,'result':result},'safe':{
+                'status':'verified' if result['passed'] else 'blocked',
+                'code':'OMNIROUTE_PERSONAL_ACCESS_CONFIGURED' if result['passed'] else 'OMNIROUTE_PERSONAL_ACCESS_FAILED',**result}}
+
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),values,root=True,timeout=2400)
         if action=='read_omniroute_access':
             return {'private':{'operation_id':operation,**result,'hostname':config['network']['public_hostname'],

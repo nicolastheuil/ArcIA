@@ -85,14 +85,15 @@ def augment(docs):
     import yaml
     cm=next(d for d in docs if d['kind']=='ConfigMap' and d['metadata']['name']=='hermes-pilot-config')
     settings=yaml.safe_load(cm['data']['config.yaml'])
-    settings['model']={'default':'openrouter/free','provider':'custom','base_url':'http://privacy.arcia-privacy.svc.cluster.local:8091/v1'}
-    settings['auxiliary']={k:{'provider':'main','model':'openrouter/free','base_url':'http://privacy.arcia-privacy.svc.cluster.local:8091/v1'} for k in ('compression','vision')}
-    settings['platform'].update(cloud_calls_enabled=True,cloud_classification='synthetic',paid_llm_enabled=False)
+    from routing_bindings import BASE,configure_settings
+    configure_settings(settings)
     cm['data']['config.yaml']=yaml.safe_dump(settings,sort_keys=False)
     deployment=next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='hermes-pilot')
     spec=deployment['spec']['template']['spec'];container=spec['containers'][0]
+    container['env']=[item for item in container.get('env',[]) if item['name'] not in ('OPENAI_API_KEY','OPENAI_BASE_URL')]
     container['env'].extend([{'name':'OPENAI_API_KEY','valueFrom':{'secretKeyRef':{'name':'privacy-client','key':'token'}}},
-        {'name':'OPENAI_BASE_URL','value':'http://privacy.arcia-privacy.svc.cluster.local:8091/v1'}])
+        {'name':'OPENAI_BASE_URL','value':BASE}])
+    deployment['spec']['template']['metadata']['annotations']['arcia.io/model-routing']='omniroute_admin_policy'
     deployment['spec']['template']['metadata']['annotations']['arcia.io/privacy-boundary']='required'
     deployment['spec']['template']['metadata']['annotations']['arcia.io/config-sha256']=hashlib.sha256(cm['data']['config.yaml'].encode()).hexdigest()
 
@@ -104,4 +105,6 @@ def hermes_policy():
                 'ports':[{'port':5353,'protocol':'TCP'},{'port':5353,'protocol':'UDP'}]},
             {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},'podSelector':{'matchLabels':{'app':'privacy'}}}],
                 'ports':[{'port':8091,'protocol':'TCP'}]},
+            {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-routing'}},'podSelector':{'matchLabels':{'app':'omniroute'}}}],
+                'ports':[{'port':20131,'protocol':'TCP'}]},
             {'to':[{'podSelector':{'matchLabels':{'app':'context7-docs'}}}],'ports':[{'port':8080,'protocol':'TCP'}]}]}}

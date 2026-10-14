@@ -32,11 +32,13 @@ def apply(documents,operation):
 def inspect(values):
     owned('Namespace',NS,None,values['operation_id'])
     deployments=json.loads(kube('get','deployments','-n',NS,'-o','json'))['items']
-    config=owned('ConfigMap','hermes-pilot-config','arcia-hermes',values['operation_id'])['data']['config.yaml']
+    runtime=owned('Deployment','hermes-pilot','arcia-hermes',values['operation_id'])
+    name=next(v for v in runtime['spec']['template']['spec']['volumes'] if v['name']=='config')['configMap']['name']
+    config=owned('ConfigMap',name,'arcia-hermes',values['operation_id'])['data']['config.yaml']
     return {'deployments':[{'name':d['metadata']['name'],'ready':d.get('status',{}).get('readyReplicas',0)==1} for d in deployments],
-            'configmap_gateway_present':'http://privacy.arcia-privacy.svc.cluster.local:8091/v1' in config,
-            'configmap_free_model_present':'openrouter/free' in config,
-            'cloud_enabled':True,'paid_enabled':False,'business_iam_enabled':False}
+            'configmap_gateway_present':'http://omniroute.arcia-routing.svc.cluster.local:20131/v1' in config,
+            'configmap_admin_mode_present':'auto/smart' in config,
+            'cloud_enabled':True,'price_policy_owner':'instance'}
 
 def verify(values):
     operation=values['operation_id'];owned('deployment','privacy',NS,operation)

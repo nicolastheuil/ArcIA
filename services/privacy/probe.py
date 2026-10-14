@@ -34,8 +34,8 @@ def main():
     except OSError:checks['relay_bypass_denied']=True
     checks['provider_key_absent_from_hermes']=not os.environ.get('OPENROUTER_API_KEY')
     config=yaml.safe_load(Path('/opt/data/config.yaml').read_text())
-    checks['hermes_gateway_url_configured']=config['model']['base_url'].rstrip('/')=='http://privacy.arcia-privacy.svc.cluster.local:8091/v1'
-    checks['hermes_free_model_configured']=config['model']['default']=='openrouter/free'
+    checks['hermes_gateway_url_configured']=config['model']['base_url'].rstrip('/')=='http://omniroute.arcia-routing.svc.cluster.local:20131/v1'
+    checks['hermes_admin_mode_configured']=config['model']['default']=='auto/smart'
     checks['hermes_custom_provider_configured']=config['model'].get('provider')=='custom'
     status,result=call('/v1/chat/completions',{'model':'openrouter/free','messages':[{'role':'user','content':
         'Synthetic qualification only. Reply exactly ARCIA_CLOUD_OK. Contact alice@example.invalid, IP 10.27.43.9, password=synthetic-secret-123'}],

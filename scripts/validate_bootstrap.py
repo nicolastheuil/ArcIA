@@ -21,8 +21,8 @@ def validate(root=ROOT):
             or routing.get('cost_and_zdr_owner')!='instance' or routing.get('lock')!='bootstrap/routing.lock.json'):
         raise ValueError('BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED')
     routing_lock=json.loads((root/routing['lock']).read_text(encoding='utf-8'))
-    required_routing={'services/routing/install.py','services/routing/policy.py','scripts/routing_deploy.py',
-                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1','scripts/Enable-RoutingIpAccess.ps1'}
+    required_routing={'scripts/node_routing.py', 'services/routing/install.py', 'scripts/Enable-RoutingIpAccess.ps1', 'services/routing/personal.html', 'scripts/Show-RoutingAccess.ps1', 'services/privacy/server.py', 'scripts/routing_bindings.py', 'services/routing/gateway.py', 'services/routing/self_service.py', 'services/routing/native.py', 'services/routing/policy.py', 'scripts/routing_deploy.py', 'services/routing/store.py', 'scripts/routing_identity.py'}
+    required_routing.update({'scripts/verify_routing_access.py','scripts/privacy_deploy.py','scripts/node_privacy.py','services/privacy/probe.py'})
     if set(routing_lock.get('files',{}))!=required_routing:raise ValueError('BOOTSTRAP_ROUTING_LOCK_COVERAGE')
     for relative,digest in routing_lock['files'].items():
         content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode()

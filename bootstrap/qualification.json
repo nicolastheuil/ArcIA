@@ -879,6 +879,54 @@
       "provision_only": false
     },
     {
+      "id": "install_routing_access",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_routing_access"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_omniroute",
+        "install_personal_portal",
+        "reconcile_identity_runtime_network",
+        "reconcile_identity_session_boundary"
+      ],
+      "status_file": "cluster-install_routing_access-status.json",
+      "success_codes": [
+        "OMNIROUTE_PERSONAL_ACCESS_CONFIGURED"
+      ],
+      "timeout_seconds": 1800,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_routing_access",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_routing_access"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "install_routing_access"
+      ],
+      "status_file": "cluster-verify_routing_access-status.json",
+      "success_codes": [
+        "OMNIROUTE_PERSONAL_ACCESS_VERIFIED"
+      ],
+      "timeout_seconds": 1200,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "verify_personal_portal",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -1441,7 +1489,12 @@
         "enrollment_script": "scripts/Enable-RoutingIpAccess.ps1",
         "secret_optional": "routing-ip-tls.dpapi",
         "client_trust": "explicit_operator_current_user"
-      }
+      },
+      "personal_access_step": "install_routing_access",
+      "personal_access_origin": "private_omniroute_origin_personal_path",
+      "human_authority": "keycloak_online_roles",
+      "inference_binding": "owner_bound_admin_auto_gateway_presidio_before_cloud",
+      "personal_verification_step": "verify_routing_access"
     }
   }
 }

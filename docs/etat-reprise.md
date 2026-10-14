@@ -194,6 +194,34 @@ Le lot OIDC est livré séparément des modifications concurrentes OmniRoute.
 Ne pas publier leurs fichiers/locks en livrant ce correctif. La recette
 VMware neuve et HA reste inchangée, non qualifiée.
 
+### Lot en cours : connexions personnelles dans OmniRoute
+
+Après la livraison VIP/TLS `f830c2c`, [ses deux jobs CI](https://github.com/nicolastheuil/ArcIA/actions/runs/38569699579)
+ont réussi. Le propriétaire demande maintenant l'implémentation de la saisie
+des clés personnelles directement dans le portail LAN OmniRoute pour les
+seuls utilisateurs autorisés. Développement en cours, non encore déployé :
+page `/personal/` sur le même origin, OIDC ArcIA/PKCE, rôle explicite,
+connexions natives OmniRoute liées au propriétaire, gestion d'entreprise
+réservée à `ArcIA.Admin`, état/sessions protégés et réconciliation des écritures
+incertaines. Le dashboard natif reste global et réservé à l'administration.
+Le branchement de l'inférence et la révocation effective doivent être qualifiés
+avant de déclarer les overrides opérationnels. Le lot est isolé dans le worktree rattaché à ce chat ; le dossier principal
+reste au lot réseau de l'autre chat, conformément au choix du propriétaire.
+Sources nouvelles : `services/routing/{self_service,store,native,gateway}.py`,
+`personal.html`, workers `routing_identity.py`, `routing_bindings.py` et
+`verify_routing_access.py`. Tests exécutés : 14 routage et 16 self-service,
+tous réussis. Bootstrap étendu à 61 étapes dans ce checkout, dont installation
+et recette du self-service après le portail d'identité. Aucun déploiement du
+nouveau lot ni test réel OIDC/scoped-key n'a encore été exécuté.
+
+Suites nécessaires : terminer les contrôles, déployer OmniRoute puis l'accès
+personnel via les wrappers protégés sur les VM désignées, corriger les défauts
+réels, exécuter la recette PKCE/native et reporter la preuve assainie. Revoir
+le nettoyage des fixtures et des écritures incertaines. Mettre à jour les
+rendus canoniques Hermes/Privacy pour préserver le binding OmniRoute à la
+réapplication, puis docs, locks, CI et publication sur main. Réintégrer le lot
+réseau seulement après sa livraison par son auteur, sans le publier ici.
+
 1. Relire AGENTS.md, ses trois références, ce fichier et le backlog ; vérifier
    main et examiner les fichiers locaux non suivis sans les publier.
 2. Inspecter l'état réel via les wrappers protégés : OmniRoute, identité,

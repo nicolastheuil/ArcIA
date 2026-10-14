@@ -1,6 +1,6 @@
 """Keycloak local identities are permanent; federation is additive and opt-in."""
 REALM = 'arcia'
-ROLES = ('ArcIA.User', 'ArcIA.Approver', 'ArcIA.Admin')
+ROLES = ('ArcIA.User', 'ArcIA.Approver', 'ArcIA.Admin', 'ArcIA.ProviderSelfService')
 
 
 def realm_definition(operation):

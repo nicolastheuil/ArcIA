@@ -39,7 +39,7 @@ class Handler(BaseHTTPRequestHandler):
         else:self.reply(404,{'error':'NOT_FOUND'})
     def do_POST(self):
         self.connection.settimeout(15)
-        if self.path not in ('/v1/sanitize','/v1/chat/completions'):self.reply(403,{'error':'UNAPPROVED_ENDPOINT'});self.close_connection=True;return
+        if self.path not in ('/v1/sanitize','/v1/sanitize-completion','/v1/chat/completions'):self.reply(403,{'error':'UNAPPROVED_ENDPOINT'});self.close_connection=True;return
         headers=self.headers.get_all('Authorization',[])
         token=headers[0].removeprefix('Bearer ') if len(headers)==1 and headers[0].startswith('Bearer ') else ''
         identity=next((v for k,v in POLICY['tokens'].items() if hmac.compare_digest(token,k)),None)
@@ -53,6 +53,10 @@ class Handler(BaseHTTPRequestHandler):
             value=json.loads(self.rfile.read(length))
             sanitizer=Sanitizer(ANALYZER,bytes.fromhex(POLICY['hmac_key']),identity['scope'],identity.get('identifiers',[]))
             if self.path=='/v1/sanitize':self.reply(200,sanitizer.payload(value))
+            elif self.path=='/v1/sanitize-completion':
+                if identity.get('classification') not in ('synthetic','public'):raise Blocked('CLASSIFICATION_NOT_CLOUD_APPROVED')
+                body,counts=sanitizer.completion(value)
+                self.reply(200,{'body':body,'detections':counts,'cloud_authorized':False})
             else:
                 if identity.get('classification') not in ('synthetic','public'):raise Blocked('CLASSIFICATION_NOT_CLOUD_APPROVED')
                 if value.get('model')!='openrouter/free':raise Blocked('MODEL_NOT_APPROVED')
