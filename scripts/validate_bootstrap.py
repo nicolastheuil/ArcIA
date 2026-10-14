@@ -11,22 +11,24 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
-    portable=definition.get('configuration_contracts',{}).get('portable_state',{})
-    if (portable.get('lock')!='bootstrap/portable.lock.json' or
-            portable.get('automatic_restore') is not False or
-            portable.get('replacement_scope')!='local_arcia_state_outside_onedrive_only' or
-            portable.get('replacement_flag')!='-ReplaceExisting'):
-        raise ValueError('BOOTSTRAP_PORTABLE_STATE_CONTRACT')
-    portable_lock=json.loads((root/portable['lock']).read_text(encoding='utf-8'))
-    if lock.get('portable_state',{}).get('contract_lock')!=portable['lock']:
-        raise ValueError('BOOTSTRAP_PORTABLE_STATE_LOCK')
-    required_portable={'scripts/PortableState.ps1','scripts/Manage-PortableState.ps1',
-                       'scripts/ProtectedState.ps1','tests/Test-PortableState.ps1'}
-    if set(portable_lock.get('files',{}))!=required_portable:
-        raise ValueError('BOOTSTRAP_PORTABLE_STATE_COVERAGE')
-    for relative,digest in portable_lock['files'].items():
-        content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
-        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_PORTABLE_STATE_LOCK_HASH')
+    if 'portable_state' in definition.get('configuration_contracts',{}) or 'portable_state' in lock:
+        raise ValueError('BOOTSTRAP_PERSONAL_TRANSFER_OUT_OF_SCOPE')
+    routing=definition.get('configuration_contracts',{}).get('routing',{})
+    if (routing.get('default_router')!='omniroute' or routing.get('management_exposure')!='private_lan_only'
+            or routing.get('public_ingress') is not False or routing.get('management_port')!=20129
+            or routing.get('personal_provider_role')!='ArcIA.ProviderSelfService'
+            or routing.get('cloud_filter_default')!='presidio' or routing.get('internal_filter_default') is not False
+            or routing.get('cost_and_zdr_owner')!='instance' or routing.get('lock')!='bootstrap/routing.lock.json'):
+        raise ValueError('BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED')
+    routing_lock=json.loads((root/routing['lock']).read_text(encoding='utf-8'))
+    required_routing={'services/routing/install.py','services/routing/policy.py','scripts/routing_deploy.py',
+                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1'}
+    if set(routing_lock.get('files',{}))!=required_routing:raise ValueError('BOOTSTRAP_ROUTING_LOCK_COVERAGE')
+    for relative,digest in routing_lock['files'].items():
+        content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode()
+        if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_ROUTING_LOCK_HASH')
+    if not {'install_omniroute','verify_omniroute','inspect_omniroute'}<={s['id'] for s in definition['steps']}:
+        raise ValueError('BOOTSTRAP_ROUTING_STEPS_REQUIRED')
     if lock.get('identity',{}).get('enabled'):
         contract=definition.get('configuration_contracts',{}).get('identity',{})
         if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':

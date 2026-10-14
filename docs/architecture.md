@@ -4,9 +4,9 @@ Socle déployé sur une cible de qualification ; données synthétiques uniqueme
 
 ## Hébergement et disponibilité
 
-Trois VM Debian 13 amd64, paramètres initiaux 8 vCPU/32 Gio/150 Gio, réparties sur des ESXi distincts. K3s serveur/control-plane/etcd sur les trois nœuds, containerd et Flannel VXLAN. Keepalived porte des VIP API/HTTPS privées. L’administration reste privée ; NGINX termine TLS et transmet au dashboard Hermes.
+Trois VM Debian 13 amd64, paramètres initiaux 8 vCPU/32 Gio/150 Gio, réparties sur des ESXi distincts. K3s serveur/control-plane/etcd sur les trois nÅ“uds, containerd et Flannel VXLAN. Keepalived porte des VIP API/HTTPS privées. L’administration reste privée ; NGINX termine TLS et transmet au dashboard Hermes.
 
-La bascule contrôlée des VIP est vérifiée ; panne brutale de nœud, fencing et restauration complète restent à qualifier. Quorum etcd, réplication PostgreSQL et propriétaire SQLite unique sont des mécanismes distincts. Le datastore partagé demeure une dépendance commune.
+La bascule contrôlée des VIP est vérifiée ; panne brutale de nÅ“ud, fencing et restauration complète restent à qualifier. Quorum etcd, réplication PostgreSQL et propriétaire SQLite unique sont des mécanismes distincts. Le datastore partagé demeure une dépendance commune.
 
 ## Services, données et états
 
@@ -33,15 +33,28 @@ Le pool par défaut compte huit places ; le pilote a été porté à 32 par sa c
 | arcia-hermes | Hermes, outils, relais Context7 fermé | État Hermes 10 Gi RWOP ; outils 10 Gi readonly |
 | arcia-knowledge | Knowledge | Runtime/modèles 10 Gi readonly ; originaux/assets 20 Gi RWOP |
 | arcia-privacy | Presidio, cloud-egress, DNS statique | Runtime/modèles spaCy 5 Gi readonly ; secrets séparés |
-| arcia-ingress | NGINX sur les trois nœuds | Certificats protégés ; hostPort 443 vers 8443 non-root |
+| arcia-routing | OmniRoute et relais TLS LAN 20129 | Runtime 5 Gi, données 5 Gi RWOP ; un écrivain ; raccordement générique à qualifier |
+| arcia-ingress | NGINX sur les trois nÅ“uds | Certificats protégés ; hostPort 443 vers 8443 non-root |
 
 La StorageClass utilise ext4, WaitForFirstConsumer, Retain et RWOP. Un seul propriétaire écrit chaque état Hermes. Les outils partagent l’image Hermes fixée par digest mais disposent de dépendances isolées. Les nouveaux modèles/documents ne sont pas téléchargés librement par l’agent.
 
 ## Requête et réseau
 
-Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Les appels modèles passent à Presidio puis à un relais portant seul la clé OpenRouter. Le relais valide attestation, anti-rejeu et politique gratuite/ZDR avant TLS vers sa destination fixée. [Contrôles et limites](guides/confidentialite-cloud.md).
+Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Par défaut, les appels modèles cloud passent à Presidio puis à un relais portant seul la clé fournisseur. Sur le pilote, le relais valide attestation, anti-rejeu et politique OpenRouter gratuite/ZDR avant TLS vers sa destination fixée ; cette politique est un choix d’instance. Les routes Ollama/vLLM internes sans Presidio par défaut et la configuration générique des politiques restent à intégrer. [Contrôles et limites](guides/confidentialite-cloud.md).
+
+Le portail navigateur est l’entrée déployée. Teams est une entrée optionnelle
+cible : Azure Bot et adaptateur ArcIA authentifient le message et l’utilisateur,
+puis l’autorisation serveur rattache la conversation à son espace Hermes.
+Le bot ne confère aucun droit supplémentaire et n’est pas encore opérationnel.
+[Contrat et prérequis Teams](annexes/integration-microsoft365.md#6-teams--bot-personnel-et-authentification-utilisateur).
 
 Hermes utilise un DNS statique interne sans forwarding ; Internet direct, DNS général et accès direct au relais sont refusés. Context7 reste installé mais ne peut plus transmettre des requêtes externes non filtrées. Ajouter un MCP demande une autorisation réseau et une recette spécifiques. Les Jobs d’installation peuvent télécharger leurs artefacts HTTPS publics ; ils sont supprimés avant activation du volume runtime RWOP.
+
+OmniRoute est le premier routeur du contrat, mode auto imposé par l’admin. Le
+portail de configuration est exclusivement LAN avec login obligatoire ; les
+clés techniques sont limitées aux connexions autorisées. Le rôle personnel
+`ArcIA.ProviderSelfService` est distinct du rôle utilisateur et du rôle admin.
+[Configuration, abonnements et limites actuelles](guides/omniroute.md).
 
 ## Configuration et réconciliation
 
@@ -61,8 +74,9 @@ Le rendu Hermes conserve configuration, outils, MCP, DNS et passerelle cloud lor
 | services/identity / scripts/identity_deploy.py / portal_deploy.py | Keycloak, portail et allocation des espaces |
 | services/knowledge / scripts/knowledge_deploy.py | RAG local et intégration MCP |
 | services/privacy / scripts/privacy_deploy.py | DLP, protocole attesté, sortie cloud et DNS |
+| services/routing / scripts/routing_deploy.py / node_routing.py | Politique de sélection, serveur OmniRoute et portail LAN |
 | scripts/Invoke-ClusterFoundation.ps1 / cluster_foundation.py / node_*.py | Opérations administratives fixes sur la cible possédée |
-| scripts/ProtectedState.ps1 / PortableState.ps1 | DPAPI/ACL, export/import protégé et résolution du répertoire MSIX |
+| scripts/ProtectedState.ps1 | DPAPI/ACL et résolution de l’état administratif, dont le répertoire MSIX |
 | versions.lock.yaml / requirements* / builder/*lock* | Versions, dépendances, hashes et digests |
 | tests / .github/workflows | Tests synthétiques, coverage bootstrap et CI |
 

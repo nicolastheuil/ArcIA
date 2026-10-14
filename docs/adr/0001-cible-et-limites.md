@@ -10,7 +10,7 @@ Ce lot prépare le bootstrap et les gates ; il n'implémente pas les services m�
 du lot 0. Les manifests livrés établissent un socle fermé sans runtime ni entrée
 publique. Aucun accès périmètre et aucun déploiement distant dans cette préparation.
 
-Destination confirmée par l'utilisateur : **nicolastheuil/arcia-harness**, privé.
+Destination confirmée par l'utilisateur : **nicolastheuil/ArcIA**.
 Cette instruction remplace les noms proposés aux §4 et §26. Les VM sont à créer.
 Identité GitHub connectée vérifiée comme nicolastheuil ; Git local initialisé
 après confirmation. Aucun dépôt d'instance/périmètre/récupération créé dans ce lot.

@@ -8,12 +8,12 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 |---|---|---|
 | PREP-01 | Sources intégrales, inventaire, backlog/ADR | Réalisé ; documentation actualisée |
 | PREP-02 | Versions et artefacts épinglés | Images/hashes fixés ; support et lock de release incomplets |
-| PREP-03 | Wizard, DPAPI/ACL, configuration privée | Codé et utilisé ; export du 14 octobre vérifié, restauration de cet export sur le PC cible à exécuter/confirmer |
-| CI-01 | Import portable : test de rollback Windows | Échec `PUBLICATION_FAILURE_ROLLBACK_FAILED` sur la CI de `18d45ee`, reproduit sur `9d3654c` ; cause à diagnostiquer avant de déclarer la CI verte. [Résultats](etat-reprise.md#validation-du-nettoyage-documentaire) |
+| PREP-03 | Wizard, DPAPI/ACL, configuration privée | Codé et utilisé ; récupération de plateforme à qualifier, transfert personnel entre PC hors périmètre |
+| CI-01 | Séparation du transfert personnel et de la plateforme | Scripts/test/lock/runbook/proof personnels retirés du dépôt et de la CI, copies locales conservées ; validation complète à confirmer sur GitHub |
 | PREP-04 | SSH hors bande et préflight | Vérifié 3/3 |
 | PREP-05 | K3s trois serveurs | Déployé/vérifié ; wrappers et extraction au démarrage à revoir |
 | PREP-06 | Namespaces, quotas, comptes et réseau | Appliqué pour apps ; refus Hermes observés, admission métier à compléter |
-| PREP-07 | GitHub dédié privé | Créé ; privé et droits d’écriture revérifiés |
+| PREP-07 | GitHub dédié ArcIA | Renommé `nicolastheuil/ArcIA`, remote aligné et droits admin confirmés ; dépôt actuellement public, configurations d'instance sensibles séparées |
 | PREP-08 | VM, identités et domaines ESXi | Vérifié 3/3 avec anti-affinité |
 | PREP-09 | CPI/CSI, compte technique et stockage | Déployé ; 5 essais CSI réussis ; fencing brutal/RWX restants |
 | PREP-10 | VIP API/HTTPS et réseau privé | Bascule réelle contrôlée vérifiée, 18 sondes ; panne brutale restante |
@@ -33,14 +33,17 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | IAM-LOCAL-06 | Récupération admin nommé et admission automatique du tenant Microsoft | Appliquées sur exception limitée ; realm-admin et ArcIA.User fédéré relus ; pool privé 32 places, nettoyage explicite d'un compte supprimé ; recette interactive et charge simultanée à compléter ; [reprise](archives/handoff-2026-10-13-identity-public-https.md) |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |
 | L0-04 | Launcher typé, VPN personnel, reaper/kill switch | À développer ; pas de VPN actif |
-| L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; import poste seul déjà vérifié |
-| L0-06 | Outils, catalogue, provenance/licences | Dans K3s ; 539 entrées upstream, 7 adaptations/orientations natives ; 55 sondes par runtime. RTK git log et Headroom JSON intégrés ; OmniRoute automatique différé |
+| L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; le transfert personnel entre PC est hors projet |
+| L0-06 | Outils, catalogue, provenance/licences | Dans K3s ; 539 entrées upstream, 7 adaptations/orientations natives ; 55 sondes par runtime. RTK git log et Headroom JSON intégrés ; routage suivi sous ROUTE |
+| ROUTE-01 | OmniRoute premier routeur et portail de configuration LAN | Serveur épinglé, manifests, bootstrap, authentification et relais TLS LAN codés ; déploiement/recette en cours, voir état de reprise |
+| ROUTE-02 | Abonnements entreprise et overrides personnels autorisés | Bibliothèque mode/rôle/propriétaire/classe testée ; raccordement d'inférence, service de connexion, UI et révocation live à intégrer/qualifier |
+| ROUTE-03 | Politique d'instance et cloud/local | Presidio cloud par défaut ; gratuit/ZDR propres à l'instance ; routes Ollama/vLLM internes et repli filtré à qualifier |
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
 | L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |
 | L2 | Plans immuables, approbations Teams, capacités uniques/réconciliation | Après L1 |
 | L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Hybride + multi-vecteur, PDF textuels/API/schémas, RLS/citations et MCP déployés/vérifiés synthétiquement ; OCR, ColPali, collecte/import dédié, file durable et benchmark corpus large restants |
 | L4 | Fencing/panne de nœud, cinq missions, deuxième ingénieur/rebuild/SBOM | Gate de release |
-| L5 | Réduction du contexte et autres options | RTK borné et Headroom sur lectures JSON qualifiés ; proxy/mémoire Headroom écartés. OmniRoute automatique, Graphify/Ponytail différés |
+| L5 | Réduction du contexte et autres options | RTK borné et Headroom sur lectures JSON qualifiés ; proxy/mémoire Headroom écartés. Graphify/Ponytail différés ; routage suivi sous ROUTE |
 
 | BOOT-01 | Bootstrap exhaustif et coverage CI | Codé, Audit/Reconcile existants vérifiés ; rebuild neuf restant |
 | MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 200 contrôles réussis, dont 90 d'isolation/corpus et 55 sondes d'outillage par runtime ; SSO complet, groupes et provisioning général restants |
@@ -56,6 +59,11 @@ DOC-01 — Réalisé : README synthétique, guides regroupés, 15 handoffs suivi
 deux rapports historiques archivés, état de reprise unique, index exhaustif et
 validation des liens en CI. [Règles](organisation.md) et
 [ADR 0019](adr/0019-organisation-documentaire.md). Aucun changement de runtime.
+
+DOC-02 — Nom ArcIA, périmètre personnel retiré, entrée Teams et politiques
+d'instance clarifiées ; [quickstart auth/OmniRoute/Teams](runbooks/quickstart.md)
+et [guide OmniRoute](guides/omniroute.md). Les capacités cibles sont distinguées
+du pilote déployé. [ADR 0020](adr/0020-perimetre-harness-et-politiques-instance.md).
 
 ## Évolution du 13 octobre — skills et réduction du contexte
 

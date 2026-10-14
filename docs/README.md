@@ -26,6 +26,7 @@ références complètes, regroupées par fonction.
 | Alimenter le RAG et rechercher avec citations | [Connaissance documentaire](guides/connaissance-documentaire.md) |
 | Ajouter une source vivante ou un outil | [Connecteurs MCP](guides/connecteurs-mcp.md) |
 | Contrôler modèles, filtrage et sorties | [Confidentialité cloud](guides/confidentialite-cloud.md) |
+| Configurer OmniRoute, abonnements et overrides autorisés | [OmniRoute](guides/omniroute.md) |
 | Comprendre les frontières et leurs preuves | [Sécurisation plateforme et données](guides/securisation-plateforme-donnees.md) |
 | Appliquer les règles de sécurité | [Politique de sécurité](guides/securite.md) |
 | Découvrir et maintenir les compétences | [Skills](guides/skills.md) |
@@ -40,13 +41,13 @@ références complètes, regroupées par fonction.
 | Procédure | Référence |
 |---|---|
 | Plan / Fresh / Reconcile / Verify / Audit | [Bootstrap](runbooks/bootstrap.md) |
+| Démarrer : authentification, OmniRoute, ArcIA et Teams optionnel | [Quickstart complet](runbooks/quickstart.md) |
 | Prérequis de déploiement | [Préparation](runbooks/preparer-deploiement.md) |
 | Inventaire et préparation VMware | [vCenter](runbooks/vcenter.md) |
 | Exploiter le pilote existant | [Exploitation de qualification](runbooks/exploitation-qualification.md) |
 | Émission, DNS et renouvellement TLS | [Certificats](runbooks/certificats-dns.md) |
 | Évaluer les résultats et les gates | [Recette fondatrice](runbooks/recette-fondatrice.md) |
 | Sauvegarder, restaurer et reconstruire | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md) |
-| Transférer le poste administratif | [Second PC](runbooks/transfert-second-pc.md) |
 
 ## Pilotage et preuves
 
@@ -84,3 +85,4 @@ Une CI synthétique ne qualifie pas une reconstruction VMware neuve.
 | [0017](adr/0017-espaces-personnels-premiere-connexion.md) | Espace personnel à la première connexion |
 | [0018](adr/0018-plan-reparation-sortie-keycloak.md) | Plan borné de réparation de la sortie Keycloak |
 | [0019](adr/0019-organisation-documentaire.md) | Documentation par fonction et reprise unique |
+| [0020](adr/0020-perimetre-harness-et-politiques-instance.md) | Périmètre générique et politiques de routage d’instance |

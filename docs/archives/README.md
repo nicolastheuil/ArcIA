@@ -22,6 +22,5 @@ l’historique des mises à jour du handoff unique.
 | [2026-10-13-portail-personnel](handoff-2026-10-13-portail-personnel.md) | Handoff — comptes administrés et premier espace personnel |
 | [2026-10-13-skills-catalogue](handoff-2026-10-13-skills-catalogue.md) | Reprise ArcIA — catalogue de skills et fonctions sans doublons |
 | [2026-10-13-tenant-admission-admin-recovery](handoff-2026-10-13-tenant-admission-admin-recovery.md) | Reprise — récupération admin et admission Microsoft du tenant |
-| [2026-10-14-transfert-pc](handoff-2026-10-14-transfert-pc.md) | Handoff — transfert du poste administratif, 14 octobre 2026 |
 | [historique-qualification-2026-10-12](historique-qualification-2026-10-12.md) | Historique de qualification du socle ArcIA |
 | [verification-preparation](verification-preparation.md) | Vérification de la préparation — 11 octobre 2026 |

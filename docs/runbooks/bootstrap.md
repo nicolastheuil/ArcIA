@@ -216,3 +216,34 @@ les 56 étapes, les contrats et les locks runtime ; aucune réapplication ni
 reconstruction neuve ne découle du déplacement documentaire. Vérifier
 `python scripts/validate_docs.py` avec les autres contrôles de sources.
 Voir les [règles d’organisation](../organisation.md).
+
+## Périmètre du contrôleur et politiques d’instance
+
+`Prepare-ControllerRuntime.ps1` prépare le runtime administratif générique.
+Le transfert personnel des secrets entre PC est hors ArcIA : contrat, lock,
+scripts, tests et preuve personnels sont retirés du bootstrap/CI. DPAPI/ACL
+reste le canal des opérations administratives de plateforme ; la validation
+refuse la réintroduction d'un contrat personnel.
+
+Le parcours compte désormais **59 étapes**, avec `install_omniroute`,
+`verify_omniroute` et `inspect_omniroute` après Privacy. Le portail de gestion
+OmniRoute est TLS, authentifié et limité aux CIDR LAN explicites sur 20129,
+sans Ingress public. Version et sources sont verrouillées dans
+`bootstrap/routing.lock.json`. Les clés et PVC existants sont préservés.
+La vérification du portail ne lance aucune requête modèle et refuse la gestion
+anonyme. Le hash du runtime protège contre une mise à jour automatique non
+qualifiée. La réparation d'un premier démarrage échoué exige le switch
+administratif `-RepairUnqualifiedRouter`, refuse un runtime prêt ou déjà qualifié
+et une base SQLite existante ; aucune suppression de PVC ou rotation de clé.
+
+La politique ArcIA définit OmniRoute en premier routage, mode auto administré,
+Presidio pour tous les modèles cloud, routes Ollama/vLLM internes sans Presidio
+par défaut et budgets/ZDR propres à l'instance. Le pilote conserve son relais
+OpenRouter sous sa politique gratuite/ZDR jusqu'au raccordement générique
+qualifié. Le service d'overrides personnels et l'adaptateur Teams restent à
+construire ; leur préparation documentaire ne les active pas.
+
+[Quickstart auth/OmniRoute/Teams](quickstart.md) ·
+[Guide OmniRoute](../guides/omniroute.md) ·
+[Confidentialité](../guides/confidentialite-cloud.md) ·
+[État et preuves du lot](../etat-reprise.md).

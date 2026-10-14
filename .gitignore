@@ -1,5 +1,5 @@
-# Plaintext operational state stays outside the workspace. The user-authorized
-# portable encrypted checkpoint in secrets/local is also excluded from Git.
+# Operational secrets and personal workstation tools stay outside Git.
+.personal/
 *.dpapi
 *.age
 *.key

@@ -1,8 +1,8 @@
 # ArcIA — plateforme IA agentique d’entreprise
 
-**ArcIA réunit des agents Hermes, une connaissance documentaire privée et des outils contrôlés dans une plateforme réutilisable.** `arcia-harness` contient le code générique, le bootstrap et les procédures d’exploitation. Les usages, corpus, comptes, domaines et connecteurs d’une organisation appartiennent à son dépôt d’instance ; sa configuration sensible reste chiffrée, avec des clés externes.
+**ArcIA réunit des agents Hermes, une connaissance documentaire privée et des outils contrôlés dans une plateforme réutilisable.** `ArcIA` contient le code générique, le bootstrap et les procédures d’exploitation. Les usages, corpus, comptes, domaines et connecteurs d’une organisation appartiennent à son dépôt d’instance ; sa configuration sensible reste chiffrée, avec des clés externes.
 
-→ [Périmètre et principes](docs/guides/plateforme-arcia.md) · [Contrat complet](docs/plan-integration-hermes.md)
+→ [Quickstart : auth, OmniRoute, première utilisation et Teams](docs/runbooks/quickstart.md) · [Périmètre et principes](docs/guides/plateforme-arcia.md) · [Contrat complet](docs/plan-integration-hermes.md)
 
 ## État du projet
 
@@ -13,8 +13,9 @@ Le socle est **déployé et partiellement vérifié en qualification**, sur troi
 | Agents | Hermes, dashboard, mémoire personnelle, délégation et outils | Un seul écrivain par état ; launcher de missions et kill switch à construire |
 | Identité | Keycloak local permanent, administration, portail personnel et SSO optionnel | Login Microsoft constaté sur le pilote ; groupes, restore, HA et recette SSO complète à qualifier |
 | Connaissance | RAG privé, PostgreSQL/pgvector, recherche hybride et reclassement multi-vecteur | Corpus synthétique ; OCR, import général, collecte et benchmark large à compléter |
-| Confidentialité | Presidio local, relais authentifié, OpenRouter gratuit/ZDR ; agents sans Internet direct | Détection imparfaite ; formats opaques refusés ; aucune route payante autorisée |
-| Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé ; OmniRoute automatique différé |
+| Confidentialité | Presidio pour le cloud et relais authentifié ; pilote sous politique OpenRouter gratuit/ZDR | Détection imparfaite ; routes et politiques génériques d’instance à intégrer, dont modèles internes |
+| Routage | OmniRoute par défaut : mode auto administré, portail TLS privé et politique de droits codés | Raccordement générique de l'inférence et self-service fournisseur à intégrer/qualifier |
+| Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé |
 | Infrastructure | K3s/etcd, CPI/CSI, CNPG, HTTPS et bascule contrôlée | Support des versions, fencing, reprise et renouvellement TLS automatique à terminer |
 | Intégrations | Contrat Microsoft 365 hors ligne et extension par MCP | Bot Teams, Graph métier, coffres, VPN et approbations serveur à développer |
 
@@ -26,19 +27,26 @@ Le socle est **déployé et partiellement vérifié en qualification**, sur troi
 
 ```mermaid
 flowchart LR
-  U[Utilisateur] --> I[HTTPS, Keycloak et portail]
+  U[Utilisateur navigateur] --> I[HTTPS, Keycloak et portail]
   I --> H[Hermes : espace personnel]
+  TEAMS[Teams : entrée optionnelle] -.-> BOT[Azure Bot et adaptateur ArcIA : cible]
+  BOT -.-> AUTH[Identité et autorisation serveur]
+  AUTH -.-> H
   H --> K[Knowledge : MCP et droits documentaires]
   K --> D[PostgreSQL, index et originaux privés]
   H --> T[Skills et outils autorisés]
-  H --> P[Presidio et politique de sortie]
+  H --> ROUTE[Politique de routage : OmniRoute auto administré]
+  ROUTE --> P[Route cloud : Presidio et politique de sortie]
   P --> R[Relais authentifié]
-  R --> M[OpenRouter gratuit et ZDR]
+  R --> M[Modèles cloud : politique de l'instance]
+  ROUTE -.-> LOCAL[Ollama ou vLLM interne : sans Presidio par défaut]
 ```
 
 Les services imposent les droits avant recherche, téléchargement et appel d’outil. Les documents et résultats d’outils sont des données non fiables. Les agents délégués restent dans un périmètre borné. Hermes conserve son état sur un volume exclusif ; PostgreSQL réplique ses données indépendamment du quorum K3s. Les outils applicatifs tournent dans le cluster ; le poste porte le contrôleur d’administration protégé.
 
-→ [Architecture réelle et carte des composants](docs/architecture.md) · [Schémas détaillés, présent et cible](docs/schemas-plateforme-hermes.md)
+Teams constitue une entrée conversationnelle optionnelle par bot personnel : l’adaptateur doit authentifier l’activité et l’utilisateur, puis appliquer ses droits ArcIA avant de joindre son espace Hermes. Le schéma présente le contrat de la plateforme ; le bot Teams, les routes internes et le raccordement générique OmniRoute restent à intégrer/qualifier. Le pilote cloud conserve actuellement sa route OpenRouter filtrée sous politique d'instance gratuite/ZDR.
+
+→ [Architecture réelle et carte des composants](docs/architecture.md) · [Schémas détaillés, présent et cible](docs/schemas-plateforme-hermes.md) · [Point d’entrée Teams et prérequis](docs/annexes/integration-microsoft365.md#6-teams--bot-personnel-et-authentification-utilisateur)
 
 ## Utilisateurs, espaces et partage
 
@@ -58,11 +66,15 @@ Les MCP consultent des sources vivantes ou exposent des outils bornés ; le RAG 
 
 ## Modèles, confidentialité et sécurité
 
-Les appels cloud passent par **Presidio → relais authentifié → OpenRouter**. Hermes ne reçoit aucune clé fournisseur et n’a ni Internet direct ni DNS général. La route de qualification impose gratuité, ZDR et collecte interdite ; une indisponibilité provoque un refus. OmniRoute est installé, son routage automatique et tout repli payant restent différés. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
+**Par défaut, tous les appels aux modèles cloud passent par Presidio**, puis par un relais authentifié vers le fournisseur autorisé. Chaque instance choisit ses modèles, fournisseurs, budgets et exigences de ZDR, collecte et résidence ; gratuité et ZDR ne sont pas des invariants du harness. Une route Ollama ou vLLM hébergée dans l’entreprise ne passe pas par Presidio par défaut ; elle conserve les contrôles d’identité, de droits et de destination. Un repli vers le cloud repasse par Presidio.
+
+**OmniRoute est le routeur par défaut.** Un utilisateur standard suit toujours le mode intelligent/automatique défini par l'admin (`auto/smart` par défaut) et le pool d'entreprise autorisé. L'admin peut connecter des abonnements/API d'entreprise. Une connexion et un override personnels exigent le rôle distinct **ArcIA.ProviderSelfService**, une activation par instance et un contrôle serveur du propriétaire. Le dashboard de configuration est réservé aux admins sur le **LAN HTTPS, port 20129**, sans publication publique. Le self-service utilisateur et le raccordement générique d'inférence restent à intégrer/qualifier.
+
+Le pilote actuel a choisi OpenRouter gratuit, ZDR et collecte interdite, avec refus si aucune route conforme n’est disponible. Ce choix reste propre à son instance. Hermes ne reçoit aucune clé fournisseur, Internet général ni DNS libre. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
 
 DPAPI/ACL protège les entrées administratives du poste. Secrets, kubeconfigs et inventaires privés ne sont jamais transmis au modèle. Les actions externes sensibles exigent un plan et une approbation serveur ; l’intégration Teams correspondante reste à implémenter. La réplication et le stockage partagé doivent être complétés par des sauvegardes cohérentes.
 
-→ [Politique cloud et limites](docs/guides/confidentialite-cloud.md) · [Frontières et preuves de sécurité](docs/guides/securisation-plateforme-donnees.md) · [Politique de sécurité](docs/guides/securite.md)
+→ [OmniRoute : configuration, abonnements et droits](docs/guides/omniroute.md) · [Politique cloud et limites](docs/guides/confidentialite-cloud.md) · [Frontières et preuves de sécurité](docs/guides/securisation-plateforme-donnees.md) · [Politique de sécurité](docs/guides/securite.md)
 
 ## Skills, outils et versions
 
@@ -74,16 +86,16 @@ RTK raccourcit automatiquement `git log` simple. Headroom réduit les gros résu
 
 ## Installer, exploiter et reprendre
 
-Le point d’entrée est `scripts/Bootstrap-Harness.ps1`, piloté par les 56 étapes de `bootstrap/qualification.json`. **Fresh** prépare une cible vierge désignée ; **Reconcile** réapplique la cible possédée en préservant identités et volumes ; **Verify** exécute les recettes ; **Audit** inspecte. Le bootstrap vérifie les résultats de l’exécution courante, journalise sous protection et s’arrête à la première erreur.
+Le [quickstart complet](docs/runbooks/quickstart.md) couvre préparation, authentification locale/SSO, configuration OmniRoute, première connexion et setup Teams optionnel. Le point d’entrée est `scripts/Bootstrap-Harness.ps1`, piloté par les **59 étapes** de `bootstrap/qualification.json`. **Fresh** prépare une cible vierge désignée ; **Reconcile** réapplique la cible possédée en préservant identités et volumes ; **Verify** exécute les recettes ; **Audit** inspecte. Le bootstrap vérifie les résultats de l’exécution courante, journalise sous protection et s’arrête à la première erreur.
 
 ```powershell
 # Découvrir le parcours sans déploiement
 ./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs
 ```
 
-Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programmes locaux protégés. La cible d’exploitation est K3s/VMware ; Compose/Kilo restent des options de laboratoire. Un transfert du poste administratif conserve des bundles protégés ; le restore des bases et volumes suit une procédure distincte.
+Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programmes locaux protégés. La cible d’exploitation est K3s/VMware ; Compose/Kilo restent des options de laboratoire. Sauvegarde des données et reconstruction du cluster font partie de la recette de plateforme.
 
-→ [Bootstrap : prérequis, modes et reprise](docs/runbooks/bootstrap.md) · [Installation K3s/Codex](docs/installation-k3s-codex.md) · [Exploitation](docs/runbooks/exploitation-qualification.md) · [Certificats](docs/runbooks/certificats-dns.md) · [Sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md) · [Transfert de poste](docs/runbooks/transfert-second-pc.md)
+→ [Quickstart complet, dont Teams](docs/runbooks/quickstart.md) · [Bootstrap : prérequis, modes et reprise](docs/runbooks/bootstrap.md) · [Installation K3s/Codex](docs/installation-k3s-codex.md) · [Exploitation](docs/runbooks/exploitation-qualification.md) · [Certificats](docs/runbooks/certificats-dns.md) · [Sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md)
 
 ## Carte du dépôt et contribution
 
@@ -100,7 +112,7 @@ Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programm
 | [`docs/`](docs/README.md) | Références, guides, runbooks, ADR, preuves et archives historiques |
 | `versions.lock.yaml` / `requirements*` | Versions, digests et dépendances fixées |
 
-Les répertoires locaux `secrets/`, `artifacts/`, les environnements virtuels et caches sont ignorés par Git. Ils ne font pas partie du dépôt GitHub.
+Les répertoires locaux `secrets/`, `artifacts/`, `.personal/`, les environnements virtuels et caches sont ignorés par Git. La portabilité personnelle des secrets entre PC est hors projet.
 
 Lire [AGENTS.md](AGENTS.md) avant toute modification. Les livraisons vont sur `main`. Chaque évolution technique actualise bootstrap, locks, couverture, runbooks et état de reprise. Un seul état de reprise est maintenu ; les anciens handoffs restent dans les archives et ne définissent pas la cible courante.
 

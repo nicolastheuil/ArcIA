@@ -35,7 +35,7 @@ def main():
     files={
         'README.md':'''# Instance ArcIA
 
-Ce dépôt contient les adaptations d’une instance de la plateforme IA agentique d’entreprise [arcia-harness](https://github.com/'''+owner+'''/arcia-harness).
+Ce dépôt contient les adaptations d’une instance de la plateforme IA agentique d’entreprise [ArcIA](https://github.com/'''+owner+'''/ArcIA).
 Le harness porte le socle générique, les outils, les contrôles de confidentialité et le bootstrap ; ce dépôt porte les usages propres à l’organisation.
 
 | Dossier | Contenu attendu |
@@ -63,7 +63,7 @@ Les fichiers `.example.json` ne contiennent que des références et des valeurs 
 ''',
         'AGENTS.md':'''# Adaptations d’instance ArcIA
 
-- Le socle réutilisable reste dans arcia-harness ; ce dépôt porte les adaptations de cette organisation.
+- Le socle réutilisable reste dans ArcIA ; ce dépôt porte les adaptations de cette organisation.
 - Lire README.md et docs/etat-reprise.md avant toute modification ou déploiement.
 - Développer et livrer directement sur main selon l’instruction du propriétaire.
 - Déployer seulement sur la cible protégée désignée, jamais installer les outils applicatifs sur le poste de contrôle.
@@ -103,7 +103,7 @@ Prochaines étapes : fixer la release du harness ; définir les premiers usages 
 
 Routage souhaité : OmniRoute automatique, puis OpenRouter free, puis OpenRouter auto. La qualification actuelle autorise uniquement les routes gratuites conformes ; le dernier repli reste soumis à une autorisation budgétaire future.
 ''',
-        'instance/harness-reference.json':json.dumps({'repository':owner+'/arcia-harness','revision':None,'status':'awaiting_next_platform_delivery'},indent=2)+'\n',
+        'instance/harness-reference.json':json.dumps({'repository':owner+'/ArcIA','revision':None,'status':'awaiting_next_platform_delivery'},indent=2)+'\n',
         'instance/config.example.json':json.dumps({'schema_version':1,'instance_id':'synthetic-enterprise','harness_revision':'PIN_FULL_COMMIT_SHA',
             'private_configuration':'external-protected-reference','corpora':[],'connectors':[],'business_permissions_enabled':False},indent=2)+'\n'}
     for folder in ('use-cases','corpora','connectors'):

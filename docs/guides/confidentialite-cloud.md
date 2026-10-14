@@ -2,7 +2,26 @@
 
 État du 12 octobre 2026 : **Presidio déployé dans K3s, Hermes raccordé et réponse cloud gratuite obtenue sur fixture synthétique**. Les refus réseau et payloads non autorisés sont testés. Cela ne qualifie ni l’ingestion de données confidentielles réelles ni l’IAM multi-utilisateur.
 
-## Chemin obligatoire
+## Règles du harness et choix d’instance
+
+Par défaut, **tous les modèles cloud passent par Presidio**, indépendamment du
+fournisseur et du prix. Chaque instance choisit modèles, fournisseurs, budgets,
+ZDR, collecte et résidence ; gratuité et ZDR ne définissent pas le harness.
+Ces paramètres sont imposés côté serveur, pas par une instruction de l’agent.
+
+Une route Ollama ou vLLM interne à l’entreprise ne passe pas par Presidio par
+défaut. Son endpoint est déclaré et autorisé par l’instance ; identité, droits
+documentaires, isolation et contrôle de destination continuent de s’appliquer.
+Un repli vers un modèle cloud reprend le filtrage Presidio et la politique cloud.
+Le filtrage local peut devenir une exigence d’instance si l’organisation le décide.
+
+**Limite du code actuel :** les services de qualification restent spécialisés
+pour OpenRouter free/ZDR. La politique configurable par instance et les routes
+Ollama/vLLM ne sont pas encore codées/déployées. Ce lot clarifie le contrat et
+le backlog et ajoute le portail de gestion OmniRoute exclusivement LAN ; il
+n’active aucun fournisseur et ne change pas la route d’inférence du pilote.
+
+## Chemin cloud du pilote déployé
 
 Hermes appelle `privacy.arcia-privacy.svc.cluster.local:8091/v1` avec un token local. Presidio assainit le contenu puis signe une enveloppe HMAC, avec timestamp et nonce. Le service `cloud-egress` accepte cette enveloppe uniquement depuis le Pod Privacy et appelle le seul endpoint TLS OpenRouter prévu. La clé OpenRouter est montée uniquement dans le relais ; elle n’est ni dans Hermes ni dans le service Presidio. Les deux processus n’enregistrent pas les corps ni les en-têtes d’authentification.
 
@@ -25,13 +44,13 @@ Un identifiant de protocole contenant une donnée détectée provoque un refus. 
 
 Le service expose `/v1/sanitize` pour un aperçu local : ce résultat ne constitue pas une permission cloud. `/v1/chat/completions` applique ensuite une politique serveur indépendante. `/v1/models` expose uniquement le modèle autorisé ; les autres routes sont refusées.
 
-## Fournisseur et budget
+## Fournisseur et budget du pilote
 
 Le pilote fixe `model=openrouter/free`, `data_collection=deny`, `zdr=true`, `require_parameters=true`, `allow_fallbacks=false` et `max_price` à zéro pour prompt, completion, request et image. Les sorties sont plafonnées à 2 048 tokens. L’appelant ne peut pas choisir un modèle payant, changer ces paramètres ni ajouter une destination. [Politique officielle OpenRouter](https://openrouter.ai/docs/guides/routing/provider-selection).
 
 Une indisponibilité, un quota gratuit ou l’absence de fournisseur conforme produit un refus ; aucune seconde route payante n’est activée. La disponibilité des modèles gratuits peut changer entre deux requêtes. Le contrôle du coût retourné détecte une incohérence ; le plafond de prix est envoyé avant génération, ce n’est pas une garantie financière indépendante du fournisseur.
 
-La cible OmniRoute automatique → OpenRouter free → OpenRouter auto est documentée, mais seul le chemin gratuit filtré est activé. Pour OmniRoute, il faudra qualifier son choix de providers, ses caches, ses retries et son accès au relais sans perte d’attestation ou élargissement de politique. L’étage payant demande une autorisation et un budget persisté avant activation.
+OmniRoute est le premier routeur du contrat, en mode intelligent/automatique administré. La trajectoire propre au pilote OmniRoute → OpenRouter free → OpenRouter auto n'est pas un invariant d'ArcIA : seul le chemin gratuit filtré du pilote reste actuellement actif. Une autre instance choisit ses modèles internes/cloud, son budget et ses restrictions. Le raccordement générique OmniRoute doit qualifier providers, caches, retries et accès au relais sans perte d’attestation ou élargissement de politique. Le pilote ne dispose d’aucune autorisation payante. [Configuration, abonnements et droits](omniroute.md).
 
 ## Classification et limites
 

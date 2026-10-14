@@ -3,7 +3,7 @@ import json
 import subprocess
 import urllib.request
 
-REPOSITORY='nicolastheuil/arcia-harness'
+REPOSITORY='nicolastheuil/ArcIA'
 
 def main():
     result=subprocess.run(['git','credential','fill'],input=b'protocol=https\nhost=github.com\n\n',

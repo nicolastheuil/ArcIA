@@ -20,7 +20,7 @@ Le socle est qualifié sur des données synthétiques. La [politique cloud](conf
 
 Le contrôleur utilise DPAPI CurrentUser et ACL dans une racine privée hors Git/OneDrive. Get-ArcIAStateRoot retrouve aussi le LocalCache MSIX de Codex et refuse plusieurs états ambigus. Les wrappers déchiffrent dans leurs processus, transmettent les paramètres privés par stdin et rechiffrent les diagnostics. Le modèle ne reçoit que des codes, booléens et compteurs autorisés.
 
-Ne pas afficher bundles, get secret, kubeconfigs, logs bruts, sessions, clés ou fichiers de credentials. La saisie se fait dans un programme local protégé. L’export portable convertit/chiffre l’état pour un autre compte ; il ne remplace pas les sauvegardes des bases et corpus.
+Ne pas afficher bundles, get secret, kubeconfigs, logs bruts, sessions, clés ou fichiers de credentials. La saisie se fait dans un programme local protégé. Le transfert personnel entre postes est hors périmètre du harness ; sauvegardes et restauration de la plateforme restent à qualifier.
 
 ## Autorité et données non fiables
 

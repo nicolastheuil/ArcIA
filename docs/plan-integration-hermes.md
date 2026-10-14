@@ -18,7 +18,7 @@ Cible actuelle : trois VM Debian sur VMware, serveurs K3s/etcd et stockage parta
 
 ## 4. Source de vérité et dépôts
 
-`arcia-harness` contient code générique, automation, manifests, tests synthétiques, ADR et runbooks. Chaque instance a un dépôt distinct pour usages, connecteurs spécifiques, surcharges et références de secrets. Les configurations sensibles sont chiffrées avant Git ; corpus privés et clés externes restent séparés. Une correction manuelle est reportée dans Git avant livraison. Les livraisons actuelles vont sur main selon la décision du propriétaire.
+`ArcIA` contient code générique, automation, manifests, tests synthétiques, ADR et runbooks. Chaque instance a un dépôt distinct pour usages, connecteurs spécifiques, surcharges et références de secrets. Les configurations sensibles sont chiffrées avant Git ; corpus privés et clés externes restent séparés. Une correction manuelle est reportée dans Git avant livraison. Les livraisons actuelles vont sur main selon la décision du propriétaire.
 
 ## 5. Données et classification
 
@@ -52,11 +52,11 @@ MCP expose des outils stdio/HTTP vérifiés et bornés. Les connecteurs propres 
 
 ## 10. Confidentialité et cloud
 
-Tous les appels modèles passent par Presidio local, détecteurs supplémentaires et relais authentifié. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. La qualification autorise OpenRouter free, prix nul, ZDR et collecte interdite ; images, fichiers et formats opaques sont refusés. Les règles côté serveur ne sont pas modifiables dans un prompt. Détection imparfaite et résidence géographique doivent être évaluées selon les données. [Politique complète](guides/confidentialite-cloud.md).
+Tous les appels aux modèles cloud passent par Presidio par défaut, avec détecteurs supplémentaires et relais authentifié. Les modèles Ollama/vLLM internes déclarés par l’entreprise ne passent pas par Presidio par défaut ; identité, droits et destinations restent contrôlés. Tout repli cloud reprend le filtrage. Fournisseurs, modèles, coûts, ZDR, collecte et résidence sont des politiques d’instance. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. Le pilote actuel a choisi OpenRouter free, prix nul, ZDR et collecte interdite ; son relais reste spécialisé et les routes internes/génériques restent à intégrer. Les règles serveur ne sont pas modifiables dans un prompt. [Politique complète](guides/confidentialite-cloud.md).
 
 ## 11. Routage et coûts
 
-Cible : OmniRoute automatique → OpenRouter free → OpenRouter auto. Chaque branche conserve classification, filtrage et politique fournisseur. Le dernier repli exige une autorisation budgétaire ultérieure. Aujourd’hui OmniRoute est installé mais son serveur n’est pas activé ; seul le chemin gratuit filtré fonctionne. Pas de repli qui désactive ZDR ou achète une route implicitement.
+Chaque instance choisit ses routes internes/cloud, fournisseurs, budgets et replis. Le harness impose les droits et la politique de filtrage selon la destination ; un repli ne contourne pas les règles de l’instance. La trajectoire OmniRoute → OpenRouter free → OpenRouter auto appartient au pilote, pas au socle générique. Aujourd’hui OmniRoute est installé mais son serveur n’est pas activé ; seul le chemin gratuit filtré fonctionne. Le pilote n’autorise aucun repli payant ni suppression de son exigence ZDR. La configuration générique de routage reste à construire.
 
 ## 12. Compression et caches
 
@@ -112,7 +112,7 @@ Une livraison du code n’est pas une release de production. Versionner digests,
 
 ## 25. Intégration des outils
 
-Retenir uniquement les composants listés dans les locks et le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables ; OmniRoute automatique reste différé ; Graphify/Ponytail restent différés. La CI vérifie les sources, pas l’activation des fournisseurs.
+Retenir uniquement les composants listés dans les locks et le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables. OmniRoute est le premier routeur du contrat, mode auto administré et portail exclusivement LAN ; raccordement d’inférence et overrides personnels restent à intégrer/qualifier. Les overrides exigent `ArcIA.ProviderSelfService` et un contrôle serveur du propriétaire. Graphify/Ponytail restent différés. La CI vérifie les sources, pas l’activation des fournisseurs. [Configuration OmniRoute](guides/omniroute.md).
 
 ## 26. Cible Kubernetes, VMware et build initial Codex
 

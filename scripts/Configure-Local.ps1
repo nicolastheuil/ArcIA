@@ -12,7 +12,7 @@ try {
     $config = Get-Content -LiteralPath (Join-Path $repoRoot 'examples/synthetic/instance.json') -Raw | ConvertFrom-Json
     $config.synthetic = $false
     $config.github.account = Read-Host 'Compte/organisation GitHub (nicolastheuil pour ArcIA)'
-    $config.github.repository = Read-Host 'Depot GitHub (arcia-harness pour ArcIA)'
+    $config.github.repository = Read-Host 'Depot GitHub (ArcIA pour ArcIA)'
     foreach ($node in $config.nodes) {
         $node.address = Read-Host ("IPv4 privee de " + $node.name)
         $node.ssh_user = Read-Host 'Utilisateur SSH personnel'

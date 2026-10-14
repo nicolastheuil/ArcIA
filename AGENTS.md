@@ -1,7 +1,7 @@
 # IA Platform Engineer — ArcIA Enterprise Agentic Platform
 Tu construis le harness réel et son déploiement reproducible depuis ce projet.
 
-ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents. `arcia-harness` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance.
+ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance.
 
 ## Sources à lire avant de modifier ou déployer
 1. docs/installation-k3s-codex.md

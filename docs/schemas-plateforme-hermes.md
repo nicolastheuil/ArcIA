@@ -90,7 +90,7 @@ Deux runtimes locaux distincts et une lecture « commun + personnel » existent 
 
 ```mermaid
 flowchart LR
-  H[arcia-harness : plateforme ArcIA] --> V[Révision fixée et bootstrap générique]
+  H[ArcIA : plateforme ArcIA] --> V[Révision fixée et bootstrap générique]
   V --> I[Déploiement d’une instance]
   CUSTOM[Dépôt d’instance : usages et connecteurs] --> I
   SEC[Configuration chiffrée et clés externes] --> I

@@ -154,6 +154,24 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action in ('install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access'):
+        import routing_deploy
+        target,nodes,base=transport(payload)
+        config=harness.validate(payload['instance']['config'])
+        lan=str(ipaddress.ip_interface(target['addresses'][0]).network)
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+        values={'action':action,'operation_id':operation,'repair_unqualified_runtime':payload.get('repair_unqualified_runtime',False),**routing_deploy.payload(lock,config,[lan])}
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_routing.py').read_bytes(),values,root=True,timeout=2400)
+        if action=='read_omniroute_access':
+            return {'private':{'operation_id':operation,**result,'hostname':config['network']['public_hostname'],
+                'node_address':nodes[0]['address'],'port':20129},
+                'safe':{'status':'inspected','code':'OMNIROUTE_ACCESS_PROTECTED'}}
+        passed=result.get('passed',result.get('router_ready',False))
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'inspected' if action=='inspect_omniroute' else ('verified' if passed else 'blocked'),
+            'code':'OMNIROUTE_INSPECTED' if action=='inspect_omniroute' else
+                ('OMNIROUTE_PRIVATE_PORTAL_INSTALLED' if action=='install_omniroute' and passed else
+                 ('OMNIROUTE_PRIVATE_PORTAL_VERIFIED' if passed else 'OMNIROUTE_PRIVATE_PORTAL_FAILED')),**result}}
     if action in ('plan_personal_cleanup', 'apply_personal_cleanup'):
         if payload['identity']['operation_id'] != operation:
             raise ValueError('PERSONAL_CLEANUP_IDENTITY_SCOPE')

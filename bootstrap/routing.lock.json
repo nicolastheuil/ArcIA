@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "runtime_version": "3.8.51",
+  "source_revision": "c1e30b7676975feb298b49eff6ff58923c04b89e",
+  "management_exposure": "private_lan_only",
+  "files": {
+    "services/routing/install.py": "f56db948da984a80e89d4a2f9ad9fd514f120dddcc1b8ed9631395ff295d37f2",
+    "services/routing/policy.py": "bf44542bab2b4afd8e19b4ad45fb59e728ef9f4caa020c65089208410b53dcfa",
+    "scripts/routing_deploy.py": "6b4fa2927295e140e73d4cc52d2a7f2122017e9a6e8d8b2f3b2a0723de370be5",
+    "scripts/node_routing.py": "0f59ad6c195657a5731287b294cc81241096937f8e6e948029d077320276f8f5",
+    "scripts/Show-RoutingAccess.ps1": "fb71edb9133ef42904917b119265e2560f0ea05ec823e5a860ebe9736a4ca471"
+  }
+}

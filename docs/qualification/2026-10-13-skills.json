@@ -28,7 +28,7 @@
   "paid_models_enabled": false,
   "tests": {
     "linux_suite_passed": true,
-    "ci_run": "https://github.com/nicolastheuil/arcia-harness/actions/runs/38369447167",
+    "ci_run": "https://github.com/nicolastheuil/ArcIA/actions/runs/38369447167",
     "unit_test_count": 151
   },
   "catalogue": {

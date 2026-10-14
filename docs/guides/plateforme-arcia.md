@@ -1,6 +1,6 @@
 # ArcIA : périmètre, fonctionnement et partage
 
-ArcIA est une plateforme IA agentique d’entreprise. Hermes est son moteur d’agents ; `arcia-harness` est le dépôt de son socle générique. Aucun domaine, métier, compte fournisseur ou corpus privé d’une organisation ne définit le produit.
+ArcIA est une plateforme IA agentique d’entreprise. Hermes est son moteur d’agents ; `ArcIA` est le dépôt de son socle générique. Aucun domaine, métier, compte fournisseur ou corpus privé d’une organisation ne définit le produit.
 
 ## Capacités et exemples
 
@@ -10,14 +10,21 @@ Le contenu retrouvé est une preuve à citer, jamais une instruction de sécurit
 
 ## Deux dépôts, deux responsabilités
 
-| Socle générique : arcia-harness | Dépôt de chaque instance |
+| Socle générique : ArcIA | Dépôt de chaque instance |
 |---|---|
 | Architecture, moteur, outillage et interface des connecteurs | Populations, usages, sources et adaptateurs spécifiques |
 | Contrôles de confidentialité et contrats d’autorisation | Groupes, habilitations et classifications de l’organisation |
+| Presidio par défaut pour le cloud ; contrat de routes internes autorisées | Modèles internes/cloud, fournisseurs, budgets, exigences ZDR/collecte/résidence |
 | Bootstrap, manifests, locks, tests synthétiques et runbooks | Surcharges, références de secrets et bootstrap d’instance |
 | Exemples synthétiques et documentation produit | Documentation d’exploitation spécifique et sauvegardes chiffrées autorisées |
 
 Un dépôt privé ne remplace pas le chiffrement. Les documents et secrets bruts restent dans le stockage privé ; les clés de récupération sont externes à Git. Le code d’instance référence une révision précise du harness. Une capacité réutilisable remonte au harness ; une règle d’usage particulière reste dans l’instance.
+
+Teams est une entrée conversationnelle optionnelle, à intégrer par adaptateur
+authentifié. Ollama/vLLM internes ne passent pas par Presidio par défaut ; les
+routes cloud y passent. Le pilote gratuit/ZDR est un choix d’instance. Les
+adaptateurs Teams et la généralisation des routes modèles restent à construire.
+Le transfert personnel des secrets d’un ingénieur entre deux PC est hors harness.
 
 ## Partage et cloisonnement
 

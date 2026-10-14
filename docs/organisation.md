@@ -29,7 +29,7 @@ Les entrées de scripts et de services restent stables pour le bootstrap,
 les hashes et les consommateurs. La carte du code est dans
 [l’architecture](architecture.md#carte-du-dépôt).
 
-`secrets/`, `artifacts/`, `.venv/`, `node_modules/` et caches sont locaux et
+`secrets/`, `.personal/`, `artifacts/`, `.venv/`, `node_modules/` et caches sont locaux et
 ignorés. Les fichiers non suivis ne sont pas ajoutés ou supprimés en masse.
 Leur présence sur le poste ne signifie pas leur publication dans GitHub.
 

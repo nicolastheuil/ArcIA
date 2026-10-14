@@ -90,9 +90,10 @@ instincts, apprentissage ou export ne sont pas activés ; leurs skills restent
 consultables comme méthodes. Les connaissances communes vivent dans le RAG sous
 ACL, pas dans une mémoire globale de conversations.
 
-La gestion de contexte native Hermes reste la référence. RTK raccourcit automatiquement les commandes git log simples ; les autres usages restent explicites. Headroom fournit un outil de lecture compressée des JSON du workspace. OmniRoute est installé mais son
-routage automatique reste différé ; la passerelle filtrée ArcIA impose la route
-autorisée. Aucune instruction de skill ne crée un droit réseau, un budget, un
+La gestion de contexte native Hermes reste la référence. RTK raccourcit automatiquement les commandes git log simples ; les autres usages restent explicites. Headroom fournit un outil de lecture compressée des JSON du workspace. OmniRoute est le routeur par défaut du contrat ; son CLI est installé et son
+portail LAN dispose d’un bootstrap distinct. Le raccordement générique de
+l’inférence reste à intégrer/qualifier ; le pilote conserve sa passerelle filtrée.
+[Configuration et droits](omniroute.md). Aucune instruction de skill ne crée un droit réseau, un budget, un
 fournisseur ou une autorisation d'action externe. [Matrice de décisions](../adr/0014-catalogue-skills-et-responsabilites.md).
 
 ## Versions, mises à jour et nouvelles installations

@@ -1,6 +1,12 @@
 # Pure orchestration helpers, also exercised with synthetic executors in CI.
 function Assert-BootstrapDefinition($Definition,[string]$Workspace){
     if($Definition.schema_version -ne 1){throw 'BOOTSTRAP_SCHEMA_INVALID'}
+    if($null -ne $Definition.configuration_contracts.portable_state){throw 'BOOTSTRAP_PERSONAL_TRANSFER_OUT_OF_SCOPE'}
+    $routing=$Definition.configuration_contracts.routing
+    if($routing.default_router -ne 'omniroute' -or $routing.management_exposure -ne 'private_lan_only' -or
+       $routing.public_ingress -ne $false -or $routing.cloud_filter_default -ne 'presidio' -or
+       $routing.personal_provider_role -ne 'ArcIA.ProviderSelfService' -or
+       -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/routing.lock.json'))){throw 'BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED'}
     $identity=$Definition.configuration_contracts.identity
     if($null -eq $identity -or $identity.default_provider -ne 'keycloak_local' -or
        $identity.local_accounts -ne 'permanent' -or

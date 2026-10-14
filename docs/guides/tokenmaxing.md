@@ -100,7 +100,7 @@ Un échec produit un refus de l'outil ; le fichier original reste disponible.
 | Historique/contexte | Hermes natif | Headroom proxy et wrapper global : pas de second gestionnaire automatique de tout le contexte |
 | Délégation | Hermes natif | Orchestrateurs et launchers ECC/Superpowers : doublons non installés |
 | Découverte des skills | Miroir local et chargeur natif | Installations concurrentes Hub/Vercel depuis les conversations : versions et sorties non maîtrisées |
-| Routage | Passerelle ArcIA filtrée | Routage Headroom non activé ; OmniRoute demeure une cible distincte à qualifier |
+| Routage | Passerelle ArcIA filtrée | Routage Headroom non activé ; OmniRoute auto administré est le défaut, raccordement générique à qualifier |
 
 Les contenus de skills restent consultables ; aucun package/plugin ECC ou
 Superpowers complet n'est déployé. Les fonctions écartées n'étaient pas des

@@ -4,7 +4,7 @@ Statut : retenu. Presidio et route gratuite déployés ; multi-utilisateur compl
 
 ## Périmètre
 
-ArcIA est une plateforme IA agentique d’entreprise, sans usage métier imposé. arcia-harness porte le produit générique, son moteur Hermes, outils, RAG, contrôles et bootstrap. Les usages, corpus, comptes, domaines et connecteurs propres à une organisation vivent dans un dépôt d’instance distinct. Les références parlent de données privées/confidentielles et de périmètres, pas d’une catégorie particulière de métier.
+ArcIA est une plateforme IA agentique d’entreprise, sans usage métier imposé. ArcIA porte le produit générique, son moteur Hermes, outils, RAG, contrôles et bootstrap. Les usages, corpus, comptes, domaines et connecteurs propres à une organisation vivent dans un dépôt d’instance distinct. Les références parlent de données privées/confidentielles et de périmètres, pas d’une catégorie particulière de métier.
 
 ## Sortie modèle
 

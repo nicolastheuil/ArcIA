@@ -68,7 +68,7 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_reuses_decisions_and_does_not_qualify_gates(self):
         bundle = self.build()
-        self.assertEqual(bundle['config']['github']['repository'], 'arcia-harness')
+        self.assertEqual(bundle['config']['github']['repository'], 'ArcIA')
         self.assertEqual(bundle['config']['nodes'][2]['name'], 'arcia-k3s-03')
         self.assertEqual(set(bundle['config']['gates'].values()), {'pending'})
         self.assertFalse(bundle['config']['network']['existing_cidrs_reviewed'])

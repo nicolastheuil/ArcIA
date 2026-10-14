@@ -8,7 +8,7 @@
       "metadata": {
         "name": "hermes-control",
         "labels": {
-          "app.kubernetes.io/part-of": "arcia-harness",
+          "app.kubernetes.io/part-of": "ArcIA",
           "pod-security.kubernetes.io/enforce": "restricted",
           "pod-security.kubernetes.io/enforce-version": "v1.35",
           "pod-security.kubernetes.io/audit": "restricted",
@@ -138,7 +138,7 @@
       "metadata": {
         "name": "hermes-agents",
         "labels": {
-          "app.kubernetes.io/part-of": "arcia-harness",
+          "app.kubernetes.io/part-of": "ArcIA",
           "pod-security.kubernetes.io/enforce": "restricted",
           "pod-security.kubernetes.io/enforce-version": "v1.35",
           "pod-security.kubernetes.io/audit": "restricted",
@@ -268,7 +268,7 @@
       "metadata": {
         "name": "hermes-secrets",
         "labels": {
-          "app.kubernetes.io/part-of": "arcia-harness",
+          "app.kubernetes.io/part-of": "ArcIA",
           "pod-security.kubernetes.io/enforce": "restricted",
           "pod-security.kubernetes.io/enforce-version": "v1.35",
           "pod-security.kubernetes.io/audit": "restricted",
@@ -398,7 +398,7 @@
       "metadata": {
         "name": "hermes-knowledge",
         "labels": {
-          "app.kubernetes.io/part-of": "arcia-harness",
+          "app.kubernetes.io/part-of": "ArcIA",
           "pod-security.kubernetes.io/enforce": "restricted",
           "pod-security.kubernetes.io/enforce-version": "v1.35",
           "pod-security.kubernetes.io/audit": "restricted",
@@ -528,7 +528,7 @@
       "metadata": {
         "name": "hermes-llm",
         "labels": {
-          "app.kubernetes.io/part-of": "arcia-harness",
+          "app.kubernetes.io/part-of": "ArcIA",
           "pod-security.kubernetes.io/enforce": "restricted",
           "pod-security.kubernetes.io/enforce-version": "v1.35",
           "pod-security.kubernetes.io/audit": "restricted",

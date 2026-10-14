@@ -187,7 +187,7 @@
   "unit_tests_passed": 129,
   "local_identity_count": 2,
   "schema_version": 1,
-  "ci_url": "https://github.com/nicolastheuil/arcia-harness/actions/runs/38312788196",
+  "ci_url": "https://github.com/nicolastheuil/ArcIA/actions/runs/38312788196",
   "paid_models_enabled": false,
   "ci_conclusion": "success",
   "enterprise_sso_qualified": false,

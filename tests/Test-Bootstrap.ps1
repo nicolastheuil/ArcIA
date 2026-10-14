@@ -29,3 +29,9 @@ $blocked=$false
 try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$true}
 if(-not $blocked){throw 'BOOTSTRAP_IDENTITY_EGRESS_APPROVAL_GUARD_FAILED'}
 Write-Output 'BOOTSTRAP_FAIL_CLOSED_REPLAY_AND_DEPENDENCY_GUARDS_VERIFIED'
+$bad=$definition|ConvertTo-Json -Depth 20|ConvertFrom-Json
+$bad.configuration_contracts|Add-Member -NotePropertyName portable_state -NotePropertyValue @{}
+$blocked=$false
+try{Assert-BootstrapDefinition $bad $root}catch{$blocked=$_.Exception.Message -eq 'BOOTSTRAP_PERSONAL_TRANSFER_OUT_OF_SCOPE'}
+if(-not $blocked){throw 'BOOTSTRAP_PERSONAL_TRANSFER_SCOPE_GUARD_FAILED'}
+Write-Output 'BOOTSTRAP_PERSONAL_TRANSFER_EXCLUDED'

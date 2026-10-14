@@ -54,8 +54,6 @@ jobs:
         run: ./tests/Test-Bootstrap.ps1
       - shell: pwsh
         run: ./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs
-      - shell: pwsh
-        run: ./tests/Test-PortableState.ps1
       - shell: powershell
         run: ./tests/Test-DnsPlan.ps1
       - shell: powershell

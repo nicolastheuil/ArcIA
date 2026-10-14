@@ -23,7 +23,11 @@ RTK réécrit seulement git log simple par un hook natif contrôlé ; les autres
 commandes restent explicites. Headroom compresse les fichiers JSON du workspace
 avec un outil natif, sans proxy, mémoire partagée ou apprentissage. Hermes
 conserve la compaction de l’historique.
-OmniRoute automatique reste différé ; la passerelle filtrée impose les modèles.
+OmniRoute est le premier routeur par défaut, en mode auto administré. Son portail
+reste sur le LAN privé ; le raccordement d’inférence est à qualifier. Presidio
+est le défaut cloud, pas des modèles internes ; budget/ZDR appartiennent à
+l’instance. Les overrides personnels exigent ArcIA.ProviderSelfService et
+un contrôle serveur du propriétaire. Voir ../docs/guides/omniroute.md.
 Context7 externe est fermé jusqu'à qualification de son adaptateur. LintLang
 reste un rapport, pas une preuve de sécurité. Les catalogues et outils sont dans
 Hermes/K3s, readonly. Voir ../docs/guides/skills.md, ../docs/guides/outillage-builder.md et

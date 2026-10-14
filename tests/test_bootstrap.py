@@ -15,6 +15,26 @@ class BootstrapTests(unittest.TestCase):
     def test_current_components_are_covered(self):
         self.assertEqual(validate_bootstrap.validate()['code'],'BOOTSTRAP_COVERAGE_VERIFIED')
 
+    def test_personal_transfer_cannot_be_added_to_platform_contracts(self):
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            text=original(path,*args,**kwargs)
+            if path.name=='qualification.json':
+                data=json.loads(text);data['configuration_contracts']['portable_state']={};return json.dumps(data)
+            return text
+        with patch.object(Path,'read_text',read):
+            with self.assertRaisesRegex(ValueError,'PERSONAL_TRANSFER_OUT_OF_SCOPE'):validate_bootstrap.validate()
+
+    def test_personal_transfer_cannot_be_added_to_platform_lock(self):
+        original=Path.read_text
+        def read(path,*args,**kwargs):
+            text=original(path,*args,**kwargs)
+            if path.name=='versions.lock.yaml':
+                data=json.loads(text);data['portable_state']={};return json.dumps(data)
+            return text
+        with patch.object(Path,'read_text',read):
+            with self.assertRaisesRegex(ValueError,'PERSONAL_TRANSFER_OUT_OF_SCOPE'):validate_bootstrap.validate()
+
     def test_new_runtime_component_cannot_escape_bootstrap(self):
         original=Path.read_text
         def read(path,*args,**kwargs):

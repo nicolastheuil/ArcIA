@@ -15,7 +15,7 @@ limites sont dans [la recette](runbooks/recette-fondatrice.md) et
 [l’architecture réelle](architecture.md). Pour cette instance, suivre
 [l’exploitation](runbooks/exploitation-qualification.md), sans recréer VM,
 token, compte technique ou configuration. Le dépôt réel est
-`nicolastheuil/arcia-harness`, privé ; les noms des étapes initiales sont des exemples.
+`nicolastheuil/ArcIA`, privé ; les noms des étapes initiales sont des exemples.
 
 Les commandes des étapes suivantes constituent le parcours d’une nouvelle cible.
 Une release/reconstruction neuve n’est pas encore qualifiée. Les wrappers K3s
@@ -57,7 +57,7 @@ git init -b main
 git add AGENTS.md README.md .gitignore docs
 git commit -m "Initial architecture and Codex bootstrap"
 # Option si gh est déjà disponible et un nouveau dépôt est explicitement demandé
-gh repo create ORGANISATION/arcia-harness --private --source . --remote origin --push
+gh repo create ORGANISATION/ArcIA --private --source . --remote origin --push
 ```
 Remplacer ORGANISATION par la destination confirmée. Si le dépôt existe, le cloner et intégrer le pack ; ne pas créer un doublon.
 

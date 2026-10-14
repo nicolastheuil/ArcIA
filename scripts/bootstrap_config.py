@@ -37,7 +37,7 @@ def build(payload):
     policies = [p for p in foundation['policies'] if p['id'] == values['policy_id'] and p['compatible'] is True]
     harness.require(len(policies) == 1, 'COMPATIBLE_POLICY_REQUIRED')
     config = {'schema_version': 1, 'synthetic': False,
-        'github': {'account': 'nicolastheuil', 'repository': 'arcia-harness', 'visibility': 'private'},
+        'github': {'account': 'nicolastheuil', 'repository': 'ArcIA', 'visibility': 'private'},
         'nodes': [{'name': name, 'address': nodes[i]['address'], 'ssh_user': target['ssh_user'],
             'ssh_port': 22, 'identity_file': str(identity), 'known_hosts_file': str(root/'known_hosts.arcia')}
             for i, name in enumerate(NAMES)],

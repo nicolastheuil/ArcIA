@@ -2,7 +2,7 @@
 
 ## État et destination
 
-Destination confirmée : **nicolastheuil/arcia-harness**, privé. Les trois VM
+Destination confirmée : **nicolastheuil/ArcIA**. Les trois VM
 Debian 13 sont créées et vérifiées via SSH strict et sudo. Le socle K3s,
 CPI/CSI, PostgreSQL/pgvector, Hermes et NGINX de qualification est déployé.
 Voir [recette](recette-fondatrice.md), [état courant](../etat-reprise.md) et
