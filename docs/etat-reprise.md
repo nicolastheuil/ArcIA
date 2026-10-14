@@ -197,6 +197,10 @@ VMware neuve et HA reste inchangée, non qualifiée.
 
 ### Connexions personnelles dans OmniRoute : résultat du lot
 
+Livraison de code sur main : `f9d9d76` puis `67f6afc`. Les jobs `sources` et
+`powershell` de [la CI du lot](https://github.com/nicolastheuil/ArcIA/actions/runs/38614175433)
+ont réussi. La preuve fige la révision et l'empreinte du lock de sources.
+
 Le service et la page `/personal/` sont codés, déployés et vérifiés sur les VM
 existantes : PKCE, droits admin/utilisateur, propriétaires, clés natives limitées,
 retrait live du rôle, compte désactivé, Presidio et nettoyage des fixtures.

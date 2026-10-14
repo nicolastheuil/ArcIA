@@ -36,8 +36,22 @@
   "tls_validation_bypassed": false,
   "fixtures_removed": 3,
   "status": "verified",
-  "source_revision": "source_sha256_in_bootstrap_routing_lock",
+  "source_revision": "67f6afce4433e286bce5f4241a05da322e84c211",
   "passed": true,
   "private_data_used": false,
-  "code": "OMNIROUTE_PERSONAL_ACCESS_VERIFIED"
+  "code": "OMNIROUTE_PERSONAL_ACCESS_VERIFIED",
+  "routing_lock_sha256": "068b708d229749b54a08c2708c4655ce19d61d60e4b6fb5c19fabb5c94f19d78",
+  "synthetic_ci": {
+    "run_url": "https://github.com/nicolastheuil/ArcIA/actions/runs/38614175433",
+    "sources": "success",
+    "powershell": "success"
+  },
+  "local_validation": {
+    "unit_tests": 274,
+    "windows_skips": 2,
+    "markdown_files": 74,
+    "local_links": 422,
+    "mermaid_diagrams": 15,
+    "bootstrap_steps": 63
+  }
 }
