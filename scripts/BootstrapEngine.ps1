@@ -7,6 +7,10 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
        $routing.public_ingress -ne $false -or $routing.cloud_filter_default -ne 'presidio' -or
        $routing.personal_provider_role -ne 'ArcIA.ProviderSelfService' -or
        -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/routing.lock.json'))){throw 'BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED'}
+    $keys=$routing.personal_key_configuration
+    if($keys.role -ne 'ArcIA.ProviderSelfService' -or $keys.automatic_role_grants -ne $false -or
+       $keys.online_roles_required -ne $true -or $keys.keys_returned_to_browser -ne $false -or
+       $keys.inference_activation -ne $false){throw 'BOOTSTRAP_PERSONAL_KEY_BOUNDARY_REQUIRED'}
     $identity=$Definition.configuration_contracts.identity
     if($identity.runtime_https_path -ne 'node_443_and_ingress_pods_8443'){
         throw 'BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT'

@@ -1,4 +1,4 @@
-# Show credentials only in a local Windows form; never return them to stdout.
+﻿# Show credentials only in a local Windows form; never return them to stdout.
 [CmdletBinding()]
 param([switch]$OpenPortal,[switch]$UseIp)
 $ErrorActionPreference='Stop'

@@ -23,7 +23,8 @@ Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware av
 - Aucune donnée privée ou confidentielle brute vers le cloud. Fixtures synthétiques pour le build.
 - Les données et configurations privées sont chiffrées avant GitHub, clés externes.
 - Connexions de coffres persistantes individuelles ; VPN personnels et temporaires.
-- Toute action externe à risque a son plan et son approbation Teams vérifiés côté serveur.
+- Pour les futures actions externes à risque des utilisateurs et de leurs agents en exploitation, le plan et l'approbation Teams sont vérifiés côté serveur.
+- Clarification du propriétaire du 14 octobre 2026 : cette règle Teams ne s'applique pas aux interventions de construction, configuration et déploiement de l'IA Platform Engineer explicitement autorisées par le propriétaire. Les cibles désignées, la protection des secrets et les permissions effectives du terminal/réseau restent obligatoires.
 
 ## Kubernetes et disponibilité
 - Fixer les versions et digests ; installer K3s avec paramètres cohérents et secrets protégés.

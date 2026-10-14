@@ -431,6 +431,23 @@ def collect(payload):
         finally:
             guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
                 {**common,'action':'disable_portal_fixtures','fixtures':fixtures},root=True)
+    if action in ('install_personal_keys','verify_personal_keys','inspect_personal_keys'):
+        import portal_deploy
+        if payload['identity']['operation_id']!=operation:raise ValueError('KEY_CONFIG_OPERATION_SCOPE')
+        target,nodes,base=transport(payload)
+        values={'action':action,'operation_id':operation,'hostname':payload['pilot']['hostname'],
+                'credentials':payload['identity']}
+        if action=='install_personal_keys':
+            prepared=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+                {'action':'prepare_personal_keys','operation_id':operation},root=True)
+            lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+            values.update(portal_deploy.key_payload(lock,prepared['settings']))
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),values,root=True,timeout=420)
+        codes={'install_personal_keys':'PERSONAL_KEYS_INSTALLED','verify_personal_keys':'PERSONAL_KEYS_VERIFIED',
+               'inspect_personal_keys':'PERSONAL_KEYS_INSPECTED'}
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':('inspected' if action=='inspect_personal_keys' else 'verified') if result['passed'] else 'blocked',
+            'code':codes[action] if result['passed'] else 'PERSONAL_KEYS_FAILED',**result}}
     if action=='install_personal_portal':
         import portal_deploy
         target,nodes,base=transport(payload)

@@ -1,6 +1,13 @@
 {
   "schema_version": 1,
   "target": "qualification-synthetic",
+  "local_access_encoding": {
+    "encoding": "utf8_bom",
+    "files": [
+      "scripts/ProtectedState.ps1",
+      "scripts/Show-RoutingAccess.ps1"
+    ]
+  },
   "steps": [
     {
       "id": "controller",
@@ -835,6 +842,51 @@
       "provision_only": false
     },
     {
+      "id": "install_personal_keys",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_personal_keys"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_personal_portal"
+      ],
+      "status_file": "cluster-install_personal_keys-status.json",
+      "success_codes": [
+        "PERSONAL_KEYS_INSTALLED"
+      ],
+      "timeout_seconds": 600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_personal_keys",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_personal_keys"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify"
+      ],
+      "after": [
+        "install_personal_keys"
+      ],
+      "status_file": "cluster-verify_personal_keys-status.json",
+      "success_codes": [
+        "PERSONAL_KEYS_VERIFIED"
+      ],
+      "timeout_seconds": 600,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
       "id": "reconcile_identity_runtime_network",
       "script": "scripts/Invoke-ClusterFoundation.ps1",
       "arguments": [
@@ -921,6 +973,27 @@
         "PERSONAL_PORTAL_INSPECTED"
       ],
       "timeout_seconds": 180,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "inspect_personal_keys",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "inspect_personal_keys"
+      ],
+      "profiles": [
+        "audit"
+      ],
+      "after": [
+        "inspect_personal_portal"
+      ],
+      "status_file": "cluster-inspect_personal_keys-status.json",
+      "success_codes": [
+        "PERSONAL_KEYS_INSPECTED"
+      ],
+      "timeout_seconds": 600,
       "engine": "pwsh",
       "provision_only": false
     },
@@ -1441,6 +1514,21 @@
         "enrollment_script": "scripts/Enable-RoutingIpAccess.ps1",
         "secret_optional": "routing-ip-tls.dpapi",
         "client_trust": "explicit_operator_current_user"
+      },
+      "personal_key_configuration": {
+        "portal_path": "/portal/keys",
+        "api_path": "/portal/api/keys",
+        "role": "ArcIA.ProviderSelfService",
+        "automatic_role_grants": false,
+        "online_roles_required": true,
+        "owner": "issuer_subject",
+        "storage": "owner_bound_aes256gcm_in_fixed_slot_secret",
+        "encryption_secret": "portal-key-encryption",
+        "keys_returned_to_browser": false,
+        "inference_activation": false,
+        "installation_step": "install_personal_keys",
+        "verification_step": "verify_personal_keys",
+        "inspection_step": "inspect_personal_keys"
       }
     }
   }

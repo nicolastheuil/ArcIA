@@ -11,6 +11,13 @@ def validate(root=ROOT):
     lock=json.loads((root/'versions.lock.yaml').read_text(encoding='utf-8'))
     tools=json.loads((root/'builder/tools.lock.json').read_text(encoding='utf-8'))
     coverage=definition['coverage']
+    local_access=definition.get('local_access_encoding',{})
+    if (local_access.get('encoding')!='utf8_bom' or
+            set(local_access.get('files',[]))!={'scripts/ProtectedState.ps1','scripts/Show-RoutingAccess.ps1'}):
+        raise ValueError('BOOTSTRAP_LOCAL_ACCESS_ENCODING_CONTRACT')
+    for relative in local_access['files']:
+        if not (root/relative).read_bytes().startswith(b'\xef\xbb\xbf'):
+            raise ValueError('BOOTSTRAP_LOCAL_ACCESS_UTF8_BOM_REQUIRED')
     if 'portable_state' in definition.get('configuration_contracts',{}) or 'portable_state' in lock:
         raise ValueError('BOOTSTRAP_PERSONAL_TRANSFER_OUT_OF_SCOPE')
     routing=definition.get('configuration_contracts',{}).get('routing',{})
@@ -22,13 +29,21 @@ def validate(root=ROOT):
         raise ValueError('BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED')
     routing_lock=json.loads((root/routing['lock']).read_text(encoding='utf-8'))
     required_routing={'services/routing/install.py','services/routing/policy.py','scripts/routing_deploy.py',
-                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1','scripts/Enable-RoutingIpAccess.ps1'}
+                      'scripts/node_routing.py','scripts/Show-RoutingAccess.ps1','scripts/Enable-RoutingIpAccess.ps1',
+                      'services/routing/user_keys.py','services/identity/keys_page.py','schemas/provider-key-config.schema.json'}
     if set(routing_lock.get('files',{}))!=required_routing:raise ValueError('BOOTSTRAP_ROUTING_LOCK_COVERAGE')
     for relative,digest in routing_lock['files'].items():
         content=(root/relative).read_text(encoding='utf-8').replace('\r\n','\n').encode()
         if hashlib.sha256(content).hexdigest()!=digest:raise ValueError('BOOTSTRAP_ROUTING_LOCK_HASH')
     if not {'install_omniroute','verify_omniroute','inspect_omniroute'}<={s['id'] for s in definition['steps']}:
         raise ValueError('BOOTSTRAP_ROUTING_STEPS_REQUIRED')
+    keys=routing.get('personal_key_configuration',{})
+    if (keys.get('role')!='ArcIA.ProviderSelfService' or keys.get('automatic_role_grants') is not False
+            or keys.get('online_roles_required') is not True or keys.get('owner')!='issuer_subject'
+            or keys.get('keys_returned_to_browser') is not False or keys.get('inference_activation') is not False
+            or keys.get('encryption_secret')!='portal-key-encryption'
+            or not {'install_personal_keys','verify_personal_keys','inspect_personal_keys'}<={s['id'] for s in definition['steps']}):
+        raise ValueError('BOOTSTRAP_PERSONAL_KEY_BOUNDARY_REQUIRED')
     if lock.get('identity',{}).get('enabled'):
         contract=definition.get('configuration_contracts',{}).get('identity',{})
         if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':

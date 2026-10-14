@@ -1,6 +1,6 @@
 """Keycloak local identities are permanent; federation is additive and opt-in."""
 REALM = 'arcia'
-ROLES = ('ArcIA.User', 'ArcIA.Approver', 'ArcIA.Admin')
+ROLES = ('ArcIA.User', 'ArcIA.Approver', 'ArcIA.Admin', 'ArcIA.ProviderSelfService')
 
 
 def realm_definition(operation):
@@ -39,5 +39,5 @@ def runtime_client(client_id, redirect_uri, secret):
              'protocolMapper': 'oidc-usermodel-realm-role-mapper',
              'config': {'claim.name': 'arcia_roles', 'multivalued': 'true',
                         'jsonType.label': 'String', 'access.token.claim': 'true',
-                        'id.token.claim': 'true'}}],
+                        'id.token.claim': 'true', 'userinfo.token.claim': 'true'}}],
     }

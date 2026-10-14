@@ -1,4 +1,4 @@
-# This file never returns a secret to stdout. Call only from a local trusted program.
+﻿# This file never returns a secret to stdout. Call only from a local trusted program.
 Add-Type -AssemblyName System.Security
 
 function Get-ArcIAStateCandidates {

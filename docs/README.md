@@ -86,3 +86,5 @@ Une CI synthétique ne qualifie pas une reconstruction VMware neuve.
 | [0018](adr/0018-plan-reparation-sortie-keycloak.md) | Plan borné de réparation de la sortie Keycloak |
 | [0019](adr/0019-organisation-documentaire.md) | Documentation par fonction et reprise unique |
 | [0020](adr/0020-perimetre-harness-et-politiques-instance.md) | Périmètre générique et politiques de routage d’instance |
+| [0021](adr/0021-cles-fournisseurs-personnelles.md) | Clés personnelles chiffrées, rôle explicite et activation distincte |
+| [0022](adr/0022-providers-personnels-sous-arcia.md) | Providers personnels en parallèle d'OmniRoute, avec tous les contrôles ArcIA |

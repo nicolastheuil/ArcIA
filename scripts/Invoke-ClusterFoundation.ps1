@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','reconcile_identity_runtime_network','reconcile_identity_session_boundary','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup','install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access')][string]$Action='inspect',
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','install_personal_keys','verify_personal_keys','inspect_personal_keys','reconcile_identity_runtime_network','reconcile_identity_session_boundary','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup','install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access')][string]$Action='inspect',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256,
     [ValidatePattern('^p(?:0[1-9]|[12][0-9]|3[0-2])$')][string]$SessionBoundarySlot,
     [string]$RecoveryUsername, [switch]$RepairUnqualifiedRouter, [switch]$AuthorizePrivateRouterController, [switch]$AuthorizeAllPrivateRouterSources)
@@ -67,7 +67,7 @@ try{
         $payload.portal_fixtures=(Read-ProtectedBundle $fixturePath)|ConvertFrom-Json
         if($payload.portal_fixtures.operation_id -ne $operation.id){throw 'PERSONAL_PORTAL_FIXTURE_SCOPE'}
     }
-    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','plan_personal_cleanup','apply_personal_cleanup')){
+    if($Action -in @('install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','install_personal_keys','verify_personal_keys','inspect_personal_keys','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','plan_personal_cleanup','apply_personal_cleanup')){
         $identityPath=Join-Path $root 'identity.dpapi'
         if(-not(Test-Path -LiteralPath $identityPath)){
             if($Action -ne 'install_identity'){throw 'IDENTITY_ENROLLMENT_REQUIRED'}
@@ -141,6 +141,10 @@ try{
     }
     $start=New-Object Diagnostics.ProcessStartInfo
     $start.FileName=Join-Path $env:LOCALAPPDATA 'ArcIA-Validation\venv\Scripts\python.exe'
+    if(-not(Test-Path -LiteralPath $start.FileName)){
+        $start.FileName=Join-Path (Split-Path $root -Parent) 'ArcIA-Validation\venv\Scripts\python.exe'
+    }
+    if(-not(Test-Path -LiteralPath $start.FileName)){throw 'PROTECTED_VALIDATION_RUNTIME_REQUIRED'}
     $start.Arguments='"'+(Join-Path $PSScriptRoot 'cluster_foundation.py')+'"'
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true

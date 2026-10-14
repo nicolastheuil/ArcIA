@@ -890,6 +890,7 @@ def install_personal_portal(values):
                 if (client.get('redirectUris')!=expected['redirectUris'] or client.get('publicClient') is not True
                     or client.get('attributes',{}).get('pkce.code.challenge.method')!='S256'):
                     raise ValueError('PERSONAL_PORTAL_CLIENT_DRIFT')
+        ensure_personal_key_role(admin)
     # Preserve existing bindings, volumes, credentials, scales and install progress.
     preserved_bindings={};preserved_claims={};skip=set()
     for slot in values['slots']:
@@ -919,6 +920,9 @@ def install_personal_portal(values):
                         raise ValueError('PERSONAL_SLOT_ISSUER_CLIENT_DRIFT')
                     skip.add(('Secret',ns,'arcia-oidc-runtime'))
                     doc['stringData']['ARCIA_IDENTITY_OWNER_SUBJECT']=previous_owner
+            if doc['kind']=='Secret' and doc['metadata']['name']=='personal-provider-keys':
+                if owned('Secret','personal-provider-keys',ns,operation,True):
+                    skip.add(('Secret',ns,'personal-provider-keys'))
             if doc['kind']=='Deployment':
                 old=owned('Deployment',doc['metadata']['name'],ns,operation,True)
                 if old and not current_binding and old['spec'].get('replicas',0):
@@ -933,6 +937,7 @@ def install_personal_portal(values):
     if not hmac_secret:
         apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'portal-hmac','namespace':'arcia-access'},
                 'type':'Opaque','stringData':{'hmac':secrets.token_urlsafe(48)}}],operation)
+    ensure_key_encryption(operation,values['slots'])
     for secret_name,service_ns,key in [('knowledge-credentials','arcia-knowledge','tokens.json'),('privacy-policy','arcia-privacy','policy.json')]:
         secret=owned('Secret',secret_name,service_ns,operation)
         content=json.loads(base64.b64decode(secret['data'][key]).decode());before=json.dumps(content,sort_keys=True)
@@ -992,6 +997,122 @@ def install_personal_portal(values):
             'sso_provider_enabled':False,'fresh_cluster_rebuilt':False}
 
 
+def ensure_personal_key_role(admin):
+    """Provision a role, never grant it automatically to a human or a default role."""
+    name='ArcIA.ProviderSelfService'
+    try:admin.resource('/roles/'+name)
+    except urllib.error.HTTPError as exc:
+        if exc.code!=404:raise
+        admin.resource('/roles','POST',{'name':name})
+    client=admin.client('arcia-portal')
+    mappers=admin.resource('/clients/'+client['id']+'/protocol-mappers/models')
+    roles=[m for m in mappers if m.get('name')=='realm-roles' and
+           m.get('protocolMapper')=='oidc-usermodel-realm-role-mapper']
+    if len(roles)!=1:raise ValueError('KEY_CONFIG_LIVE_ROLE_MAPPER_REQUIRED')
+    mapper=roles[0]
+    if mapper.get('config',{}).get('userinfo.token.claim')!='true':
+        mapper['config']['userinfo.token.claim']='true'
+        admin.resource('/clients/'+client['id']+'/protocol-mappers/models/'+mapper['id'],'PUT',mapper)
+
+
+def ensure_key_encryption(operation,slots):
+    existing=owned('Secret','portal-key-encryption','arcia-access',operation,True)
+    if existing:
+        if len(base64.b64decode(existing.get('data',{}).get('key','')))!=32:
+            raise ValueError('KEY_CONFIG_ENCRYPTION_DRIFT')
+        return
+    for slot in slots:
+        store=owned('Secret','personal-provider-keys',slot['namespace'],operation,True)
+        if store and store.get('data',{}).get('sealed'):
+            raise ValueError('KEY_CONFIG_ENCRYPTION_RECOVERY_REQUIRED')
+    apply([{'apiVersion':'v1','kind':'Secret','metadata':{'name':'portal-key-encryption','namespace':'arcia-access'},
+            'type':'Opaque','data':{'key':base64.b64encode(secrets.token_bytes(32)).decode()}}],operation)
+
+
+def prepare_personal_keys(values):
+    settings=json.loads(owned('ConfigMap','portal-config','arcia-access',values['operation_id'])['data']['portal.json'])
+    if settings['operation_id']!=values['operation_id']:raise ValueError('KEY_CONFIG_SCOPE')
+    return {'settings':settings}
+
+
+def install_personal_keys(values):
+    op=values['operation_id'];settings=prepare_personal_keys(values)['settings']
+    deployment=owned('Deployment','arcia-portal','arcia-access',op)
+    if deployment['spec']['template']['spec']['containers'][0]['image']!=values['expected_image']:
+        raise ValueError('KEY_CONFIG_PORTAL_IMAGE_DRIFT')
+    if hashlib.sha256(json.dumps({**settings,'personal_key_configuration_enabled':True},sort_keys=True).encode()).hexdigest()!=values['config_sha256']:
+        raise ValueError('KEY_CONFIG_PORTAL_CONFIG_DRIFT')
+    # Check every foreign object before mutations; preserve all existing stores.
+    preserved={};documents=[]
+    for doc in values['documents']:
+        old=owned(doc['kind'],doc['metadata']['name'],doc['metadata']['namespace'],op,True)
+        if doc['kind']=='Secret' and old:
+            preserved[doc['metadata']['namespace']]=old.get('data',{})
+            continue
+        documents.append(doc)
+    before_key=owned('Secret','portal-key-encryption','arcia-access',op,True)
+    ensure_key_encryption(op,settings['slots'])
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=op:raise ValueError('IDENTITY_FOREIGN_REALM')
+        ensure_personal_key_role(admin)
+    apply(documents,op)
+    spec=deployment['spec']['template']['spec']
+    next(v for v in spec['volumes'] if v['name']=='code')['configMap']['name']=values['code_name']
+    if not any(v['name']=='key-encryption' for v in spec['volumes']):
+        spec['volumes'].append({'name':'key-encryption','secret':{'secretName':'portal-key-encryption','defaultMode':288}})
+        spec['containers'][0]['volumeMounts'].append({'name':'key-encryption','mountPath':'/key-encryption','readOnly':True})
+    deployment['spec']['template']['metadata'].setdefault('annotations',{}).update({
+        'arcia.io/source-sha256':values['source_sha256'],'arcia.io/config-sha256':values['config_sha256']})
+    # resourceVersion precondition protects a concurrent deployment change.
+    replacement=json.loads(json.dumps(deployment));replacement.pop('status',None)
+    replacement['metadata'].pop('managedFields',None)
+    kube('replace','-f','-',document=replacement)
+    kube('rollout','status','deployment/arcia-portal','-n','arcia-access','--timeout=180s',timeout=200)
+    for ns,data in preserved.items():
+        if owned('Secret','personal-provider-keys',ns,op).get('data',{})!=data:
+            raise ValueError('KEY_CONFIG_REAPPLICATION_DRIFT')
+    result=inspect_personal_keys(values)
+    after_key=owned('Secret','portal-key-encryption','arcia-access',op)
+    result['existing_encryption_key_preserved']=not before_key or (
+        before_key['metadata']['uid']==after_key['metadata']['uid'] and before_key['data']==after_key['data'])
+    result['passed']=result['passed'] and result['existing_encryption_key_preserved']
+    result.update(stores_preserved=len(preserved),automatic_role_grants=False,model_call_executed=False)
+    return result
+
+
+def inspect_personal_keys(values):
+    op=values['operation_id'];settings=prepare_personal_keys(values)['settings']
+    deployment=owned('Deployment','arcia-portal','arcia-access',op)
+    secret=owned('Secret','portal-key-encryption','arcia-access',op)
+    checks={'portal_ready':deployment.get('status',{}).get('availableReplicas')==1,
+            'configuration_enabled':settings.get('personal_key_configuration_enabled') is True,
+            'encryption_key_valid':len(base64.b64decode(secret['data'].get('key','')))==32,
+            'single_portal':deployment['spec']['replicas']==1 and deployment['spec']['strategy']['type']=='Recreate'}
+    with forward() as base:
+        admin=Admin(base,values['hostname']);admin.authenticate(values['credentials'])
+        if admin.resource().get('attributes',{}).get('arcia.operation-id')!=op:raise ValueError('IDENTITY_FOREIGN_REALM')
+        checks['selfservice_role_exists']=admin.resource('/roles/ArcIA.ProviderSelfService')['name']=='ArcIA.ProviderSelfService'
+        client=admin.client('arcia-portal')
+        mappers=admin.resource('/clients/'+client['id']+'/protocol-mappers/models')
+        checks['online_role_mapper_enabled']=any(m.get('name')=='realm-roles' and
+            m.get('config',{}).get('userinfo.token.claim')=='true' for m in mappers)
+        defaults=admin.resource('/roles/default-roles-arcia/composites/realm')
+        checks['selfservice_not_granted_by_default']=not any(r['name']=='ArcIA.ProviderSelfService' for r in defaults)
+    for index,slot in enumerate(settings['slots']):
+        store=owned('Secret','personal-provider-keys',slot['namespace'],op)
+        role=owned('Role','personal-key-controller',slot['namespace'],op)
+        checks['slot_'+str(index)+'_bounded']=role['rules']==[{'apiGroups':[''],'resources':['secrets'],
+            'resourceNames':['personal-provider-keys'],'verbs':['get','patch']}]
+        checks['slot_'+str(index)+'_sealed_only']=not(set(store.get('data',{}))-{'sealed'})
+    # Anonymous HTTP request through the real handler, with the instance Host.
+    probe="import urllib.request,urllib.error,json;\ntry:\n urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8080/portal/api/keys',headers={'Host':"+repr(settings['hostname'])+"}),timeout=10);print(0)\nexcept urllib.error.HTTPError as e:print(e.code)"
+    status=kube('exec','deployment/arcia-portal','-n','arcia-access','--','/opt/hermes/.venv/bin/python','-c',probe)
+    checks['anonymous_keys_denied']=status.strip() in ('401','403')
+    return {'passed':all(checks.values()),'checks':checks,'stores_checked':len(settings['slots']),
+            'model_call_executed':False,'interactive_owner_recipe_executed':False}
+
+
 if __name__ == '__main__':
     print(json.dumps({'install_identity': install, 'verify_identity': verify,
                       'plan_personal_cleanup': personal_cleanup, 'apply_personal_cleanup': personal_cleanup,
@@ -1006,6 +1127,8 @@ if __name__ == '__main__':
                       'inspect_identity': inspect,'prepare_identity':prepare,
                       'connect_identity':connect,'cleanup_identity_fixture':cleanup_unbound_fixture,
                       'prepare_personal_portal':prepare_personal_portal,'install_personal_portal':install_personal_portal,
+                      'prepare_personal_keys':prepare_personal_keys,'install_personal_keys':install_personal_keys,
+                      'verify_personal_keys':inspect_personal_keys,'inspect_personal_keys':inspect_personal_keys,
                       'inspect_personal_portal':inspect_personal_portal,
                       'reconcile_identity_runtime_network':reconcile_runtime_network,
                       'reconcile_identity_session_boundary':reconcile_session_boundary,

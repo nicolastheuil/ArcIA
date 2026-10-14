@@ -81,6 +81,9 @@ portail si ces étapes n'ont pas déjà été exécutées par le bootstrap :
 Le helper ouvre `https://<domaine-instance>:20129/dashboard` vers la VIP HTTPS
 privée, avec validation TLS conservée, et montre le mot de passe initial
 uniquement dans le formulaire local. Changer ce mot de passe dans OmniRoute.
+Les scripts `Show-RoutingAccess.ps1` et `ProtectedState.ps1` sont conservés en
+UTF-8 avec BOM pour être lus correctement depuis Windows PowerShell 5.1.
+Le bootstrap principal exige toujours PowerShell 7.4 ou supérieur.
 Pour les autres postes, résoudre ce nom vers la VIP privée sur le réseau
 administratif, ou utiliser le helper avec VPN. **Ne créer aucun NAT, publication
 Internet, tunnel public ou règle d'Ingress publique pour ce port.**
@@ -106,8 +109,15 @@ routeur et conserver `noLog`. Cette clé reste côté service, jamais dans Herme
 ou les navigateurs des utilisateurs. Le portail natif est réservé aux admins.
 [Configuration complète, abonnements et overrides](../guides/omniroute.md).
 
+Pour les comptes explicitement habilités `ArcIA.ProviderSelfService`, installer
+la configuration personnelle via `install_personal_keys`, puis la vérifier via
+`verify_personal_keys`. Depuis `/portal/`, **Mes clés IA** permet d'enregistrer,
+remplacer ou supprimer ses clés API chiffrées. Le rôle n'est jamais attribué
+automatiquement. Les clés enregistrées restent inactives pour l'inférence.
+[Procédure](../guides/omniroute.md#installer-et-utiliser-la-configuration-personnelle).
+
 **État de l'intégration :** le portail privé et le contrat de sélection sont
-codés ; le raccordement générique de l'inférence et le self-service fournisseur
+codés ; le raccordement générique de l'inférence et l'activation des fournisseurs personnels
 restent à qualifier/intégrer. La configuration du dashboard ne rebascule pas
 à elle seule le pilote existant. Celui-ci conserve son chemin Presidio → relais
 OpenRouter avec sa politique d'instance gratuite/ZDR jusqu'à une migration

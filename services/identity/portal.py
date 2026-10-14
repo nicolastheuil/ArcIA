@@ -15,6 +15,11 @@ import ssl
 import httpx
 import jwt
 from slots import Slots,CapacityError,BindingError
+try:
+    from user_keys import UserKeys,KeyConfigError,PROVIDERS,ROLE
+except ModuleNotFoundError:
+    from services.routing.user_keys import UserKeys,KeyConfigError,PROVIDERS,ROLE
+from keys_page import render_keys_page
 
 CONFIG=json.loads(Path('/config/portal.json').read_text()) if Path('/config/portal.json').is_file() else {}
 
@@ -31,6 +36,7 @@ class Portal:
         self.headers={'Host':config['hostname'],'X-Forwarded-Proto':'https'}
         self.jwks=jwt.PyJWKClient(self.internal+'/protocol/openid-connect/certs',headers=self.headers)
         self.slots=Slots(api,config['slots'],self.issuer,config['operation_id'])
+        self.user_keys=None
 
     def sign(self,value):
         body=b64(json.dumps(value,sort_keys=True,separators=(',',':')).encode())
@@ -60,6 +66,10 @@ class Portal:
         response=httpx.get(self.internal+'/protocol/openid-connect/userinfo',headers={**self.headers,'Authorization':'Bearer '+token},
             timeout=5,follow_redirects=False)
         if response.status_code!=200 or response.json().get('sub')!=claims['sub']:raise ValueError('SESSION_INACTIVE')
+        # UserInfo computes roles from the current account, not the older JWT.
+        online=response.json()
+        if 'arcia_roles' not in online:raise PermissionError('LIVE_ROLES_REQUIRED')
+        claims['arcia_roles']=online['arcia_roles']
         if 'ArcIA.User' not in claims.get('arcia_roles',[]):raise PermissionError('ARCIA_USER_ROLE_REQUIRED')
         return claims
 
@@ -96,6 +106,7 @@ class Handler(BaseHTTPRequestHandler):
         return claims,changes
     def do_GET(self):self.handle_request('GET')
     def do_POST(self):self.handle_request('POST')
+    def do_DELETE(self):self.handle_request('DELETE')
     def handle_request(self,method):
         portal=self.server.portal;url=urlsplit(self.path);path=url.path
         phase='REQUEST';changes=[]
@@ -123,8 +134,33 @@ class Handler(BaseHTTPRequestHandler):
                 if identity.get('nonce')!=pending['nonce'] or identity['sub']!=claims['sub']:raise ValueError('NONCE_REFUSED')
                 return self.redirect('/portal/',[self.cookie('__Secure-arcia_portal_at',payload['access_token']),
                     self.cookie('__Secure-arcia_portal_rt',payload['refresh_token']),self.cookie('__Secure-arcia_portal_pkce','',0)])
-            if path not in ('/portal/','/portal/provision'):return self.json(404,{'code':'NOT_FOUND'})
+            if path not in ('/portal/','/portal/provision','/portal/keys','/portal/api/keys'):return self.json(404,{'code':'NOT_FOUND'})
             phase='SESSION';claims,changes=self.session(cookies)
+            if path in ('/portal/keys','/portal/api/keys'):
+                phase='KEY_CONFIG'
+                if portal.user_keys is None:return self.json(503,{'code':'KEY_CONFIG_UNAVAILABLE'})
+                portal.user_keys.authorize(claims)
+                if path=='/portal/keys':
+                    if method!='GET':return self.json(405,{'code':'METHOD_REFUSED'})
+                    nonce=secrets.token_urlsafe(24)
+                    body=render_keys_page(portal.csrf(claims['sub']),nonce,PROVIDERS).encode()
+                    return self.respond(200,body,[('Content-Type','text/html; charset=utf-8'),
+                        ('Content-Security-Policy',"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"),*changes])
+                if method=='GET':return self.json(200,{'keys':portal.user_keys.list(claims)},changes)
+                if method not in ('POST','DELETE'):return self.json(405,{'code':'METHOD_REFUSED'})
+                if self.headers.get('Origin')!=portal.origin or not hmac.compare_digest(
+                        self.headers.get('X-ArcIA-CSRF',''),portal.csrf(claims['sub'])):
+                    return self.json(403,{'code':'CSRF_REFUSED'})
+                if self.headers.get('Content-Type','').split(';')[0]!='application/json' or self.headers.get('Transfer-Encoding'):
+                    return self.json(400,{'code':'JSON_REQUIRED'})
+                try:
+                    length=int(self.headers.get('Content-Length','0'))
+                    if not 1<=length<=16384:raise ValueError()
+                    self.connection.settimeout(10)
+                    value=json.loads(self.rfile.read(length))
+                    result=portal.user_keys.change(claims,value,remove=method=='DELETE')
+                except (ValueError,UnicodeError):return self.json(400,{'code':'KEY_CONFIG_INVALID'},changes)
+                return self.json(200,{'keys':result},changes)
             if path=='/portal/provision':
                 if method!='POST' or self.headers.get('Origin')!=portal.origin or not hmac.compare_digest(
                     self.headers.get('X-ArcIA-CSRF',''),portal.csrf(claims['sub'])):
@@ -141,15 +177,18 @@ class Handler(BaseHTTPRequestHandler):
             nonce=secrets.token_urlsafe(24)
             html='''<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>ArcIA — espace personnel</title>
 <style>body{font:17px system-ui;max-width:680px;margin:12vh auto;padding:24px;color:#15354a;background:#f6f9fb}main{background:white;border-radius:16px;padding:32px;border:1px solid #dce6ed}h1{font-size:28px}a{color:#155c92}</style>
-<main><h1>Votre espace ArcIA</h1><p id="status">Préparation de votre espace personnel…</p><p>Vos conversations et fichiers restent propres à votre compte.</p><p><a href="/account">Mon compte</a> · <a href="/admin/users">Administration des utilisateurs</a></p></main>
+<main><h1>Votre espace ArcIA</h1><p id="status">Préparation de votre espace personnel…</p><p>Vos conversations et fichiers restent propres à votre compte.</p><p><a href="/account">Mon compte</a> · <a href="/portal/keys">Mes clés IA</a> · <a href="/admin/users">Administration des utilisateurs</a></p></main>
 <script nonce="'''+nonce+'''">const csrf='''+json.dumps(portal.csrf(claims['sub']))+''';let busy=false;
 async function poll(){if(busy)return;busy=true;try{const r=await fetch('/portal/provision',{method:'POST',headers:{'X-ArcIA-CSRF':csrf}});const x=await r.json();
-if(x.phase==='ready'){location.replace(x.prefix+'/');return;}const msg={installing:'Installation des outils de votre espace. Cette première préparation peut prendre plusieurs minutes.',starting:'Démarrage de votre espace personnel…',blocked:'La préparation est interrompue. Contactez votre administrateur.'};
+if(x.phase==='ready'){if(document.querySelector('a[href="/portal/keys"]')){const a=document.createElement('a');a.href=x.prefix+'/';a.textContent='Ouvrir mes conversations';document.getElementById('status').replaceChildren(a);}else{location.replace(x.prefix+'/');}return;}const msg={installing:'Installation des outils de votre espace. Cette première préparation peut prendre plusieurs minutes.',starting:'Démarrage de votre espace personnel…',blocked:'La préparation est interrompue. Contactez votre administrateur.'};
 document.getElementById('status').textContent=msg[x.phase]||x.message||'Connexion expirée ou capacité atteinte. Reconnectez-vous ou contactez votre administrateur.';
 if(r.ok&&x.phase!=='blocked')setTimeout(poll,4000);}catch(e){document.getElementById('status').textContent='Service momentanément indisponible. Réessayez cette page.';}finally{busy=false;}}poll();</script></html>'''
+            if ROLE not in claims.get('arcia_roles',[]) or portal.user_keys is None:
+                html=html.replace('<a href="/portal/keys">Mes clés IA</a> · ','')
             return self.respond(200,html.encode(),[('Content-Type','text/html; charset=utf-8'),
                 ('Content-Security-Policy',"default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"),*changes])
         except PermissionError:
+            if phase=='KEY_CONFIG':return self.json(403,{'code':'PERSONAL_PROVIDER_ROLE_REQUIRED','message':'Le rôle ArcIA.ProviderSelfService est requis.'},changes)
             if method=='GET':
                 body='''<!doctype html><html lang="fr"><meta charset="utf-8"><title>ArcIA — habilitation requise</title>
 <main style="font:18px system-ui;max-width:680px;margin:12vh auto;padding:24px"><h1>Habilitation ArcIA requise</h1>
@@ -161,9 +200,12 @@ if(r.ok&&x.phase!=='blocked')setTimeout(poll,4000);}catch(e){document.getElement
             return self.json(503,{'code':'PERSONAL_RUNTIME_CAPACITY_REACHED','message':"Tous les espaces disponibles sont attribués. Contactez votre administrateur."})
         except BindingError:
             return self.json(503,{'code':'PERSONAL_RUNTIME_BINDING_REFUSED'})
+        except KeyConfigError:
+            return self.json(503,{'code':'KEY_STORAGE_REFUSED'},changes)
         except (httpx.RequestError,jwt.PyJWKClientConnectionError):
             return self.json(503,{'code':'IDENTITY_UNAVAILABLE'})
         except urllib.error.HTTPError as exc:
+            if phase=='KEY_CONFIG':return self.json(409 if exc.code==409 else 503,{'code':'KEY_CONFIG_CONFLICT' if exc.code==409 else 'KEY_STORAGE_UNAVAILABLE'},changes)
             print('ARCIA_PORTAL_'+phase+'_HTTP_'+str(exc.code if exc.code in (400,401,403,404,409,429,500,503) else 0),flush=True)
             return self.json(503,{'code':'PERSONAL_RUNTIME_CONTROL_UNAVAILABLE'},changes)
         except Exception as exc:
@@ -187,4 +229,6 @@ def kube_api(method,path,document=None):
 if __name__=='__main__':
     server=ThreadingHTTPServer(('0.0.0.0',8080),Handler)
     server.portal=Portal(CONFIG,Path('/credentials/hmac').read_bytes(),kube_api)
+    if CONFIG.get('personal_key_configuration_enabled'):
+        server.portal.user_keys=UserKeys(server.portal.slots,Path('/key-encryption/key').read_bytes(),enabled=True)
     server.serve_forever()

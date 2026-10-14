@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arcia:personal-provider-key-config:1",
+  "title": "Personal key configuration request; private HTTPS only, never persist in Git",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider", "api_key"],
+  "properties": {
+    "provider": {"type": "string", "enum": ["openrouter", "openai", "anthropic", "gemini"]},
+    "api_key": {"type": "string", "minLength": 8, "maxLength": 8192, "pattern": "^[!-~]+$", "writeOnly": true}
+  }
+}

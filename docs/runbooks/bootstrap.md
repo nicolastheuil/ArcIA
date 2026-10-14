@@ -272,7 +272,7 @@ scripts, tests et preuve personnels sont retirés du bootstrap/CI. DPAPI/ACL
 reste le canal des opérations administratives de plateforme ; la validation
 refuse la réintroduction d'un contrat personnel.
 
-Le parcours compte désormais **59 étapes**, avec `install_omniroute`,
+Le parcours compte désormais **64 étapes**, avec `install_omniroute`,
 `verify_omniroute` et `inspect_omniroute` après Privacy. Le portail de gestion
 OmniRoute est TLS, authentifié et limité aux CIDR LAN explicites sur 20129,
 sans Ingress public. Version et sources sont verrouillées dans
@@ -296,6 +296,24 @@ par défaut et budgets/ZDR propres à l'instance. Le pilote conserve son relais
 OpenRouter sous sa politique gratuite/ZDR jusqu'au raccordement générique
 qualifié. Le service d'overrides personnels et l'adaptateur Teams restent à
 construire ; leur préparation documentaire ne les active pas.
+
+## Configuration des clés personnelles
+
+`install_personal_keys`, `verify_personal_keys` et `inspect_personal_keys`
+complètent le portail existant. La mise à jour ciblée ne touche ni runtimes,
+volumes, ingress ni routage d'inférence. Les parcours Fresh/Reconcile préparent
+aussi les stores et la clé de chiffrement côté serveur, puis contrôlent la cible
+courante. La réapplication conserve les valeurs déjà chiffrées et refuse de
+recréer une clé racine perdue avec un store non vide.
+
+Le rôle `ArcIA.ProviderSelfService` est créé sans octroi automatique. Le mapper
+du client `arcia-portal` publie les rôles courants via UserInfo ; le contrôle
+de rôle et d'activité est refait à chaque requête. `/portal/keys` gère seulement
+la configuration, avec Origin/CSRF et stockage AES-GCM. Aucun fournisseur ni
+appel modèle n'est activé. Les sondes de bootstrap vérifient présence, bornes
+RBAC, disponibilité et refus anonyme ; la recette propriétaire interactive,
+la restauration et le rebuild neuf sont des preuves distinctes.
+Voir [la procédure et les limites](../guides/omniroute.md#installer-et-utiliser-la-configuration-personnelle).
 
 [Quickstart auth/OmniRoute/Teams](quickstart.md) ·
 [Guide OmniRoute](../guides/omniroute.md) ·

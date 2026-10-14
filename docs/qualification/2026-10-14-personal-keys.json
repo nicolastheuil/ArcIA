@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-14",
+  "component": "personal_provider_key_configuration",
+  "status": "deployed_verified_reapplication_verified_inference_inactive",
+  "authorization": {
+    "required_roles": [
+      "ArcIA.User",
+      "ArcIA.ProviderSelfService"
+    ],
+    "automatic_role_grants": false,
+    "online_userinfo_role_revalidation": true,
+    "admin_role_substitution": false
+  },
+  "local_verification": {
+    "new_tests_run": 15,
+    "new_tests_failed": 0,
+    "full_suite_run": 269,
+    "full_suite_failed": 0,
+    "full_suite_skipped": 7,
+    "bootstrap_steps": 64,
+    "bootstrap_coverage_verified": true,
+    "source_validation_verified": true,
+    "documentation_verified": true
+  },
+  "deployment_plan": {
+    "action": "install_personal_keys",
+    "target": "existing_designated_k3s_instance_via_protected_engineer_state",
+    "resources": [
+      "arcia-access: portal source ConfigMap and portal configuration",
+      "arcia-access: portal-key-encryption Secret, generated once and preserved",
+      "arcia-access: existing portal Deployment source and encryption key mount",
+      "fixed personal slots: personal-provider-keys Secret, existing values preserved",
+      "fixed personal slots: named get/patch Role and RoleBinding for the portal",
+      "owned Keycloak realm: provision missing ArcIA.ProviderSelfService role without grants",
+      "arcia-portal OIDC client: publish current realm roles in UserInfo"
+    ],
+    "expected_effect": "portal rollout, encrypted key configuration available to explicitly authorized accounts",
+    "runtime_volumes_modified": false,
+    "runtime_ownership_modified": false,
+    "inference_route_modified": false,
+    "provider_activation": false,
+    "verification_action": "verify_personal_keys",
+    "reapplication_action": "install_personal_keys"
+  },
+  "deployment": {
+    "executed": true,
+    "reapplication_verified": true,
+    "interactive_owner_recipe_executed": false,
+    "auto_review_rejected": true,
+    "rejection_reason": "persistent external resources and secrets; explicit deployment approval and server-verified Teams approval missing",
+    "secrets_disclosed": false,
+    "model_call_executed": false,
+    "fresh_vmware_cluster_rebuilt": false,
+    "operator_explicitly_authorized": true,
+    "teams_scope_clarified_in_agents": true,
+    "initial_auto_review_rejections_resolved": true,
+    "installed_code": "PERSONAL_KEYS_INSTALLED",
+    "verified_code": "PERSONAL_KEYS_VERIFIED",
+    "stores_checked": 32,
+    "stores_preserved_on_reapplication": 32,
+    "existing_encryption_key_preserved": true,
+    "online_role_mapper_enabled": true,
+    "selfservice_not_granted_by_default": true,
+    "anonymous_keys_denied": true
+  }
+}

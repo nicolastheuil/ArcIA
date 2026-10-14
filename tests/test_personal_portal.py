@@ -122,9 +122,10 @@ class PortalAuthTests(unittest.TestCase):
             with self.assertRaises(jwt.InvalidTokenError):self.portal.claims(self.token(**claims))
 
     def test_online_state_and_application_role_are_required(self):
-        with patch('portal.httpx.get',return_value=SimpleNamespace(status_code=200,json=lambda:{'sub':'subject-a'})):
+        with patch('portal.httpx.get',return_value=SimpleNamespace(status_code=200,json=lambda:{'sub':'subject-a','arcia_roles':['ArcIA.User']})):
             self.assertEqual(self.portal.authenticate(self.token())['sub'],'subject-a')
-            with self.assertRaises(PermissionError):self.portal.authenticate(self.token(arcia_roles=[]))
+            with patch('portal.httpx.get',return_value=SimpleNamespace(status_code=200,json=lambda:{'sub':'subject-a','arcia_roles':[]})):
+                with self.assertRaises(PermissionError):self.portal.authenticate(self.token())
         with patch('portal.httpx.get',return_value=SimpleNamespace(status_code=401)):
             with self.assertRaises(ValueError):self.portal.authenticate(self.token())
         self.assertNotEqual(self.portal.csrf('subject-a'),self.portal.csrf('subject-b'))

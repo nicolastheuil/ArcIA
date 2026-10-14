@@ -22,9 +22,10 @@ de runtime nécessite une migration administrative explicite.
 Le serveur et le portail LAN sont codés dans le bootstrap ; leurs résultats
 de déploiement sont consignés dans [l'état courant](../etat-reprise.md).
 La bibliothèque de politique contrôle mode, rôle, propriétaire et classe
-de route. **Le raccordement générique Hermes → OmniRoute, les fournisseurs
-personnels dans le portail utilisateur et les routes internes restent à
-intégrer/qualifier.** Le pilote conserve son relais historique filtré tant
+de route. **Le raccordement générique Hermes → OmniRoute, l'activation des
+fournisseurs personnels et les routes internes restent à intégrer/qualifier.**
+La configuration chiffrée des clés dispose de son parcours distinct dans ArcIA.
+Le pilote conserve son relais historique filtré tant
 que cette migration n'est pas qualifiée.
 
 ## Portail d'administration privé
@@ -144,14 +145,83 @@ ArcIA porte donc les comptes humains et leurs droits, et conserve OmniRoute
 comme routeur. Exemple : l'admin configure la chaîne d'entreprise et ses API
 keys ; tous les utilisateurs suivent cette chaîne automatique. Pour les seuls
 comptes `ArcIA.ProviderSelfService`, une page ArcIA permettra de saisir une clé
-personnelle par connexion HTTPS protégée. Le service vérifie rôle et identité,
-crée une connexion liée à ce propriétaire, émet une clé technique restreinte et
-applique un override borné. Il ne remet jamais le token global de gestion à
-l'utilisateur. La politique d'instance et Presidio cloud restent applicables.
+personnelle par connexion HTTPS protégée. La cible retenue est une connexion
+gérée par ArcIA et liée au propriétaire, hors du routeur OmniRoute central.
+La passerelle ArcIA choisira cette route après les mêmes contrôles d'identité,
+droits, budgets et filtrage cloud. Les tokens de gestion restent côté serveur.
+[Décision des routes personnelles](../adr/0022-providers-personnels-sous-arcia.md).
 
-Ce parcours utilisateur n'est **pas encore implémenté**. La bibliothèque de
-sélection et ses contrôles de rôle/propriétaire sont présents ; ils ne doivent
-pas être présentés comme une interface de connexion personnelle opérationnelle.
+La **configuration des clés** est codée dans `/portal/keys` : OpenRouter,
+OpenAI, Anthropic et Google Gemini, une clé API par fournisseur. Saisie HTTPS,
+champ mot de passe, ajout/remplacement/suppression et liste de métadonnées
+uniquement. Les valeurs ne sont jamais restituées. La page est proposée
+seulement avec `ArcIA.User` et `ArcIA.ProviderSelfService` ; le rôle admin seul
+ne suffit pas. Les rôles sont relus via UserInfo à chaque requête.
+
+Les valeurs sont chiffrées par AES-256-GCM dans le Secret nommé de l'emplacement
+personnel ; le chiffrement authentifie `(operation, issuer, subject)`. La clé
+racine séparée est conservée dans `portal-key-encryption`, montée uniquement
+dans le portail. Aucun Secret fournisseur n'est monté dans Hermes.
+
+**Enregistrée ne signifie pas active.** Le parcours conserve les clés pour la
+future intégration, sans créer de connexion globale OmniRoute, appeler un
+fournisseur ou modifier le relais historique. Adaptateurs personnels, OAuth,
+raccordement à la passerelle et révocation d'inférence restent à qualifier.
+Le statut de déploiement et les preuves courantes figurent dans
+[l'état de reprise](../etat-reprise.md). [Décision](../adr/0021-cles-fournisseurs-personnelles.md).
+
+### Installer et utiliser la configuration personnelle
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action install_personal_keys
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_personal_keys
+./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_personal_keys
+```
+
+L'installateur met à jour uniquement le portail existant, ses ressources de clés
+et le mapper UserInfo. Fresh/Reconcile intègrent également ce parcours. Les
+Secrets existants et la clé de chiffrement ne sont pas remplacés ; une clé
+racine perdue avec un store non vide bloque la réapplication.
+
+Dans Keycloak `/admin/users`, attribuer explicitement le rôle de realm
+`ArcIA.ProviderSelfService` aux comptes choisis, en plus de `ArcIA.User`.
+Ne pas ajouter ce rôle aux rôles par défaut ni à une règle d'admission du tenant.
+Après connexion à `/portal/`, suivre **Mes clés IA**, sélectionner un fournisseur
+et saisir sa clé dans le formulaire. La valeur n'est transmise ni au chat ni à
+Git. Une seconde saisie remplace la clé du même fournisseur. Le bouton Supprimer
+retire sa valeur du store courant ; les sauvegardes chiffrées ont leur propre rétention.
+
+Le retrait du rôle ou la désactivation du compte interdit les requêtes suivantes.
+Les configurations inactives restent conservées, sans partage avec un autre
+subject. Sauvegarder les stores et la clé racine ensemble via le dispositif privé
+de l'instance ; restauration et rotation restent à qualifier avant release.
+
+### Mutualisation, secrets et OAuth
+
+OmniRoute est partagé ; chaque utilisateur possède son runtime Hermes et ses
+volumes, pas une instance complète d'OmniRoute. Les clés personnelles du lot
+courant sont stockées dans ArcIA, hors du dashboard OmniRoute. L'administrateur
+OmniRoute n'y a donc pas accès via ce dashboard. Les administrateurs de
+l'infrastructure et du service détenant le chiffrement restent des personnes
+de confiance ; le chiffrement au repos n'est pas une séparation contre eux.
+
+La cible retenue conserve les connexions personnelles dans ArcIA, hors
+OmniRoute central. Une clé technique OmniRoute par utilisateur n'est donc pas
+nécessaire à ce parcours. Les comptes d'entreprise restent administrés dans
+OmniRoute ; les comptes personnels restent liés à leur propriétaire dans ArcIA.
+
+OAuth personnel reste à intégrer : bouton de connexion depuis ArcIA, state/PKCE
+ou device flow selon le fournisseur, retour lié au propriétaire, stockage
+chiffré, renouvellement et révocation. Le rôle spécifique reste obligatoire.
+Ne pas confondre OAuth d'accès à ArcIA et OAuth d'accès à un fournisseur IA.
+Les parcours supportés et conditions d'usage doivent être qualifiés par provider.
+
+Le propriétaire a retenu OmniRoute pour les routes d'entreprise et des
+providers personnels en parallèle, toujours derrière la passerelle ArcIA.
+Aucune nouvelle route n'est activée par ce lot. Tous les appels cloud
+restent filtrés avant export et les valeurs secrètes ne sont pas rendues au
+modèle. Un endpoint libre déclaré dans Hermes ne doit pas contourner cette
+frontière.
 
 ### Règles de connexion et de routage
 
@@ -159,7 +229,7 @@ pas être présentés comme une interface de connexion personnelle opérationnel
 |---|---|---|
 | Utilisateur standard | Pool d'entreprise, mode auto administré, credentials serveur | `ArcIA.User` |
 | Abonnement d'entreprise | Compte/contrat/API ou OAuth autorisé ajouté par l'admin ; quotas et restrictions propres | Administration de l'instance |
-| Fournisseur personnel | Connexion isolée, clé scoped à ses connexions, override borné au propriétaire ; mode dans les limites admin | `ArcIA.User` + **ArcIA.ProviderSelfService**, fonction activée |
+| Fournisseur personnel | Route ArcIA liée au propriétaire, hors OmniRoute central ; API/OAuth protégés, contrôles et Presidio conservés ; raccordement à construire | `ArcIA.User` + **ArcIA.ProviderSelfService**, fonction activée |
 | Ollama/vLLM interne | Endpoint privé et modèle déclaré par l'admin ; pool distinct | Accès ArcIA + droit de route interne |
 
 Ne pas assimiler abonnement ChatGPT/Claude/Copilot et accès API : utiliser

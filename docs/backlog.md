@@ -38,7 +38,7 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-05 | Backups cohérents, restore sûr, rebuild neuf | À développer/qualifier ; le transfert personnel entre PC est hors projet |
 | L0-06 | Outils, catalogue, provenance/licences | Dans K3s ; 539 entrées upstream, 7 adaptations/orientations natives ; 55 sondes par runtime. RTK git log et Headroom JSON intégrés ; routage suivi sous ROUTE |
 | ROUTE-01 | OmniRoute premier routeur et portail de configuration LAN | Portail privé déployé/vérifié : serveur 1/1, relais 3/3, HTTPS VIP par domaine et IP ; confiance sur le PC explicitement autorisée ; raccordement d'inférence générique restant, voir état de reprise |
-| ROUTE-02 | Abonnements entreprise et overrides personnels autorisés | Bibliothèque mode/rôle/propriétaire/classe testée ; raccordement d'inférence, service de connexion, UI et révocation live à intégrer/qualifier |
+| ROUTE-02 | Abonnements entreprise et providers personnels autorisés | Configuration des clés API personnelles déployée/vérifiée : portail, stores AES-GCM, rôle explicite relu en ligne, 32 stores et clé racine conservés à la réapplication. Routes personnelles ArcIA hors OmniRoute central, OAuth et révocation d'inférence à construire/qualifier ; [ADR 0022](adr/0022-providers-personnels-sous-arcia.md) |
 | ROUTE-03 | Politique d'instance et cloud/local | Presidio cloud par défaut ; gratuit/ZDR propres à l'instance ; routes Ollama/vLLM internes et repli filtré à qualifier |
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
 | L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |

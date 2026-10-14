@@ -21,6 +21,7 @@ if($Mode -eq 'Plan'){
       private_inputs=$definition.private_inputs;configuration_contracts=$definition.configuration_contracts;
       tenant_admission=$definition.configuration_contracts.identity.tenant_admission;
       identity_public_https=$definition.configuration_contracts.identity.public_https;
+      personal_key_configuration=$definition.configuration_contracts.routing.personal_key_configuration;
       business_services_enabled=$false;fresh_cluster_tested=$false}|ConvertTo-Json -Depth 8
     exit 0
 }

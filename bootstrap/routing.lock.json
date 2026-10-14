@@ -8,7 +8,10 @@
     "services/routing/policy.py": "0c3b95219f861f258aefcb6989af01508045aa8a8f8f7b19fc5ac7400e5e6c50",
     "scripts/routing_deploy.py": "b85873d8cbba0a35646d80d01738632634ad15d2cd7fe7cd4c7b53d934fda265",
     "scripts/node_routing.py": "7ac8c70a5fcd428995abed77b58b97e83f8d2395b66a990014ad5cdc3e8d81ab",
-    "scripts/Show-RoutingAccess.ps1": "79f7d0fda3351f70567319dc4291666bc439670dd782b6d099d0a3f2ae021fb5",
-    "scripts/Enable-RoutingIpAccess.ps1": "dedbed06fd88ed835248af0f77c6b89630ba2554f96da71e266bc2d906c45243"
+    "scripts/Show-RoutingAccess.ps1": "ccc34ef8cdbdd3977b699090671e1b44ae760810664ddd9cea0f59a3867ac26c",
+    "scripts/Enable-RoutingIpAccess.ps1": "dedbed06fd88ed835248af0f77c6b89630ba2554f96da71e266bc2d906c45243",
+    "services/identity/keys_page.py": "a972b99750450f135790064ec5e63131d39676c6cfe7473a963856576b5505e2",
+    "services/routing/user_keys.py": "cf26e53cc57cd2b92105b56be669c16598ab0f65eb16bc369e92db2fbff0beaf",
+    "schemas/provider-key-config.schema.json": "fe1727b63a721feff710bac1f4c816afa213b30d7e1d35a9b83f31913e2a5b90"
   }
 }

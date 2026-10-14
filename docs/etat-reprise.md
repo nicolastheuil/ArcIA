@@ -6,6 +6,55 @@ portent les procédures. Distinguer proposé, codé, déployé et vérifié.
 
 ## Référence et lot courant
 
+Lot clés personnelles du 14 octobre : page `/portal/keys`, API bornée, stockage
+AES-256-GCM par propriétaire dans un Secret nommé et clé racine séparée.
+`ArcIA.User` + `ArcIA.ProviderSelfService` sont requis avec rôles relus par
+UserInfo. Décision finale du propriétaire : **aucun octroi automatique** ; le
+rôle admin ne remplace pas le rôle self-service. Ajout, remplacement et
+suppression renvoient seulement des métadonnées. Les valeurs restent côté
+serveur, sans provider global ni appel modèle activé.
+
+Bootstrap actualisé à **64 étapes**, avec installation ciblée, vérification et
+inspection des clés personnelles. Full/Fresh/Reconcile préservent stores,
+identités, clé de chiffrement et volumes. Les [règles et procédures](guides/omniroute.md#installer-et-utiliser-la-configuration-personnelle)
+et l'[ADR 0021](adr/0021-cles-fournisseurs-personnelles.md) précisent les limites.
+Vérifié localement : 15 nouveaux tests synthétiques des clés, dont HTTP/CSRF,
+droits croisés, retrait de rôle malgré un JWT ancien et conservation chiffrée ;
+coverage bootstrap 64 étapes, validation documentaire et contrôles de sources.
+Suite complète : 269 tests exécutés, sans échec, dont sept skips pour dépendances
+VMware/ISO/TLS et autres dépendances locales indisponibles.
+**Déployé et vérifié sur la cible désignée** : `PERSONAL_KEYS_INSTALLED`, puis
+`PERSONAL_KEYS_VERIFIED`. Les 32 stores ont leurs droits `get/patch` bornés ;
+portail prêt, chiffrement valide, rôle présent, mapper UserInfo courant activé,
+absence du rôle dans les rôles par défaut et refus anonyme vérifiés.
+Réapplication exécutée : 32 stores et clé de chiffrement existante préservés.
+Les premiers refus de revue automatique ont été levés après autorisation
+explicite du propriétaire et clarification de `AGENTS.md` : Teams concerne
+les futures actions des utilisateurs, pas cette intervention de l'ingénieur.
+Le plan et les résultats sont dans la [preuve du lot](qualification/2026-10-14-personal-keys.json).
+La recette interactive avec une vraie clé fournisseur reste non exécutée.
+Aucune clé technique OmniRoute personnelle n'est émise. Le propriétaire a
+retenu des providers personnels en parallèle d'OmniRoute central, derrière la
+passerelle ArcIA avec Presidio et les mêmes contrôles de plateforme ; voir
+[ADR 0022](adr/0022-providers-personnels-sous-arcia.md). Ce raccordement et OAuth
+restent à construire. L'intégration d'inférence,
+la rotation/restauration et le rebuild VMware neuf restent à qualifier.
+
+Correction locale du 14 octobre : `ProtectedState.ps1` et
+`Show-RoutingAccess.ps1` sont enregistrés en UTF-8 avec BOM. Windows PowerShell
+5.1 interprétait le helper sans BOM dans son encodage historique et produisait
+des erreurs de syntaxe avant l'ouverture du formulaire OmniRoute. Les hashes
+des deux fichiers, le contrat d'encodage du bootstrap, son contrôle de couverture
+et le contrôle de syntaxe Windows PowerShell en CI sont actualisés.
+Vérifié localement : syntaxe des deux scripts et du wrapper sous Windows
+PowerShell 5.1.26100.9549 et PowerShell 7.6.5, lecture UTF-8 du titre,
+refus du bootstrap si l'un des BOM manque, tests `Test-Bootstrap.ps1`,
+validation documentaire (74 fichiers, 416 liens) et `git diff --check`.
+Les validations Python complètes du bootstrap/des sources et `test_bootstrap.py`
+sont bloquées par les dépendances locales absentes (`yaml`, `jsonschema`).
+L'ouverture réelle du formulaire et la connexion au portail restent à confirmer
+par l'opérateur. Aucun déploiement, réapplication ou rebuild VMware n'est exécuté.
+
 Dépôt **[nicolastheuil/ArcIA](https://github.com/nicolastheuil/ArcIA)**,
 branche **main** ; renommage GitHub exécuté et remote local aligné. Le dépôt
 est actuellement public ; les paramètres sensibles et corpus d'instance restent
@@ -24,7 +73,7 @@ affiché. Les fichiers locaux non suivis préexistants sont conservés.
 
 OmniRoute 3.8.51 dispose de son renderer, worker, politique de droits,
 installation verrouillée et helper d'accès local. Le manifeste comprend
-**61 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
+**64 étapes codées**, dont installation/vérification/inspection OmniRoute et clés personnelles. Le
 [lock](../bootstrap/routing.lock.json), les contrôles de couverture, le
 [runbook](runbooks/bootstrap.md) et l'[ADR 0020](adr/0020-perimetre-harness-et-politiques-instance.md)
 sont alignés. La bibliothèque refuse dashboard public, override sans rôle,
@@ -37,7 +86,7 @@ autre propriétaire et pool mélangeant cloud/interne.
 | Infrastructure | Trois serveurs K3s/VMware, CPI/CSI, CNPG/PostgreSQL, Hermes et HTTPS ; bascule contrôlée | Panne brutale, fencing, restore complet et rebuild neuf non qualifiés |
 | Knowledge / Privacy | RAG synthétique local, RLS, modèles locaux ; appel HTTP 200 sous politique d'instance gratuite/ZDR ; refus Internet/DNS depuis Hermes | Groupes, OCR et collecte métier à compléter ; relais pilote spécialisé |
 | Skills / contexte | 539 entrées upstream, sept adaptations ; RTK et Headroom bornés ; 55 sondes par runtime | Context7 externe fermé ; procédures et benchmarks à élargir |
-| OmniRoute | Serveur privé déployé/vérifié, une instance avec volumes conservés, trois relais TLS LAN 20129 ; HTTPS sur VIP par domaine et IP, confiance Windows explicitement installée sur le PC autorisé | Raccordement d'inférence générique, self-service utilisateur et routes internes à intégrer/qualifier ; aucune activation implicite de fournisseur |
+| OmniRoute / clés personnelles | Routeur partagé privé déployé/vérifié ; portail ArcIA de clés personnelles déployé/vérifié, 32 stores chiffrés, rôle explicite ; réapplication conservant stores et clé racine | Clés techniques personnelles, OAuth, raccordement d'inférence générique et routes internes à intégrer/qualifier ; aucune activation implicite de fournisseur |
 | Identité | Comptes locaux permanents, portail personnel, admin nommé récupéré ; rôle et espace d'un compte Microsoft relus | Login Microsoft confirmé par le propriétaire ; recette interactive complète, autre tenant, groupes et HA/restore à qualifier |
 | Réseau Keycloak | Sortie IPv4 publique TCP/443 du pilote ; TLS Microsoft/Graph 4/4 et refus HTTP/80 vérifiés | Destinations au pare-feu amont ; IPv6 non qualifié ; défaut générique fermé |
 | Portail du pilote | Pool privé 32 places, trois liées et 29 libres au dernier relevé ; comptes désactivés conservés | Défaut générique huit ; charge de trente utilisateurs non qualifiée |
