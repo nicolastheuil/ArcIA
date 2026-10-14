@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: arcia
+data:
+  config.yaml: |
+    model_list:
+      # Modèle 'auto' d'entreprise routé sur OpenRouter avec failover
+      - model_name: auto
+        litellm_params:
+          model: openrouter/auto
+          api_key: os.environ/OPENROUTER_API_KEY
+          fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
+      
+      # Modèle interne d'entreprise souverain (vLLM local)
+      - model_name: local-internal
+        litellm_params:
+          model: openai/hermes-3-70b
+          api_base: http://vllm-internal.corp.local:8000/v1
+          api_key: "none"
+
+    litellm_settings:
+      # Anonymisation universelle obligatoire vers le Cloud
+      guardrails:
+        - guardrail_name: "presidio-guard"
+          mode: "pre_call"
+          default_on: true
+          presidio_analyzer_url: "http://presidio-dlp:8080"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-proxy
+  namespace: arcia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm-proxy
+  template:
+    metadata:
+      labels:
+        app: litellm-proxy
+    spec:
+      containers:
+      - name: litellm
+        image: ghcr.io/berriai/litellm:main-latest
+        ports:
+        - containerPort: 4000
+        env:
+        - name: LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY
+          value: "true"
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: enterprise-llm-secret
+              key: openrouter-key
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-proxy
+  namespace: arcia
+spec:
+  selector:
+    app: litellm-proxy
+  ports:
+  - port: 4000
+    targetPort: 4000

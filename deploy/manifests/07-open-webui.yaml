@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-pvc
+  namespace: arcia
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: arcia-vsphere
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-webui
+  namespace: arcia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-webui
+  template:
+    metadata:
+      labels:
+        app: open-webui
+    spec:
+      containers:
+      - name: open-webui
+        image: ghcr.io/open-webui/open-webui:main
+        ports:
+        - containerPort: 8080
+        env:
+        - name: OPENAI_API_BASE_URL
+          value: "http://litellm-proxy.arcia.svc:4000/v1"
+        - name: DEFAULT_MODELS
+          value: "auto"
+        - name: ENABLE_OAUTH_SIGNUP
+          value: "true"
+        - name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL
+          value: "true"
+        - name: OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: client-id
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: client-secret
+        - name: OPENID_PROVIDER_URL
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: tenant-id
+        volumeMounts:
+        - name: webui-data
+          mountPath: /app/backend/data
+      volumes:
+      - name: webui-data
+        persistentVolumeClaim:
+          claimName: open-webui-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-webui
+  namespace: arcia
+spec:
+  selector:
+    app: open-webui
+  ports:
+  - port: 8080
+    targetPort: 8080

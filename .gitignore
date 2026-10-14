@@ -12,7 +12,8 @@ kubeconfig*
 .env.*
 !.env.example
 private/
-secrets/
+secrets/*
+!secrets/*.template
 *.arciap
 *.arciap.previous
 *.part

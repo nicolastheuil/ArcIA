@@ -3,8 +3,11 @@ param(
     [Parameter(Position=0, Mandatory=$false)]
     [string]$Command = "get nodes",
     
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
     [string]$InputObject,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$RawShell,
 
     [Parameter(Mandatory=$false)]
     [string]$Node = "172.31.210.61"
@@ -50,11 +53,15 @@ $pinfo.ArgumentList.Add('-i')
 $pinfo.ArgumentList.Add($identity)
 $pinfo.ArgumentList.Add("nicolas@$Node")
 
-if ($InputObject) {
-    $pinfo.ArgumentList.Add("sudo /usr/local/bin/k3s kubectl $Command")
-    $pinfo.RedirectStandardInput = $true
+if ($RawShell) {
+    $pinfo.ArgumentList.Add("sudo /bin/sh -c '$Command'")
 } else {
     $pinfo.ArgumentList.Add("sudo /usr/local/bin/k3s kubectl $Command")
+}
+
+if ($InputObject) {
+    $pinfo.RedirectStandardInput = $true
+} else {
     $pinfo.RedirectStandardInput = $false
 }
 
@@ -74,7 +81,7 @@ $proc.WaitForExit()
 
 if ($stdout) { Write-Output $stdout }
 if ($stderr -and $proc.ExitCode -ne 0) { 
-    Write-Error "SSH/Kubectl Error (exit code $($proc.ExitCode)): $stderr"
+    Write-Error "SSH Error (exit code $($proc.ExitCode)): $stderr"
 } elseif ($stderr) {
     Write-Verbose $stderr
 }

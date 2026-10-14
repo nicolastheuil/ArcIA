@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: arcia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+        args:
+        - --provider=azure
+        - --azure-tenant=$(ENTRA_TENANT_ID)
+        - --client-id=$(ENTRA_CLIENT_ID)
+        - --client-secret=$(ENTRA_CLIENT_SECRET)
+        - --cookie-secret=$(OAUTH2_PROXY_COOKIE_SECRET)
+        - --cookie-secure=true
+        - --email-domain=*
+        - --skip-jwt-bearer-tokens=true
+        - --extra-jwt-issuers=https://login.microsoftonline.com/$(ENTRA_TENANT_ID)/v2.0=$(ENTRA_CLIENT_ID)
+        - --pass-authorization-header=true
+        - --pass-user-headers=true
+        - --set-xauthrequest=true
+        - --reverse-proxy=true
+        - --http-address=0.0.0.0:4180
+        env:
+        - name: ENTRA_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: tenant-id
+        - name: ENTRA_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: client-id
+        - name: ENTRA_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: cookie-secret
+        ports:
+        - containerPort: 4180
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: arcia
+spec:
+  selector:
+    app: oauth2-proxy
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: entra-id-auth
+  namespace: arcia
+spec:
+  forwardAuth:
+    address: http://oauth2-proxy.arcia.svc.cluster.local:4180/
+    trustForwardHeader: true
+    authResponseHeaders:
+      - "X-Auth-Request-User"
+      - "X-Auth-Request-Email"
+      - "X-Auth-Request-Preferred-Username"
+      - "Authorization"

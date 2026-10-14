@@ -1,0 +1,76 @@
+# 1. Ingress Public (Open-WebUI, Bot Teams, Callback OAuth2)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-public-ingress
+  namespace: arcia
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+  - hosts:
+    - arcia.arcitek.io
+    secretName: arcia-tls-cert
+  rules:
+  - host: arcia.arcitek.io
+    http:
+      paths:
+      - path: /oauth2
+        pathType: Prefix
+        backend:
+          service:
+            name: oauth2-proxy
+            port:
+              number: 4180
+      - path: /api/teams/messages
+        pathType: Prefix
+        backend:
+          service:
+            name: teams-bot-adapter
+            port:
+              number: 3978
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: open-webui
+            port:
+              number: 8080
+---
+# 2. Ingress Studio & Gateway (Hermes Studio & Hermes Desktop Gateway - Sécurisé par Entra ID)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-studio-ingress
+  namespace: arcia
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    # Authentification obligatoire via MS365 Entra ID
+    traefik.ingress.kubernetes.io/router.middlewares: arcia-entra-id-auth@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - arcia.arcitek.io
+    secretName: arcia-tls-cert
+  rules:
+  - host: arcia.arcitek.io
+    http:
+      paths:
+      - path: /studio
+        pathType: Prefix
+        backend:
+          service:
+            name: hermes-studio
+            port:
+              number: 9119
+      - path: /gateway
+        pathType: Prefix
+        backend:
+          service:
+            name: hermes-studio
+            port:
+              number: 8642
