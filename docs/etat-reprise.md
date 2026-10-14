@@ -41,7 +41,7 @@ La clôture du 13 octobre concernait cette soirée ; elle reste archivée. Aucun
 
 ## Validation du nettoyage documentaire
 
-Exécuté localement : 74 Markdown suivis, 370 liens locaux et leurs ancres,
+Exécuté localement : 74 Markdown suivis, tous les liens locaux et leurs ancres,
 15 schémas Mermaid ; sources JSON Schema/YAML et hashes vérifiés sur une copie
 des seuls fichiers suivis. Couverture du bootstrap : 56 étapes, neuf composants
 et huit outils/catalogues. Six tests Python bootstrap et neuf tests du contrat
