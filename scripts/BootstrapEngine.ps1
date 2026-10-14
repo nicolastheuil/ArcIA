@@ -8,6 +8,9 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
        $routing.personal_provider_role -ne 'ArcIA.ProviderSelfService' -or
        -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/routing.lock.json'))){throw 'BOOTSTRAP_ROUTING_BOUNDARY_REQUIRED'}
     $identity=$Definition.configuration_contracts.identity
+    if($identity.runtime_https_path -ne 'node_443_and_ingress_pods_8443'){
+        throw 'BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT'
+    }
     if($null -eq $identity -or $identity.default_provider -ne 'keycloak_local' -or
        $identity.local_accounts -ne 'permanent' -or
        -not(Test-Path -LiteralPath (Join-Path $Workspace 'bootstrap/identity.lock.json'))){throw 'BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED'}

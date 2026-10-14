@@ -665,6 +665,44 @@ def prepare_personal_portal(values):
     return {'dns_ip':dns}
 
 
+def reconcile_runtime_network(values):
+    """Only the fixed identity policies; no restart, credential or volume mutation."""
+    operation=values['operation_id']
+    settings=json.loads(owned('ConfigMap','portal-config','arcia-access',operation)['data']['portal.json'])
+    namespaces={'arcia-hermes','arcia-hermes-qualification-b'}|{s['namespace'] for s in settings['slots']}
+    documents=values['documents']
+    if {d['metadata']['namespace'] for d in documents}!=namespaces or len(documents)!=len(namespaces):
+        raise ValueError('IDENTITY_RUNTIME_NETWORK_POOL_DRIFT')
+    for doc in documents:
+        ns=doc['metadata']['namespace']
+        if ns not in ('arcia-hermes','arcia-hermes-qualification-b') and not re.fullmatch(r'arcia-user-p(?:0[1-9]|[12][0-9]|3[0-2])',ns):
+            raise ValueError('IDENTITY_RUNTIME_NETWORK_SCOPE')
+        owned('Deployment','hermes-pilot',ns,operation)
+        owned('NetworkPolicy','identity-https-egress',ns,operation)
+        if (doc['kind']!='NetworkPolicy' or doc['metadata']['name']!='identity-https-egress' or
+                doc['spec']['podSelector']!={'matchLabels':{'app':'hermes-pilot'}}):
+            raise ValueError('IDENTITY_RUNTIME_NETWORK_SCOPE')
+    apply(documents,operation)
+    return {'passed':all(owned('NetworkPolicy',d['metadata']['name'],d['metadata']['namespace'],operation)['spec']==d['spec'] for d in documents),
+            'policies_rechecked':len(documents),'runtime_restart_triggered':False,
+            'credentials_modified':False,'volumes_modified':False}
+
+
+def runtime_oidc_probe(namespace, pod):
+    source="""import os,json,httpx
+r={}
+try:
+ u=os.environ['ARCIA_IDENTITY_ISSUER'];d=httpx.get(u+'/.well-known/openid-configuration',timeout=8,follow_redirects=False)
+ r['discovery_status']=d.status_code;r['issuer_exact']=d.json().get('issuer')==u
+ r['jwks_status']=httpx.get(d.json()['jwks_uri'],timeout=8,follow_redirects=False).status_code
+ d=httpx.get('http://127.0.0.1:9119/auth/login?provider=arcia',timeout=12,follow_redirects=False)
+ r['login_start_status']=d.status_code
+except Exception as e:r['exception_type']=type(e).__name__ if type(e).__name__ in ('ConnectError','ConnectTimeout','ReadTimeout','KeyError','ValueError') else 'OTHER'
+r['passed']=r.get('discovery_status')==200 and r.get('issuer_exact') is True and r.get('jwks_status')==200 and r.get('login_start_status')==302
+print(json.dumps(r))"""
+    return json.loads(kube('exec',pod['metadata']['name'],'-n',namespace,'--','/opt/hermes/.venv/bin/python','-c',source,timeout=60))
+
+
 def inspect_personal_portal(values):
     config=owned('ConfigMap','portal-config','arcia-access',values['operation_id'])
     settings=json.loads(config['data']['portal.json']);slots=[]
@@ -676,6 +714,9 @@ def inspect_personal_portal(values):
         pods=json.loads(kube('get','pods','-n',slot['namespace'],'-o','json'))['items']
         record['containers']=[]
         for pod in pods:
+            if (pod['metadata'].get('labels',{}).get('app')=='hermes-pilot' and
+                    pod.get('status',{}).get('phase')=='Running' and not pod['metadata'].get('deletionTimestamp')):
+                record['oidc_probe']=runtime_oidc_probe(slot['namespace'],pod)
             for status in pod.get('status',{}).get('containerStatuses',[]):
                 state=status.get('state',{});reason=next((s.get('reason') for s in state.values()),None)
                 record['containers'].append({'ready':status.get('ready'),
@@ -689,7 +730,8 @@ def inspect_personal_portal(values):
         slots.append(record)
     portal=owned('Deployment','arcia-portal','arcia-access',values['operation_id'])
     logs=kube('logs','deployment/arcia-portal','-n','arcia-access','--tail=40')
-    return {'passed':portal.get('status',{}).get('availableReplicas',0)==1,'slots':slots,
+    return {'passed':portal.get('status',{}).get('availableReplicas',0)==1 and
+            all(s.get('oidc_probe',{}).get('passed',True) for s in slots),'slots':slots,
         'portal_error_codes':sorted(set(re.findall(r'\bARCIA_PORTAL_[A-Z0-9_]{3,80}\b',logs)))}
 
 
@@ -916,6 +958,7 @@ if __name__ == '__main__':
                       'connect_identity':connect,'cleanup_identity_fixture':cleanup_unbound_fixture,
                       'prepare_personal_portal':prepare_personal_portal,'install_personal_portal':install_personal_portal,
                       'inspect_personal_portal':inspect_personal_portal,
+                      'reconcile_identity_runtime_network':reconcile_runtime_network,
                       'prepare_portal_fixtures':prepare_portal_fixtures,'finish_portal_qualification':finish_portal_qualification,
                       'disable_portal_fixtures':disable_portal_fixtures,
                       'qualify_identity_revocation':qualify_revocation}[ARCIA_INPUT['action']](ARCIA_INPUT)))

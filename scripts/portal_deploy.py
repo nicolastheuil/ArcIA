@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 import kubernetes_apps
 import hermes_tools
+import identity_deploy
 
 ROOT=Path(__file__).resolve().parents[1]
 NS='arcia-access'
@@ -50,10 +51,7 @@ def payload(lock,config,pilot,operation,dns_ip,https_ip):
             {'apiVersion':'v1','kind':'Secret','metadata':{'name':'arcia-oidc-runtime','namespace':ns},'type':'Opaque',
                 'stringData':{'ARCIA_IDENTITY_ISSUER':'https://'+config['network']['public_hostname']+'/identity/realms/arcia',
                     'ARCIA_IDENTITY_CLIENT_ID':'arcia-'+slot,'ARCIA_IDENTITY_OWNER_SUBJECT':''}},
-            {'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy','metadata':{'name':'identity-https-egress','namespace':ns},
-                'spec':{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Egress'],
-                    'egress':[{'to':[{'ipBlock':{'cidr':ip+'/32'}} for ip in dict.fromkeys([https_ip]+[n['address'] for n in config['nodes']])],
-                        'ports':[{'port':443,'protocol':'TCP'}]}]}},
+            identity_deploy.runtime_policy(config, https_ip, ns),
             {'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy','metadata':{'name':'personal-readiness','namespace':ns},
                 'spec':{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Ingress'],
                     'ingress':[{'from':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':NS}},

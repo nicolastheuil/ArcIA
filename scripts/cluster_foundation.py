@@ -353,12 +353,26 @@ def collect(payload):
             'port': 443, 'protocol': 'TCP', 'target': 'keycloak_only',
             'approval_required': 'server_verified_teams', 'resources_modified': False,
             'authentication_restored': False}}
+    if action=='reconcile_identity_runtime_network':
+        import identity_deploy
+        target,nodes,base=transport(payload)
+        config=harness.validate(payload['instance']['config'])
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+        count=config.get('identity',{}).get('personal_slots',lock['identity'].get('personal_slots',8))
+        if not isinstance(count,int) or not 1<=count<=32:raise ValueError('PERSONAL_RUNTIME_CAPACITY_INVALID')
+        namespaces=['arcia-hermes','arcia-hermes-qualification-b']+['arcia-user-p'+str(i).zfill(2) for i in range(1,count+1)]
+        documents=[identity_deploy.runtime_policy(config,payload['instance']['endpoint_design']['https_ip'],ns) for ns in namespaces]
+        result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
+            {'action':action,'operation_id':operation,'documents':documents},root=True)
+        return {'private':{'operation_id':operation,'result':result},'safe':{
+            'status':'verified' if result['passed'] else 'blocked',
+            'code':'IDENTITY_RUNTIME_NETWORK_RECONCILED' if result['passed'] else 'IDENTITY_RUNTIME_NETWORK_FAILED',**result}}
     if action=='inspect_personal_portal':
         target,nodes,base=transport(payload)
         result=guest(target,nodes[0],base,(ROOT/'scripts/node_identity.py').read_bytes(),
             {'action':action,'operation_id':operation},root=True)
-        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'inspected',
-            'code':'PERSONAL_PORTAL_INSPECTED',**result}}
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'inspected' if result['passed'] else 'blocked',
+            'code':'PERSONAL_PORTAL_INSPECTED' if result['passed'] else 'PERSONAL_PORTAL_OIDC_UNAVAILABLE',**result}}
     if action=='verify_personal_portal':
         from identity_login import Browser
         target,nodes,base=transport(payload)

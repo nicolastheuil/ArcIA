@@ -73,7 +73,9 @@ def validate(root=ROOT):
                 'scripts/identity_egress.py' not in identity_lock['files']):
             raise ValueError('BOOTSTRAP_IDENTITY_EGRESS_CONTRACT')
         if lock['identity'].get('personal_portal_enabled'):
-            required_identity+=['install_personal_portal','verify_personal_portal','inspect_personal_portal']
+            required_identity+=['install_personal_portal','reconcile_identity_runtime_network','verify_personal_portal','inspect_personal_portal']
+            if contract.get('runtime_https_path')!='node_443_and_ingress_pods_8443':
+                raise ValueError('BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT')
             if contract.get('automatic_first_login') is not True or contract.get('stable_ownership')!='issuer_subject_never_reassigned':
                 raise ValueError('BOOTSTRAP_PERSONAL_PORTAL_CONTRACT')
             if not {'services/identity/portal.py','services/identity/slots.py','scripts/portal_deploy.py'}<=set(identity_lock['files']):

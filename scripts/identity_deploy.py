@@ -130,6 +130,19 @@ def augment_hermes(docs):
     deployment['spec']['template']['metadata']['annotations']['arcia.io/identity-plugin-sha256'] = hashlib.sha256(source.encode()).hexdigest()
 
 
+def runtime_policy(config, https_ip, namespace):
+    """Allow HTTPS before and after local hostPort DNAT (443 -> ingress 8443)."""
+    return {'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy',
+        'metadata':{'name':'identity-https-egress','namespace':namespace},
+        'spec':{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Egress'],
+            'egress':[{'to':[{'ipBlock':{'cidr':ip+'/32'}} for ip in
+                dict.fromkeys([https_ip]+[n['address'] for n in config['nodes']])],
+                'ports':[{'port':443,'protocol':'TCP'}]},
+                {'to':[{'namespaceSelector':{'matchLabels':{'kubernetes.io/metadata.name':'arcia-ingress'}},
+                        'podSelector':{'matchLabels':{'app':'pilot-https'}}}],
+                 'ports':[{'port':8443,'protocol':'TCP'}]}]}}
+
+
 def runtime_updates(prepared, config, https_ip):
     updates=[]
     for original in prepared['runtimes']:
@@ -146,9 +159,6 @@ def runtime_updates(prepared, config, https_ip):
         boundary=(ROOT/'services/multiuser/dashboard_boundary.py').read_text(encoding='utf-8')
         docs.append({'apiVersion':'v1','kind':'ConfigMap','metadata':{'name':'dashboard-session-boundary','namespace':ns},'data':{'boundary.py':boundary}})
         deployment['spec']['template']['metadata']['annotations']['arcia.io/session-boundary-sha256']=hashlib.sha256(boundary.encode()).hexdigest()
-        docs.append({'apiVersion':'networking.k8s.io/v1','kind':'NetworkPolicy','metadata':{'name':'identity-https-egress','namespace':ns},
-            'spec':{'podSelector':{'matchLabels':{'app':'hermes-pilot'}},'policyTypes':['Egress'],
-                    'egress':[{'to':[{'ipBlock':{'cidr':ip+'/32'}} for ip in dict.fromkeys([https_ip]+[n['address'] for n in config['nodes']])],
-                               'ports':[{'port':443,'protocol':'TCP'}]}]}})
+        docs.append(runtime_policy(config, https_ip, ns))
         updates.extend(docs)
     return updates

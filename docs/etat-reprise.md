@@ -24,7 +24,7 @@ affiché. Les fichiers locaux non suivis préexistants sont conservés.
 
 OmniRoute 3.8.51 dispose de son renderer, worker, politique de droits,
 installation verrouillée et helper d'accès local. Le manifeste comprend
-**59 étapes**, dont installation/vérification/inspection OmniRoute. Le
+**60 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
 [lock](../bootstrap/routing.lock.json), les contrôles de couverture, le
 [runbook](runbooks/bootstrap.md) et l'[ADR 0020](adr/0020-perimetre-harness-et-politiques-instance.md)
 sont alignés. La bibliothèque refuse dashboard public, override sans rôle,
@@ -121,6 +121,40 @@ consignées dans la preuve du lot. Une CI synthétique
 ne vaut ni réapplication du cluster entier ni reconstruction VMware neuve.
 
 ## Ordre de reprise
+
+### Incident OIDC du runtime personnel — corrigé
+
+Le 14 octobre, refus reproduit sur un espace personnel : découverte OIDC
+`ConnectError` et login HTTP 503, malgré un DNS exact vers la VIP. Chaque
+runtime refusait HTTPS vers son propre nœud et atteignait les deux autres.
+Le DNAT hostPort (443 → Pod ingress 8443) exige une règle vers la destination
+interne, en complément des adresses de nœuds et VIP sur 443.
+
+Correctif **codé, déployé et vérifié** après l'accord explicite du propriétaire
+pour cette seule règle interne. Les 34 politiques possédées ont été réconciliées
+et relues ; aucun runtime n'a redémarré, aucun compte ni volume n'a changé.
+Découverte/JWKS 200 et départ login 302 dans les quatre espaces personnels
+actifs ; les douze sondes HTTPS (quatre runtimes × trois nœuds) réussissent.
+Le chemin navigateur de l'espace concerné redirige vers l'identité ArcIA et
+son API refuse l'anonyme (401). Le retour Microsoft interactif complet reste
+à confirmer par le propriétaire avec un nouveau login.
+[Preuve assainie](qualification/2026-10-14-identity-runtime-network.json).
+
+Renderer partagé et étape Fresh/Reconcile `reconcile_identity_runtime_network`
+après installation du portail ; l'inspection sonde désormais l'OIDC de tous
+les espaces actifs. Les 46 tests identité et deux tests de rendu personnel,
+les contrôles PowerShell bootstrap et les liens documentaires passent.
+Couverture bootstrap de 60 étapes et sources validées sur une copie du seul
+lot livré, excluant le développement concurrent.
+La suite complète du portail a été interrompue après blocage dans le sandbox ;
+ne pas la déclarer réussie. La première application avait été rejetée par la
+revue automatique sans accord explicite ; l'accord ultérieur est propre à
+ce correctif, sans approbation Teams prétendue ni ouverture Internet générale.
+[Procédure](runbooks/bootstrap.md).
+
+Le lot OIDC est livré séparément des modifications concurrentes OmniRoute.
+Ne pas publier leurs fichiers/locks en livrant ce correctif. La recette
+VMware neuve et HA reste inchangée, non qualifiée.
 
 1. Relire AGENTS.md, ses trois références, ce fichier et le backlog ; vérifier
    main et examiner les fichiers locaux non suivis sans les publier.

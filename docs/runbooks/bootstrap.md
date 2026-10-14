@@ -11,6 +11,28 @@ le realm possédé ; `verify_identity` exerce l'administration avec un compte
 synthétique supprimé en fin de test ; `connect_identity` rattache les deux
 espaces synthétiques existants par subject/client distincts.
 `inspect_identity` inspecte le service et ses flux sans modifier le realm.
+Après `install_personal_portal`, `reconcile_identity_runtime_network` réapplique
+uniquement les règles `identity-https-egress` possédées des deux runtimes de
+qualification et du pool personnel courant. Elle vérifie tous les objets avant
+l'écriture et relit chaque règle ; aucun restart, credential ou PVC ne change.
+Le rendu autorise les adresses désignées sur TCP/443 et les seuls Pods
+`app=pilot-https` du namespace `arcia-ingress` sur TCP/8443. Cette seconde
+destination couvre le DNAT du hostPort local : une règle limitée aux IP des
+nœuds sur 443 peut refuser le flux lorsque le runtime est sur le propriétaire
+de la VIP. [Sémantique réseau Kubernetes](https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors).
+
+```powershell
+./scripts/Invoke-ClusterFoundation.ps1 -Action reconcile_identity_runtime_network
+./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_personal_portal
+```
+
+L'inspection sonde désormais découverte, issuer exact, JWKS et début du login
+OIDC dans chaque runtime personnel actif ; elle retourne
+`PERSONAL_PORTAL_OIDC_UNAVAILABLE` si l'un échoue. Un HTTP 302 prouve le départ
+vers l'identité, pas le retour Microsoft complet. Une modification réseau
+refusée par la revue automatique attend l'accord explicite demandé, sans
+contournement par restart ou déplacement du runtime.
+
 `plan_identity_microsoft_egress` prépare une règle additive IPv4 `/32` pour
 Keycloak seulement, sans apply. Elle est exclue d'Audit par défaut ; l'activer
 avec `Bootstrap-Harness.ps1 -Mode Audit -PlanMicrosoftEgress`, ou exécuter
