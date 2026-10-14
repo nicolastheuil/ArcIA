@@ -1,3 +1,0 @@
-# Official vSphere Python SDK; wheel checksum verified from PyPI on 2026-10-11.
-pyvmomi==9.1.1.0 --hash=sha256:76af3cba85573769daf4e6760aace32e7af34e1bbf343895b8c4798b6bc0e2d2
-pycdlib==1.14.0 --hash=sha256:a905827335f0066af3fd416c5cf9b1f29dffaf4d0914b714555213d1809f38d4
