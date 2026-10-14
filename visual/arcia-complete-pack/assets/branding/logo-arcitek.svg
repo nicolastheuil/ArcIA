@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140" width="420" height="140" fill="none">
+  <defs><linearGradient id="arc-cyan" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2CE5F2"/><stop offset="100%" stop-color="#00C8D7"/></linearGradient></defs>
+  <rect width="420" height="140" rx="20" fill="#0D254C"/>
+  <path d="M36 74 C 58 22, 145 14, 196 46" stroke="url(#arc-cyan)" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <circle cx="196" cy="46" r="8" fill="#FACC15"/>
+  <text x="42" y="102" font-family="Inter, sans-serif" font-size="76" font-weight="800"><tspan fill="#F8FAFC">arci</tspan><tspan fill="#00C8D7">Tek</tspan></text>
+</svg>

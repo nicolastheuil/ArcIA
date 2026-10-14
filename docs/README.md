@@ -21,6 +21,7 @@ références complètes, regroupées par fonction.
 | Besoin | Référence complète |
 |---|---|
 | Comprendre ArcIA, les instances et le partage | [Plateforme](guides/plateforme-arcia.md) |
+| Réutiliser Hermes et distinguer ses limites d'entreprise | [Capacités natives Hermes](guides/hermes-capacites-natives.md) |
 | Administrer comptes, portail et SSO | [Identité et utilisateurs](guides/identite-utilisateurs.md) |
 | Qualifier les espaces et les refus croisés | [Multi-utilisateur](guides/multi-utilisateur.md) |
 | Alimenter le RAG et rechercher avec citations | [Connaissance documentaire](guides/connaissance-documentaire.md) |
@@ -42,6 +43,7 @@ références complètes, regroupées par fonction.
 |---|---|
 | Plan / Fresh / Reconcile / Verify / Audit | [Bootstrap](runbooks/bootstrap.md) |
 | Démarrer : authentification, OmniRoute, ArcIA et Teams optionnel | [Quickstart complet](runbooks/quickstart.md) |
+| Tester Entra directement avant le retrait de Keycloak | [Recette Entra/Hermes](runbooks/entra-hermes-test.md) |
 | Prérequis de déploiement | [Préparation](runbooks/preparer-deploiement.md) |
 | Inventaire et préparation VMware | [vCenter](runbooks/vcenter.md) |
 | Exploiter le pilote existant | [Exploitation de qualification](runbooks/exploitation-qualification.md) |

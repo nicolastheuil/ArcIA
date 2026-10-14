@@ -1,0 +1,1 @@
+"C:\Users\NicolasTHEUIL\AppData\Local\Programs\Python\Python313\python.exe" "C:\Users\NicolasTHEUIL\OneDrive - Arcitek\Projets\arcia\scripts\test-direct.py"

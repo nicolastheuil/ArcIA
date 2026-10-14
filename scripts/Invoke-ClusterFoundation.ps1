@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','install_personal_keys','verify_personal_keys','inspect_personal_keys','reconcile_identity_runtime_network','reconcile_identity_session_boundary','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup','install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access')][string]$Action='inspect',
+param([ValidateSet('inspect','qualify_ports','install_vip','qualify_vip','inspect_vip','install_k3s','inspect_k3s','pause_k3s','inspect_cluster','install_vmware','inspect_vmware','qualify_storage','install_postgres','install_hermes','install_hermes_base','inspect_apps','qualify_apps','qualify_live_vip','inspect_hermes_tools','install_hermes_tools','install_hermes_tools_base','verify_hermes_tools','cleanup_failed_hermes_tools','install_knowledge','verify_knowledge','inspect_knowledge','connect_knowledge','install_privacy','verify_privacy','inspect_privacy','install_multiuser','verify_multiuser','install_identity','verify_identity','inspect_identity','connect_identity','cleanup_identity_fixture','verify_identity_access','install_personal_portal','verify_personal_portal','inspect_personal_portal','install_personal_keys','verify_personal_keys','inspect_personal_keys','reconcile_identity_runtime_network','reconcile_identity_session_boundary','plan_identity_microsoft_egress','apply_identity_microsoft_egress_repair','inspect_identity_microsoft_egress','plan_identity_access_repair','apply_identity_access_repair','inspect_identity_access_policy','install_identity_public_https_egress','plan_personal_cleanup','apply_personal_cleanup','install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access','install_entra_test','verify_entra_test')][string]$Action='inspect',
     [ValidatePattern('^[a-f0-9]{64}$')][string]$AuthorizedRepairPlanSha256,
     [ValidatePattern('^p(?:0[1-9]|[12][0-9]|3[0-2])$')][string]$SessionBoundarySlot,
     [string]$RecoveryUsername, [switch]$RepairUnqualifiedRouter, [switch]$AuthorizePrivateRouterController, [switch]$AuthorizeAllPrivateRouterSources)
@@ -87,6 +87,20 @@ try{
         if($payload.identity.operation_id -ne $operation.id){throw 'IDENTITY_ENROLLMENT_SCOPE_CONFLICT'}
         $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json
         if($payload.pilot.operation_id -ne $operation.id){throw 'IDENTITY_TLS_SCOPE_CONFLICT'}
+    }
+    if($Action -in @('install_entra_test','verify_entra_test')){
+        $payload.entra_test=(Read-ProtectedBundle (Join-Path $root 'entra-test.dpapi'))|ConvertFrom-Json
+        if($payload.entra_test.operation_id -ne $operation.id){throw 'ENTRA_TEST_ENROLLMENT_SCOPE'}
+        $entraAdminPath=Join-Path $root 'entra-test-admin.dpapi'
+        if(-not(Test-Path -LiteralPath $entraAdminPath)){
+            if($Action -ne 'install_entra_test'){throw 'ENTRA_TEST_ADMIN_REQUIRED'}
+            function New-EntraTestRandom([int]$Length){$bytes=[byte[]]::new($Length);[Security.Cryptography.RandomNumberGenerator]::Fill($bytes);return [Convert]::ToBase64String($bytes)}
+            $entraAdmin=@{operation_id=$operation.id;username='admin';password=(New-EntraTestRandom 24);password_salt=(New-EntraTestRandom 16);session_secret=(New-EntraTestRandom 32)}
+            Save-ProtectedBundle $entraAdminPath ($entraAdmin|ConvertTo-Json -Compress)
+            $entraAdmin=$null
+        }
+        $payload.entra_test_admin=(Read-ProtectedBundle $entraAdminPath)|ConvertFrom-Json
+        if($payload.entra_test_admin.operation_id -ne $operation.id){throw 'ENTRA_TEST_ADMIN_SCOPE'}
     }
     if($Action -in @('install_multiuser','verify_multiuser')){
         $payload.pilot=(Read-ProtectedBundle (Join-Path $root 'pilot-credentials.dpapi'))|ConvertFrom-Json

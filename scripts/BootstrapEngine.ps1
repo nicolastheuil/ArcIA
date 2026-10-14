@@ -12,6 +12,12 @@ function Assert-BootstrapDefinition($Definition,[string]$Workspace){
        $keys.online_roles_required -ne $true -or $keys.keys_returned_to_browser -ne $false -or
        $keys.inference_activation -ne $false){throw 'BOOTSTRAP_PERSONAL_KEY_BOUNDARY_REQUIRED'}
     $identity=$Definition.configuration_contracts.identity
+    $entraTest=$identity.entra_test
+    if($entraTest.native_oidc -ne $true -or $entraTest.owner_binding -ne 'tenant_object_id' -or
+       $entraTest.keycloak_deleted_automatically -ne $false -or $entraTest.inference_enabled -ne $false -or
+       $entraTest.local_admin_username -ne 'admin' -or $entraTest.opt_in_flag -ne 'TestEntra'){
+        throw 'BOOTSTRAP_ENTRA_TEST_BOUNDARY_REQUIRED'
+    }
     if($identity.runtime_https_path -ne 'node_443_and_ingress_pods_8443'){
         throw 'BOOTSTRAP_IDENTITY_RUNTIME_NETWORK_CONTRACT'
     }

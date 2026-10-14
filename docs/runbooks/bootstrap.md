@@ -4,6 +4,11 @@ Le point d’entrée unique est `scripts/Bootstrap-Harness.ps1`. Son manifeste v
 
 ## Prérequis et saisies externes
 
+La cible d'identité évolue vers Entra direct avec un seul `admin` local.
+Avant le retrait de Keycloak, le parcours natif Hermes est testé séparément :
+[recette Entra](entra-hermes-test.md). Ses étapes optionnelles sont sélectionnées
+avec `-TestEntra` ; elles ne suppriment pas Keycloak et n'activent pas d'inférence.
+
 L'identité locale permanente fait partie du socle par défaut : Keycloak épinglé,
 base dédiée, portail `/admin/users`, comptes et SSO en parallèle.
 `install_identity` génère une seule fois `identity.dpapi`, déploie puis prépare

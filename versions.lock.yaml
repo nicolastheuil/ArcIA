@@ -327,7 +327,8 @@
       "status": "deployed_verified_one_missing_user_slot_deleted_others_preserved",
       "automatic_deletion": false,
       "source": "scripts/personal_cleanup.py"
-    }
+    },
+    "entra_test_supported": true
   },
   "routing": {
     "enabled": true,

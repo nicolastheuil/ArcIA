@@ -154,6 +154,24 @@ def collect(payload):
     operation = str(uuid.UUID(payload['operation_id']))
     if payload['instance']['operation_id'] != operation: raise ValueError('INSTANCE_SCOPE_MISMATCH')
     action = payload['action']
+    if action in ('install_entra_test','verify_entra_test'):
+        import entra_deploy
+        target,nodes,base=transport(payload)
+        config=harness.validate(payload['instance']['config'])
+        enrollment=payload['entra_test'];admin=payload['entra_test_admin']
+        if admin.get('operation_id')!=operation:raise ValueError('ENTRA_TEST_ADMIN_SCOPE')
+        lock=json.loads((ROOT/'versions.lock.yaml').read_text(encoding='utf-8'))
+        values=entra_deploy.payload(lock,config,admin,enrollment,operation)
+        resolver=str(ipaddress.ip_network(config['network']['service_cidr']).network_address+10)
+        source=(ROOT/'scripts/node_identity.py').read_text(encoding='utf-8').split("if __name__ == '__main__':")[0]
+        source+='\n'+(ROOT/'scripts/node_entra.py').read_text(encoding='utf-8')
+        result=guest(target,nodes[0],base,source.encode(),dict(values,action=action,operation_id=operation,
+                     ingress_route=entra_deploy.ingress_route(resolver),hostname=config['network']['public_hostname'],
+                     local_admin=admin),root=True,timeout=2400)
+        passed=result.get('passed') is True
+        return {'private':{'operation_id':operation,'result':result},'safe':{'status':'verified' if passed else 'blocked',
+            'code':('ENTRA_TEST_INSTALLED' if action=='install_entra_test' else 'ENTRA_TEST_VERIFIED') if passed else 'ENTRA_TEST_FAILED',
+            **result}}
     if action in ('install_omniroute','inspect_omniroute','verify_omniroute','read_omniroute_access'):
         import routing_deploy
         target,nodes,base=transport(payload)

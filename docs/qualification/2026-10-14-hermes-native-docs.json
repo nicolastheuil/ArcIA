@@ -1,0 +1,1250 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-14",
+  "kind": "documentation_and_read_only_binding_audit",
+  "sources": {
+    "site": "https://hermes-agent.nousresearch.com/docs",
+    "full_corpus": "https://hermes-agent.nousresearch.com/llms-full.txt",
+    "index": "https://hermes-agent.nousresearch.com/docs/llms.txt",
+    "pinned_revision": "818c13be1dc4fd28987e1e881a9408224afd4535",
+    "full_corpus_bytes": 5630844,
+    "full_corpus_sha256": "b9809c210e000195e81640761a2b973d085d39e833a1ac07d60e219d33d5f6c7"
+  },
+  "coverage": {
+    "pages_acquired": 239,
+    "all_pages_indexed": true,
+    "all_pages_text_searched_for_arcia_terms": true,
+    "every_example_read_and_executed": false,
+    "critical_contracts_reviewed": [
+      "user-guide/managed-scope.md",
+      "developer-guide/middleware.md",
+      "user-guide/profiles.md",
+      "user-guide/features/web-dashboard.md",
+      "user-guide/features/provider-routing.md",
+      "user-guide/features/credential-pools.md",
+      "user-guide/secrets/index.md",
+      "user-guide/egress/iron-proxy.md",
+      "integrations/providers.md",
+      "reference/slash-commands.md"
+    ],
+    "critical_contracts_present_in_pinned_docs": true
+  },
+  "runtime_readback": {
+    "runtimes_checked": 6,
+    "all_active_runtimes_use_configured_omniroute_endpoint": true,
+    "all_active_runtimes_configure_auto_smart": true,
+    "config_and_environment_endpoints_match": true,
+    "credentials_readback": "internal_secret_reference_only",
+    "privacy_path_proven": false,
+    "unfiltered_inference_proven": false,
+    "drift_from_versioned_privacy_renderer_observed": true
+  },
+  "mutations": {
+    "cluster_resources_changed": false,
+    "provider_credentials_changed": false,
+    "model_call_executed": false,
+    "secrets_disclosed": false,
+    "native_ui_removed": false
+  },
+  "verification": {
+    "new_runtime_integration_tested": false,
+    "fresh_cluster_rebuild_executed": false
+  },
+  "documentation_inventory": [
+    {
+      "path": "getting-started/installation.md",
+      "characters": 12460,
+      "sha256": "a53f9c001240ab34fad5fd043bad9d675c604ca3c03f8c70eaa1da6e8e898925"
+    },
+    {
+      "path": "getting-started/quickstart.md",
+      "characters": 20035,
+      "sha256": "79975cb0de515cfd49055f5bcc4f1676da8bf6514177245d4901322ff578a998"
+    },
+    {
+      "path": "getting-started/learning-path.md",
+      "characters": 9145,
+      "sha256": "5d91b7bee9f89fb3cea35f5871bb18a55edb2d2fab03d9f911e3bcf811be8b2c"
+    },
+    {
+      "path": "getting-started/updating.md",
+      "characters": 51514,
+      "sha256": "63378fe55ace29a10d821fed6e4c61c02c21b4eea61b8f13073a15df9869820e"
+    },
+    {
+      "path": "getting-started/nix-setup.md",
+      "characters": 53355,
+      "sha256": "41358642c2849e0807a0c6577be811371b4d03808ca49381a3b2e5cb1b5a9fba"
+    },
+    {
+      "path": "user-guide/cli.md",
+      "characters": 31243,
+      "sha256": "1970d008f1391e48c9e423ed4bab739066617d992e9235ae0e7dd3b1b3996692"
+    },
+    {
+      "path": "user-guide/tui.md",
+      "characters": 19993,
+      "sha256": "28f76574f3593fdd23b1a0c37fab55598c2e036864d92c8c768c8836ba2af61b"
+    },
+    {
+      "path": "user-guide/configuration.md",
+      "characters": 243681,
+      "sha256": "8d439f231646f52d28469d64cdf638e038bfbfaeef45ddb5ee5921b3afc199e5"
+    },
+    {
+      "path": "user-guide/configuring-models.md",
+      "characters": 28271,
+      "sha256": "93c6d728840e739aa27bfcf8aaf4c2fefaca9bc3d65500bf7cce69d1c05c3966"
+    },
+    {
+      "path": "user-guide/sessions.md",
+      "characters": 61143,
+      "sha256": "04080b93e1443b2aa51308a53ce5935c98c70d1a9d9882bf365ce7c17a6b0038"
+    },
+    {
+      "path": "user-guide/profiles.md",
+      "characters": 25579,
+      "sha256": "7093dc577589139c9a88c7632584511765d4423b0eb2941a944f29aac650b162"
+    },
+    {
+      "path": "user-guide/git-worktrees.md",
+      "characters": 6799,
+      "sha256": "4a259d822f42be2eae968259f2edc39700979610498316add577b762eedf51a9"
+    },
+    {
+      "path": "user-guide/docker.md",
+      "characters": 53561,
+      "sha256": "cccb970481ccc1430fbdf3ddef182a91f5da9ee0dd0e2b4d688d7be17292039f"
+    },
+    {
+      "path": "user-guide/security.md",
+      "characters": 62093,
+      "sha256": "ec2c2c76e160544af3eb64e2d23e32cb30172a604b8961d325603e1ae43d4776"
+    },
+    {
+      "path": "user-guide/checkpoints-and-rollback.md",
+      "characters": 13979,
+      "sha256": "07980566218d6623ccf3ec95b862507c7015e641b2a1f575b30c57d669bf58d0"
+    },
+    {
+      "path": "user-guide/features/overview.md",
+      "characters": 7251,
+      "sha256": "299bdddd13322e84f2f662cff289ccd3f08fda1e191757c7d607b46b2f7c3a62"
+    },
+    {
+      "path": "user-guide/features/tools.md",
+      "characters": 15007,
+      "sha256": "68235728559fa98da171d0942d982c9917a66895c37c1bb542ef05529650fabf"
+    },
+    {
+      "path": "user-guide/features/skills.md",
+      "characters": 57467,
+      "sha256": "b1411d6d52cacf4b390bb67a46bf313e8d1c7afcdc613883463035460826f01b"
+    },
+    {
+      "path": "user-guide/features/curator.md",
+      "characters": 26779,
+      "sha256": "3a48c49a0b8bcb85815cc1e72a0cc0fb3ea71aa294f98bf6dc93946796c116d1"
+    },
+    {
+      "path": "user-guide/features/memory.md",
+      "characters": 31590,
+      "sha256": "f02be080a48cc9b66b0d9c3b55f8a6af2cf7e404dba1913f1479a55931b15fc3"
+    },
+    {
+      "path": "user-guide/features/memory-providers.md",
+      "characters": 47305,
+      "sha256": "3dfc05342370206b6215f8c63f6da7f0b730ac7281c6d30c5b98f7bfaa52874e"
+    },
+    {
+      "path": "user-guide/features/context-files.md",
+      "characters": 12195,
+      "sha256": "5436dd6f2621afb69089805a1e55f8f937a720d8e43746537b7188bee2234531"
+    },
+    {
+      "path": "user-guide/features/context-references.md",
+      "characters": 5212,
+      "sha256": "57815cce0647dd7093a2447493472fc6abad17316e82cd540a959314c10ce6a7"
+    },
+    {
+      "path": "user-guide/features/personality.md",
+      "characters": 9581,
+      "sha256": "68b32d6f6a5a996b9410f8f247c912fe2271f0eb65e5fde634952fa6c621e493"
+    },
+    {
+      "path": "user-guide/features/plugins.md",
+      "characters": 62213,
+      "sha256": "5636271e7d369abda5d1ff6f24ad578ea5ae75225e7ccdd3fb2fde6e1efe205c"
+    },
+    {
+      "path": "user-guide/features/built-in-plugins.md",
+      "characters": 20220,
+      "sha256": "fe7dfe5de3d2ca9c3f356b1c1aa7610015034d721ebed410414b74761fd16efa"
+    },
+    {
+      "path": "user-guide/features/cron.md",
+      "characters": 79569,
+      "sha256": "564757b2d3df48029177c0d7c7ae4ac8551a596805b4ddca2d7b85b9b93b6bbc"
+    },
+    {
+      "path": "user-guide/features/delegation.md",
+      "characters": 50616,
+      "sha256": "953225b460d325af2cee14884fddb4e635966678f23da9400cb46afaa292e88a"
+    },
+    {
+      "path": "user-guide/features/kanban.md",
+      "characters": 122148,
+      "sha256": "367f7b6fae684d3c7c835ccc5b0e6e47499ce559065be60733bf1ee25ab63e9a"
+    },
+    {
+      "path": "user-guide/features/kanban-tutorial.md",
+      "characters": 20003,
+      "sha256": "2366fcc7bf1a890f7d8d409b4aa156b9d5ea3c231c33bbefa900cbd73380276f"
+    },
+    {
+      "path": "user-guide/features/goals.md",
+      "characters": 22150,
+      "sha256": "d89e4c85c99315a2ca72d56debdd029d2cc7ba5e3c91cddf9803f9188993b709"
+    },
+    {
+      "path": "user-guide/features/code-execution.md",
+      "characters": 15265,
+      "sha256": "e3db66ae7c4763340affae9cecc3b8227ef4a1f7d527205169c328b39fde4650"
+    },
+    {
+      "path": "user-guide/features/hooks.md",
+      "characters": 125309,
+      "sha256": "f00c30a74b9d2d17ca681c13a24e498e32809b1467b3de4a690de1447f866964"
+    },
+    {
+      "path": "user-guide/features/batch-processing.md",
+      "characters": 8888,
+      "sha256": "5a62248bb09537c7d581d2bfed9f365b50de18aac6c70f9d88e594c86985786e"
+    },
+    {
+      "path": "user-guide/features/voice-mode.md",
+      "characters": 33607,
+      "sha256": "320430f6d17e897276062091e8c8d349733e057a68f3e60a30d8a92ce5b4c902"
+    },
+    {
+      "path": "user-guide/features/browser.md",
+      "characters": 51314,
+      "sha256": "1d3834a8cfefe400a55bec338d320faa7cc32987e73fc6266f43b4d938423d33"
+    },
+    {
+      "path": "user-guide/features/vision.md",
+      "characters": 14542,
+      "sha256": "bdd629718aa8047ba63c6dbb9b39f5f19c35ebdbca2885b510a42c8b99c437a8"
+    },
+    {
+      "path": "user-guide/features/image-generation.md",
+      "characters": 20729,
+      "sha256": "dbc5b9f9c09ccc8ac254ba9c6c6860182f8f469070ec36e2cb46fb650308a7d9"
+    },
+    {
+      "path": "user-guide/features/tts.md",
+      "characters": 47319,
+      "sha256": "51436f4c1b6c6ca6d075da4ffdd1b388d1ed9777a160cae05eb175af9281b625"
+    },
+    {
+      "path": "user-guide/messaging/index.md",
+      "characters": 58631,
+      "sha256": "a56008e028724c1022f4d9e5827acfb2dda7144b87c6d88a5a98b151351bf9db"
+    },
+    {
+      "path": "user-guide/messaging/telegram.md",
+      "characters": 76630,
+      "sha256": "0e3a7fece2ce006d3cdf93b686c8009d0368252e4083201ccc84120542c8b5cd"
+    },
+    {
+      "path": "user-guide/messaging/discord.md",
+      "characters": 61409,
+      "sha256": "84a37cf718bc38ab21786ce6f458f7f5573fff55a9af98799d1f73538af3e1ba"
+    },
+    {
+      "path": "user-guide/messaging/slack.md",
+      "characters": 54952,
+      "sha256": "2a6d5c93b54982a489e69a6833138d817eab6ea7552eb52be0ed2af0a9b08f7a"
+    },
+    {
+      "path": "user-guide/messaging/whatsapp.md",
+      "characters": 17592,
+      "sha256": "99f62b86c06f0da94167584fb7f46a06c2478fc06fe05f3417fc368081700a6d"
+    },
+    {
+      "path": "user-guide/messaging/signal.md",
+      "characters": 10820,
+      "sha256": "5fe649f5f6c2c2ba1def7f7681ac9cf9f57d76a6648369e6c48db9c66b593eb3"
+    },
+    {
+      "path": "user-guide/messaging/email.md",
+      "characters": 13299,
+      "sha256": "904a8c566407d762545eb2b12d93c068f17637f975d42b8feefafce144f54abe"
+    },
+    {
+      "path": "user-guide/messaging/sms.md",
+      "characters": 6634,
+      "sha256": "def6682461714156a3df7d11af711b97501a748c8350d17e6c17b6686289d45e"
+    },
+    {
+      "path": "user-guide/messaging/matrix.md",
+      "characters": 38989,
+      "sha256": "8b0e500dbe64aec0a7fe0033413aace094466dabf92638c0ae6da45e42699ef7"
+    },
+    {
+      "path": "user-guide/messaging/mattermost.md",
+      "characters": 13472,
+      "sha256": "7dc1e7dc14ea09bac8d9c2668cfeb83a0f6e978edac28904fe288fce55b4f82f"
+    },
+    {
+      "path": "user-guide/messaging/homeassistant.md",
+      "characters": 12656,
+      "sha256": "c083d94116de3e1077185db430d556357595b4b35868d6b1f3f2f3df11c89a9e"
+    },
+    {
+      "path": "user-guide/messaging/webhooks.md",
+      "characters": 35904,
+      "sha256": "2d316e130522ec14d39d3785a7a0d1ff0f1eb6ba40637c5244356fd7c626a180"
+    },
+    {
+      "path": "integrations/index.md",
+      "characters": 10040,
+      "sha256": "6a7009f9dbe3133b59424359c7b9314d8e04e0f6b5a4a07644388969c880e973"
+    },
+    {
+      "path": "integrations/providers.md",
+      "characters": 97765,
+      "sha256": "3bfd7826708584a8d2657a185066cfc72031d3592f085906a98b8a39f6fce43d"
+    },
+    {
+      "path": "user-guide/features/mcp.md",
+      "characters": 52005,
+      "sha256": "8d0bc30ed1bb18f4a612261f505f1ffecc784e7d83c2077f3f5f98ecac781ab6"
+    },
+    {
+      "path": "user-guide/features/acp.md",
+      "characters": 16615,
+      "sha256": "2a4098082353beb3da31efc25e58874eee6b7649bb03f4a3374d77e1595ab18a"
+    },
+    {
+      "path": "user-guide/features/api-server.md",
+      "characters": 44040,
+      "sha256": "855518f5a66b3a1db50744af19aa46fba109deef52be2654a212cd73ed223eb0"
+    },
+    {
+      "path": "user-guide/features/honcho.md",
+      "characters": 20938,
+      "sha256": "02b494f6970d5c6e93da1d23eaf965eb7f8e15803d62010fe978a094d45ec657"
+    },
+    {
+      "path": "user-guide/features/provider-routing.md",
+      "characters": 6748,
+      "sha256": "fd64ac3d3fa303c2e62b135b312da188f029b0fb6bb608cd53b3ea0d8615f957"
+    },
+    {
+      "path": "user-guide/features/fallback-providers.md",
+      "characters": 26665,
+      "sha256": "79ce74b926274789bc096fada876724be511f2a911b01ee91f070c9d51f835db"
+    },
+    {
+      "path": "user-guide/features/credential-pools.md",
+      "characters": 21005,
+      "sha256": "117ab2bebe0d2a16b470208b2104b20348c214518a5394281d3a1e8167039e80"
+    },
+    {
+      "path": "guides/tips.md",
+      "characters": 12774,
+      "sha256": "6ce8dd096ea95c92a46ba43eff755610482dbdcec4d620d2399815ac8299cf67"
+    },
+    {
+      "path": "guides/local-llm-on-mac.md",
+      "characters": 9935,
+      "sha256": "48f9b6a85364ecddb5a8b494d4b4e7bc3a9a7f43b21e2ad7d6fe17f60da61101"
+    },
+    {
+      "path": "guides/daily-briefing-bot.md",
+      "characters": 10276,
+      "sha256": "d95672c727ec108dd65a63638500fbdbc777a8ff82ae6b854dbc870f11b0392e"
+    },
+    {
+      "path": "guides/team-telegram-assistant.md",
+      "characters": 13391,
+      "sha256": "e819e5f1fd1fc9d9a9d05fb52d944836ee30223d8fbf5b3b15d8222f492b4857"
+    },
+    {
+      "path": "guides/python-library.md",
+      "characters": 10242,
+      "sha256": "c6aef7b47e15eed604c8295102c392ec003ea466cb9eb43d0f98d55dca592078"
+    },
+    {
+      "path": "guides/use-mcp-with-hermes.md",
+      "characters": 14417,
+      "sha256": "f15a1eed0a5caed2c09debcf6f1f29f2d785b9fc5d5aca1ff099e60b8e19532c"
+    },
+    {
+      "path": "guides/use-voice-mode-with-hermes.md",
+      "characters": 10757,
+      "sha256": "6c2467aa44bfba6c3b4699b56d9b17c4669af790bced7114ff6829b7eb07496d"
+    },
+    {
+      "path": "guides/use-soul-with-hermes.md",
+      "characters": 7238,
+      "sha256": "aa8de7ea67fe54b17407e3e5934d70d6d395729ec7af24e86f1e7997985e5c00"
+    },
+    {
+      "path": "guides/automate-with-cron.md",
+      "characters": 12261,
+      "sha256": "e3bd16aa83cab89c5f8c361c491ad76947782efdb95eeca180f0a73441a15130"
+    },
+    {
+      "path": "guides/work-with-skills.md",
+      "characters": 8793,
+      "sha256": "6a583e92f1365074daba5a9d96ebf742541d403fa80900f37c6fe5f6b8874ffd"
+    },
+    {
+      "path": "guides/delegation-patterns.md",
+      "characters": 11081,
+      "sha256": "c59689a694d5472ca9c6a067864d45e5d719e378d35ab3974ca43728031cebc0"
+    },
+    {
+      "path": "guides/github-pr-review-agent.md",
+      "characters": 8852,
+      "sha256": "9e2dba42ab9585d251a60978977dcd3ad252d727316b0f88ffcee3c427c1e65c"
+    },
+    {
+      "path": "developer-guide/contributing.md",
+      "characters": 23872,
+      "sha256": "b78f8261980eb3464ac9e465900fb086d1aff41de616bdd46d86ac2cf7131eaf"
+    },
+    {
+      "path": "developer-guide/architecture.md",
+      "characters": 14634,
+      "sha256": "fdc82d2dfefc6c9d759fbd4d9ef5c41713c8cade669bce70d6805b5cadb07749"
+    },
+    {
+      "path": "developer-guide/agent-loop.md",
+      "characters": 11111,
+      "sha256": "3e693691857311063631a5293128613b704e3f9adda1f14fa9916a2240dbf817"
+    },
+    {
+      "path": "developer-guide/prompt-assembly.md",
+      "characters": 18062,
+      "sha256": "41138dd1375848417c98244ca600bc2af2ee0272d47baab0c1584601e8ff5361"
+    },
+    {
+      "path": "developer-guide/context-compression-and-caching.md",
+      "characters": 45388,
+      "sha256": "4e62baf538b9357b2cccfae3b9967704907f2c48e45092bb40be69f1f92e184c"
+    },
+    {
+      "path": "developer-guide/gateway-internals.md",
+      "characters": 26377,
+      "sha256": "d982c51301f33718a2609f6f4b8eb326145fae81ff57b16261511085cabd84c2"
+    },
+    {
+      "path": "developer-guide/session-storage.md",
+      "characters": 28540,
+      "sha256": "6ac1969b9917f93f096880070d1cef19e699ab4e878e7171beee9aa27b45963d"
+    },
+    {
+      "path": "developer-guide/provider-runtime.md",
+      "characters": 10799,
+      "sha256": "df52d6f825616d2ef0133738f97b47941cdc0d8b98dcb20be6a734c372aeb670"
+    },
+    {
+      "path": "developer-guide/adding-tools.md",
+      "characters": 6558,
+      "sha256": "101901c344b46b48a3f964b5504ec2ddffa3c881c54c29845d08f49f8f514813"
+    },
+    {
+      "path": "developer-guide/adding-providers.md",
+      "characters": 17862,
+      "sha256": "2ed9517e4dfe594c3dc1a32a2f87c77f6cc0e606694f3704dcf60a3c122c19b0"
+    },
+    {
+      "path": "developer-guide/adding-platform-adapters.md",
+      "characters": 39035,
+      "sha256": "d7fcb89c1c89f55635a01191801f5f91dc7807f593229dd91ae5cce9acf8a06e"
+    },
+    {
+      "path": "developer-guide/creating-skills.md",
+      "characters": 20430,
+      "sha256": "9fa1be4dfff097257a6c4591567c239672ed379607a0970206b4c4a0fb0e7e3f"
+    },
+    {
+      "path": "developer-guide/extending-the-cli.md",
+      "characters": 7228,
+      "sha256": "8afca5664abbea54d7af5ccb4711daf198301fd1b84e4faa3b18d7e6f03e8ba7"
+    },
+    {
+      "path": "reference/cli-commands.md",
+      "characters": 132148,
+      "sha256": "6f7c4ffa7c774a398c09053ddce3250bea60cdc6b991225f19d4b0ceb8e35dca"
+    },
+    {
+      "path": "reference/slash-commands.md",
+      "characters": 48258,
+      "sha256": "33407afbe60fddaac11752131ac8d915cfcb2f13fa95c0d7ba0d14c2d8b6a8f5"
+    },
+    {
+      "path": "reference/profile-commands.md",
+      "characters": 23641,
+      "sha256": "dc43e639c45697b83a0a4712fe2ce183f66e31f7608fe8f265294ef44fd9ed93"
+    },
+    {
+      "path": "reference/environment-variables.md",
+      "characters": 109691,
+      "sha256": "4a4a24c2089dfd7583cbab69371d896e87b741e65033974b2ad7f1439d75267a"
+    },
+    {
+      "path": "reference/tools-reference.md",
+      "characters": 42283,
+      "sha256": "1e24a1cafbc31fb7f250e08fe82c6a9214f5a1e923d3c985df7deb56a338d94c"
+    },
+    {
+      "path": "reference/toolsets-reference.md",
+      "characters": 14009,
+      "sha256": "e2a465f2d5bd7269bbb8ed25d1421ca1085f02a8fb967658e4f8a03d497ebccc"
+    },
+    {
+      "path": "reference/mcp-config-reference.md",
+      "characters": 22605,
+      "sha256": "26a6a29c32c09598bb05020a2286cfe0fb3a2b9b26cabdac7ed636beea080eae"
+    },
+    {
+      "path": "reference/model-catalog.md",
+      "characters": 6508,
+      "sha256": "b350f4d38dd7263ddd2d5be8ca0bea778ac9af584c1e84d3287cfe331e34b7e5"
+    },
+    {
+      "path": "reference/skills-catalog.md",
+      "characters": 12225,
+      "sha256": "791dd28d9b22b5faaeaf63cd97ca969261de0051aa2488e27d76f7a766a06aaf"
+    },
+    {
+      "path": "reference/optional-skills-catalog.md",
+      "characters": 25076,
+      "sha256": "6b66129098cc0513e9f053be6ea132f9919f9defb0a9cf591c0a304ecaf2bdb0"
+    },
+    {
+      "path": "reference/faq.md",
+      "characters": 42499,
+      "sha256": "9921a768ffa3fd8200297839dc21c1daa6d6f7307242cda3dec9767f293b2622"
+    },
+    {
+      "path": "developer-guide/acp-internals.md",
+      "characters": 6076,
+      "sha256": "908c82c0a1e299c00cc002956823d2ca739dac1c1fc21f45aebdebf2ae7d0b83"
+    },
+    {
+      "path": "developer-guide/billing-lifecycle.md",
+      "characters": 17153,
+      "sha256": "92abafe0521c3d72182de02c279ec448657aa11501a4d7220b61d1e2179fec6d"
+    },
+    {
+      "path": "developer-guide/browser-provider-plugin.md",
+      "characters": 6700,
+      "sha256": "d735080117dc14053e80397845c1eb5076143e918d873f098a38d41950efd0ae"
+    },
+    {
+      "path": "developer-guide/browser-supervisor.md",
+      "characters": 12360,
+      "sha256": "201c3c82fef0c2ce270d5c6c6e0e20d99704713250ffe5dd87493e26a1e2b01e"
+    },
+    {
+      "path": "developer-guide/chronos-managed-cron-contract.md",
+      "characters": 12544,
+      "sha256": "27b2d30c5dc9baa6551de6a8ebe62fd94a444c1fc2f6dc9be83d699f0f00d8cb"
+    },
+    {
+      "path": "developer-guide/cli-internals.md",
+      "characters": 14666,
+      "sha256": "12986aec2bbea0e3808e0badf533cc0af6b8d44d90fdfaa0283a6ba3e7515a98"
+    },
+    {
+      "path": "developer-guide/codebase-ownership.md",
+      "characters": 3195,
+      "sha256": "fb26c05a8cf928e975640530948470ee842ed2a58dbc604b09584a883dbd54c2"
+    },
+    {
+      "path": "developer-guide/completion-backlog-delivery.md",
+      "characters": 2995,
+      "sha256": "9714ebb378c9ebc2b576a60db663b97a8750d5e3a92dab034fea5471eea94ca7"
+    },
+    {
+      "path": "developer-guide/context-engine-plugin.md",
+      "characters": 20111,
+      "sha256": "0b5669d9a625aa19dc582dfebdc9dfae0d03c5a79f7748418b8f7aa63523ad90"
+    },
+    {
+      "path": "developer-guide/cron-internals.md",
+      "characters": 25312,
+      "sha256": "98d1c680bc4f7ce3381bf4100acb355e1db22d77c84bbb4d9399646401a7756a"
+    },
+    {
+      "path": "developer-guide/desktop-plugin-sdk.md",
+      "characters": 103477,
+      "sha256": "3fb49a603d5fd2bdb783a7c68ecbfee45b632f5b8173968f5fe45f0d6d5b6f13"
+    },
+    {
+      "path": "developer-guide/egress-internals.md",
+      "characters": 20300,
+      "sha256": "306ca38e505baf0571edc8b1e673ab964e0025339a48b9bdf9df15f89d5fb526"
+    },
+    {
+      "path": "developer-guide/gateway-monitoring.md",
+      "characters": 15188,
+      "sha256": "f05364f3d9c0041846ece1875218a59fcd07248a93bac894eaa3e46c7d3bcf66"
+    },
+    {
+      "path": "developer-guide/gateway-session-lifecycle.md",
+      "characters": 33192,
+      "sha256": "ef14bf8fc6f74e368f4a598f4523a9ea2fa94c8c5e80cc7cabd6c119f0156603"
+    },
+    {
+      "path": "developer-guide/image-gen-provider-plugin.md",
+      "characters": 13127,
+      "sha256": "7234957ec2c6ff49f52a447a383074ec2c1bcb01ee7444056555427dab0576a9"
+    },
+    {
+      "path": "developer-guide/macos-bundle-updates.md",
+      "characters": 4913,
+      "sha256": "c8a3707a05447ad373022369f8a01edf0e926a272cbeefacf9b25c8225ea8215"
+    },
+    {
+      "path": "developer-guide/memory-provider-plugin.md",
+      "characters": 25840,
+      "sha256": "fba350b98f184392171397ae2ed4d7ae8865118e228b8f32a43038bb131c7f76"
+    },
+    {
+      "path": "developer-guide/micro-compaction.md",
+      "characters": 19870,
+      "sha256": "5cc2afb7591c64c07423c226211320cfe89c0f71472e44e58994397b0d8f996d"
+    },
+    {
+      "path": "developer-guide/middleware.md",
+      "characters": 9820,
+      "sha256": "778a4c7dea6637a89609bcb8fcde80bfa2ab808596e6c303caadaf64d4cfab6b"
+    },
+    {
+      "path": "developer-guide/model-provider-plugin.md",
+      "characters": 41887,
+      "sha256": "765ee51786f337fdb23f947ba18915056518d5f0d414d36b4c055f6753951d89"
+    },
+    {
+      "path": "developer-guide/multiplexing-gateway.md",
+      "characters": 19486,
+      "sha256": "7f95dcbf23db47c8ffbb75554484ac51dd39abf75ce573383e5f411d59b8c673"
+    },
+    {
+      "path": "developer-guide/observer-hooks.md",
+      "characters": 13586,
+      "sha256": "871c699845763af65571d809a75b1baca557e73f376be9ac2f259ae812ffadda"
+    },
+    {
+      "path": "developer-guide/plugin-llm-access.md",
+      "characters": 21680,
+      "sha256": "0085c3f1dcc9248b8a69ad2a6994358edd208e1bdc59b0163539cb8dcd1fabbc"
+    },
+    {
+      "path": "developer-guide/plugins/index.md",
+      "characters": 115872,
+      "sha256": "dc139a64002920f77a69901ca0fdcdce92fa6f4eca7da42e0812b4bcb2eb57b7"
+    },
+    {
+      "path": "developer-guide/plugins/application-declarations.md",
+      "characters": 8495,
+      "sha256": "adc58b0210914460c747e4aad335094ae9ca1f5233510adf30a3d6aaa5a21f5d"
+    },
+    {
+      "path": "developer-guide/plugins/catalog-submission.md",
+      "characters": 14835,
+      "sha256": "471cb923aa5ce6e8ef8ff5b768ad719b2c220d3559126ce214cbf6f8a19bf8b6"
+    },
+    {
+      "path": "developer-guide/pm-audit-status.md",
+      "characters": 13289,
+      "sha256": "38a0b685d468eedeea3545c7ac1fb44834f8639bca8f139f244b1eefea8a4228"
+    },
+    {
+      "path": "developer-guide/programmatic-integration.md",
+      "characters": 19176,
+      "sha256": "c7604f8150b8f481c0eaedefd351f17fc60eac64dcc162e83b5f3b33dda98f66"
+    },
+    {
+      "path": "developer-guide/relay-connector-contract.md",
+      "characters": 51555,
+      "sha256": "7783815053505a511318bf8945baafe332bcecd8eb191bed0e6791d9e51730df"
+    },
+    {
+      "path": "developer-guide/relay-shared-metrics.md",
+      "characters": 87570,
+      "sha256": "b0e1b049d2f77fe4b9abdb86e01f016b753cd33858041175e9a58fa02e5afb3f"
+    },
+    {
+      "path": "developer-guide/secret-source-plugin.md",
+      "characters": 10627,
+      "sha256": "eb254bdd5d7732256f9a78f063c53575fff4778b6e1ac6cd579787595b4af801"
+    },
+    {
+      "path": "developer-guide/shared-bundle-builds.md",
+      "characters": 24803,
+      "sha256": "d04c0096b43db4035d41bff2d9e68c9ab93cc62a06d49fdee659f196e6407fbc"
+    },
+    {
+      "path": "developer-guide/source-update-completion.md",
+      "characters": 16884,
+      "sha256": "709d08e67400928272e574dbbc37ae5db0cc07d97702a56008cdbea98b84d47c"
+    },
+    {
+      "path": "developer-guide/stable-releases.md",
+      "characters": 31174,
+      "sha256": "612eb4ac53e8c4146040c17d5697baf585cd5eebb53f91b6cc2a5c5dcd510320"
+    },
+    {
+      "path": "developer-guide/state-db-recovery.md",
+      "characters": 4919,
+      "sha256": "ec32cc809ed551d08ee78b4ae456d285db9923b9e198216f618d42a4ee71ff1c"
+    },
+    {
+      "path": "developer-guide/streaming-tts.md",
+      "characters": 5793,
+      "sha256": "69099b615a14b10cc14fadbf28cdedfa027c94ea0ac289e1810f5cb710595576"
+    },
+    {
+      "path": "developer-guide/subagent-lifecycle-api.md",
+      "characters": 4223,
+      "sha256": "ac26fe843287985a0a22fcf5dd2f54b2468c14e9b16c7573d6650b66e6101a99"
+    },
+    {
+      "path": "developer-guide/terminal-environment-plugin.md",
+      "characters": 5546,
+      "sha256": "dca59d59389f7b098614223269bc2c13f4d903482c954ee821247d3a8e99b349"
+    },
+    {
+      "path": "developer-guide/tools-runtime.md",
+      "characters": 11858,
+      "sha256": "f153be525548330dcbc1dbf90513fd2d5fc5ba16b4d1d71862517c7944e61e54"
+    },
+    {
+      "path": "developer-guide/trajectory-format.md",
+      "characters": 8430,
+      "sha256": "76e937e8908224bf7625c9cf6d8ec93dda77c2a43d8a40e62cd098d049a879c4"
+    },
+    {
+      "path": "developer-guide/video-gen-provider-plugin.md",
+      "characters": 9197,
+      "sha256": "f1ef72388e3d63c4dbe188f8836d3f925a0d81aea97a3ea038478abc7f3aa7cc"
+    },
+    {
+      "path": "developer-guide/web-search-provider-plugin.md",
+      "characters": 11341,
+      "sha256": "8cddb1c05dca55ce9f5ce06cec6df63ea65829379f6ddbed948eda23c8b9d8fc"
+    },
+    {
+      "path": "developer-guide/worktree-ui-dev.md",
+      "characters": 9289,
+      "sha256": "5f1e90efbdc1f113e54c504ad2b4f3d4d131500d9151228941091aed4725f87f"
+    },
+    {
+      "path": "getting-started/platform-support.md",
+      "characters": 5362,
+      "sha256": "08843382f257611daca6a9e58e36bb9bb05aad9f641853f8ed97c2b6aaee9cb2"
+    },
+    {
+      "path": "getting-started/termux.md",
+      "characters": 5769,
+      "sha256": "2bcab5155e0c8eba1d9d9a9afb3f887beb7445491d073d9c7e877a78d67bc237"
+    },
+    {
+      "path": "guides/agent-email-address.md",
+      "characters": 4872,
+      "sha256": "6ebc89d10575670cb276400a24d9cef42a7dbb3fa2c0f265e2322e27e2bca96d"
+    },
+    {
+      "path": "guides/automation-blueprints.md",
+      "characters": 19349,
+      "sha256": "f44722ab81a69eea0d00e715d07a224b7067a54d1ce5c55d77584595e5d625df"
+    },
+    {
+      "path": "guides/aws-bedrock.md",
+      "characters": 11115,
+      "sha256": "ec6a060947a537946c7a10b66fc73a043c0da113559db43e0c19b9702c41e1ce"
+    },
+    {
+      "path": "guides/azure-foundry.md",
+      "characters": 23746,
+      "sha256": "a60b4163a9ffca253a6380941d8c110193fcfab657da4776a586fec740cdc3c8"
+    },
+    {
+      "path": "guides/cron-script-only.md",
+      "characters": 12826,
+      "sha256": "50569cb335ee43d771dbf13f0d866d73ac73ff68b157b5077c6c0edfa789e7c0"
+    },
+    {
+      "path": "guides/cron-troubleshooting.md",
+      "characters": 10489,
+      "sha256": "c8de0c2a6bd6e94281f8b4e76f3f34f570cedb8e0f3da82b2b6f3366d895a90b"
+    },
+    {
+      "path": "guides/desktop-native-signin.md",
+      "characters": 5886,
+      "sha256": "33a210e816756ed3b12c8ea59cc8cf47d32584a67498147287115ee5e9a5bd44"
+    },
+    {
+      "path": "guides/google-gemini.md",
+      "characters": 14151,
+      "sha256": "eec9f0f2b2f4058977ceaaf50dbcb000eb1c99c7bb77b9f89660bbe2caa2d488"
+    },
+    {
+      "path": "guides/google-vertex.md",
+      "characters": 6524,
+      "sha256": "61e6743ef57c70374a617e3d0f835ece04c3740a3077da0efc64f4f8a289b063"
+    },
+    {
+      "path": "guides/local-ollama-setup.md",
+      "characters": 13009,
+      "sha256": "f36afdb559c92df58eba4c0c116f661bf182d6d33f406f1aaf4abfe94313a9c2"
+    },
+    {
+      "path": "guides/manage-hermes-cloud-with-mcp.md",
+      "characters": 7264,
+      "sha256": "3e55bc0b953bea5af9029211e7fd12a534766a638a68c77c280b72135e4bc5af"
+    },
+    {
+      "path": "guides/microsoft-graph-app-registration.md",
+      "characters": 8381,
+      "sha256": "769b7d78191afe95ac1cff7f2cbbd5babd74df65f2f1e6effd661a52160802d5"
+    },
+    {
+      "path": "guides/migrate-from-openclaw.md",
+      "characters": 15512,
+      "sha256": "8429df081b8b61a9582e04ab212e94103628da99c5d0d8c4f0fb3a8f1124b160"
+    },
+    {
+      "path": "guides/minimax-oauth.md",
+      "characters": 8186,
+      "sha256": "783b7b227466a2a9d2267bfefd266c5d65cd4ebe78fd94f7c65c60d1941b273c"
+    },
+    {
+      "path": "guides/oauth-over-ssh.md",
+      "characters": 9357,
+      "sha256": "1f9273015c37c609abc97265e4b76158842c66f5d88235b1adfb75fa30b2ce4b"
+    },
+    {
+      "path": "guides/operate-teams-meeting-pipeline.md",
+      "characters": 8822,
+      "sha256": "71f2f486da5f539767bb0d523ca0e4870129a755b57ad41b9866a4056c9f1df9"
+    },
+    {
+      "path": "guides/pipe-script-output.md",
+      "characters": 9219,
+      "sha256": "f8078c893d7ece3be4bea3bceeceeba464dbe4bbc8bfbdf4a769d8c7f4cec064"
+    },
+    {
+      "path": "guides/run-hermes-with-nous-portal.md",
+      "characters": 11483,
+      "sha256": "538dd48c663568cae1d94d34b7a64f084f3f96687a017b5efedae2447c16eee5"
+    },
+    {
+      "path": "guides/run-nemotron-3-ultra-free.md",
+      "characters": 4597,
+      "sha256": "d8c8cf75f46c2f17abe397c03926ac10a9d3a7be79ddff84807ba2e2479e14d8"
+    },
+    {
+      "path": "guides/secure-hermes-on-a-work-machine.md",
+      "characters": 10209,
+      "sha256": "85f96e5da105725999e5880744c47b0ca6b4a805f8edc551331d4a0d8e32581a"
+    },
+    {
+      "path": "guides/troubleshooting-agent-quality.md",
+      "characters": 10376,
+      "sha256": "77a37c48e14a755dcac17f8ac14230ffd7145753837063646607378b2bc11599"
+    },
+    {
+      "path": "guides/webhook-github-pr-review.md",
+      "characters": 14973,
+      "sha256": "08242c243c6213a1edd96798ba27529eabf2f8c493794c1aee02d3bdb92c0033"
+    },
+    {
+      "path": "guides/xai-grok-oauth.md",
+      "characters": 11565,
+      "sha256": "5d3e9e13cba7dea3aa38ce7032516d1410993e7a620ed5cd421cdfd5ce1a75f0"
+    },
+    {
+      "path": "integrations/buzz.md",
+      "characters": 3894,
+      "sha256": "43ea88d398c626764563081c75c91546e7764b47b28c6ac8e30e991c7dc860fb"
+    },
+    {
+      "path": "integrations/nous-portal.md",
+      "characters": 15324,
+      "sha256": "716d448721beda298c29c2aec53e3c2559b1b7056a2ec78e9726265dae214b5c"
+    },
+    {
+      "path": "reference/automation-blueprints-catalog.mdx",
+      "characters": 2103,
+      "sha256": "22c4c11f48a070b8278791944f0a523a5fe25546c4610e0ac8b28fc92e5d7d40"
+    },
+    {
+      "path": "reference/cli-symbols.md",
+      "characters": 5617,
+      "sha256": "7cc6bdf5f49bf6123d085d4d1d6018cb89f2e538694ac6093395bf05280067d8"
+    },
+    {
+      "path": "reference/package-management.md",
+      "characters": 34380,
+      "sha256": "8e9f5eca0599b8683bc636945e733697aa4cc07154f78e6f4df805c6358dfbb1"
+    },
+    {
+      "path": "user-guide/bot-mode.md",
+      "characters": 52628,
+      "sha256": "7bc8baccbe1e896913cd90b0f94b72cbe93fc842ae9d049a2f845bcebd71749c"
+    },
+    {
+      "path": "user-guide/desktop.md",
+      "characters": 89801,
+      "sha256": "6d201fc32e50c24f1db2e0d341a5f3bb2cc5606b74937cdd3de6528415e4b6b7"
+    },
+    {
+      "path": "user-guide/egress/index.md",
+      "characters": 380,
+      "sha256": "2e5ad9a906687cbc6cbdadb2157f5675989c0335f8a6548561e4a5b5a3df5714"
+    },
+    {
+      "path": "user-guide/egress/iron-proxy.md",
+      "characters": 39551,
+      "sha256": "03048b7e075230ec25c73690f03f81c52656d0223e760a99dc1c0c47a35317da"
+    },
+    {
+      "path": "user-guide/egress/network-isolation.md",
+      "characters": 6676,
+      "sha256": "6be8613f9bc568dc522be97f82fbd0a5484017c3f7fd075e09b750f8b5c5f2e9"
+    },
+    {
+      "path": "user-guide/features/bot-screen.md",
+      "characters": 25061,
+      "sha256": "1eb838bab81dc1df25c15e23989d65b6c3c50c22f31dac463e6b0217b0d5b3f0"
+    },
+    {
+      "path": "user-guide/features/codex-app-server-runtime.md",
+      "characters": 37134,
+      "sha256": "00ca8ec4c0919d798d8fff7490c7dc4555c0fd8ba826cb0029df251a471388f8"
+    },
+    {
+      "path": "user-guide/features/computer-use.md",
+      "characters": 33677,
+      "sha256": "6dd3e4523e8038572c2e1f6cb71d0e14fcb58849f68b3348cde4e14b33dac7ad"
+    },
+    {
+      "path": "user-guide/features/credential-vault.md",
+      "characters": 5581,
+      "sha256": "6dc89cb4a8cb47c9d01dbe280f15dc27a8d3a230c76395e07cbcdaeba9c50f44"
+    },
+    {
+      "path": "user-guide/features/deliverable-mode.md",
+      "characters": 5679,
+      "sha256": "e9b9306244ea1f14ea271c3b6130d34f151ec68b346347ebeb6a3ad3eccda182"
+    },
+    {
+      "path": "user-guide/features/document-extraction.md",
+      "characters": 4931,
+      "sha256": "a2f79aa0e863d8961c7186695dd00fe489af6f48ef494d44b5ef266286e0de2b"
+    },
+    {
+      "path": "user-guide/features/extending-the-dashboard.md",
+      "characters": 40982,
+      "sha256": "3f2293dbb69f1fa22116da6d0750e01cb5730a7664ffc482547e530f4c106fd4"
+    },
+    {
+      "path": "user-guide/features/heartbeat.md",
+      "characters": 5481,
+      "sha256": "709e94ffa84f941718b39844560b824e3c6569a04518022611c8cc924359f9fd"
+    },
+    {
+      "path": "user-guide/features/kanban-multi-gateway.md",
+      "characters": 2120,
+      "sha256": "eb8436c767865cac9eea776af92b6a77345a2c633806b3663040f514d66c615b"
+    },
+    {
+      "path": "user-guide/features/kanban-worker-lanes.md",
+      "characters": 13423,
+      "sha256": "6595e38eb0305a9f960f7ca9b68b49378eb94e1d2e03eaa6b5aada61aed12dd5"
+    },
+    {
+      "path": "user-guide/features/language-packs.md",
+      "characters": 6620,
+      "sha256": "d31863e669663d72e908bd6a1b11b378d8eaf5833580af5667a755142bd530cd"
+    },
+    {
+      "path": "user-guide/features/loops.md",
+      "characters": 7947,
+      "sha256": "c0c5c2f5ec859c56fbd515ce70424f90873468f1c1eaa28ec3c4244803e9f74c"
+    },
+    {
+      "path": "user-guide/features/lsp.md",
+      "characters": 22569,
+      "sha256": "e9995ddccc81d5dd02ab07a71eebf75b8ca7da256ee1b6040e73643c8b0b81b3"
+    },
+    {
+      "path": "user-guide/features/mixture-of-agents.md",
+      "characters": 14434,
+      "sha256": "6e63c470b68a580c469d97e89b904ef7aa5da7bf1d37faf9096f316682500eb3"
+    },
+    {
+      "path": "user-guide/features/pets.md",
+      "characters": 10471,
+      "sha256": "5edc8c48125c5d2c0d18813459e7c91adba4ed50c798db96b636da6fe5a8d862"
+    },
+    {
+      "path": "user-guide/features/plugin-catalog.md",
+      "characters": 16007,
+      "sha256": "86e6283190da8c7aa2180dc1b3da5b3d0b10c14625fbb502c9946616a2d671f3"
+    },
+    {
+      "path": "user-guide/features/skins.md",
+      "characters": 13138,
+      "sha256": "dfcef5dda08a7b7241360e875717e3304d73f319b31171133ee815b7f482a5ba"
+    },
+    {
+      "path": "user-guide/features/spotify.md",
+      "characters": 14858,
+      "sha256": "5a08323375e17e983a7b7f94679f8cdef7f68bf737df31753363cc007a8aca0c"
+    },
+    {
+      "path": "user-guide/features/subscription-proxy.md",
+      "characters": 6637,
+      "sha256": "867dd51ce9a2e2506ceb4b8e0b5bcbd156ec2a419dd1fe1a3c474f6db5c4ad70"
+    },
+    {
+      "path": "user-guide/features/tool-gateway.md",
+      "characters": 16279,
+      "sha256": "a4f8189ccd02b233af7179df5d049b2cd2ef17671eba062af292c66a2163558d"
+    },
+    {
+      "path": "user-guide/features/tool-search.md",
+      "characters": 18015,
+      "sha256": "525f07255a01974e6ffd2e5b716575a599f3bc9dc2672cacc5b354d880431057"
+    },
+    {
+      "path": "user-guide/features/wake-word.md",
+      "characters": 16359,
+      "sha256": "19f7e4bcc381795e736586dc75721a1f84bccfa9274129f42696ac61b0655189"
+    },
+    {
+      "path": "user-guide/features/web-dashboard.md",
+      "characters": 79855,
+      "sha256": "d83307784926e854bff23f79f79f8e7475d6ac116e012a49d26dcd0854234975"
+    },
+    {
+      "path": "user-guide/features/web-search.md",
+      "characters": 24850,
+      "sha256": "53cce9b60af5bed353cdf537e5dd160695fb20713c74d83e06f3b8ca3a0e4310"
+    },
+    {
+      "path": "user-guide/features/x-search.md",
+      "characters": 9637,
+      "sha256": "5e31a5013d1290c4abd1f2c5877dad97ac030c1387a32f09b732cf9971fc9df4"
+    },
+    {
+      "path": "user-guide/import-from-other-agents.md",
+      "characters": 4894,
+      "sha256": "b291bd999df6cee7a594d846717b5fd50cad6b9d7ceedd9d383710156c074506"
+    },
+    {
+      "path": "user-guide/local-models.md",
+      "characters": 9945,
+      "sha256": "82e645313357159fa587ab0457954c7a9eb126239c377cc86e19ff486b772ca9"
+    },
+    {
+      "path": "user-guide/managed-scope.md",
+      "characters": 5908,
+      "sha256": "5901bf7b4936a94c163f776bef0360b2864b6a7e0dff394666dd587f9ae5f35a"
+    },
+    {
+      "path": "user-guide/messaging/a2a.md",
+      "characters": 7079,
+      "sha256": "b12ba41a427ac3f1db6bab7a90a315b5db62ff760ad703e90c4aee5e89bb1c0c"
+    },
+    {
+      "path": "user-guide/messaging/bluebubbles.md",
+      "characters": 12034,
+      "sha256": "2cba3e2b0eba207cf2bdbb278ece332c1b66bb66fc693668682573c1dc6b4dc8"
+    },
+    {
+      "path": "user-guide/messaging/buzz.md",
+      "characters": 11842,
+      "sha256": "a6a4bcb5900204b29a91feb2028d566779349a977d6d39022caba09a3e11ee49"
+    },
+    {
+      "path": "user-guide/messaging/dingtalk.md",
+      "characters": 11925,
+      "sha256": "f25fd426a8c6fdb66110cf22862262b0233242a785ddeb42a91c7648b0b4e96e"
+    },
+    {
+      "path": "user-guide/messaging/feishu.md",
+      "characters": 30497,
+      "sha256": "38ce31fdb3ba71819f7ce900775a412bfc4d6384bdd43f4fc590428b286cbb3e"
+    },
+    {
+      "path": "user-guide/messaging/google_chat.md",
+      "characters": 16743,
+      "sha256": "43b152b9f005caaa89f4022c894d0103935cba4d80446b9eb75fd30b45d7ec7a"
+    },
+    {
+      "path": "user-guide/messaging/irc.md",
+      "characters": 3752,
+      "sha256": "e4dac67fc0f010db19b401503a0ed12aa7a2e14f9e4502840ec28cb9900da2dd"
+    },
+    {
+      "path": "user-guide/messaging/line.md",
+      "characters": 8788,
+      "sha256": "db85643666cfcec0e98bd18dd0821219d82e4c7103936e0ee413b2fc5ee257f7"
+    },
+    {
+      "path": "user-guide/messaging/msgraph-webhook.md",
+      "characters": 8213,
+      "sha256": "e105d8e83ee855a852d9947c2cec60cef868008696f4be09b4fbeb5a08b37a46"
+    },
+    {
+      "path": "user-guide/messaging/ntfy.md",
+      "characters": 7418,
+      "sha256": "0105744161b9467ddea497e16e363cc73f4f0ffb706e904167d6bc40633154f5"
+    },
+    {
+      "path": "user-guide/messaging/open-webui.md",
+      "characters": 12599,
+      "sha256": "5ea3c623e8ea9326bdcb354245275b8031a8a5c521db31961af3554e767767da"
+    },
+    {
+      "path": "user-guide/messaging/photon.md",
+      "characters": 9952,
+      "sha256": "afe1444abef749137793410078f4507209d09008518c411b50582c6baf8d6df7"
+    },
+    {
+      "path": "user-guide/messaging/qqbot.md",
+      "characters": 4998,
+      "sha256": "28df1851c05d04991f7974f03b8e6c4eaecedbda13babbe3b318baa873c8cd9d"
+    },
+    {
+      "path": "user-guide/messaging/raft.md",
+      "characters": 3223,
+      "sha256": "bcb591a2d8cbd58a47f9261bd3622ac82960edc1e21572b54c928e9d79a52c35"
+    },
+    {
+      "path": "user-guide/messaging/relay.md",
+      "characters": 11551,
+      "sha256": "3810a9fb9b81bc9de24603322511cd25bf33da66282af986aece63a392909398"
+    },
+    {
+      "path": "user-guide/messaging/simplex.md",
+      "characters": 6197,
+      "sha256": "f367e27a48b07226e4ba5a2f6ec74c767cf04ce12e80e229fd76eba1cedfd32f"
+    },
+    {
+      "path": "user-guide/messaging/teams.md",
+      "characters": 12154,
+      "sha256": "48a77e9871d4b1fe342f72b91f9f5b9f8e8a5c8203746bd9825dd02878d1059c"
+    },
+    {
+      "path": "user-guide/messaging/teams-meetings.md",
+      "characters": 8013,
+      "sha256": "13e8dfd1abe9eadd950e3ae10e1627d33cf127ee2e5f81f09bc25539d1f85bcc"
+    },
+    {
+      "path": "user-guide/messaging/wecom.md",
+      "characters": 13344,
+      "sha256": "195a2d0f810c9d67dc0686c82554958c2e34eaf1b371092b48484f8647375e3d"
+    },
+    {
+      "path": "user-guide/messaging/wecom-callback.md",
+      "characters": 7306,
+      "sha256": "cc0b231ab7411fcc0ba10b84d2258ec0a6ac3b47dabce655f9483a56b86bac4f"
+    },
+    {
+      "path": "user-guide/messaging/weixin.md",
+      "characters": 18665,
+      "sha256": "4aab754588b610392e5ff721a097ca9f3fa7d8a9d16f947f37ddf6c14c2de364"
+    },
+    {
+      "path": "user-guide/messaging/whatsapp-cloud.md",
+      "characters": 23740,
+      "sha256": "1f3ae95c6ba477e32e1784df6d37c5e184a51e5f50b177257d324d1ff091dd6a"
+    },
+    {
+      "path": "user-guide/messaging/yuanbao.md",
+      "characters": 10725,
+      "sha256": "006fc2aacfe5ef903ee505285ca45e6348afe75cf0bee50288839302cea6e4de"
+    },
+    {
+      "path": "user-guide/multi-connection-desktop.md",
+      "characters": 20835,
+      "sha256": "c295be67b33d1cea9d28912604b2d641f88abbd4e6cf605becadf501a2e560ae"
+    },
+    {
+      "path": "user-guide/multi-profile-gateways.md",
+      "characters": 76376,
+      "sha256": "1c9c8c6df7040bb87757733ac8d79bcb0ded979aad82a6f82ff4bfd9e2002735"
+    },
+    {
+      "path": "user-guide/profile-distributions.md",
+      "characters": 33834,
+      "sha256": "c7c7f9eaa318aefa2c18c4620577463fbf058b4f3c9ef830df2a5be665bcedf5"
+    },
+    {
+      "path": "user-guide/secrets/index.md",
+      "characters": 5024,
+      "sha256": "00f00a428235146f19257ed02f44654646f27e9d39cbde175b6521ac560dd431"
+    },
+    {
+      "path": "user-guide/secrets/bitwarden.md",
+      "characters": 10234,
+      "sha256": "fc90b54a3648efdbbf7c08324db907e99b9de45e81a8b06c0af681fc8c9bc531"
+    },
+    {
+      "path": "user-guide/secrets/command.md",
+      "characters": 3303,
+      "sha256": "fc1cfabddb2ced6c67ff3ba6fb0ddd080bd6fd1e3e2e2505ed254b559a9f12a4"
+    },
+    {
+      "path": "user-guide/secrets/onepassword.md",
+      "characters": 11190,
+      "sha256": "990e3e5066d4a3263c4d8e8bc9eeb33416ed7a811ef4aa669dc7e9fc19030bbe"
+    },
+    {
+      "path": "user-guide/session-storage-recovery.md",
+      "characters": 6073,
+      "sha256": "e425da3f1305c654ea2ad8d1bb269b714886c0a7bdf68856f1e0f5807400bca2"
+    },
+    {
+      "path": "user-guide/skills/google-workspace.md",
+      "characters": 6186,
+      "sha256": "6162b42c9b7503262caf5f9dfae2513fd5e829f3708b23a218c229b06663b1f3"
+    },
+    {
+      "path": "user-guide/switching-to-source.md",
+      "characters": 6353,
+      "sha256": "a555a5c871ebbe7167d42105c408715e1ee4f0e5a6a403206c46e95a4e9c3293"
+    },
+    {
+      "path": "user-guide/which-file-does-what.md",
+      "characters": 6226,
+      "sha256": "b030be6354c8922d53e00b732c185d340db12dd6324a19aaa26d12f36341d627"
+    },
+    {
+      "path": "user-guide/windows-native.md",
+      "characters": 23875,
+      "sha256": "0c8b7f422a9b00aafb442b446bc036829d41e2b1ad7ee073692284b39f9e6d90"
+    },
+    {
+      "path": "user-guide/windows-wsl-quickstart.md",
+      "characters": 19606,
+      "sha256": "b2643fd82410320fe1d5f090730c7cd22226b15ce6f4ae5f6a88a2e5ac02a2e1"
+    },
+    {
+      "path": "user-stories.mdx",
+      "characters": 56,
+      "sha256": "c37279808457d9ab3aceb8d9b3a22ec5b825167912a1cab2a4d6c7cbeba31219"
+    }
+  ]
+}

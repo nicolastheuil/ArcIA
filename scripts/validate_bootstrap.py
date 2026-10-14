@@ -46,6 +46,13 @@ def validate(root=ROOT):
         raise ValueError('BOOTSTRAP_PERSONAL_KEY_BOUNDARY_REQUIRED')
     if lock.get('identity',{}).get('enabled'):
         contract=definition.get('configuration_contracts',{}).get('identity',{})
+        entra_test=contract.get('entra_test',{})
+        if (entra_test.get('native_oidc') is not True or entra_test.get('owner_binding')!='tenant_object_id'
+                or entra_test.get('keycloak_deleted_automatically') is not False
+                or entra_test.get('inference_enabled') is not False
+                or entra_test.get('local_admin_username')!='admin' or entra_test.get('opt_in_flag')!='TestEntra'
+                or not {'install_entra_test','verify_entra_test'}<={s['id'] for s in definition['steps']}):
+            raise ValueError('BOOTSTRAP_ENTRA_TEST_BOUNDARY_REQUIRED')
         if contract.get('default_provider')!='keycloak_local' or contract.get('local_accounts')!='permanent':
             raise ValueError('BOOTSTRAP_IDENTITY_DEFAULT_REQUIRED')
         identity_lock=json.loads((root/'bootstrap/identity.lock.json').read_text(encoding='utf-8'))

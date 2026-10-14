@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 140" width="460" height="140" fill="none">
+  <defs><linearGradient id="bot-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2CE5F2"/><stop offset="100%" stop-color="#0891B2"/></linearGradient></defs>
+  <rect width="460" height="140" rx="20" fill="#0D254C"/>
+  <text x="150" y="88" font-family="Inter, sans-serif" font-size="72" font-weight="800"><tspan fill="#F8FAFC">Arc</tspan><tspan fill="#00C8D7">I</tspan><tspan fill="#FACC15">A</tspan></text>
+</svg>

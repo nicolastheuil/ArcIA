@@ -1342,6 +1342,52 @@
       "timeout_seconds": 1200,
       "engine": "pwsh",
       "provision_only": false
+    },
+    {
+      "id": "install_entra_test",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "install_entra_test"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile"
+      ],
+      "after": [
+        "install_personal_keys"
+      ],
+      "status_file": "cluster-install_entra_test-status.json",
+      "success_codes": [
+        "ENTRA_TEST_INSTALLED"
+      ],
+      "timeout_seconds": 2400,
+      "engine": "pwsh",
+      "provision_only": false
+    },
+    {
+      "id": "verify_entra_test",
+      "script": "scripts/Invoke-ClusterFoundation.ps1",
+      "arguments": [
+        "-Action",
+        "verify_entra_test"
+      ],
+      "profiles": [
+        "fresh",
+        "reconcile",
+        "verify",
+        "audit"
+      ],
+      "after": [
+        "install_entra_test"
+      ],
+      "status_file": "cluster-verify_entra_test-status.json",
+      "success_codes": [
+        "ENTRA_TEST_VERIFIED"
+      ],
+      "timeout_seconds": 180,
+      "engine": "pwsh",
+      "provision_only": false
     }
   ],
   "private_inputs": [
@@ -1491,7 +1537,22 @@
         "recovery": "install_personal_portal_no_repeated_deletion"
       },
       "runtime_https_path": "node_443_and_ingress_pods_8443",
-      "session_refresh": "native_singleflight_and_online_owner_revalidation"
+      "session_refresh": "native_singleflight_and_online_owner_revalidation",
+      "target_provider": "entra_direct_with_single_local_admin",
+      "entra_test": {
+        "native_oidc": true,
+        "owner_binding": "tenant_object_id",
+        "namespace": "arcia-entra-test",
+        "prefix": "/entra-test",
+        "local_admin_username": "admin",
+        "opt_in_flag": "TestEntra",
+        "protected_enrollment": "entra-test.dpapi",
+        "client_type": "web_confidential_pkce_native",
+        "keycloak_deleted_automatically": false,
+        "inference_enabled": false,
+        "human_login_required_before_keycloak_removal": true,
+        "documentation": "docs/runbooks/entra-hermes-test.md"
+      }
     },
     "routing": {
       "lock": "bootstrap/routing.lock.json",

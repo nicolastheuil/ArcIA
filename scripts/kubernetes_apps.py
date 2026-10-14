@@ -224,6 +224,9 @@ http {
         nginx=nginx.replace('    location / {','    location / {\n      proxy_set_header X-Forwarded-Prefix "";')
     if lock.get('identity',{}).get('enabled'):
         resolver=str(ipaddress.ip_network(config['network']['service_cidr']).network_address+10)
+        if lock.get('identity',{}).get('entra_test_supported'):
+            import entra_deploy
+            nginx=nginx.replace('    location / {',entra_deploy.ingress_route(resolver)+'    location / {')
         identity_route='''    location = /admin/users { return 302 "/identity/admin/arcia/console/#/arcia/users"; }
     location = /account { return 302 /identity/realms/arcia/account/; }
     location = /identity { return 302 /identity/; }

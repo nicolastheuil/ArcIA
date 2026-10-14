@@ -6,6 +6,26 @@ portent les procédures. Distinguer proposé, codé, déployé et vérifié.
 
 ## Référence et lot courant
 
+Audit des capacités natives du 14 octobre : corpus officiel complet téléchargé
+et indexé (239 pages, 5 630 844 octets), contrats d'auth/config/profils/secrets/
+routage/middleware confrontés à la révision verrouillée. Le propriétaire demande
+de réutiliser au maximum Hermes ; le retrait annoncé des réglages natifs est
+suspendu pendant l'évaluation. OIDC self-hosted, Managed Scope, providers,
+replis et SecretSource sont natifs. Keycloak reste l'annuaire/IdP du setup ;
+le provider ArcIA hérite déjà du mécanisme OIDC Hermes.
+Voir [l'évaluation factuelle](guides/hermes-capacites-natives.md) et sa
+[preuve](qualification/2026-10-14-hermes-native-docs.json).
+
+Exigence actualisée : **Presidio systématique pour chaque fournisseur et route**,
+y compris personnels, internes, replis et auxiliaires. Un middleware natif
+seul ne suffit pas : ses exceptions continuent le chemin normal. La politique
+ancienne qui autorise l'interne sans filtre n'est pas migrée dans cet audit.
+Inspection en lecture seule : les six runtimes actifs configurent `auto/smart`
+vers OmniRoute, à l'inverse du renderer Privacy versionné. Elle ne prouve pas
+le passage Presidio ni une inférence non filtrée réussie. Auditer cette dérive,
+le chemin et le réseau avant toute déclaration de conformité ou migration.
+Aucun appel modèle ni changement de cluster dans ce lot d'évaluation.
+
 Lot clés personnelles du 14 octobre : page `/portal/keys`, API bornée, stockage
 AES-256-GCM par propriétaire dans un Secret nommé et clé racine séparée.
 `ArcIA.User` + `ArcIA.ProviderSelfService` sont requis avec rôles relus par
