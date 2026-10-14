@@ -292,10 +292,10 @@ et une base SQLite existante ; aucune suppression de PVC ou rotation de clé.
 
 La politique ArcIA définit OmniRoute en premier routage, mode auto administré,
 Presidio pour tous les modèles cloud, routes Ollama/vLLM internes sans Presidio
-par défaut et budgets/ZDR propres à l'instance. Le pilote conserve son relais
-OpenRouter sous sa politique gratuite/ZDR jusqu'au raccordement générique
-qualifié. Le service d'overrides personnels et l'adaptateur Teams restent à
-construire ; leur préparation documentaire ne les active pas.
+par défaut et budgets/ZDR propres à l'instance. Le gateway cloud OmniRoute et
+le self-service sont déployés et qualifiés sans inférence. Le relais gratuit
+historique reste séparé. L'adaptateur Teams et les routes internes restent à
+construire ; aucun fournisseur réel n'est activé par le bootstrap.
 
 [Quickstart auth/OmniRoute/Teams](quickstart.md) ·
 [Guide OmniRoute](../guides/omniroute.md) ·
@@ -305,8 +305,8 @@ construire ; leur préparation documentaire ne les active pas.
 
 ## Connexions personnelles OmniRoute et routage cloud
 
-Lot codé, recette en cours : `install_routing_access` vient après OmniRoute et
-le portail personnel. Il crée le client public PKCE `arcia-routing`, le rôle
+Lot codé, déployé et vérifié sur fixtures : `install_routing_access` vient après OmniRoute et
+le portail personnel et ses réconciliations de réseau/session. Il crée le client public PKCE `arcia-routing`, le rôle
 non attribué `ArcIA.ProviderSelfService`, le lecteur technique des rôles et les
 bindings de routage Hermes. `verify_routing_access` teste PKCE, CSRF, séparation
 admin/utilisateur, clé native scoped, propriétaire et retrait du rôle avec des
@@ -315,3 +315,12 @@ n'est exécutée. La réapplication préserve les deux bases, volumes et identit
 Le pool d'entreprise et la fonction personnelle se configurent dans `/personal/`
 par un compte `ArcIA.Admin`, après connexion des fournisseurs dans le dashboard
 natif. [Parcours complet](../guides/omniroute.md#parcours-utilisateur-et-administrateur).
+
+Le manifeste courant comporte 63 étapes codées. Le renderer canonique utilise
+`omniroute:20131/v1`, un token de périmètre et le modèle `auto/smart`. Le worker
+migre la ConfigMap immuable montée avec une précondition resourceVersion/UID,
+sans forcer l'adoption des champs d'un autre gestionnaire. Une collision exige
+une nouvelle lecture, sans écraser le changement concurrent. Le mot de passe
+OmniRoute, ses connexions, volumes, identités et politiques enregistrées sont
+préservés. Le pool d'entreprise reste vide jusqu'à sa configuration explicite.
+[Recette assainie](../qualification/2026-10-14-omniroute-self-service.json).

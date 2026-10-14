@@ -74,7 +74,9 @@ portail si ces étapes n'ont pas déjà été exécutées par le bootstrap :
 
 ```powershell
 ./scripts/Invoke-ClusterFoundation.ps1 -Action install_omniroute
+./scripts/Invoke-ClusterFoundation.ps1 -Action install_routing_access
 ./scripts/Invoke-ClusterFoundation.ps1 -Action verify_omniroute
+./scripts/Invoke-ClusterFoundation.ps1 -Action verify_routing_access
 ./scripts/Show-RoutingAccess.ps1 -OpenPortal
 ```
 
@@ -100,18 +102,27 @@ constitue pas automatiquement un accès API. Définir budgets, quotas, condition
 de confidentialité et replis dans l'instance. Garder la synchronisation cloud,
 les journaux de contenus et les tunnels désactivés.
 
-Créer une clé technique ArcIA limitée aux connexions et modèles du pool,
-autoriser les auto combos, désactiver compression/cache de réponses côté
-routeur et conserver `noLog`. Cette clé reste côté service, jamais dans Hermes
-ou les navigateurs des utilisateurs. Le portail natif est réservé aux admins.
-[Configuration complète, abonnements et overrides](../guides/omniroute.md).
+Ouvrir ensuite **`https://<VIP>:20129/personal/`** ou le même chemin via le domaine.
+Dans Keycloak (`/admin/users`), donner à l'administrateur de routage
+**ArcIA.User + ArcIA.Admin**. Se connecter avec ce compte, sélectionner les
+connexions d'entreprise, copier les identifiants exacts des modèles du catalogue
+OmniRoute et enregistrer le mode **auto/smart** (ou un autre mode auto administré).
+Les clés techniques limitées aux connexions et modèles sont créées par le service,
+chiffrées côté serveur et absentes de Hermes et des navigateurs. Le pool initial
+est vide : la configuration est nécessaire avant la première réponse d'ArcIA.
 
-**État de l'intégration :** le portail privé et le contrat de sélection sont
-codés ; le raccordement générique de l'inférence et le self-service fournisseur
-restent à qualifier/intégrer. La configuration du dashboard ne rebascule pas
-à elle seule le pilote existant. Celui-ci conserve son chemin Presidio → relais
-OpenRouter avec sa politique d'instance gratuite/ZDR jusqu'à une migration
-qualifiée. [État courant](../etat-reprise.md).
+Pour les connexions personnelles, activer la fonction dans cette même page,
+puis attribuer **ArcIA.ProviderSelfService**, en plus de **ArcIA.User**, aux
+seuls utilisateurs autorisés. Ceux-ci ouvrent `/personal/`, saisissent leur clé
+API et choisissent « Utiliser mes connexions personnelles ». Les autres comptes
+utilisent systématiquement le pool d'entreprise et le mode admin. L'ajout d'une
+clé ne déclenche aucune inférence ni test payant. Pour la rotation, ajouter la
+nouvelle connexion puis retirer l'ancienne. [Configuration et parcours complets](../guides/omniroute.md).
+
+Le parcours cloud, PKCE, les droits et le filtrage ont été vérifiés avec des
+fixtures locales, sans inférence. Configurer puis qualifier les fournisseurs
+réels, leurs budgets et leurs conditions dans l'instance. Les routes internes
+Ollama/vLLM et Teams restent des intégrations distinctes. [État courant](../etat-reprise.md).
 
 ## 4. Démarrer l'utilisation d'ArcIA
 

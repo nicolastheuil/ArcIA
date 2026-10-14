@@ -120,11 +120,11 @@ class RoutingTests(unittest.TestCase):
         def owned(kind,name,*args,**kwargs):
             return deployment if kind=='Deployment' else {'data':{'existing':'protected'}}
         with patch.object(node_routing,'owned',side_effect=owned),patch.object(node_routing,'apply') as apply,\
-             patch.object(node_routing,'kube'),patch.object(node_routing,'native') as native,\
+             patch.object(node_routing,'kube'),patch.object(node_routing,'enforce_private') as enforce,patch.object(node_routing,'native') as native,\
              patch.object(node_routing,'inspect',return_value={'router_ready':True,'lan_ready_nodes':3}):
             result=node_routing.install(values)
             self.assertTrue(result['credentials_preserved']);self.assertTrue(result['existing_volumes_preserved'])
-            native.assert_not_called()
+            native.assert_not_called();enforce.assert_called_once_with('ours')
             self.assertFalse(any(d.get('metadata',{}).get('name')=='routing-credentials' for call in apply.call_args_list for d in call.args[0]))
 
     def test_runtime_change_never_mutates_without_explicit_repair(self):

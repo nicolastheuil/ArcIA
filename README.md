@@ -13,8 +13,8 @@ Le socle est **déployé et partiellement vérifié en qualification**, sur troi
 | Agents | Hermes, dashboard, mémoire personnelle, délégation et outils | Un seul écrivain par état ; launcher de missions et kill switch à construire |
 | Identité | Keycloak local permanent, administration, portail personnel et SSO optionnel | Login Microsoft constaté sur le pilote ; groupes, restore, HA et recette SSO complète à qualifier |
 | Connaissance | RAG privé, PostgreSQL/pgvector, recherche hybride et reclassement multi-vecteur | Corpus synthétique ; OCR, import général, collecte et benchmark large à compléter |
-| Confidentialité | Presidio pour le cloud et relais authentifié ; pilote sous politique OpenRouter gratuit/ZDR | Détection imparfaite ; routes et politiques génériques d’instance à intégrer, dont modèles internes |
-| Routage | Portail OmniRoute privé déployé/vérifié sur la VIP ; HTTPS domaine/IP ; politique mode auto/rôle/propriétaire codée | Raccordement générique de l'inférence et self-service fournisseur à intégrer/qualifier |
+| Confidentialité | Presidio avant OmniRoute pour les appels cloud ; abonnements choisis par l’instance | Détection imparfaite ; routes et politiques génériques d’instance à intégrer, dont modèles internes |
+| Routage | OmniRoute sur la VIP, HTTPS domaine/IP, self-service PKCE et routage cloud par propriétaire déployés/vérifiés | Fournisseurs réels à configurer ; routes internes et inférence de bout en bout à qualifier |
 | Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé |
 | Infrastructure | K3s/etcd, CPI/CSI, CNPG, HTTPS et bascule contrôlée | Support des versions, fencing, reprise et renouvellement TLS automatique à terminer |
 | Intégrations | Contrat Microsoft 365 hors ligne et extension par MCP | Bot Teams, Graph métier, coffres, VPN et approbations serveur à développer |
@@ -37,14 +37,14 @@ flowchart LR
   H --> T[Skills et outils autorisés]
   H --> ROUTE[Politique de routage : OmniRoute auto administré]
   ROUTE --> P[Route cloud : Presidio et politique de sortie]
-  P --> R[Relais authentifié]
+  P --> R[OmniRoute : clé et pool autorisés]
   R --> M[Modèles cloud : politique de l'instance]
   ROUTE -.-> LOCAL[Ollama ou vLLM interne : sans Presidio par défaut]
 ```
 
 Les services imposent les droits avant recherche, téléchargement et appel d’outil. Les documents et résultats d’outils sont des données non fiables. Les agents délégués restent dans un périmètre borné. Hermes conserve son état sur un volume exclusif ; PostgreSQL réplique ses données indépendamment du quorum K3s. Les outils applicatifs tournent dans le cluster ; le poste porte le contrôleur d’administration protégé.
 
-Teams constitue une entrée conversationnelle optionnelle par bot personnel : l’adaptateur doit authentifier l’activité et l’utilisateur, puis appliquer ses droits ArcIA avant de joindre son espace Hermes. Le schéma présente le contrat de la plateforme ; le bot Teams, les routes internes et le raccordement générique OmniRoute restent à intégrer/qualifier. Le pilote cloud conserve actuellement sa route OpenRouter filtrée sous politique d'instance gratuite/ZDR.
+Teams constitue une entrée conversationnelle optionnelle par bot personnel : l’adaptateur doit authentifier l’activité et l’utilisateur, puis appliquer ses droits ArcIA avant de joindre son espace Hermes. Le parcours cloud via OmniRoute est déployé ; ses droits, sa page personnelle et le filtrage sont qualifiés sans appel de modèle. L'admin doit configurer les connexions et modèles avant utilisation. Le bot Teams et les routes internes restent à intégrer/qualifier.
 
 → [Architecture réelle et carte des composants](docs/architecture.md) · [Schémas détaillés, présent et cible](docs/schemas-plateforme-hermes.md) · [Point d’entrée Teams et prérequis](docs/annexes/integration-microsoft365.md#6-teams--bot-personnel-et-authentification-utilisateur)
 
@@ -68,9 +68,9 @@ Les MCP consultent des sources vivantes ou exposent des outils bornés ; le RAG 
 
 **Par défaut, tous les appels aux modèles cloud passent par Presidio**, puis par un relais authentifié vers le fournisseur autorisé. Chaque instance choisit ses modèles, fournisseurs, budgets et exigences de ZDR, collecte et résidence ; gratuité et ZDR ne sont pas des invariants du harness. Une route Ollama ou vLLM hébergée dans l’entreprise ne passe pas par Presidio par défaut ; elle conserve les contrôles d’identité, de droits et de destination. Un repli vers le cloud repasse par Presidio.
 
-**OmniRoute est le routeur par défaut.** Un utilisateur standard suit toujours le mode intelligent/automatique défini par l'admin (`auto/smart` par défaut) et le pool d'entreprise autorisé. L'admin peut connecter des abonnements/API d'entreprise. Une connexion et un override personnels exigent le rôle distinct **ArcIA.ProviderSelfService**, une activation par instance et un contrôle serveur du propriétaire. Le dashboard de configuration est réservé aux admins sur le **LAN HTTPS, port 20129**, sans publication publique. Le self-service utilisateur et le raccordement générique d'inférence restent à intégrer/qualifier.
+**OmniRoute est le routeur par défaut.** Un utilisateur standard suit toujours le mode intelligent/automatique défini par l'admin (`auto/smart` par défaut) et le pool d'entreprise autorisé. L'admin peut connecter des abonnements/API d'entreprise. Une connexion et un override personnels exigent le rôle distinct **ArcIA.ProviderSelfService**, une activation par instance et un contrôle serveur du propriétaire. Le dashboard de configuration est réservé aux admins sur le **LAN HTTPS, port 20129**, sans publication publique. Les utilisateurs autorisés saisissent leurs clés dans `/personal/`, sur le même portail privé. Le pool et les modèles restent administrés ; aucune connexion n'est activée implicitement.
 
-Le pilote actuel a choisi OpenRouter gratuit, ZDR et collecte interdite, avec refus si aucune route conforme n’est disponible. Ce choix reste propre à son instance. Hermes ne reçoit aucune clé fournisseur, Internet général ni DNS libre. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
+La recette historique du pilote a utilisé OpenRouter gratuit, ZDR et collecte interdite. Son relais reste distinct du parcours générique OmniRoute. Ce choix reste propre à son instance. Hermes ne reçoit aucune clé fournisseur, Internet général ni DNS libre. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
 
 DPAPI/ACL protège les entrées administratives du poste. Secrets, kubeconfigs et inventaires privés ne sont jamais transmis au modèle. Les actions externes sensibles exigent un plan et une approbation serveur ; l’intégration Teams correspondante reste à implémenter. La réplication et le stockage partagé doivent être complétés par des sauvegardes cohérentes.
 

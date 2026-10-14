@@ -77,7 +77,8 @@ class Identity:
 
 
 class Control:
-    def __init__(self,store,native):self.store=store;self.native=native;self.lock=threading.RLock()
+    def __init__(self,store,native,admin_users_url='/admin/users'):
+        self.store=store;self.native=native;self.admin_users_url=admin_users_url;self.lock=threading.RLock()
 
     def authorize(self,identity,admin=False):
         if not identity.get('iss') or not identity.get('sub') or 'ArcIA.User' not in identity.get('arcia_roles',[]):
@@ -108,6 +109,7 @@ class Control:
             with self.lock:self.reconcile()
         rows=self.store.connections(identity['iss'],identity['sub']) if permitted else []
         return {'personal_allowed':permitted,'admin':'ArcIA.Admin' in identity['arcia_roles'],
+            'admin_users_url':self.admin_users_url if 'ArcIA.Admin' in identity['arcia_roles'] else None,
             'personal_enabled':permitted and self.store.preference(owner_id(identity)),
             'mode':settings['automatic_mode'],'providers':settings['personal_providers'] if permitted else [],
             'connections':[{k:r[k] for k in ('id','provider','label','phase')} for r in rows]}
@@ -188,7 +190,13 @@ class Control:
             models=sorted(set([settings['automatic_mode'],*settings['allowed_models']]))
             fingerprint=hashlib.sha256(json.dumps({'connections':ids,'models':models},sort_keys=True).encode()).hexdigest()
             credential=self.store.credential(owner)
-            if credential and credential.get('phase')=='pending':raise RuntimeError('ROUTING_KEY_RECONCILIATION_REQUIRED')
+            if credential and credential.get('phase')=='pending':
+                matches=[k for k in self.native.keys() if k['name']==credential['native_name']]
+                if len(matches)>1:raise RuntimeError('ROUTING_KEY_RECONCILIATION_REQUIRED')
+                for row in matches:self.native.revoke_key(row['id'])
+                self.store.forget_credential(owner)
+                # Reconcile, then require a new request; never replay the write.
+                raise RuntimeError('ROUTING_KEY_RECOVERED_RETRY_REQUIRED')
             if not credential or credential.get('fingerprint')!=fingerprint:
                 if credential:self.native.revoke_key(credential['id']);self.store.forget_credential(owner)
                 name='arcia-route-'+owner[:16]+'-'+str(uuid.uuid4())
@@ -295,7 +303,7 @@ def main():
     key=os.environ['STORAGE_ENCRYPTION_KEY'].encode()
     store=Store('/data/arcia-self-service/state.db',key)
     identity=Identity(config,key)
-    control=Control(store,Native(os.environ['JWT_SECRET']))
+    control=Control(store,Native(os.environ['JWT_SECRET']),'https://'+config['hostname']+'/admin/users')
     from gateway import start
     gateway=start(control,config)
     if gateway is not None:identity.role_lookup=gateway.gateway.identity.live_roles

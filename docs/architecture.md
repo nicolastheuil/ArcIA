@@ -40,7 +40,7 @@ La StorageClass utilise ext4, WaitForFirstConsumer, Retain et RWOP. Un seul prop
 
 ## Requête et réseau
 
-Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Par défaut, les appels modèles cloud passent à Presidio puis à un relais portant seul la clé fournisseur. Sur le pilote, le relais valide attestation, anti-rejeu et politique OpenRouter gratuite/ZDR avant TLS vers sa destination fixée ; cette politique est un choix d’instance. Les routes Ollama/vLLM internes sans Presidio par défaut et la configuration générique des politiques restent à intégrer. [Contrôles et limites](guides/confidentialite-cloud.md).
+Hermes appelle Knowledge par MCP en lecture seule. Knowledge applique scope et RLS, calcule la recherche localement et ne sort qu’à PostgreSQL/DNS. Le gateway cloud impose le propriétaire, le pool et le mode admin, puis Presidio filtre le contenu avant OmniRoute. Les prix, abonnements et exigences de ZDR relèvent de l’instance. Le relais gratuit historique conserve sa politique et son attestation HMAC. Les routes Ollama/vLLM internes restent à intégrer. [Contrôles et limites](guides/confidentialite-cloud.md).
 
 Le portail navigateur est l’entrée déployée. Teams est une entrée optionnelle
 cible : Azure Bot et adaptateur ArcIA authentifient le message et l’utilisateur,
@@ -55,6 +55,21 @@ portail de configuration est exclusivement LAN avec login obligatoire ; les
 clés techniques sont limitées aux connexions autorisées. Le rôle personnel
 `ArcIA.ProviderSelfService` est distinct du rôle utilisateur et du rôle admin.
 [Configuration, abonnements et limites actuelles](guides/omniroute.md).
+
+## Routage des modèles et portail OmniRoute
+
+Le namespace `arcia-routing` héberge un seul Pod propriétaire des bases SQLite
+OmniRoute et ArcIA self-service, avec PVC RWOP conservés. Trois relais TLS privés
+sur 20129 donnent accès au dashboard admin et à `/personal/`. Ce dernier utilise
+OIDC/PKCE, les rôles ArcIA et un état chiffré pour les connexions personnelles ;
+aucun compte utilisateur ne reçoit le mot de passe ni le token global de gestion.
+
+Hermes appelle le gateway interne 20131, qui vérifie le propriétaire et les rôles,
+sélectionne le pool d'entreprise ou personnel et impose le mode auto admin.
+Presidio filtre tout appel cloud avant son envoi à l'API loopback OmniRoute sous
+clé scoped. Les API d'inférence natives, tunnels, sync cloud et login OIDC global
+restent fermés sur le relais LAN. Les routes internes et Teams restent à intégrer.
+[Configuration et limites](guides/omniroute.md).
 
 ## Configuration et réconciliation
 

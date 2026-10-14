@@ -142,11 +142,19 @@ def install(values):
     # The initial password may have been changed by the administrator. Never
     # reset it or overwrite settings during reconciliation.
     if not previous:native(op,'PATCH','/api/settings',{'requireLogin':True})
+    enforce_private(op)
     kube('rollout','status','daemonset/routing-lan','-n',LAN_NS,'--timeout=300s',timeout=320)
     result=inspect(values)
     result.update(passed=result['router_ready'] and result['lan_ready_nodes']==3,credentials_preserved=bool(secret),
                   existing_volumes_preserved=bool(previous),providers_automatically_activated=False)
     return result
+
+
+def enforce_private(operation):
+    owned('Deployment','omniroute',NS,operation)
+    code="import os,sys;sys.path.insert(0,'/personal-code');from native import Native;Native(os.environ['JWT_SECRET']).enforce_private();print('PRIVATE_ROUTER_ENFORCED')"
+    result=kube('exec','deployment/omniroute','-n',NS,'-c','personal','--','/opt/hermes/.venv/bin/python','-c',code)
+    if result.strip()!='PRIVATE_ROUTER_ENFORCED':raise ValueError('ROUTING_PRIVATE_SETTINGS_NOT_VERIFIED')
 
 
 def verify(values):

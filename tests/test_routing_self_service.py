@@ -28,6 +28,27 @@ class PersonalRoutingTests(unittest.TestCase):
 
     def tearDown(self):self.store.db.close();self.temp.cleanup()
 
+    def test_native_cloud_sync_is_disabled_without_password_or_login_changes(self):
+        native=Native('synthetic-jwt-key')
+        with patch.object(native,'request',side_effect=[{'requireLogin':True,'cloudEnabled':True},{},{'requireLogin':True,'cloudEnabled':False}]) as call:
+            native.enforce_private()
+            self.assertEqual(call.call_args_list[1].args,('POST','/api/sync/cloud',{'action':'disable'}))
+        with patch.object(native,'request',return_value={'requireLogin':False,'cloudEnabled':False}) as call:
+            with self.assertRaises(PermissionError):native.enforce_private()
+            self.assertEqual(call.call_count,1)
+
+    def test_uncertain_key_is_revoked_by_reserved_name_before_a_new_request(self):
+        self.settings.update(enterprise_connections=['enterprise-id'],allowed_models=['openai/synthetic-model'])
+        self.store.save_settings(self.settings)
+        self.native.connections.return_value=[{'id':'enterprise-id','provider':'openai','name':'Enterprise','isActive':True}]
+        owner=owner_id(self.user)
+        self.store.credential(owner,{'id':None,'phase':'pending','native_name':'reserved-unique-name'})
+        self.native.keys.return_value=[{'id':'pending-id','name':'reserved-unique-name'},{'id':'foreign-id','name':'other-name'}]
+        with self.assertRaisesRegex(RuntimeError,'RECOVERED_RETRY'):self.control.profile(self.user)
+        self.native.revoke_key.assert_called_once_with('pending-id')
+        self.native.scoped_key.assert_not_called()
+        self.assertIsNone(self.store.credential(owner))
+
     def test_role_and_instance_switch_required_before_native_write(self):
         user={**self.user,'arcia_roles':['ArcIA.User']}
         with self.assertRaisesRegex(PermissionError,'PERSONAL_PROVIDER_ROLE'):self.control.create(user,self.value)

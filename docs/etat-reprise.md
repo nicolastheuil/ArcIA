@@ -24,7 +24,7 @@ affiché. Les fichiers locaux non suivis préexistants sont conservés.
 
 OmniRoute 3.8.51 dispose de son renderer, worker, politique de droits,
 installation verrouillée et helper d'accès local. Le manifeste comprend
-**61 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
+**63 étapes codées**, dont installation/vérification/inspection OmniRoute. Le
 [lock](../bootstrap/routing.lock.json), les contrôles de couverture, le
 [runbook](runbooks/bootstrap.md) et l'[ADR 0020](adr/0020-perimetre-harness-et-politiques-instance.md)
 sont alignés. La bibliothèque refuse dashboard public, override sans rôle,
@@ -37,7 +37,7 @@ autre propriétaire et pool mélangeant cloud/interne.
 | Infrastructure | Trois serveurs K3s/VMware, CPI/CSI, CNPG/PostgreSQL, Hermes et HTTPS ; bascule contrôlée | Panne brutale, fencing, restore complet et rebuild neuf non qualifiés |
 | Knowledge / Privacy | RAG synthétique local, RLS, modèles locaux ; appel HTTP 200 sous politique d'instance gratuite/ZDR ; refus Internet/DNS depuis Hermes | Groupes, OCR et collecte métier à compléter ; relais pilote spécialisé |
 | Skills / contexte | 539 entrées upstream, sept adaptations ; RTK et Headroom bornés ; 55 sondes par runtime | Context7 externe fermé ; procédures et benchmarks à élargir |
-| OmniRoute | Serveur privé déployé/vérifié, une instance avec volumes conservés, trois relais TLS LAN 20129 ; HTTPS sur VIP par domaine et IP, confiance Windows explicitement installée sur le PC autorisé | Raccordement d'inférence générique, self-service utilisateur et routes internes à intégrer/qualifier ; aucune activation implicite de fournisseur |
+| OmniRoute | Serveur privé déployé/vérifié, une instance avec volumes conservés, trois relais TLS LAN 20129 ; HTTPS sur VIP par domaine et IP, confiance Windows explicitement installée sur le PC autorisé | Self-service PKCE et binding cloud déployés/vérifiés sur fixtures ; providers réels et routes internes à configurer/qualifier ; aucune activation implicite |
 | Identité | Comptes locaux permanents, portail personnel, admin nommé récupéré ; rôle et espace d'un compte Microsoft relus | Login Microsoft confirmé par le propriétaire ; recette interactive complète, autre tenant, groupes et HA/restore à qualifier |
 | Réseau Keycloak | Sortie IPv4 publique TCP/443 du pilote ; TLS Microsoft/Graph 4/4 et refus HTTP/80 vérifiés | Destinations au pare-feu amont ; IPv6 non qualifié ; défaut générique fermé |
 | Portail du pilote | Pool privé 32 places, trois liées et 29 libres au dernier relevé ; comptes désactivés conservés | Défaut générique huit ; charge de trente utilisateurs non qualifiée |
@@ -47,8 +47,8 @@ Les règles génériques sont : **OmniRoute auto administré en premier routage*
 Presidio pour tous les modèles cloud par défaut, pas pour Ollama/vLLM internes
 par défaut ; budgets, abonnement, gratuité et ZDR propres à l'instance. La
 connexion personnelle exige **ArcIA.ProviderSelfService**, activation explicite
-et propriété serveur. Le contrat documenté ne transforme pas le relais actuel
-en intégration générique déjà qualifiée.
+et propriété serveur. Le binding générique cloud est déployé ; la recette de
+droits et filtrage n'atteste aucun appel fournisseur réel.
 
 Preuves historiques : [skills](qualification/2026-10-13-skills.json),
 [identité et portail](qualification/2026-10-13-portail-personnel.json),
@@ -190,46 +190,53 @@ revue automatique sans accord explicite ; l'accord ultérieur est propre à
 ce correctif, sans approbation Teams prétendue ni ouverture Internet générale.
 [Procédure](runbooks/bootstrap.md).
 
-Le lot OIDC est livré séparément des modifications concurrentes OmniRoute.
-Ne pas publier leurs fichiers/locks en livrant ce correctif. La recette
+Les lots OIDC/réseau et refresh (`3c14f2b`, `5c2affa`) ont été publiés séparément
+puis intégrés comme base du lot OmniRoute. Aucun travail local de l'autre chat
+n'a été repris ou publié par ce lot. La recette
 VMware neuve et HA reste inchangée, non qualifiée.
 
-### Lot en cours : connexions personnelles dans OmniRoute
+### Connexions personnelles dans OmniRoute : résultat du lot
 
-Après la livraison VIP/TLS `f830c2c`, [ses deux jobs CI](https://github.com/nicolastheuil/ArcIA/actions/runs/38569699579)
-ont réussi. Le propriétaire demande maintenant l'implémentation de la saisie
-des clés personnelles directement dans le portail LAN OmniRoute pour les
-seuls utilisateurs autorisés. Développement en cours, non encore déployé :
-page `/personal/` sur le même origin, OIDC ArcIA/PKCE, rôle explicite,
-connexions natives OmniRoute liées au propriétaire, gestion d'entreprise
-réservée à `ArcIA.Admin`, état/sessions protégés et réconciliation des écritures
-incertaines. Le dashboard natif reste global et réservé à l'administration.
-Le branchement de l'inférence et la révocation effective doivent être qualifiés
-avant de déclarer les overrides opérationnels. Le lot est isolé dans le worktree rattaché à ce chat ; le dossier principal
-reste au lot réseau de l'autre chat, conformément au choix du propriétaire.
-Sources nouvelles : `services/routing/{self_service,store,native,gateway}.py`,
-`personal.html`, workers `routing_identity.py`, `routing_bindings.py` et
-`verify_routing_access.py`. Tests exécutés : 14 routage et 16 self-service,
-tous réussis. Bootstrap étendu à 61 étapes dans ce checkout, dont installation
-et recette du self-service après le portail d'identité. Aucun déploiement du
-nouveau lot ni test réel OIDC/scoped-key n'a encore été exécuté.
+Le service et la page `/personal/` sont codés, déployés et vérifiés sur les VM
+existantes : PKCE, droits admin/utilisateur, propriétaires, clés natives limitées,
+retrait live du rôle, compte désactivé, Presidio et nettoyage des fixtures.
+[Preuve sans inférence](qualification/2026-10-14-omniroute-self-service.json).
+La synchronisation cloud native est désactivée avec lecture de contrôle ; les
+routes sync/tunnel/inférence et OIDC global sont fermées sur le relais LAN.
+Le mot de passe admin et les volumes existants sont préservés.
 
-Suites nécessaires : terminer les contrôles, déployer OmniRoute puis l'accès
-personnel via les wrappers protégés sur les VM désignées, corriger les défauts
-réels, exécuter la recette PKCE/native et reporter la preuve assainie. Revoir
-le nettoyage des fixtures et des écritures incertaines. Mettre à jour les
-rendus canoniques Hermes/Privacy pour préserver le binding OmniRoute à la
-réapplication, puis docs, locks, CI et publication sur main. Réintégrer le lot
-réseau seulement après sa livraison par son auteur, sans le publier ici.
+L'admin crée les connexions d'entreprise dans le dashboard natif puis configure
+pool, modèles et mode dans `/personal/` avec ArcIA.User + ArcIA.Admin. La fonction
+personnelle reste fermée jusqu'à activation explicite et attribution du rôle
+ArcIA.ProviderSelfService. Aucun rôle réel n'a été attribué automatiquement.
+Aucune clé réelle ni inférence payante n'a été utilisée pendant ce lot.
+
+Le renderer et le worker conservent le binding canonique OmniRoute à la
+réapplication. Les migrations de config utilisent les UID/resourceVersion
+relus et ne reprennent pas de force les champs d'un autre gestionnaire. Les
+lots identité déjà publiés restent présents. Le worktree de ce chat est isolé ;
+le dossier principal de l'autre chat n'a pas été modifié pour cette livraison.
+
+Vérifications locales de livraison : 274 tests réussis (deux skips sur Windows),
+coverage bootstrap 63 étapes, 74 documents/422 liens et 15 schémas Mermaid.
+La recette réelle apporte 26 contrôles réussis sans inférence, avec suppression
+des trois fixtures et de leurs sessions. HTTPS VIP par domaine/IP est revérifié.
+
+Restent à qualifier : providers réels et quotas après configuration, streaming
+fournisseur progressif, routes internes Ollama/vLLM, purge/rotation/restore des
+connexions et sauvegarde/reconstruction VMware neuve. Le relais gratuit ancien
+reste une recette historique distincte. Les résultats CI et sources sont
+consignés à la livraison ; aucune release installable n'est déclarée.
 
 1. Relire AGENTS.md, ses trois références, ce fichier et le backlog ; vérifier
    main et examiner les fichiers locaux non suivis sans les publier.
 2. Inspecter l'état réel via les wrappers protégés : OmniRoute, identité,
    admission Microsoft, portail et réseau. Une preuve historique n'autorise
    pas à sauter la vérification courante.
-3. Achever/qualifier le raccordement générique OmniRoute et le self-service
-   serveur avant activation des overrides. Le dashboard admin n'est pas une
-   interface utilisateur multi-tenant.
+3. Configurer les abonnements d'entreprise, les modèles et le mode admin
+   dans OmniRoute puis qualifier leur usage. Activer explicitement le rôle
+   self-service pour les comptes concernés ; garder les routes internes fermées
+   jusqu'à leur recette.
 4. Pour Teams/Azure, suivre le quickstart et l'annexe, enrôler les accès par
    programme local ; aucun secret à demander dans le chat et aucune création
    Azure déjà engagée. Garder le contrat Microsoft 365 inactif sans adaptateur.

@@ -20,13 +20,15 @@ class Native:
         self.secret=jwt_secret;self.origin=origin
 
     def request(self,method,path,value=None):
-        if not re.fullmatch(r'/api/(settings|providers|providers/bulk|keys|(?:providers|keys)/[a-f0-9-]{36})',path):
+        if not re.fullmatch(r'/api/(settings|providers|providers/bulk|keys|sync/cloud|(?:providers|keys)/[a-f0-9-]{36})',path):
             raise ValueError('NATIVE_MANAGEMENT_PATH_REFUSED')
+        if path=='/api/sync/cloud' and (method!='POST' or value!={'action':'disable'}):
+            raise ValueError('NATIVE_CLOUD_ACTION_REFUSED')
         now=int(time.time())
         cookie=jwt.encode({'authenticated':True,'iat':now,'exp':now+30,'jti':str(uuid.uuid4())},self.secret,algorithm='HS256')
         req=urllib.request.Request(self.origin+path,method=method,
             data=json.dumps(value).encode() if value is not None else None,
-            headers={'Content-Type':'application/json','Cookie':'auth_token='+cookie,'Origin':self.origin})
+            headers={'Content-Type':'application/json','Cookie':'auth_token='+cookie})
         # Never propagate native errors/bodies into logs or browser responses.
         try:
             with OPENER.open(req,timeout=20) as response:
@@ -38,8 +40,24 @@ class Native:
     def private(self):
         value=self.request('GET','/api/settings')
         value=value.get('settings',value)
-        if value.get('cloudEnabled') or value.get('requireLogin') is not True:
+        if value.get('cloudEnabled') is not False or value.get('requireLogin') is not True:
             raise PermissionError('PRIVATE_AUTHENTICATED_ROUTER_REQUIRED')
+
+    def enforce_private(self):
+        value=self.request('GET','/api/settings')
+        value=value.get('settings',value)
+        if value.get('requireLogin') is not True:raise PermissionError('PRIVATE_AUTHENTICATED_ROUTER_REQUIRED')
+        if value.get('cloudEnabled') is not False:
+            if value.get('cloudConfigured') or value.get('cloudUrl'):raise PermissionError('PRIVATE_AUTHENTICATED_ROUTER_REQUIRED')
+            try:self.request('POST','/api/sync/cloud',{'action':'disable'})
+            except RuntimeError:pass
+            # The pinned disable route commits the local flag before reporting
+            # missing CLOUD_URL. Only read-back proves success; no cloud URL is
+            # allowed here, so its external DELETE is never executed.
+        self.private()
+
+    def keys(self):
+        return [{k:row.get(k) for k in ('id','name')} for row in self.request('GET','/api/keys')['keys']]
 
     def connections(self):
         value=self.request('GET','/api/providers')

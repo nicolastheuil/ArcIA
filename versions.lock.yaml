@@ -334,11 +334,14 @@
     "contract_lock": "bootstrap/routing.lock.json",
     "default_router": "omniroute",
     "management_public": false,
-    "status": "private_portal_deployed_verified",
+    "status": "private_portal_and_self_service_deployed_verified",
     "default_mode": "auto/smart",
-    "generic_inference_binding": "pending",
+    "generic_inference_binding": "owner_bound_admin_auto_cloud_gateway",
     "personal_provider_role": "ArcIA.ProviderSelfService",
     "ip_https": "optional_instance_certificate_explicit_client_trust",
-    "private_firewall_boundary": "explicit_instance_override_preserved"
+    "private_firewall_boundary": "explicit_instance_override_preserved",
+    "personal_access_path": "/personal/",
+    "personal_access_proof": "docs/qualification/2026-10-14-omniroute-self-service.json",
+    "provider_inference_executed": false
   }
 }

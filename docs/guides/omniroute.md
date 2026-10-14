@@ -142,15 +142,15 @@ Sources de la version épinglée :
 ArcIA porte donc les comptes humains et leurs droits, et conserve OmniRoute
 comme routeur. Exemple : l'admin configure la chaîne d'entreprise et ses API
 keys ; tous les utilisateurs suivent cette chaîne automatique. Pour les seuls
-comptes `ArcIA.ProviderSelfService`, une page ArcIA permettra de saisir une clé
+comptes `ArcIA.ProviderSelfService`, la page ArcIA `/personal/` permet de saisir une clé
 personnelle par connexion HTTPS protégée. Le service vérifie rôle et identité,
 crée une connexion liée à ce propriétaire, émet une clé technique restreinte et
 applique un override borné. Il ne remet jamais le token global de gestion à
 l'utilisateur. La politique d'instance et Presidio cloud restent applicables.
 
-Ce parcours est **codé**, avec page `/personal/` sur le même portail LAN
-OmniRoute, OIDC/PKCE ArcIA et contrôle en ligne des rôles. Il reste en recette
-avant déclaration de déploiement/vérification. Le dashboard natif `/dashboard`
+Ce parcours est **codé, déployé et vérifié** sur fixtures locales, avec page
+`/personal/` sur le même portail LAN OmniRoute, OIDC/PKCE ArcIA, contrôle en ligne
+des rôles et filtrage Presidio. Aucune inférence n'est exécutée par cette recette. Le dashboard natif `/dashboard`
 reste une interface globale d'administration ; son login OIDC global est fermé
 sur le relais LAN pour éviter de transformer une connexion ArcIA en droit admin.
 
@@ -219,24 +219,29 @@ mapping contrôlé depuis `(tid, oid)` pour Entra. Les clés/connexions ne sont
 jamais partagées avec un autre sujet, y compris après suppression/recréation
 d'un compte portant le même nom.
 
-Retrait du rôle, désactivation ou retrait du compte : révoquer l'override et
-sa clé, retirer les sessions et revenir au pool d'entreprise si le compte
-reste autorisé. L'activation de cette fonction reste fermée jusqu'à recette
-du service serveur et du portail utilisateur ; la bibliothèque de politique
-ne constitue pas une interface de self-service déployée.
+Le retrait du rôle ferme immédiatement l'override à la prochaine demande
+contrôlée et revient au pool d'entreprise si le compte reste autorisé. Le
+changement de pool remplace sa clé technique ; désactivation/suppression
+du compte refuse toute demande. Les clés techniques restent privées côté
+service. La purge des connexions d'un compte supprimé et la rotation globale
+exigent une procédure d'exploitation ; elles ne réaffectent pas ses clés à
+un autre propriétaire. La fonction reste désactivée par défaut dans chaque instance.
 
 ## Confidentialité et classement des routes
 
 Le choix de profil et de pool précède l'export. Pour une route cloud,
 Presidio assainit messages, documents et résultats d'outils **avant que leur
-contenu arrive dans un routeur ayant une sortie cloud**. Une enveloppe
-authentifiée permet au relais de refuser un appel non filtré. Les hooks
+contenu arrive dans un routeur ayant une sortie cloud**. Le gateway appelle le filtre local authentifié, puis la seule API loopback
+OmniRoute avec la clé scoped ; Hermes n'accède pas directement à cette API.
+Le relais historique OpenRouter conserve, séparément, son attestation HMAC. Les hooks
 OmniRoute ne constituent pas cette frontière : leur erreur ne garantit pas
 à elle seule le blocage de l'appel.
 
 Ollama/vLLM hébergés dans l'entreprise restent dans un pool interne, avec
 endpoint/ports privés explicitement autorisés ; Presidio n'y est pas imposé
-par défaut. Le moteur de sélection refuse un pool mélangeant local et cloud.
+par défaut. La bibliothèque de politique refuse un pool mélangeant local et cloud.
+Le gateway déployé de ce lot qualifie uniquement la classe cloud : ne pas
+ajouter Ollama/vLLM aux pools actuellement utilisés par celui-ci.
 Un repli interne → cloud requiert une nouvelle sélection et le filtrage avant
 le premier export ; on ne laisse pas OmniRoute basculer spontanément entre
 ces classes sur une requête brute.
@@ -250,7 +255,9 @@ effectif. [Politique cloud et limites Presidio](confidentialite-cloud.md).
 ## Bootstrap, preuves et exploitation
 
 `bootstrap/routing.lock.json` couvre runtime, politique, renderer, worker,
-helper d'accès et enrôlement TLS IP. Les contrôles rejettent dashboard public,
+helper d'accès, enrôlement TLS IP, page personnelle, stockage, identité, gateway
+et rendus canoniques. Le bootstrap réapplique le binding OmniRoute, conserve
+les versions/UID/PVC et refuse une modification concurrente du runtime. Les contrôles rejettent dashboard public,
 ouverture de toutes les sources sans déclaration firewall privée, absence du rôle
 spécifique et sortie cloud sans défaut Presidio. Le [bootstrap](../runbooks/bootstrap.md)
 installe après Privacy, vérifie le service et les trois relais LAN, puis
@@ -265,3 +272,13 @@ rotation et refus d'un second propriétaire avant une release. Le runtime
 SQLite unique ne devient pas HA parce que les trois relais TLS sont présents.
 [Sauvegarde/reconstruction](../runbooks/sauvegarde-reconstruction.md) ·
 [Backlog](../backlog.md) · [ADR du périmètre](../adr/0020-perimetre-harness-et-politiques-instance.md).
+
+La synchronisation cloud native est désactivée et relue après application,
+avec la route officielle `POST /api/sync/cloud` limitée à `action=disable`.
+Cette opération exige l'absence d'URL cloud et n'effectue aucun appel cloud.
+Les routes de synchronisation, tunnel et login OIDC global restent fermées sur
+le relais LAN ; le mot de passe admin existant est préservé.
+
+Preuve datée : [self-service, droits et filtrage sans inférence](../qualification/2026-10-14-omniroute-self-service.json).
+La compatibilité des endpoints fournisseurs, les quotas, le débit payant et
+le streaming token par token ne sont pas attestés par cette recette.

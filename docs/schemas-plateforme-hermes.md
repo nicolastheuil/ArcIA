@@ -11,16 +11,18 @@ flowchart TB
   H --> K[Knowledge : MCP de lecture]
   K --> PG[PostgreSQL : 3 instances et pgvector]
   K --> O[Originaux et schémas : PVC privé]
-  H --> P[Presidio FR et EN : filtrage intégral]
-  P --> R[Relais cloud : attestation HMAC]
-  R --> C[OpenRouter free : ZDR et prix nul]
+  H --> G[Gateway : identité et pool administré]
+  G --> P[Presidio FR et EN : filtrage intégral]
+  P --> R[OmniRoute : clé scoped et mode auto]
+  R --> C[Modèles cloud : politique d’instance]
+  LAN[Portail OmniRoute privé : admin et personnel] --> G
   H --> DNS[DNS interne statique sans forwarding]
   H --> T[Outils et skills : volume en lecture seule]
   ADMIN[Contrôleur administratif protégé] --> K3S[3 VM Debian : K3s et etcd]
   K3S --> CSI[vSphere CSI : datastore partagé]
 ```
 
-Hermes ne possède pas de clé fournisseur et ne contacte pas directement Internet. Le relais ne reçoit que les payloads assainis et attestés. Knowledge calcule ses vecteurs localement. Les comptes et domaines sont des paramètres d’instance.
+Hermes ne possède pas de clé fournisseur et ne contacte pas directement Internet. OmniRoute ne reçoit que le contenu assaini du gateway ; le relais gratuit historique conserve son attestation HMAC. Knowledge calcule ses vecteurs localement. Les comptes et domaines sont des paramètres d’instance.
 
 ## 2. Parcours RAG
 
@@ -47,19 +49,20 @@ Les ACL s’appliquent avant la restitution. Les matrices de tokens affinent le 
 ```mermaid
 sequenceDiagram
   participant H as Hermes
-  participant P as Presidio et politique
-  participant R as Relais isolé
-  participant C as OpenRouter
-  H->>P: Messages, historique, outils et extraits RAG
-  P->>P: Authentifier scope et classe de données
-  P->>P: Détecter FR/EN, retirer secrets, pseudonymiser
-  P->>P: Refuser formats opaques et options non autorisées
-  P->>R: Payload assaini avec signature, nonce et date
-  R->>R: Vérifier attestation, modèle, prix nul et ZDR
-  R->>C: Appel TLS au seul endpoint autorisé
-  C-->>R: Réponse ou indisponibilité d’une route conforme
-  R-->>P: Résultat sans message d’erreur fournisseur brut
-  P-->>H: Réponse OpenAI compatible ou refus
+  participant G as Gateway ArcIA
+  participant P as Presidio local
+  participant R as OmniRoute loopback
+  participant C as Fournisseur cloud autorisé
+  H->>G: Requête et token de périmètre
+  G->>G: Relire identité et rôles, choisir pool et mode admin
+  G->>P: Messages, historique, outils et extraits RAG
+  P->>P: Vérifier scope et classe, filtrer FR/EN, retirer secrets
+  P-->>G: Corps assaini ou refus
+  G->>R: Corps assaini et clé limitée aux connexions et modèles
+  R->>C: Appel TLS sous politique d’instance
+  C-->>R: Réponse ou refus
+  R-->>G: Résultat
+  G-->>H: Réponse OpenAI compatible ou erreur bornée
 ```
 
 Le mode streaming actuel restitue des événements SSE après réception de la réponse complète ; il ne garantit pas la latence d’un flux fournisseur token par token. Les appels à des MCP externes demandent une qualification distincte.

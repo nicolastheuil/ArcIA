@@ -23,7 +23,7 @@ for language in ('en','fr'):
     ANALYZER.registry.add_recognizer(SpacyRecognizer(supported_language=language,supported_entities=['PERSON','LOCATION','ORGANIZATION']))
 ANONYMIZER=AnonymizerEngine()
 POLICY=json.loads(Path('/credentials/policy.json').read_text())
-if POLICY.get('cloud_enabled') is not True or POLICY.get('paid_enabled') is not False:raise RuntimeError('FREE_ONLY_POLICY_REQUIRED')
+if not isinstance(POLICY.get('tokens'),dict):raise RuntimeError('PRIVACY_TOKEN_POLICY_REQUIRED')
 PROVIDER={'data_collection':'deny','zdr':True,'require_parameters':True,'allow_fallbacks':False,
           'max_price':{'prompt':0,'completion':0,'request':0,'image':0}}
 
@@ -34,7 +34,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(data)))
         self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(data)
     def do_GET(self):
-        if self.path=='/health':self.reply(200,{'ready':True,'cloud_enabled':True,'paid_enabled':False,'languages':['fr','en']})
+        if self.path=='/health':self.reply(200,{'ready':True,'cloud_enabled':POLICY.get('cloud_enabled') is True,'legacy_paid_enabled':False,'price_policy_owner':'instance','languages':['fr','en']})
         elif self.path=='/v1/models':self.reply(200,{'object':'list','data':[{'id':'openrouter/free','object':'model','owned_by':'arcia-policy'}]})
         else:self.reply(404,{'error':'NOT_FOUND'})
     def do_POST(self):
@@ -54,10 +54,12 @@ class Handler(BaseHTTPRequestHandler):
             sanitizer=Sanitizer(ANALYZER,bytes.fromhex(POLICY['hmac_key']),identity['scope'],identity.get('identifiers',[]))
             if self.path=='/v1/sanitize':self.reply(200,sanitizer.payload(value))
             elif self.path=='/v1/sanitize-completion':
+                if POLICY.get('cloud_enabled') is not True:raise Blocked('CLOUD_POLICY_DISABLED')
                 if identity.get('classification') not in ('synthetic','public'):raise Blocked('CLASSIFICATION_NOT_CLOUD_APPROVED')
                 body,counts=sanitizer.completion(value)
                 self.reply(200,{'body':body,'detections':counts,'cloud_authorized':False})
             else:
+                if POLICY.get('cloud_enabled') is not True or POLICY.get('paid_enabled') is not False:raise Blocked('LEGACY_FREE_ONLY_POLICY_REQUIRED')
                 if identity.get('classification') not in ('synthetic','public'):raise Blocked('CLASSIFICATION_NOT_CLOUD_APPROVED')
                 if value.get('model')!='openrouter/free':raise Blocked('MODEL_NOT_APPROVED')
                 body,counts=sanitizer.completion(value)

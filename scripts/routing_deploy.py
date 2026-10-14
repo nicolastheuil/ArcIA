@@ -166,6 +166,7 @@ def payload(lock,config,lan_cidrs,private_firewall_boundary=False,ip_https_vip=N
     proxy=f'''{allows}
     deny all;
     client_max_body_size 1m;
+    location = /api/sync/cloud {{ return 403; }}
     location ~ ^/api/(cloud|tunnel)(/|$) {{ return 403; }}
     location ~ ^/api/auth/oidc(/|$) {{ return 403; }}
     location ~ ^/api/settings/proxy/(cloudflare|deno|vercel)-deploy(/|$) {{ return 403; }}

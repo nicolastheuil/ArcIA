@@ -15,15 +15,28 @@ documentaires, isolation et contrôle de destination continuent de s’appliquer
 Un repli vers un modèle cloud reprend le filtrage Presidio et la politique cloud.
 Le filtrage local peut devenir une exigence d’instance si l’organisation le décide.
 
-**Limite du code actuel :** les services de qualification restent spécialisés
-pour OpenRouter free/ZDR. La politique configurable par instance et les routes
-Ollama/vLLM ne sont pas encore codées/déployées. Ce lot clarifie le contrat et
-le backlog et ajoute le portail de gestion OmniRoute exclusivement LAN ; il
-n’active aucun fournisseur et ne change pas la route d’inférence du pilote.
+Le parcours cloud via OmniRoute est déployé, avec sélection serveur du pool
+et du mode administré, filtrage Presidio et clés techniques restreintes. Sa
+recette vérifie les droits et le filtrage sur fixtures ; elle n'appelle aucun
+fournisseur. Les connexions et modèles réels doivent être configurés par
+l'administrateur. Les routes internes Ollama/vLLM restent à intégrer/qualifier.
+[Guide et preuve OmniRoute](omniroute.md).
 
-## Chemin cloud du pilote déployé
+## Chemin cloud générique déployé
 
-Hermes appelle `privacy.arcia-privacy.svc.cluster.local:8091/v1` avec un token local. Presidio assainit le contenu puis signe une enveloppe HMAC, avec timestamp et nonce. Le service `cloud-egress` accepte cette enveloppe uniquement depuis le Pod Privacy et appelle le seul endpoint TLS OpenRouter prévu. La clé OpenRouter est montée uniquement dans le relais ; elle n’est ni dans Hermes ni dans le service Presidio. Les deux processus n’enregistrent pas les corps ni les en-têtes d’authentification.
+Hermes appelle `omniroute.arcia-routing.svc.cluster.local:20131/v1` avec son token
+de périmètre. Le gateway lit le binding issuer/subject et les rôles courants,
+sélectionne le pool et impose le mode auto administré. Il appelle le filtre
+local authentifié `/v1/sanitize-completion` ; le contenu assaini est ensuite
+transmis à OmniRoute uniquement sur loopback, avec une clé limitée aux
+connexions et modèles choisis, sans scope de gestion, logs ou cache partagé.
+Aucun prompt, navigateur ou agent ne choisit un endpoint ou une clé fournisseur.
+
+Le relais historique `cloud-egress` reste distinct : son parcours OpenRouter
+free/ZDR, attesté par HMAC, a été qualifié le 12 octobre. Il conserve sa politique
+propre ; le service Presidio n'impose pas cette politique tarifaire au gateway
+générique. Les clés fournisseurs restent dans le stockage natif OmniRoute ;
+Hermes et Presidio n'en possèdent aucune.
 
 NetworkPolicies interdisent à Hermes Internet, le relais direct et le DNS général. Un serveur DNS statique ne répond qu’aux services internes autorisés et ne transmet aucune requête externe. Les privilèges d’installation publique sont limités au Job de construction du runtime ; les modèles spaCy restent locaux et leur volume est monté readonly au runtime.
 
@@ -40,9 +53,9 @@ NetworkPolicies interdisent à Hermes Internet, le relais direct et le DNS gén�
 | Contrôles de forme | Taille, profondeur, types, champs autorisés, résidus structurés, caractères invisibles et identifiants de protocole |
 | Refus explicites | Images, fichiers binaires/base64, contenu opaque, schémas/options non pris en charge, tentative d’override fournisseur |
 
-Un identifiant de protocole contenant une donnée détectée provoque un refus. Les clés de schéma sensibles sont refusées plutôt que renommées silencieusement. Les champs de texte et arguments sont assainis avant l’attestation ; une signature incorrecte, un nonce rejoué ou une enveloppe expirée est refusé par le relais.
+Un identifiant de protocole contenant une donnée détectée provoque un refus. Les clés de schéma sensibles sont refusées plutôt que renommées silencieusement. Les champs de texte et arguments sont assainis avant export. Sur le relais historique, une signature incorrecte, un nonce rejoué ou une enveloppe expirée est refusé.
 
-Le service expose `/v1/sanitize` pour un aperçu local : ce résultat ne constitue pas une permission cloud. `/v1/chat/completions` applique ensuite une politique serveur indépendante. `/v1/models` expose uniquement le modèle autorisé ; les autres routes sont refusées.
+Le service expose `/v1/sanitize` pour un aperçu local et `/v1/sanitize-completion` pour le gateway authentifié : leurs résultats ne constituent pas une permission autonome d'export. Les prix et modèles du parcours générique relèvent de l'instance. Les anciennes routes `/v1/chat/completions` et `/v1/models` de Privacy restent spécialisées pour la recette gratuite ; les autres routes sont refusées.
 
 ## Fournisseur et budget du pilote
 
@@ -50,7 +63,11 @@ Le pilote fixe `model=openrouter/free`, `data_collection=deny`, `zdr=true`, `req
 
 Une indisponibilité, un quota gratuit ou l’absence de fournisseur conforme produit un refus ; aucune seconde route payante n’est activée. La disponibilité des modèles gratuits peut changer entre deux requêtes. Le contrôle du coût retourné détecte une incohérence ; le plafond de prix est envoyé avant génération, ce n’est pas une garantie financière indépendante du fournisseur.
 
-OmniRoute est le premier routeur du contrat, en mode intelligent/automatique administré. La trajectoire propre au pilote OmniRoute → OpenRouter free → OpenRouter auto n'est pas un invariant d'ArcIA : seul le chemin gratuit filtré du pilote reste actuellement actif. Une autre instance choisit ses modèles internes/cloud, son budget et ses restrictions. Le raccordement générique OmniRoute doit qualifier providers, caches, retries et accès au relais sans perte d’attestation ou élargissement de politique. Le pilote ne dispose d’aucune autorisation payante. [Configuration, abonnements et droits](omniroute.md).
+OmniRoute est le premier routeur du parcours générique, en mode auto administré.
+Le pool initial reste vide et les overrides désactivés. Une autre instance choisit
+ses abonnements, modèles, budgets et conditions. La recette de ce lot ne vérifie
+pas de débit réel, quota fournisseur ou coût ; ces vérifications restent à
+exécuter après configuration explicite. [Configuration et droits](omniroute.md).
 
 ## Classification et limites
 

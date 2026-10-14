@@ -23,7 +23,7 @@ pas une preuve de déploiement ; celle-ci est dans
 | Python de validation poste | 3.14.7 | Tests/contrôleurs Windows et WSL utilisés |
 | pyvmomi | 9.1.1.0 | Wheel hashée, inventaire VMware exécuté |
 | qemu-img | 10.2.1 | Conversion de l’image exécutée |
-| OmniRoute | Voir le lock d’outillage | CLI installé ; serveur LAN épinglé et bootstrap codé ; intégration d’inférence à qualifier |
+| OmniRoute | Voir le lock d’outillage | Serveur 3.8.51 privé, self-service PKCE et binding cloud déployés/vérifiés sur fixtures ; providers réels et routes internes à qualifier |
 | Outils builder §25 | Voir lock builder dédié | [Installation et preuves](outillage-builder.md) |
 
 ## Support : limites conservées

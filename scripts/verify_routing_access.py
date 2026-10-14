@@ -74,7 +74,7 @@ sys.path.insert(0,"/personal-code")
 from self_service import Identity,Control,owner_id
 from native import Native
 from store import Store
-from gateway import RuntimeIdentity
+from gateway import RuntimeIdentity,http_json
 value=json.load(sys.stdin)
 config=json.loads(Path("/personal-code/config.json").read_text())
 key=os.environ["STORAGE_ENCRYPTION_KEY"].encode()
@@ -88,7 +88,13 @@ if value.get("role_only"):
     print(json.dumps({"personal_role_present":"ArcIA.ProviderSelfService" in claims["arcia_roles"]}));real.db.close();sys.exit(0)
 if "ArcIA.ProviderSelfService" not in claims["arcia_roles"]:raise ValueError("QUALIFICATION_ROLE_REQUIRED")
 native=Native(os.environ["JWT_SECRET"])
-created=[];technical=[];result={}
+clients=json.loads(Path("/routing-clients/clients.json").read_text())
+runtime_token=next(iter(clients["tokens"]))
+san=http_json("http://privacy.arcia-privacy.svc.cluster.local:8091/v1/sanitize-completion","POST",
+    {"model":"auto/smart","messages":[{"role":"user","content":"Synthetic contact alice@example.invalid and password=synthetic-secret-123"}]},
+    headers={"Content-Type":"application/json","Authorization":"Bearer "+runtime_token})
+filtered=json.dumps(san["body"])
+created=[];technical=[];result={"presidio_completion_filtered":all(x not in filtered for x in ("alice@example.invalid","synthetic-secret-123")) and san["body"]["model"]=="auto/smart" and san["cloud_authorized"] is False}
 with tempfile.TemporaryDirectory(prefix="arcia-routing-qualification-") as directory:
     store=Store(Path(directory)/"state.db",key)
     control=Control(store,native)
@@ -109,6 +115,10 @@ with tempfile.TemporaryDirectory(prefix="arcia-routing-qualification-") as direc
             endpoint_scope_verified=metadata.get("allowedEndpoints")==["chat"],
             api_key_not_returned_to_browser="api_key" not in state)
     finally:
+        credential=store.credential(owner_id(claims))
+        if credential and credential.get("phase")=="pending":
+            for item in native.keys():
+                if item["name"]==credential["native_name"]:native.revoke_key(item["id"])
         for identifier in technical:native.revoke_key(identifier)
         for identifier in created:native.delete(identifier)
         # Recover an uncertain provider write by its unique qualification name.
@@ -175,6 +185,13 @@ def verify(values):
             status,_,_=personal.request("GET","/personal/api/state")
             checks["disabled_user_live_denied"]=status in (401,403)
         finally:
+            sessions=[b.cookies["__Secure-arcia_routing_session"].value for b in browsers if "__Secure-arcia_routing_session" in b.cookies]
+            if sessions:
+                cleanup="import json,os,sys;sys.path.insert(0,'/personal-code');from store import Store;s=Store('/data/arcia-self-service/state.db',os.environ['STORAGE_ENCRYPTION_KEY'].encode());values=json.load(sys.stdin);[s.logout(v) for v in values];print(json.dumps({'sessions_removed':len(values)}));s.db.close()"
+                done=subprocess.run(["/usr/local/bin/k3s","kubectl","exec","-i","deployment/omniroute","-n","arcia-routing","-c","personal","--",
+                    "/opt/hermes/.venv/bin/python","-c",cleanup],input=json.dumps(sessions).encode(),capture_output=True,timeout=60)
+                if done.returncode:raise RuntimeError("QUALIFICATION_SESSION_CLEANUP_FAILED")
+                checks["qualification_sessions_removed"]=json.loads(done.stdout)["sessions_removed"]==len(sessions)
             for user in fixtures:
                 if "id" not in user:
                     # Reconcile an uncertain create by its reserved unique name.
