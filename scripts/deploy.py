@@ -56,24 +56,23 @@ def parse_yaml_or_env(file_path: str) -> Dict[str, Any]:
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Fichier de configuration introuvable : {file_path}")
 
-    # Si PyYAML est disponible, on l'utilise en priorité
-    try:
-        import yaml
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-            if isinstance(data, dict):
-                return data
-    except ImportError:
-        pass
-
-    # Parser autonome pour arcia.config.yaml
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     # Détection si c'est un format .env plat (sans structure YAML indentée)
-    if file_path.endswith(".env") or "ARCIA_PUBLIC_FQDN=" in content:
+    if file_path.endswith(".env") or file_path.endswith(".env.example") or "ARCIA_PUBLIC_FQDN=" in content:
         return parse_env_format(content)
 
+    # Si PyYAML est disponible, on l'utilise pour les fichiers YAML
+    try:
+        import yaml
+        data = yaml.safe_load(content)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # Parser autonome pour arcia.config.yaml
     return parse_simple_yaml(content)
 
 def parse_env_format(content: str) -> Dict[str, Any]:
