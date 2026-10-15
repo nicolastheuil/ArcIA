@@ -15,9 +15,9 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - Établissement de la StorageClass par défaut VMware CSI : `arcia-vsphere`.
 
 2. **Fondations Ingress, TLS & Sécurité** :
-   - Installation et qualification de `cert-manager` v1.16.1 avec `ClusterIssuer` Let's Encrypt production (`letsencrypt-prod`).
-   - Déploiement des CRDs Traefik v3.1 et de l'IngressController Traefik en `kube-system`.
-   - Déploiement d'un Ingress unifié (`arcia-public-ingress` et `arcia-studio-ingress`) sur `arcia.arcitek.io`.
+   - Traefik déployé en DaemonSet sur les 3 nœuds avec liaison directe `hostPort` sur les ports **80** et **443**.
+   - Restauration et injection du certificat Let's Encrypt production officiel (émis pour `arcia.arcitek.io` et `arcia-teams.arcitek.io`, valide jusqu'en janvier 2027) dans le secret Kubernetes `arcia-tls-cert`.
+   - Ingress unifié (`arcia-public-ingress` et `arcia-studio-ingress`) opérationnel en HTTPS direct avec cadenas vert validé à travers le NAT du pare-feu (`82.210.11.39`).
    - Middleware Traefik ForwardAuth préparé pour `oauth2-proxy` et Microsoft Entra ID.
 
 3. **Passerelle DLP & Confidentialité (Presidio)** :
