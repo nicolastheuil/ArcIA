@@ -153,9 +153,14 @@ arcia/
 │   ├── hermes/                 # Dockerfile custom et plugin ArcIA Tokenmaxing
 │   ├── presidio/               # Service FastAPI d'anonymisation PII & secrets
 │   └── teams/                  # Adaptateur asynchrone Teams Bot Framework
-├── skills/                     # Scripts de gestion des compétences partagées
-│   └── sync-skills.sh          # Synchronisation des catalogues (Anthropic, Vercel, Superpowers)
+├── skills/                     # Compétences et outillage méthodologique
+│   ├── ponytail/               # Sobriété logicielle, YAGNI & Decision Ladder (ADR 0021)
+│   ├── graphify/               # Cartographie structurelle AST & GraphRAG local (ADR 0021)
+│   ├── public-apis/            # Référentiel de veille & gouvernance APIs ouvertes (ADR 0021)
+│   └── sync-skills.sh          # Synchronisation des compétences partagées
 ├── scripts/                    # Outillage d'exploitation et d'automatisation
+│   ├── arcia_graphify.py       # Cartographie AST & GraphRAG locale déterministe (0 token, 0 fuite)
+│   ├── Sync-Skills.ps1         # Synchronisation des compétences (PowerShell)
 │   ├── deploy.py               # Moteur universel de déploiement Kubernetes (Python)
 │   ├── Deploy-ArcIA.ps1        # Script de déploiement en une commande (PowerShell)
 │   ├── deploy-arcia.sh         # Script de déploiement en une commande (Bash / Linux)

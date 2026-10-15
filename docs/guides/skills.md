@@ -15,12 +15,12 @@ ArcIA conserve les skills dans K3s et charge les instructions pertinentes au bes
 | Superpowers | Méthodes de préparation, développement, diagnostic et revue | Les 15 skills sont cataloguées ; les hooks et l'orchestrateur du pack ne sont pas installés |
 | Vercel `find-skills` | Méthode de découverte de compétences dans l'écosystème ouvert | Workflow disponible ; recherche et chargement remplacés par le parcours local ArcIA |
 | Adaptations ArcIA | Six adaptations initiales et une skill d'orientation `arcia-skills` | Chargées nativement ; règles adaptées à l'exploitation et à la confidentialité d'ArcIA |
+| Ponytail | Sobriété logicielle, échelle de décision YAGNI et prévention de l'over-engineering | Skill native ArcIA intégrée au catalogue partagé (`skills/ponytail`) |
+| Graphify | Cartographie structurelle AST de codebase et GraphRAG local | Skill native ArcIA (`skills/graphify`) couplée à `arcia_graphify.py` (0 token, 0 fuite) |
+| Public-APIs | Référentiel de veille et règles de sécurisation des APIs externes | Skill de gouvernance ArcIA (`skills/public-apis`) avec isolation Presidio/NetworkPolicy |
 
 Le miroir compte **539 entrées upstream**, dont les 58 skills Hermes embarquées.
-Les sept entrées ArcIA natives s'ajoutent comme adaptations/orientation ; certaines
-correspondent donc à des méthodes upstream déjà cataloguées. Ce n'est pas un
-compteur de 546 capacités indépendantes entièrement qualifiées. Les compteurs
-font référence au [lock](../../builder/skills.lock.json), pas au GitHub courant.
+Les entrées ArcIA natives s'ajoutent comme adaptations, compétences de méthode et orientation ([ADR 0021](../adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)).
 
 ## Parcours d'une demande
 

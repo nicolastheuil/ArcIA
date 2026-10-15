@@ -34,3 +34,5 @@ __pycache__/
 artifacts/
 *.retry
 *.log
+graph.json
+GRAPH_REPORT.md

@@ -63,6 +63,13 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - **Context7** : Intégration remote MCP validée via le manifeste approuvé sous `/opt/hermes/optional-mcps/context7/manifest.yaml` avec isolation DLP Presidio.
    - Intégration CI/CD : Tests unitaires (`tests/`), validation des manifests, vérification de barrière de confidentialité (zéro fuite de données privées) exécutés et validés à 100% sur GitHub Actions.
 
+10. **Évaluation et Intégration de Ponytail, Graphify et Public-APIs ([ADR 0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md))** :
+   - **Ponytail (v1.0)** : Intégré comme compétence partagée de sobriété logicielle (`skills/ponytail/SKILL.md`) appliquant la *Decision Ladder* (YAGNI, réutilisation, stdlib, code minimaliste) pour prévenir l'over-engineering d'Hermes.
+   - **ArcIA Graphify (v0.2)** : Intégré comme extracteur AST local déterministe (`scripts/arcia_graphify.py`) et compétence associée (`skills/graphify/SKILL.md`), générant `graph.json` et `GRAPH_REPORT.md` (GraphRAG local, 0 token d'inférence, 0 fuite de code).
+   - **Public-APIs** : Cadré formellement comme référentiel de veille et guide d'intégration sécurisée (`skills/public-apis/SKILL.md`) ; rejeté comme service ou daemon K3s afin de préserver l'hermétisme réseau d'ArcIA.
+   - **Automatisation** : Scripts `skills/sync-skills.sh` et `scripts/Sync-Skills.ps1` mis à jour pour le provisionnement vers `/var/data/arcia/shared-skills/arcia/`.
+   - **Validation** : 23 tests unitaires et contrôles de confidentialité validés avec succès (`tests/test_graphify.py`, `tests/test_skills.py`, `tests/test_privacy.py`, etc.).
+
 ---
 
 ## 2. État Courant des Composants
@@ -81,8 +88,11 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 | **Headroom AI** | `headroom-ai` (in hermes) | Lib | **v0.41.0 Qualifié** | Optimisation et compression de contextes dynamiques |
 | **LintLang** | `lintlang` (in hermes) | CLI | **v0.8.2 Qualifié** | Linter sémantique et hygiène de prompt |
 | **Skills CLI** | `skills` (in hermes) | CLI | **v1.7.2 Qualifié** | Découverte et installation de compétences modulaires |
-| **Shared Skills** | `/opt/shared-skills` | Volume | **313 ECC + 15 Superpowers + Vercel** | Catalogues de compétences partagées multi-agents |
+| **Shared Skills** | `/opt/shared-skills` | Volume | **313 ECC + 15 Superpowers + Vercel + ArcIA** | Catalogues de compétences partagées multi-agents |
 | **Context7 MCP** | `context7` (manifest) | MCP | **Approuvé & Sécurisé** | Documentation à jour via passerelle DLP |
+| **Ponytail** | `skills/ponytail` | Skill | **v1.0 Codé & Intégré** | Sobriété logicielle, échelle de décision YAGNI et anti-bloat |
+| **ArcIA Graphify** | `scripts/arcia_graphify.py` | Tool/Skill | **v0.2 Codé & Vérifié (3/3)** | Cartographie AST locale déterministe et GraphRAG (0 token) |
+| **Public-APIs** | `skills/public-apis` | Référentiel | **Cadré (Veille)** | Guide de qualification et sécurisation Presidio/NetworkPolicy |
 
 
 ---

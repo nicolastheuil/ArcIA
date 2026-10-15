@@ -94,6 +94,7 @@ Pour approfondir chaque brique :
 - [Portail Collaborateur Open-WebUI & SSO Entra ID](guides/portail-webui-entraid.md)
 - [Intégration Microsoft Teams](guides/integration-teams.md)
 - [Catalogue de Compétences Partagées (Skills)](guides/skills.md)
+- [Outillage Agentique & Sobriété (Ponytail, Graphify, Public-APIs)](guides/outillage-builder.md)
 - [Moteur de Déploiement Universel Kubernetes](guides/deploiement-universel.md)
 - [Infrastructure K3s & Exploitation](guides/infrastructure-k3s.md)
 - [Suivi d'Exploitation & Handoff Opérationnel](etat-reprise.md)

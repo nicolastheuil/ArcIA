@@ -43,9 +43,8 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | L0-07 | Routes à chaque connexion VPN et conflits | À développer avant activation VPN ; aucun inventaire futur exhaustif |
 | L1 | Registre/RBAC, coffres individuels, collecte/rapports en lecture | Après frontières lot 0 |
 | L2 | Plans immuables, approbations Teams, capacités uniques/réconciliation | Après L1 |
-| L3 | Catalogue, Docling/OCR, embeddings locaux, recherche hybride/ACL/citations | Hybride + multi-vecteur, PDF textuels/API/schémas, RLS/citations et MCP déployés/vérifiés synthétiquement ; OCR, ColPali, collecte/import dédié, file durable et benchmark corpus large restants |
 | L4 | Fencing/panne de nœud, cinq missions, deuxième ingénieur/rebuild/SBOM | Gate de release |
-| L5 | Réduction du contexte et autres options | RTK borné et Headroom sur lectures JSON qualifiés ; proxy/mémoire Headroom écartés. Graphify/Ponytail différés ; routage suivi sous ROUTE |
+| L5 | Réduction du contexte et outillage agentique | RTK borné, Headroom JSON, Ponytail (YAGNI/Decision Ladder), Graphify AST (`scripts/arcia_graphify.py`), et cadrage Public-APIs qualifiés ([ADR 0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)). Routage suivi sous ROUTE |
 
 | BOOT-01 | Bootstrap exhaustif et coverage CI | Codé, Audit/Reconcile existants vérifiés ; rebuild neuf restant |
 | MU-01 | Identités, états personnels, connaissance commune et refus croisés | Deux identités locales : 200 contrôles réussis, dont 90 d'isolation/corpus et 55 sondes d'outillage par runtime ; SSO complet, groupes et provisioning général restants |
