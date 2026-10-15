@@ -25,7 +25,7 @@ L'adaptateur est implémenté en Python asynchrone (`aiohttp` + `botbuilder-core
 sequenceDiagram
     participant User as Collaborateur Teams
     participant MS as Azure Bot Service
-    participant Ingress as Ingress Traefik (arcia.arcitek.io)
+    participant Ingress as Ingress Traefik (assistant.example.org)
     participant Adapter as Teams Bot Adapter (:3978)
     participant LiteLLM as LiteLLM Proxy (:4000)
 
@@ -45,7 +45,7 @@ sequenceDiagram
 
 - **Manifeste** : [deploy/manifests/08-teams-bot.yaml](../../deploy/manifests/08-teams-bot.yaml).
 - **Service** : `teams-bot-adapter.arcia.svc:3978`.
-- **Route Ingress Dédiée** : `https://arcia.arcitek.io/api/teams/messages`.
+- **Route Ingress Dédiée** : `https://assistant.example.org/api/teams/messages` (selon votre domaine).
 - **Secrets Requis** :
   - `TEAMS_BOT_APP_ID`
   - `TEAMS_BOT_APP_PASSWORD`

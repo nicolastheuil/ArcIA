@@ -8,7 +8,7 @@ Ce document est le **plan d'exécution unique et autonome** du projet **ArcIA v0
 
 | Paramètre | Valeur Validée | Justification & Détails |
 | :--- | :--- | :--- |
-| **Domaine Public / Ingress** | **`arcia.arcitek.io`** | Traefik (Ingress natif K3s) avec redirection HTTPS et support WebSocket. |
+| **Domaine Public / Ingress** | **`assistant.example.org`** | Traefik (Ingress natif K3s) avec redirection HTTPS et support WebSocket. |
 | **Certificats TLS** | **Cert-Manager (Let's Encrypt)** | Délivrance et renouvellement 100% automatiques via HTTP-01 challenge. |
 | **Stockage Persistant (CSI)** | **VMware vSphere CSI** | StorageClass par défaut du cluster K3s (hébergé sur 3 VMs VMware). |
 | **Passerelle & Routage IA** | **LiteLLM Proxy (`:4000/v1`)** | Standard d'entreprise : gestion du modèle `auto`, failover, et budget. |
@@ -20,7 +20,7 @@ Ce document est le **plan d'exécution unique et autonome** du projet **ArcIA v0
 | **Catalogue de Skills** | **`npx skills` / `SKILL.md`** | Pipeline d'ingestion synchronisant ECC, Superpowers et Vercel sur un volume partagé. |
 | **Portail Web Utilisateur (Grand Public)** | **Open-WebUI (`:8080`)** | Interface ChatGPT/Gemini, SSO Entra ID natif, chat épuré, RAG drag & drop. |
 | **Studio Agentique Web (Avancé)** | **Hermes Native Dashboard (`:9119`)** | Orchestrateur Kanban multi-agents (Triage, Todo, In Progress, Blocked, Done), file de tâches SQLite, dispatcher de sous-agents en temps réel via WebSockets. Accessible à tous les collaborateurs authentifiés. |
-| **Client Lourd Desktop** | **Hermes Desktop (Remote Gateway `:8642`)** | Client natif (Mac/Win/Linux) connecté en WebSocket sur `https://arcia.arcitek.io/gateway` avec streaming de session et Bot Screen (bureau distant Xfce). |
+| **Client Lourd Desktop** | **Hermes Desktop (Remote Gateway `:8642`)** | Client natif (Mac/Win/Linux) connecté en WebSocket sur `https://assistant.example.org/gateway` avec streaming de session et Bot Screen (bureau distant Xfce). |
 | **Authentification Unifiée MS365** | **`oauth2-proxy` + Traefik ForwardAuth** | **Zero-Trust Enterprise Gateway :** Sécurise `/studio` et `/gateway` via le tenant Microsoft Entra ID de l'entreprise. Tous les collaborateurs de l'organisation y ont accès avec leur compte MS365. Supporte sessions Web et jetons Bearer (JWT Entra ID ou Personal Access Token PAT). |
 | **Intégration Microsoft Teams** | **Bot Teams (Bot Framework)** | **Chat rapide en DM 1:1** + **Intervention sur mention `@ArcIA` en canal d'équipe**. |
 | **Gestion des Secrets** | **`secrets/arcia.env`** | Fichier d'environnement unique appliqué en une commande K8s. |
@@ -32,15 +32,15 @@ Ce document est le **plan d'exécution unique et autonome** du projet **ArcIA v0
 ```mermaid
 flowchart TD
     subgraph Clients["Clients & Identité d'Entreprise"]
-        UserBrowser["Navigateur Web Grand Public\n(https://arcia.arcitek.io)"]
+        UserBrowser["Navigateur Web Grand Public\n(https://assistant.example.org)"]
         TeamsClient["Client Microsoft Teams\n(DM 1:1 & Mentions @ArcIA)"]
-        StudioBrowser["Navigateur Web Studio\n(https://arcia.arcitek.io/studio)"]
-        HermesDesktop["Hermes Desktop Client\n(Remote Gateway: https://arcia.arcitek.io/gateway)"]
+        StudioBrowser["Navigateur Web Studio\n(https://assistant.example.org/studio)"]
+        HermesDesktop["Hermes Desktop Client\n(Remote Gateway: https://assistant.example.org/gateway)"]
         EntraID["Microsoft Entra ID / MS365\n(Tenant ID Entreprise, SSO, MFA)"]
     end
 
     subgraph K3sIngress["Entrée Réseau K3s & Authentification Zero-Trust"]
-        IngressPublic["Traefik Ingress Public\n(Certificat Let's Encrypt arcia.arcitek.io)"]
+        IngressPublic["Traefik Ingress Public\n(Certificat Let's Encrypt assistant.example.org)"]
         IngressProtected["Traefik Ingress Studio & Gateway\n(ForwardAuth Middleware)"]
         OAuth2Proxy["oauth2-proxy (:4180)\n- Validation Compte MS365 Collaborateur\n- Support Session Web & Bearer Token / PAT"]
     end
@@ -241,7 +241,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: contact@arcitek.io
+    email: admin@example.org
     privateKeySecretRef:
       name: letsencrypt-prod-key
     solvers:
@@ -393,10 +393,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - arcia.arcitek.io
+    - assistant.example.org
     secretName: arcia-tls-cert
   rules:
-  - host: arcia.arcitek.io
+  - host: assistant.example.org
     http:
       paths:
       - path: /oauth2
@@ -436,10 +436,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - arcia.arcitek.io
+    - assistant.example.org
     secretName: arcia-tls-cert
   rules:
-  - host: arcia.arcitek.io
+  - host: assistant.example.org
     http:
       paths:
       - path: /studio
@@ -796,14 +796,14 @@ spec:
 ### Guide de Connexion du Client Hermes Desktop
 
 1. **Génération du Token d'Accès** :
-   * L'utilisateur se connecte via son navigateur sur `https://arcia.arcitek.io/studio`.
+   * L'utilisateur se connecte via son navigateur sur `https://assistant.example.org/studio`.
    * L'authentification SSO Microsoft 365 valide son appartenance à l'organisation.
    * Dans ses paramètres de profil, il récupère son **Personal Access Token (PAT)** ou le token de passerelle d'entreprise.
 2. **Configuration dans l'application Hermes Desktop** :
    * Ouvrir l'application **Hermes Desktop** sur son poste de travail.
    * Aller dans **Settings → Gateways → Add Gateway** :
      * **Name** : `ArcIA Enterprise Cluster`
-     * **URL** : `https://arcia.arcitek.io/gateway`
+     * **URL** : `https://assistant.example.org/gateway`
      * **Auth Token / Key** : Coller le jeton (PAT)
    * Le client établit immédiatement la liaison WebSocket sécurisée. L'utilisateur dispose de ses onglets de session, de l'observabilité des sous-agents en direct et de la fonction **Bot Screen** (prise de contrôle graphique de l'agent si besoin).
 
@@ -821,7 +821,7 @@ kubectl get ingress -n arcia
 # 2. Test Presidio DLP (Caviardage Secrets & PII)
 curl -s -X POST http://presidio-dlp.arcia.svc:8080/sanitize \
   -H "Content-Type: application/json" \
-  -d '{"text": "Bonjour, mon mot de passe est SecretPass123 et mon email est nicolas@arcitek.io"}'
+  -d '{"text": "Bonjour, mon mot de passe est SecretPass123 et mon email est user@example.com"}'
 # Vérifier la présence de [SECRET_REMOVED] et [ARCIA_EMAIL_...]
 
 # 3. Test du Routage LiteLLM via OpenRouter en mode 'auto'
@@ -831,12 +831,12 @@ curl -s -X POST http://litellm-proxy.arcia.svc:4000/v1/chat/completions \
 
 # 4. Test de protection Entra ID sur /studio et /gateway
 # Sans authentification : doit renvoyer HTTP 302 vers login.microsoftonline.com
-curl -Iv https://arcia.arcitek.io/studio
+curl -Iv https://assistant.example.org/studio
 # Avec Bearer Token valide : doit répondre HTTP 200
-curl -Iv https://arcia.arcitek.io/gateway -H "Authorization: Bearer VOTRE_TOKEN_PAT"
+curl -Iv https://assistant.example.org/gateway -H "Authorization: Bearer VOTRE_TOKEN_PAT"
 
 # 5. Test d'accès Web public sécurisé OpenWebUI
-curl -Iv https://arcia.arcitek.io
+curl -Iv https://assistant.example.org
 # Vérifier que le certificat SSL Let's Encrypt est valide (HTTP 200)
 
 # 6. Validation de bout en bout Teams

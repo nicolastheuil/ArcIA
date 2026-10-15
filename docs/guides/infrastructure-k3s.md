@@ -6,10 +6,10 @@ ArcIA est déployé sur un cluster Kubernetes K3s haute disponibilité hébergé
 
 ## 1. Topologie du Cluster
 
-- **Nœuds du Cluster** :
-  - `arcia-k3s-01` (`172.31.210.61`) : Control-plane / etcd / worker
-  - `arcia-k3s-02` (`172.31.210.62`) : Control-plane / etcd / worker
-  - `arcia-k3s-03` (`172.31.210.63`) : Control-plane / etcd / worker
+- **Nœuds du Cluster (Exemple)** :
+  - `node-01` (`192.168.1.11`) : Control-plane / etcd / worker
+  - `node-02` (`192.168.1.12`) : Control-plane / etcd / worker
+  - `node-03` (`192.168.1.13`) : Control-plane / etcd / worker
 - **Namespace Dédié** : `arcia` (Namespace applicatif unifié pour tous les services).
 - **Stockage Persistant** :
   - StorageClass par défaut : `arcia-vsphere` (VMware Cloud Provider Interface / Container Storage Interface).
@@ -29,7 +29,7 @@ ArcIA est déployé sur un cluster Kubernetes K3s haute disponibilité hébergé
 2. **Cert-Manager & Let's Encrypt** :
    - Version : `v1.16.1`.
    - `ClusterIssuer` : `letsencrypt-prod` ([deploy/manifests/01-cert-manager-issuer.yaml](../../deploy/manifests/01-cert-manager-issuer.yaml)).
-   - Challenge ACME HTTP-01 automatique dès que le nom DNS public `arcia.arcitek.io` pointe sur le cluster.
+   - Challenge ACME HTTP-01 automatique dès que le nom DNS public configuré (ex: `assistant.example.org`) pointe sur le cluster.
 
 ---
 

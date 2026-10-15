@@ -34,7 +34,7 @@ async def call_litellm(user_message: str, user_name: str = "Collaborateur") -> s
                     {
                         "role": "system",
                         "content": (
-                            "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise d'Arcitek. "
+                            "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. "
                             "Réponds de façon synthétique, professionnelle et structurée en Markdown."
                         )
                     },

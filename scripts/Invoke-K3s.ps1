@@ -10,7 +10,7 @@ param(
     [switch]$RawShell,
 
     [Parameter(Mandatory=$false)]
-    [string]$Node = "172.31.210.61"
+    [string]$Node = $(if ($env:ARCIA_K3S_NODE) { $env:ARCIA_K3S_NODE } else { "127.0.0.1" })
 )
 
 $ErrorActionPreference = 'Stop'

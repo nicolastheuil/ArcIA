@@ -28,7 +28,7 @@ Déployé via [deploy/manifests/03-presidio.yaml](../../deploy/manifests/03-pres
 - **Service** : `presidio-dlp.arcia.svc:8080`
 - **Route `/sanitize`** :
   - **Méthode** : `POST`
-  - **Payload** : `{"text": "Mon mot de passe est SecretPass123 et mon email nicolas@arcitek.io"}`
+  - **Payload** : `{"text": "Mon mot de passe est SecretPass123 et mon email collaborateur@example.org"}`
   - **Réponse** :
     ```json
     {

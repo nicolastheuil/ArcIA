@@ -5,7 +5,7 @@
 ## Livraison et limites
 
 Demande : une annexe à remettre à l'administrateur Microsoft, et une
-configuration YAML non confidentielle dans le dépôt arcia-arcitek.
+configuration YAML non confidentielle dans le dépôt du tenant.
 
 Annexe : `docs/annexes/integration-microsoft365.md`, titre **Intégration
 Microsoft365**. Sources Microsoft officielles consultées le 13 octobre 2026 ;
@@ -34,7 +34,7 @@ Les identités, données et volumes existants ne sont pas modifiés.
 - Test Bootstrap PowerShell réussi, incluant le refus d'un contrat M365 activé.
 - Bootstrap-Harness Plan Fresh exécuté, sans accès cible ; contrat M365 visible.
 - validate_sources exécuté sous Windows : YAML/schémas, manifests et locks OK.
-- Plan du YAML arcia-arcitek exécuté : 54 éléments administratifs manquants,
+- Plan du YAML du tenant exécuté : 54 éléments administratifs manquants,
   runtime et tenant_contacted faux, aucun secret résolu.
 - Suite Windows générale avant ajout du neuvième test : 159 tests, 151 réussis,
   7 ignorés (SDK VMware/ISO/OpenSSL absents de cet interpréteur), 1 erreur dans

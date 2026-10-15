@@ -39,7 +39,7 @@ flowchart TD
         HermesDesk["Hermes Desktop<br/>(Power User / Dev)"]
     end
 
-    subgraph Ingress ["🌐 Périmètre d'Ingress HTTPS (arcia.arcitek.io)"]
+    subgraph Ingress ["🌐 Périmètre d'Ingress HTTPS (assistant.example.org)"]
         Traefik["Traefik Controller + Cert-Manager TLS"]
         AuthMiddleware["ForwardAuth Middleware (oauth2-proxy)"]
     end
@@ -153,7 +153,7 @@ Pour la liste complète des procédures, consultez le [Runbook d'Exploitation](d
 
 ## 📄 Licence & Mentions Légales
 
-Propriété exclusive d'Arcitek. Développé pour la plateforme d'entreprise ArcIA.
+Développé pour la plateforme d'entreprise souveraine ArcIA.
 Moteur d'agents basé sur [Hermes Agent](https://github.com/NousResearch/Hermes-Agent) (NousResearch).
 DLP propulsé par [Microsoft Presidio](https://github.com/microsoft/presidio).
 Passerelle d'inférence propulsée par [LiteLLM](https://github.com/BerriAI/litellm).

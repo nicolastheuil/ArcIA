@@ -26,7 +26,7 @@ flowchart TD
         HermesDesk["Hermes Desktop<br/>(Power User / Dev)"]
     end
 
-    subgraph IngressLayer ["🌐 Ingress & Sécurité Périmétrique (arcia.arcitek.io)"]
+    subgraph IngressLayer ["🌐 Ingress & Sécurité Périmétrique (assistant.example.org)"]
         Traefik["Traefik Ingress Controller<br/>(HTTPS / Let's Encrypt)"]
         ForwardAuth["ForwardAuth Middleware<br/>(OAuth2-Proxy / Entra ID)"]
     end

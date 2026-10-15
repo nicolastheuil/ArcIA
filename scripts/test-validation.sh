@@ -12,7 +12,7 @@ echo -e "\n[2/6] Test Presidio DLP Sanitization :"
 PRESIDIO_IP=$(sudo /usr/local/bin/k3s kubectl get svc presidio-dlp -n arcia -o jsonpath='{.spec.clusterIP}')
 PRESIDIO_RES=$(curl -s -X POST "http://${PRESIDIO_IP}:8080/sanitize" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Bonjour, mon mot de passe est SecretPass123 et mon email est nicolas@arcitek.io"}')
+  -d '{"text": "Bonjour, mon mot de passe est SecretPass123 et mon email est user@example.com"}')
 echo "Réponse Presidio : $PRESIDIO_RES"
 
 if echo "$PRESIDIO_RES" | grep -q "sanitized_text"; then

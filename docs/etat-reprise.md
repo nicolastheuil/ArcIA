@@ -1,7 +1,7 @@
 # État de reprise d’ArcIA — 15 octobre 2026 (v0.2 Transformation)
 
 **Unique handoff courant.** L'ancien état v0.1 a été archivé sur la branche `archive/v0.1-legacy` et figé sous le tag `v0.1-legacy-archive`.
-La cible d'exécution actuelle est le socle unifié et épuré **ArcIA v0.2**, déployé et vérifié sur le cluster K3s VMware 3 nœuds (`172.31.210.61`, `172.31.210.62`, `172.31.210.63`).
+La cible d'exécution actuelle est le socle unifié et épuré **ArcIA v0.2**, déployé et vérifié sur le cluster K3s 3 nœuds (`node-01`, `node-02`, `node-03`).
 
 ---
 
@@ -16,8 +16,8 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 
 2. **Fondations Ingress, TLS & Sécurité** :
    - Traefik déployé en DaemonSet sur les 3 nœuds avec liaison directe `hostPort` sur les ports **80** et **443**.
-   - Restauration et injection du certificat Let's Encrypt production officiel (émis pour `arcia.arcitek.io` et `arcia-teams.arcitek.io`, valide jusqu'en janvier 2027) dans le secret Kubernetes `arcia-tls-cert`.
-   - Ingress unifié (`arcia-public-ingress` et `arcia-studio-ingress`) opérationnel en HTTPS direct avec cadenas vert validé à travers le NAT du pare-feu (`82.210.11.39`).
+   - Restauration et injection du certificat Let's Encrypt production officiel (émis pour les domaines du tenant, ex: `assistant.example.org`) dans le secret Kubernetes `arcia-tls-cert`.
+   - Ingress unifié (`arcia-public-ingress` et `arcia-studio-ingress`) opérationnel en HTTPS direct avec cadenas vert validé à travers le NAT du pare-feu d'entreprise.
    - Middleware Traefik ForwardAuth préparé pour `oauth2-proxy` et Microsoft Entra ID.
 
 3. **Passerelle DLP & Confidentialité (Presidio)** :
@@ -102,10 +102,10 @@ Pour finaliser l'activation en production, compléter les valeurs manquantes dan
 3. **Identifiants Microsoft Teams Bot Framework** :
    - `TEAMS_BOT_APP_ID`
    - `TEAMS_BOT_APP_PASSWORD`
-   - Configurer l'endpoint de messagerie dans Azure Bot Service vers `https://arcia.arcitek.io/api/teams/messages`.
+   - Configurer l'endpoint de messagerie dans Azure Bot Service vers `https://assistant.example.org/api/teams/messages` (remplacer par votre nom de domaine d'instance).
 
 4. **Enregistrement DNS Public** :
-   - Créer l'enregistrement DNS de type A pour `arcia.arcitek.io` pointant vers l'adresse IP publique / VIP du cluster (actuellement `cm-acme-http-solver` attend la résolution pour finaliser le certificat SSL Let's Encrypt).
+   - Créer l'enregistrement DNS de type A pour votre domaine (ex: `assistant.example.org`) pointant vers l'adresse IP publique / VIP du cluster (actuellement `cm-acme-http-solver` attend la résolution pour finaliser le certificat SSL Let's Encrypt).
 
 ---
 

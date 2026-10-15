@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - arcia.arcitek.io
+    - assistant.example.org
     secretName: arcia-tls-cert
   rules:
-  - host: arcia.arcitek.io
+  - host: assistant.example.org
     http:
       paths:
       - path: /oauth2
@@ -52,10 +52,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - arcia.arcitek.io
+    - assistant.example.org
     secretName: arcia-tls-cert
   rules:
-  - host: arcia.arcitek.io
+  - host: assistant.example.org
     http:
       paths:
       - path: /studio

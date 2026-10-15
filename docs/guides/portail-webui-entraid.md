@@ -1,6 +1,6 @@
 # Portail Collaborateur Open-WebUI & SSO Microsoft Entra ID
 
-Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs d'Arcitek. Elle offre une expérience moderne et ergonomique pour dialoguer avec les agents et les modèles d'entreprise.
+Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation. Elle offre une expérience moderne et ergonomique pour dialoguer avec les agents et les modèles d'entreprise.
 
 ---
 
@@ -25,5 +25,5 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 
 - **Manifeste** : [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml).
 - **Service** : `open-webui.arcia.svc:8080`.
-- **Exposition Ingress** : Racine du domaine public `https://arcia.arcitek.io/`.
+- **Exposition Ingress** : Racine du domaine public `https://assistant.example.org/` (ou votre domaine).
 - **Sécurité Périmétrique** : Traefik ForwardAuth via `oauth2-proxy` pour valider les tokens Microsoft Entra ID.

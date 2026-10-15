@@ -43,6 +43,6 @@ Pour connecter un poste de travail avec Hermes Desktop :
 1. Ouvrir **Hermes Desktop**.
 2. Naviguer vers **Settings → Gateways → Add Gateway** :
    - **Name** : `ArcIA Enterprise Cluster`
-   - **URL** : `https://arcia.arcitek.io/gateway`
+   - **URL** : `https://assistant.example.org/gateway` (ou votre domaine d'instance)
    - **Auth Token** : Votre Personal Access Token (PAT) d'entreprise.
 3. La liaison WebSocket chiffrée s'établit instantanément.

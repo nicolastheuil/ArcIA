@@ -606,7 +606,7 @@ double publication d'une synthèse.
 
 ## 11. YAML d'instance et configuration assistée
 
-Fichier de référence : `instance/microsoft365.yaml` dans **arcia-arcitek**.
+Fichier de référence : `instance/microsoft365.yaml` dans votre dépôt d'instance privé (ex: `ArcIA-tenant-<Organisation>`).
 Gabarit générique : [microsoft365.yaml](../../examples/microsoft365/microsoft365.yaml) ;
 schéma : [microsoft365.schema.json](../../schemas/microsoft365.schema.json).
 
@@ -633,9 +633,9 @@ Commandes **existantes**, hors ligne, dans le checkout du harness avec les
 dépendances de validation déjà fixées par `requirements-validation.txt` :
 
 ```powershell
-python scripts/microsoft365_config.py validate --config ../arcia-arcitek/instance/microsoft365.yaml
-python scripts/microsoft365_config.py plan --config ../arcia-arcitek/instance/microsoft365.yaml
-python scripts/microsoft365_config.py validate --require-ready --config ../arcia-arcitek/instance/microsoft365.yaml
+python scripts/microsoft365_config.py validate --config ../ArcIA-tenant-<Organisation>/instance/microsoft365.yaml
+python scripts/microsoft365_config.py plan --config ../ArcIA-tenant-<Organisation>/instance/microsoft365.yaml
+python scripts/microsoft365_config.py validate --require-ready --config ../ArcIA-tenant-<Organisation>/instance/microsoft365.yaml
 ```
 
 `validate` vérifie le contrat de préparation ; `--require-ready` refuse les
