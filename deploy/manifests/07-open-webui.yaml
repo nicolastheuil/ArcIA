@@ -31,10 +31,28 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: WEBUI_NAME
+          value: "ArcIA"
+        - name: ENABLE_PERSISTENT_CONFIG
+          value: "false"
+        - name: OPENAI_API_BASE_URLS
+          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
+        - name: OPENAI_API_KEYS
+          value: "sk-arcia;admin"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
+        - name: OPENAI_API_KEY
+          value: "sk-arcia"
+        - name: ENABLE_OLLAMA_API
+          value: "false"
+        - name: ENABLE_OPENAI_API
+          value: "true"
         - name: DEFAULT_MODELS
           value: "auto"
+        - name: TASK_MODEL
+          value: "auto"
+        - name: ENABLE_SUBAGENTS
+          value: "true"
         - name: ENABLE_OAUTH_SIGNUP
           value: "true"
         - name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL
