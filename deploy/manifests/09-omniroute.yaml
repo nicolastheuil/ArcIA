@@ -33,12 +33,7 @@ spec:
       containers:
       - name: omniroute
         image: node:22-alpine
-        command:
-        - /bin/sh
-        - -c
-        - |
-          npm install -g omniroute@3.8.51
-          exec omniroute --port 20128 --data-dir /data
+        command: ["/bin/sh", "-c", "apk add --no-cache lsof && if [ ! -f /data/node_modules/omniroute/bin/omniroute.mjs ]; then cd /data && npm install omniroute@3.8.51; fi; cd /data && exec node node_modules/omniroute/bin/omniroute.mjs --port 20128 --no-open --log"]
         ports:
         - containerPort: 20128
           name: api
@@ -47,6 +42,10 @@ spec:
         env:
         - name: NODE_ENV
           value: "production"
+        - name: PORT
+          value: "20128"
+        - name: HOSTNAME
+          value: "0.0.0.0"
         volumeMounts:
         - name: data
           mountPath: /data

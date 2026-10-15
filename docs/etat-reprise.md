@@ -53,11 +53,14 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - Routes `/api/teams/messages` et `/health` opérationnelles.
    - Prêt pour les conversations DM 1:1 et les mentions `@ArcIA` en canaux Teams.
 
-9. **OmniRoute v3.8.51 & Déploiement Universel Reproductible** :
-   - Manifeste prêt pour Kubernetes : `deploy/manifests/09-omniroute.yaml` (PVC 5Gi, Deployment Node 22, Service ports 20128 API et 20129 Admin).
-   - Support complet dans `scripts/deploy.py`, `arcia.config.yaml.example` et `arcia.env.example` (activable par simple bascule `omniroute.enabled: true`).
-   - Documentation exhaustive : `docs/guides/omniroute.md`.
-   - Articulation avec LiteLLM : LiteLLM Proxy (:4000) reste la passerelle centrale standard avec coupure Presidio DLP ; OmniRoute est disponible comme routeur alternatif ou en amont de LiteLLM.
+9. **OmniRoute v3.8.51 & Outillage Agentique Avancé Qualifiés en Direct** :
+   - **OmniRoute v3.8.51** : Déployé sur PVC 5Gi (`omniroute-data-pvc`), pod `1/1 Running` sans redémarrage, endpoints HTTP API (:20128) et Admin Dashboard (:20129) validés avec redirection 307 vers `/dashboard`.
+   - **RTK v0.51.0 CLI** : Qualifié et opérationnel dans le runtime Hermes (`deployment/hermes-agent`) avec plugin de tokenmaxing ArcIA.
+   - **Headroom AI v0.41.0** : Installé et qualifié dans l'environnement Python 3.14 d'Hermes pour l'optimisation de contexte.
+   - **LintLang v0.8.2** : Installé et qualifié pour la validation et le linting sémantique des prompts.
+   - **Skills CLI v1.7.2** : Installé et qualifié au chemin `/usr/local/bin/skills`.
+   - **Catalogues de Compétences Partagés** : 313 skills ECC (`affaan-m/ECC`), 15 skills Superpowers (`obra/superpowers`), compétences Vercel AI SDK et Anthropics montés sur `/opt/shared-skills`.
+   - **Context7** : Intégration remote MCP validée via le manifeste approuvé sous `/opt/hermes/optional-mcps/context7/manifest.yaml` avec isolation DLP Presidio.
    - Intégration CI/CD : Tests unitaires (`tests/`), validation des manifests, vérification de barrière de confidentialité (zéro fuite de données privées) exécutés et validés à 100% sur GitHub Actions.
 
 ---
@@ -73,7 +76,13 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 | **Teams Bot** | `teams-bot-adapter` | 3978 | **1/1 Running** | Passerelle Microsoft Teams (DM et canaux) |
 | **Cert-Manager** | `cert-manager` | - | **3/3 Running** | Gestionnaire ACME / Let's Encrypt automatique |
 | **OAuth2-Proxy** | `oauth2-proxy` | 4180 | *CrashLoop* (Attente clés) | Authentification SSO Microsoft Entra ID (en attente des identifiants réels) |
-| **OmniRoute** | `omniroute` | 20128 / 20129 | **Optionnel (Prêt)** | Routeur multi-fournisseurs & portail LAN v3.8.51 |
+| **OmniRoute** | `omniroute` | 20128 / 20129 | **1/1 Running** | Routeur multi-fournisseurs & portail LAN v3.8.51 (Opérationnel) |
+| **RTK CLI** | `rtk` (in hermes) | CLI | **v0.51.0 Qualifié** | CLI Tokenmaxing et observation de contexte LLM |
+| **Headroom AI** | `headroom-ai` (in hermes) | Lib | **v0.41.0 Qualifié** | Optimisation et compression de contextes dynamiques |
+| **LintLang** | `lintlang` (in hermes) | CLI | **v0.8.2 Qualifié** | Linter sémantique et hygiène de prompt |
+| **Skills CLI** | `skills` (in hermes) | CLI | **v1.7.2 Qualifié** | Découverte et installation de compétences modulaires |
+| **Shared Skills** | `/opt/shared-skills` | Volume | **313 ECC + 15 Superpowers + Vercel** | Catalogues de compétences partagées multi-agents |
+| **Context7 MCP** | `context7` (manifest) | MCP | **Approuvé & Sécurisé** | Documentation à jour via passerelle DLP |
 
 
 ---
