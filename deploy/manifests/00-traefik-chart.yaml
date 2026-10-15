@@ -1,0 +1,29 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  chart: traefik
+  repo: https://traefik.github.io/charts
+  targetNamespace: kube-system
+  forceConflicts: true
+  valuesContent: |-
+    deployment:
+      kind: DaemonSet
+    ports:
+      web:
+        port: 8000
+        expose:
+          default: true
+        exposedPort: 80
+        hostPort: 80
+      websecure:
+        port: 8443
+        expose:
+          default: true
+        exposedPort: 443
+        hostPort: 443
+    service:
+      enabled: true
+      type: ClusterIP
