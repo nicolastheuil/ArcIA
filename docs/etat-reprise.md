@@ -46,7 +46,8 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 7. **Portail Collaborateur Open-WebUI** :
    - Déploiement `open-webui:8080` avec persistance `open-webui-pvc` (20Gi).
    - Raccordement double : LiteLLM Proxy (`litellm-proxy.arcia.svc:4000/v1`) et Hermes Gateway (`hermes-studio.arcia.svc:8642/v1`).
-   - Préconfiguration déclarative : `OPENAI_API_KEYS`, `ENABLE_OLLAMA_API=false`, `ENABLE_SUBAGENTS=true`, `TASK_MODEL=auto`, `WEBUI_NAME=ArcIA` et `ENABLE_PERSISTENT_CONFIG=false`.
+   - Préconfiguration déclarative clean install : `OPENAI_API_KEYS`, `ENABLE_OLLAMA_API=false`, `ENABLE_SUBAGENTS=true`, `ENABLE_DIRECT_CONNECTIONS=true` (BYOK), `TASK_MODEL=auto`, `WEBUI_NAME=ArcIA` et `ENABLE_PERSISTENT_CONFIG=false`.
+   - Modèles disponibles dès la première connexion : `auto`, `claude-3.5-sonnet`, `gpt-4o`, `deepseek-chat`, `hermes-agent`.
    - Santé validée via `/health` (HTTP 200).
 
 8. **Adaptateur Microsoft Teams Bot** :

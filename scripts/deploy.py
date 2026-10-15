@@ -437,19 +437,22 @@ metadata:
     if rc == 0:
         runner.apply_manifest(out)
 
-    # entraid-secret (si SSO actif)
-    if sso_cfg.get("enabled"):
-        rc, out, _ = runner.run([
-            "create", "secret", "generic", "entraid-secret",
-            f"--namespace={namespace}",
-            f"--from-literal=tenant-id={sso_cfg.get('tenant_id', '')}",
-            f"--from-literal=client-id={sso_cfg.get('client_id', '')}",
-            f"--from-literal=client-secret={sso_cfg.get('client_secret', '')}",
-            f"--from-literal=cookie-secret={sso_cfg.get('cookie_secret', '')}",
-            "--dry-run=client", "-o", "yaml"
-        ])
-        if rc == 0:
-            runner.apply_manifest(out)
+    # entraid-secret (si SSO actif ou placeholder sécurisé pour satisfaire les références des pods)
+    sso_tenant = sso_cfg.get("tenant_id", "00000000-0000-0000-0000-000000000000") if sso_cfg.get("enabled") else "00000000-0000-0000-0000-000000000000"
+    sso_client = sso_cfg.get("client_id", "placeholder-client-id") if sso_cfg.get("enabled") else "placeholder-client-id"
+    sso_secret = sso_cfg.get("client_secret", "placeholder-client-secret") if sso_cfg.get("enabled") else "placeholder-client-secret"
+    sso_cookie = sso_cfg.get("cookie_secret", "placeholder-cookie-secret-32-bytes") if sso_cfg.get("enabled") else "placeholder-cookie-secret-32-bytes"
+    rc, out, _ = runner.run([
+        "create", "secret", "generic", "entraid-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=tenant-id={sso_tenant}",
+        f"--from-literal=client-id={sso_client}",
+        f"--from-literal=client-secret={sso_secret}",
+        f"--from-literal=cookie-secret={sso_cookie}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if rc == 0:
+        runner.apply_manifest(out)
 
     # teams-bot-secret (si bot actif)
     if teams_cfg.get("enabled"):

@@ -53,6 +53,8 @@ spec:
           value: "auto"
         - name: ENABLE_SUBAGENTS
           value: "true"
+        - name: ENABLE_DIRECT_CONNECTIONS
+          value: "true"
         - name: ENABLE_OAUTH_SIGNUP
           value: "true"
         - name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL

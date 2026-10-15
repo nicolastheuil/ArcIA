@@ -13,6 +13,22 @@ data:
           api_key: os.environ/OPENROUTER_API_KEY
           fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
       
+      # Modèles Cloud d'Entreprise exposés nativement
+      - model_name: claude-3.5-sonnet
+        litellm_params:
+          model: openrouter/anthropic/claude-3.5-sonnet
+          api_key: os.environ/OPENROUTER_API_KEY
+
+      - model_name: gpt-4o
+        litellm_params:
+          model: openrouter/openai/gpt-4o
+          api_key: os.environ/OPENROUTER_API_KEY
+
+      - model_name: deepseek-chat
+        litellm_params:
+          model: openrouter/deepseek/deepseek-chat
+          api_key: os.environ/OPENROUTER_API_KEY
+
       # Modèle interne d'entreprise souverain (vLLM local)
       - model_name: local-internal
         litellm_params:

@@ -124,7 +124,91 @@ fixtures locales, sans inférence. Configurer puis qualifier les fournisseurs
 réels, leurs budgets et leurs conditions dans l'instance. Les routes internes
 Ollama/vLLM et Teams restent des intégrations distinctes. [État courant](../etat-reprise.md).
 
-## 4. Démarrer l'utilisation d'ArcIA
+## 4. Configuration de la Passerelle LLM d'Entreprise (LiteLLM)
+
+LiteLLM Proxy est le point de passage d'inférence central d'ArcIA. Il expose une API unifiée compatible OpenAI (`/v1`) protégée par le bouclier DLP Presidio.
+
+### Où renseigner les clés d'API d'entreprise ?
+
+1. **Via le fichier de configuration principal (`arcia.config.yaml`)** :
+   ```yaml
+   llm_gateway:
+     # Clé d'API OpenRouter (donne accès à Claude 3.5, GPT-4o, DeepSeek...)
+     openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+     default_model: "openrouter/auto"
+     # [Optionnel] Endpoint vLLM interne si vous disposez d'un serveur GPU on-premise
+     local_vllm_endpoint: "http://vllm-internal.corp.local:8000/v1"
+   ```
+2. **Via le fichier d'environnement protégé (`secrets/arcia.env`)** :
+   ```env
+   OPENROUTER_API_KEY="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+3. **Application automatique** :
+   Lors de l'exécution de `./scripts/Deploy-ArcIA.ps1` ou `./scripts/Apply-Secrets.ps1`, la clé est injectée dans le secret Kubernetes `enterprise-llm-secret`. Elle n'apparaît jamais en clair dans les logs, ni dans Git, ni sur le navigateur des utilisateurs.
+
+### Comment ajouter d'autres fournisseurs Cloud directs ?
+
+Si votre organisation utilise directement Azure OpenAI, OpenAI Entreprise, Anthropic ou AWS Bedrock au lieu d'OpenRouter :
+- Éditer [deploy/manifests/05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) dans la section `model_list`.
+- Exemple pour Azure OpenAI :
+  ```yaml
+  - model_name: gpt-4o-azure
+    litellm_params:
+      model: azure/mon-deploiement-gpt4o
+      api_base: https://mon-instance-azure.openai.azure.com/
+      api_key: os.environ/AZURE_API_KEY
+      api_version: "2024-02-15-preview"
+  ```
+- Exemple pour Anthropic direct :
+  ```yaml
+  - model_name: claude-direct
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+  ```
+Tous les appels sortants vers ces modèles continuent de bénéficier automatiquement du caviardage DLP Presidio.
+
+---
+
+## 5. Démarrer avec Open-WebUI & Gestion des Comptes Utilisateurs
+
+Dès la fin du déploiement (`clean install`), le portail collaborateur Open-WebUI est immédiatement opérationnel sur `https://<public_fqdn>/`.
+
+### Découverte Automatique des Modèles dès la Clean Install
+
+Le manifest `deploy/manifests/07-open-webui.yaml` pré-configure automatiquement :
+- La passerelle LiteLLM (`http://litellm-proxy.arcia.svc:4000/v1`) avec la clé technique d'entreprise `sk-arcia`.
+- Le moteur d'agents Hermes (`http://hermes-studio.arcia.svc:8642/v1`).
+- La désactivation d'Ollama local Docker (`ENABLE_OLLAMA_API=false`).
+- Les modèles d'entreprise : `auto`, `claude-3.5-sonnet`, `gpt-4o`, `deepseek-chat`, et `hermes-agent` apparaissent directement dans le sélecteur dès la première connexion.
+
+### Authentification SSO Utilisateur par OAuth (Microsoft Entra ID)
+
+1. Lorsque `entra_id_sso.enabled: true` est renseigné dans `arcia.config.yaml`, Traefik et `oauth2-proxy` filtrent les accès à l'entrée.
+2. L'utilisateur arrive sur le portail et s'authentifie directement avec son compte Microsoft 365 / Entra ID.
+3. Grâce à `ENABLE_OAUTH_SIGNUP=true` et `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`, son profil utilisateur Open-WebUI est provisionné à la volée, sans création manuelle de mot de passe.
+
+### Comment un utilisateur final peut inclure ses comptes personnels / clés perso (BYOK & OAuth) ?
+
+Deux approches sont offertes selon la politique de gouvernance de votre entreprise :
+
+#### A. Connexions Directes dans Open-WebUI (Recommandé, Activé par Défaut)
+Le harness active nativement `ENABLE_DIRECT_CONNECTIONS=true`. Cela permet à tout collaborateur d'utiliser son propre abonnement ou ses clés d'API personnelles :
+1. Dans Open-WebUI, l'utilisateur clique sur son avatar (en bas à gauche) > **Paramètres (Settings)**.
+2. Aller dans l'onglet **Connexions (Connections)** > section **Connexions directes (Direct connections)**.
+3. L'utilisateur active le commutateur et renseigne son propre endpoint compatible OpenAI et sa clé d'API personnelle (ex: sa clé OpenAI, Anthropic ou OpenRouter personnelle).
+4. **Garantie de Sécurité & Confidentialité** : La clé personnelle de l'utilisateur est stockée **exclusivement dans le stockage local de son navigateur (`localStorage`)**. Elle n'est jamais transmise ni stockée sur les bases de données d'ArcIA. Les requêtes de chat partent directement du navigateur du collaborateur vers son fournisseur.
+
+#### B. Connexions Personnelles OmniRoute (Contrôle Serveur Souverain)
+Si votre organisation active le routeur OmniRoute (`omniroute.enabled: true`) :
+1. L'administrateur attribue à l'utilisateur le rôle `ArcIA.ProviderSelfService` dans l'annuaire d'entreprise.
+2. L'utilisateur se connecte sur `https://<VIP>:20129/personal/` (accès réseau LAN/VPN sécurisé).
+3. Il y associe ses comptes de modèles personnels ou son OAuth tiers de façon étanche et chiffrée côté serveur.
+4. Ses requêtes personnelles sont strictement isolées de celles des autres collaborateurs (ADR 0020).
+
+---
+
+## 6. Démarrer l'utilisation d'ArcIA
 
 Sur un poste utilisateur disposant du DNS privé, ouvrir le domaine HTTPS
 de l'instance ; sur le contrôleur de qualification :
@@ -133,30 +217,19 @@ de l'instance ; sur le contrôleur de qualification :
 ./scripts/Open-ArcIA.ps1
 ```
 
-Se connecter avec le compte `ArcIA.User`, attendre la préparation de l'espace,
-puis envoyer une demande synthétique simple, par exemple « Explique les
-capacités disponibles dans cet espace ». Revenir au portail et vérifier que
-le même compte retrouve son espace. Avec un second compte, vérifier que les
-conversations et documents personnels du premier ne sont pas visibles.
+Se connecter avec son compte d'entreprise, puis envoyer une demande synthétique simple, par exemple « Explique les capacités disponibles dans cet espace ».
+Les conversations et documents personnels d'un utilisateur ne sont jamais visibles par un tiers.
 
 Le RAG et les outils n'affichent que les ressources déjà autorisées. Importer
 les corpus réels dans le dépôt/configuration d'instance après qualification de
 leur ingestion et de leurs ACL. Par défaut, **Presidio précède chaque sortie
 cloud** ; Ollama/vLLM internes suivent une route privée sans Presidio par
-défaut. Un repli cloud impose le filtrage avant export. Ni gratuité ni ZDR
-ne sont des obligations du produit : ce sont des politiques d'instance.
+défaut. Un repli cloud impose le filtrage avant export.
 [RAG](../guides/connaissance-documentaire.md) ·
 [Confidentialité](../guides/confidentialite-cloud.md) ·
 [Recette multi-utilisateur](../guides/multi-utilisateur.md).
 
-Pour un utilisateur standard, le modèle et les replis sont ceux du mode
-intelligent/automatique administré. La connexion d'un fournisseur personnel
-exige le rôle distinct **ArcIA.ProviderSelfService**, une fonction activée par
-l'admin, et une liaison serveur au propriétaire. Aucun rôle fournisseur n'est
-attribué automatiquement par SSO. Le parcours self-service n'est pas encore
-une fonction du portail utilisateur déployé.
-
-## 5. Setup Teams optionnel
+## 7. Setup Teams optionnel
 
 Teams n'est pas requis pour utiliser le portail. L'adaptateur de messages et
 le service d'approbations restent à développer ; préparer Azure ne les rend
@@ -207,7 +280,7 @@ Les URI/permissions exactes et les évolutions du SDK sont à relire dans
 [la procédure Teams](../annexes/integration-microsoft365.md#6-teams--bot-personnel-et-authentification-utilisateur)
 et les sources Microsoft qu'elle référence avant chaque activation.
 
-## 6. Vérifier et exploiter
+## 8. Vérifier et exploiter
 
 ```powershell
 ./scripts/Bootstrap-Harness.ps1 -Mode Apply -Profile Verify
