@@ -1,119 +1,160 @@
-# ArcIA — plateforme IA agentique d’entreprise
+# ArcIA — Plateforme IA Agentique Souveraine d'Entreprise
 
-**ArcIA réunit des agents Hermes, une connaissance documentaire privée et des outils contrôlés dans une plateforme réutilisable.** `ArcIA` contient le code générique, le bootstrap et les procédures d’exploitation. Les usages, corpus, comptes, domaines et connecteurs d’une organisation appartiennent à son dépôt d’instance ; sa configuration sensible reste chiffrée, avec des clés externes.
+[![ArcIA Version](https://img.shields.io/badge/ArcIA-v0.2-blue.svg)](docs/architecture.md)
+[![Cluster Status](https://img.shields.io/badge/Cluster-K3s%20Debian%20HA-success.svg)](docs/guides/infrastructure-k3s.md)
+[![DLP Engine](https://img.shields.io/badge/DLP-Presidio%20Active-green.svg)](docs/guides/confidentialite-presidio.md)
+[![Agent Runtime](https://img.shields.io/badge/Engine-Hermes%20v0.2-purple.svg)](docs/guides/hermes-agent.md)
+[![Teams Integration](https://img.shields.io/badge/Teams-Bot%20Framework-blue.svg)](docs/guides/integration-teams.md)
 
-→ [Quickstart : auth, OmniRoute, première utilisation et Teams](docs/runbooks/quickstart.md) · [Périmètre et principes](docs/guides/plateforme-arcia.md) · [Contrat complet](docs/plan-integration-hermes.md)
+**ArcIA** est la plateforme d'intelligence artificielle agentique d'entreprise conçue pour réconcilier **l'autonomie d'agents d'élite**, la **gouvernance stricte des données** et une **expérience utilisateur unifiée**.
 
-## État du projet
+Elle offre aux collaborateurs une interface de chat web moderne et un bot Microsoft Teams, tout en mettant à disposition des ingénieurs et power users le moteur agentique **Hermes**, un tableau de bord Kanban multi-agents et une passerelle sécurisée pour l'application **Hermes Desktop**.
 
-Le socle est **déployé et partiellement vérifié en qualification**, sur trois VM Debian/K3s dans VMware avec stockage partagé. Les essais documentaires et d’isolation utilisent des fixtures synthétiques. **La release installable reste à qualifier** : reconstruction sur cluster neuf, sauvegarde/restauration complète, panne brutale et fencing sont encore ouverts.
+---
 
-| Domaine | Disponible | Limites principales |
+## 🗺️ Navigation Rapide vers la Documentation
+
+| Domaine / Fonctionnalité | Rôle & Description | Documentation Spécifique |
 |---|---|---|
-| Agents | Hermes, dashboard, mémoire personnelle, délégation et outils | Un seul écrivain par état ; launcher de missions et kill switch à construire |
-| Identité | Keycloak local permanent, administration, portail personnel et SSO optionnel | Login Microsoft constaté sur le pilote ; groupes, restore, HA et recette SSO complète à qualifier |
-| Connaissance | RAG privé, PostgreSQL/pgvector, recherche hybride et reclassement multi-vecteur | Corpus synthétique ; OCR, import général, collecte et benchmark large à compléter |
-| Confidentialité | Presidio avant OmniRoute pour les appels cloud ; abonnements choisis par l’instance | Détection imparfaite ; routes et politiques génériques d’instance à intégrer, dont modèles internes |
-| Routage | OmniRoute sur la VIP, HTTPS domaine/IP, self-service PKCE et routage cloud par propriétaire déployés/vérifiés | Fournisseurs réels à configurer ; routes internes et inférence de bout en bout à qualifier |
-| Outillage | Catalogue local de skills, RTK et Headroom ; outils dans K3s | Context7 externe fermé |
-| Infrastructure | K3s/etcd, CPI/CSI, CNPG, HTTPS et bascule contrôlée | Support des versions, fencing, reprise et renouvellement TLS automatique à terminer |
-| Intégrations | Contrat Microsoft 365 hors ligne et extension par MCP | Bot Teams, Graph métier, coffres, VPN et approbations serveur à développer |
+| 🏗️ **Architecture Globale** | Vue d'ensemble du cluster unifié, flux de requêtes et isolation | 📖 [docs/architecture.md](docs/architecture.md) |
+| 🤖 **Moteur d'Agents Hermes** | Hermes Studio (Kanban 9119), Gateway Desktop (8642) et Tokenmaxing | 📖 [docs/guides/hermes-agent.md](docs/guides/hermes-agent.md) |
+| 🛡️ **Confidentialité & DLP** | Caviardage automatique des secrets, mots de passe et PII (Presidio) | 📖 [docs/guides/confidentialite-presidio.md](docs/guides/confidentialite-presidio.md) |
+| ⚡ **Passerelle d'Inférence** | LiteLLM Proxy, modèle virtuel intelligent `auto`, fallbacks et quotas | 📖 [docs/guides/inference-litellm.md](docs/guides/inference-litellm.md) |
+| 💻 **Portail Collaborateur** | Open-WebUI chat d'entreprise et SSO Microsoft Entra ID | 📖 [docs/guides/portail-webui-entraid.md](docs/guides/portail-webui-entraid.md) |
+| 💬 **Intégration Teams** | Adaptateur Bot Framework, conversations privées et mentions en canaux | 📖 [docs/guides/integration-teams.md](docs/guides/integration-teams.md) |
+| 📚 **Catalogue de Skills** | Montage partagé `/var/data/arcia/shared-skills` et synchronisation | 📖 [docs/guides/skills.md](docs/guides/skills.md) |
+| ☸️ **Infrastructure & K3s** | Cluster 3 nœuds VMware, StorageClass CSI et certificats Let's Encrypt | 📖 [docs/guides/infrastructure-k3s.md](docs/guides/infrastructure-k3s.md) |
+| 🛠️ **Runbook d'Exploitation** | Commandes d'administration, consultation des logs et maintenance | 📖 [docs/runbooks/exploitation.md](docs/runbooks/exploitation.md) |
+| 📋 **Suivi & Handoff** | Journal d'exécution, état de qualification et prochaines étapes | 📖 [docs/etat-reprise.md](docs/etat-reprise.md) |
 
-« Codé », « déployé » et « vérifié » désignent des résultats distincts. Les chiffres et preuves sont datés ; ils ne constituent pas une surveillance en temps réel.
+---
 
-→ [État courant et prochaine reprise](docs/etat-reprise.md) · [Backlog](docs/backlog.md) · [Recette et gates de release](docs/runbooks/recette-fondatrice.md)
-
-## Architecture et parcours d’une demande
+## 🏛️ Architecture Technique v0.2
 
 ```mermaid
-flowchart LR
-  U[Utilisateur navigateur] --> I[HTTPS, Keycloak et portail]
-  I --> H[Hermes : espace personnel]
-  TEAMS[Teams : entrée optionnelle] -.-> BOT[Azure Bot et adaptateur ArcIA : cible]
-  BOT -.-> AUTH[Identité et autorisation serveur]
-  AUTH -.-> H
-  H --> K[Knowledge : MCP et droits documentaires]
-  K --> D[PostgreSQL, index et originaux privés]
-  H --> T[Skills et outils autorisés]
-  H --> ROUTE[Politique de routage : OmniRoute auto administré]
-  ROUTE --> P[Route cloud : Presidio et politique de sortie]
-  P --> R[OmniRoute : clé et pool autorisés]
-  R --> M[Modèles cloud : politique de l'instance]
-  ROUTE -.-> LOCAL[Ollama ou vLLM interne : sans Presidio par défaut]
+flowchart TD
+    subgraph Clients ["👥 Points d'Entrée Utilisateurs"]
+        WebUser["Navigateur Web<br/>(Collaborateur)"]
+        TeamsUser["Microsoft Teams<br/>(DM & Canaux @ArcIA)"]
+        HermesDesk["Hermes Desktop<br/>(Power User / Dev)"]
+    end
+
+    subgraph Ingress ["🌐 Périmètre d'Ingress HTTPS (arcia.arcitek.io)"]
+        Traefik["Traefik Controller + Cert-Manager TLS"]
+        AuthMiddleware["ForwardAuth Middleware (oauth2-proxy)"]
+    end
+
+    subgraph CoreCluster ["☸️ Cluster K3s — Namespace: arcia"]
+        WebUI["Open-WebUI<br/>(:8080 - Portail Chat)"]
+        TeamsBot["Teams Bot Adapter<br/>(:3978 - Bot Framework)"]
+        HermesAgent["Hermes Agent v0.2<br/>Studio (:9119) & Gateway (:8642)"]
+        SkillsShare[("Catalogue Shared Skills<br/>/var/data/arcia/shared-skills")]
+        Presidio["Presidio DLP<br/>(:8080 - Caviardage Secrets & PII)"]
+        LiteLLM["LiteLLM Proxy<br/>(:4000 - Modèle Virtuel 'auto')"]
+    end
+
+    subgraph External ["☁️ Services Cloud & Partenaires"]
+        OpenRouter["OpenRouter API<br/>(Claude 3.5 Sonnet, DeepSeek)"]
+        EntraID["Microsoft Entra ID / M365"]
+        AzureBotSvc["Azure Bot Service"]
+    end
+
+    WebUser -->|HTTPS /| Traefik
+    HermesDesk -->|HTTPS /gateway /studio| Traefik
+    TeamsUser -->|Activité Teams| AzureBotSvc
+    AzureBotSvc -->|POST /api/teams/messages| Traefik
+
+    Traefik --> AuthMiddleware
+    AuthMiddleware -.->|Vérification OIDC| EntraID
+    AuthMiddleware -->|Accès Autorisé /| WebUI
+    AuthMiddleware -->|Accès Autorisé /studio| HermesAgent
+    Traefik -->|Bypass Auth Webhook| TeamsBot
+
+    WebUI -->|Prompt| LiteLLM
+    TeamsBot -->|Prompt| LiteLLM
+    HermesAgent -->|Inférence| LiteLLM
+    SkillsShare -.->|Montage RO| HermesAgent
+
+    LiteLLM -->|Filtrage Pré-Vol| Presidio
+    LiteLLM -->|Prompt Caviardé| OpenRouter
 ```
 
-Les services imposent les droits avant recherche, téléchargement et appel d’outil. Les documents et résultats d’outils sont des données non fiables. Les agents délégués restent dans un périmètre borné. Hermes conserve son état sur un volume exclusif ; PostgreSQL réplique ses données indépendamment du quorum K3s. Les outils applicatifs tournent dans le cluster ; le poste porte le contrôleur d’administration protégé.
+---
 
-Teams constitue une entrée conversationnelle optionnelle par bot personnel : l’adaptateur doit authentifier l’activité et l’utilisateur, puis appliquer ses droits ArcIA avant de joindre son espace Hermes. Le parcours cloud via OmniRoute est déployé ; ses droits, sa page personnelle et le filtrage sont qualifiés sans appel de modèle. L'admin doit configurer les connexions et modèles avant utilisation. Le bot Teams et les routes internes restent à intégrer/qualifier.
+## 📦 Organisation du Répertoire
 
-→ [Architecture réelle et carte des composants](docs/architecture.md) · [Schémas détaillés, présent et cible](docs/schemas-plateforme-hermes.md) · [Point d’entrée Teams et prérequis](docs/annexes/integration-microsoft365.md#6-teams--bot-personnel-et-authentification-utilisateur)
+```
+arcia/
+├── deploy/                     # Manifestes Kubernetes de production
+│   └── manifests/
+│       ├── 01-cert-manager-issuer.yaml  # ClusterIssuer Let's Encrypt automatique
+│       ├── 02-oauth2-proxy.yaml         # Middleware SSO ForwardAuth Microsoft Entra ID
+│       ├── 03-presidio.yaml             # Microservice Presidio DLP
+│       ├── 04-ingress.yaml              # Routes d'Ingress Traefik (public & studio)
+│       ├── 05-litellm.yaml              # Passerelle d'inférence LiteLLM
+│       ├── 06-hermes-agent.yaml         # Moteur Hermes Core, Studio et Gateway
+│       ├── 07-open-webui.yaml           # Portail Web collaborateur
+│       └── 08-teams-bot.yaml            # Adaptateur Microsoft Teams Bot
+├── services/                   # Code source des microservices applicatifs
+│   ├── hermes/                 # Dockerfile custom et plugin ArcIA Tokenmaxing
+│   ├── presidio/               # Service FastAPI d'anonymisation PII & secrets
+│   └── teams/                  # Adaptateur asynchrone Teams Bot Framework
+├── skills/                     # Scripts de gestion des compétences partagées
+│   └── sync-skills.sh          # Synchronisation des catalogues (Anthropic, Vercel, Superpowers)
+├── scripts/                    # Outillage d'exploitation et d'automatisation
+│   ├── Invoke-K3s.ps1          # Wrapper d'exécution distant sécurisé sur le cluster
+│   ├── Apply-Secrets.ps1       # Injection chiffrée des secrets Kubernetes (PowerShell)
+│   ├── apply-secrets.sh        # Injection chiffrée des secrets Kubernetes (Bash)
+│   └── test-validation.sh      # Suite de validation automatisée (6/6 tests)
+├── secrets/                    # Gestion des variables d'environnement et secrets
+│   ├── arcia.env.template      # Gabarit officiel de configuration
+│   └── arcia.env               # Fichier de secrets réels (strictement ignoré par Git)
+└── docs/                       # Documentation exhaustive du projet
+    ├── architecture.md         # Spécification détaillée de l'architecture
+    ├── etat-reprise.md         # Journal d'exploitation et handoff unique
+    ├── guides/                 # Guides techniques par composant
+    └── runbooks/               # Procédures opérationnelles et d'urgence
+```
 
-## Utilisateurs, espaces et partage
+---
 
-Les comptes locaux Keycloak sont permanents. `/admin/users` administre les utilisateurs, `/account` leur compte et `/portal/` attribue un espace vide au premier login autorisé par `ArcIA.User`. L’identité stable est `(issuer, subject)` ; conversations, état, outils et connexions restent personnels. Le pool est borné : huit places par défaut dans le harness, configuration distincte dans chaque instance. Une suppression de compte ne réaffecte pas automatiquement ses volumes.
+## 🚀 Commandes d'Exploitation Essentielles
 
-Le RAG permet la lecture commune et personnelle avec contrôle serveur. Les ACL dynamiques de groupes restent à développer. Entra ID et les autres SSO s’ajoutent par brokering ; les comptes locaux restent disponibles.
-
-→ [Comptes, portail et SSO](docs/guides/identite-utilisateurs.md) · [Partage et cloisonnement](docs/guides/plateforme-arcia.md#partage-et-cloisonnement) · [Recette multi-utilisateur](docs/guides/multi-utilisateur.md)
-
-## Connaissance documentaire et connecteurs
-
-L’ingestion locale conserve les originaux, empreintes, versions, provenance et périmètres. PDF textuels, texte/Markdown, OpenAPI, JSON Schema et schémas éditables alimentent la recherche. PostgreSQL full-text et vecteurs E5 produisent les candidats ; RRF puis MaxSim/mLateOn les classent. La réponse restitue les extraits autorisés avec leurs références. OCR et compréhension visuelle avancée restent différés.
-
-Les MCP consultent des sources vivantes ou exposent des outils bornés ; le RAG indexe un corpus sélectionné. Chaque nouveau connecteur fixe version, destinations, outils, identité protégée et recette. Microsoft 365 dispose d’un contrat d’instance et d’une annexe administrateur ; ses services métier restent à construire.
-
-→ [Formats, ingestion, recherche et API](docs/guides/connaissance-documentaire.md) · [Guide des connecteurs MCP](docs/guides/connecteurs-mcp.md) · [Annexe Microsoft 365](docs/annexes/integration-microsoft365.md)
-
-## Modèles, confidentialité et sécurité
-
-**Par défaut, tous les appels aux modèles cloud passent par Presidio**, puis par un relais authentifié vers le fournisseur autorisé. Chaque instance choisit ses modèles, fournisseurs, budgets et exigences de ZDR, collecte et résidence ; gratuité et ZDR ne sont pas des invariants du harness. Une route Ollama ou vLLM hébergée dans l’entreprise ne passe pas par Presidio par défaut ; elle conserve les contrôles d’identité, de droits et de destination. Un repli vers le cloud repasse par Presidio.
-
-**OmniRoute est le routeur par défaut.** Un utilisateur standard suit toujours le mode intelligent/automatique défini par l'admin (`auto/smart` par défaut) et le pool d'entreprise autorisé. L'admin peut connecter des abonnements/API d'entreprise. Une connexion et un override personnels exigent le rôle distinct **ArcIA.ProviderSelfService**, une activation par instance et un contrôle serveur du propriétaire. Le dashboard de configuration est réservé aux admins sur le **LAN HTTPS, port 20129**, sans publication publique. Les utilisateurs autorisés saisissent leurs clés dans `/personal/`, sur le même portail privé. Le pool et les modèles restent administrés ; aucune connexion n'est activée implicitement.
-
-La recette historique du pilote a utilisé OpenRouter gratuit, ZDR et collecte interdite. Son relais reste distinct du parcours générique OmniRoute. Ce choix reste propre à son instance. Hermes ne reçoit aucune clé fournisseur, Internet général ni DNS libre. RTK et Headroom réduisent le contexte ; la confidentialité repose sur les contrôles dédiés.
-
-DPAPI/ACL protège les entrées administratives du poste. Secrets, kubeconfigs et inventaires privés ne sont jamais transmis au modèle. Les actions externes sensibles exigent un plan et une approbation serveur ; l’intégration Teams correspondante reste à implémenter. La réplication et le stockage partagé doivent être complétés par des sauvegardes cohérentes.
-
-→ [OmniRoute : configuration, abonnements et droits](docs/guides/omniroute.md) · [Politique cloud et limites](docs/guides/confidentialite-cloud.md) · [Frontières et preuves de sécurité](docs/guides/securisation-plateforme-donnees.md) · [Politique de sécurité](docs/guides/securite.md)
-
-## Skills, outils et versions
-
-Le catalogue local contient 539 entrées upstream Hermes/ECC/Superpowers, 58 skills Hermes embarquées exposées au chargeur et sept adaptations/orientations ArcIA. Les instructions sont chargées à la demande ; chaque procédure garde ses dépendances et ses limites. Hermes porte la mémoire et la délégation. Vercel skills sert à la découverte/import d’ingénierie ; LintLang analyse les instructions.
-
-RTK raccourcit automatiquement `git log` simple. Headroom réduit les gros résultats JSON de lectures déclarées avec récupération de l’original dans un cache personnel borné. Context7 externe reste fermé jusqu’à qualification de son adaptateur filtrant.
-
-→ [Catalogue et mises à jour](docs/guides/skills.md) · [Tokenmaxing et mesures](docs/guides/tokenmaxing.md) · [Outillage et administration](docs/guides/outillage-builder.md) · [Versions et support](docs/guides/versions-officielles.md) · [Lock](versions.lock.yaml) · [Crédits et licences](THIRD_PARTY_NOTICES.md)
-
-## Installer, exploiter et reprendre
-
-Le [quickstart complet](docs/runbooks/quickstart.md) couvre préparation, authentification locale/SSO, configuration OmniRoute, première connexion et setup Teams optionnel. Le point d’entrée est `scripts/Bootstrap-Harness.ps1`, piloté par les **59 étapes** de `bootstrap/qualification.json`. **Fresh** prépare une cible vierge désignée ; **Reconcile** réapplique la cible possédée en préservant identités et volumes ; **Verify** exécute les recettes ; **Audit** inspecte. Le bootstrap vérifie les résultats de l’exécution courante, journalise sous protection et s’arrête à la première erreur.
+Toutes les actions d'administration s'exécutent depuis le contrôleur local :
 
 ```powershell
-# Découvrir le parcours sans déploiement
-./scripts/Bootstrap-Harness.ps1 -Mode Plan -Profile Fresh -ProvisionVMs
+# 1. Vérifier l'état de tous les composants sur le cluster K3s
+.\scripts\Invoke-K3s.ps1 "get pods -n arcia -o wide"
+
+# 2. Lancer la suite de recette automatique (6/6 tests)
+Get-Content .\scripts\test-validation.sh -Raw | .\scripts\Invoke-K3s.ps1 -RawShell "bash -s"
+
+# 3. Mettre à jour et injecter les secrets Kubernetes
+.\scripts\Apply-Secrets.ps1
+
+# 4. Consulter les journaux en direct d'un composant
+.\scripts\Invoke-K3s.ps1 "logs -l app=hermes-agent -n arcia --tail=50 -f"
+.\scripts\Invoke-K3s.ps1 "logs -l app=litellm-proxy -n arcia --tail=50 -f"
+.\scripts\Invoke-K3s.ps1 "logs -l app=teams-bot-adapter -n arcia --tail=50 -f"
 ```
 
-Avant Apply, enregistrer les accès, endpoints, DNS et secrets dans les programmes locaux protégés. La cible d’exploitation est K3s/VMware ; Compose/Kilo restent des options de laboratoire. Sauvegarde des données et reconstruction du cluster font partie de la recette de plateforme.
+Pour la liste complète des procédures, consultez le [Runbook d'Exploitation](docs/runbooks/exploitation.md).
 
-→ [Quickstart complet, dont Teams](docs/runbooks/quickstart.md) · [Bootstrap : prérequis, modes et reprise](docs/runbooks/bootstrap.md) · [Installation K3s/Codex](docs/installation-k3s-codex.md) · [Exploitation](docs/runbooks/exploitation-qualification.md) · [Certificats](docs/runbooks/certificats-dns.md) · [Sauvegarde/reconstruction](docs/runbooks/sauvegarde-reconstruction.md)
+---
 
-## Carte du dépôt et contribution
+## 🔒 Sécurité, Confidentialité & Secrets
 
-| Chemin | Responsabilité |
-|---|---|
-| [`services/`](services/) | Services identité/portail, routage, connaissance, confidentialité, isolation et skills |
-| [`scripts/`](scripts/) | Contrôleur PowerShell protégé, CLI Python, renderers, workers et sondes |
-| [`bootstrap/`](bootstrap/) | Parcours de qualification et locks de contrats |
-| [`infra/`](infra/) | Ansible Debian/K3s, image et spécification VMware |
-| [`deploy/`](deploy/README.md) | Fondations statiques, manifests fournisseurs et skills embarquées |
-| [`builder/`](builder/role.md) | Rôle d’ingénierie, catalogue, dépendances et licences d’outillage |
-| [`schemas/`](schemas/) / [`examples/`](examples/) | Contrats de configuration et fixtures synthétiques |
-| [`tests/`](tests/) / [`validation/`](validation/) / [`.github/workflows/`](.github/workflows/) | Tests de frontières, validation des sources, liens et schémas, CI |
-| [`docs/`](docs/README.md) | Références, guides, runbooks, ADR, preuves et archives historiques |
-| `versions.lock.yaml` / `requirements*` | Versions, digests et dépendances fixées |
+- **Zero Secret in Git** : Le fichier `secrets/arcia.env` est strictement exclu du versionnement par `.gitignore`. Seul le gabarit `secrets/arcia.env.template` est suivi.
+- **Principe du Moindre Privilège** : Les conteneurs tournent avec des utilisateurs dédiés sans privilège cluster-admin.
+- **Isolation du Stockage** : Un seul écrivain actif par base `state.db` Hermes sur volume dédié VMware CSI.
+- **Protection DLP Active** : Caviardage systématique avant tout départ de prompt vers le cloud public.
 
-Les répertoires locaux `secrets/`, `artifacts/`, `.personal/`, les environnements virtuels et caches sont ignorés par Git. La portabilité personnelle des secrets entre PC est hors projet.
+---
 
-Lire [AGENTS.md](AGENTS.md) avant toute modification. Les livraisons vont sur `main`. Chaque évolution technique actualise bootstrap, locks, couverture, runbooks et état de reprise. Un seul état de reprise est maintenu ; les anciens handoffs restent dans les archives et ne définissent pas la cible courante.
+## 📄 Licence & Mentions Légales
 
-→ [Organisation, règles documentaires et validation locale](docs/organisation.md) · [Index complet de documentation](docs/README.md) · [Décisions ADR](docs/README.md#decisions) · [Travaux restants](docs/backlog.md)
+Propriété exclusive d'Arcitek. Développé pour la plateforme d'entreprise ArcIA.
+Moteur d'agents basé sur [Hermes Agent](https://github.com/NousResearch/Hermes-Agent) (NousResearch).
+DLP propulsé par [Microsoft Presidio](https://github.com/microsoft/presidio).
+Passerelle d'inférence propulsée par [LiteLLM](https://github.com/BerriAI/litellm).
+Portail collaborateur propulsé par [Open-WebUI](https://github.com/open-webui/open-webui).
