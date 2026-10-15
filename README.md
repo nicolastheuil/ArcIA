@@ -23,7 +23,10 @@ Elle offre aux collaborateurs une interface de chat web moderne et un bot Micros
 | ⚡ **Passerelle d'Inférence** | LiteLLM Proxy, modèle virtuel intelligent `auto`, fallbacks et quotas | 📖 [docs/guides/inference-litellm.md](docs/guides/inference-litellm.md) |
 | 💻 **Portail Collaborateur** | Open-WebUI chat d'entreprise et SSO Microsoft Entra ID | 📖 [docs/guides/portail-webui-entraid.md](docs/guides/portail-webui-entraid.md) |
 | 💬 **Intégration Teams** | Adaptateur Bot Framework, conversations privées et mentions en canaux | 📖 [docs/guides/integration-teams.md](docs/guides/integration-teams.md) |
-| 📚 **Catalogue de Skills** | Montage partagé `/var/data/arcia/shared-skills` et synchronisation | 📖 [docs/guides/skills.md](docs/guides/skills.md) |
+| 🔀 **Routeur OmniRoute** | Routeur multi-fournisseurs avec dashboard d'administration LAN v3.8.51 | 📖 [docs/guides/omniroute.md](docs/guides/omniroute.md) |
+| 🗜️ **Tokenmaxing & Optimisation** | RTK CLI, Headroom AI et LintLang pour la réduction de contexte et l'hygiène de prompt | 📖 [docs/guides/tokenmaxing.md](docs/guides/tokenmaxing.md) |
+| 📚 **Catalogues de Skills** | Montage partagé multi-agents : ECC (313 skills), Superpowers (15), Vercel & Anthropics | 📖 [docs/guides/skills.md](docs/guides/skills.md) |
+| 🧰 **Outillage Agentique & MCP** | Skills CLI, LintLang, Context7 MCP, outillage interne et gestion des dépendances | 📖 [docs/guides/outillage-builder.md](docs/guides/outillage-builder.md) |
 | ☸️ **Infrastructure & K3s** | Cluster 3 nœuds VMware, StorageClass CSI et certificats Let's Encrypt | 📖 [docs/guides/infrastructure-k3s.md](docs/guides/infrastructure-k3s.md) |
 | 🛠️ **Runbook d'Exploitation** | Commandes d'administration, consultation des logs et maintenance | 📖 [docs/runbooks/exploitation.md](docs/runbooks/exploitation.md) |
 | 📋 **Suivi & Handoff** | Journal d'exécution, état de qualification et prochaines étapes | 📖 [docs/etat-reprise.md](docs/etat-reprise.md) |
@@ -144,7 +147,8 @@ arcia/
 │       ├── 05-litellm.yaml              # Passerelle d'inférence LiteLLM
 │       ├── 06-hermes-agent.yaml         # Moteur Hermes Core, Studio et Gateway
 │       ├── 07-open-webui.yaml           # Portail Web collaborateur
-│       └── 08-teams-bot.yaml            # Adaptateur Microsoft Teams Bot
+│       ├── 08-teams-bot.yaml            # Adaptateur Microsoft Teams Bot
+│       └── 09-omniroute.yaml            # Routeur d'inférence multi-fournisseurs et portail LAN OmniRoute
 ├── services/                   # Code source des microservices applicatifs
 │   ├── hermes/                 # Dockerfile custom et plugin ArcIA Tokenmaxing
 │   ├── presidio/               # Service FastAPI d'anonymisation PII & secrets
