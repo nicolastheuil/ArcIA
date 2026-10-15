@@ -1,0 +1,737 @@
+#!/usr/bin/env python3
+"""
+ArcIA — Déploiement Universel et Reproductible sur Kubernetes
+============================================================
+Ce script lit le fichier de configuration unique 'arcia.config.yaml' (ou 'arcia.env')
+et déploie l'intégralité de la plateforme ArcIA sur n'importe quel cluster Kubernetes.
+Ne requiert aucune dépendance externe (compatible Python 3.8+ standard).
+"""
+
+import os
+import sys
+import re
+import json
+import time
+import argparse
+import subprocess
+from typing import Dict, Any, Optional, List, Tuple
+
+# Support UTF-8 sur Windows PowerShell / CMD
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# Codes couleur ANSI
+C_RESET = "\033[0m"
+C_BOLD = "\033[1m"
+C_RED = "\033[91m"
+C_GREEN = "\033[92m"
+C_YELLOW = "\033[93m"
+C_CYAN = "\033[96m"
+C_GRAY = "\033[90m"
+
+def log_info(msg: str):
+    print(f"{C_CYAN}[INFO]{C_RESET} {msg}")
+
+def log_ok(msg: str):
+    print(f"{C_GREEN}[OK]{C_RESET} {msg}")
+
+def log_warn(msg: str):
+    print(f"{C_YELLOW}[WARN]{C_RESET} {msg}")
+
+def log_err(msg: str):
+    print(f"{C_RED}[ERROR]{C_RESET} {msg}")
+
+def log_step(step: int, total: int, msg: str):
+    print(f"\n{C_BOLD}{C_CYAN}[{step}/{total}]{C_RESET} {C_BOLD}{msg}{C_RESET}")
+
+# -----------------------------------------------------------------------------
+# Parser YAML Léger & Autonome (Standard Library Only)
+# -----------------------------------------------------------------------------
+def parse_yaml_or_env(file_path: str) -> Dict[str, Any]:
+    """Parse un fichier YAML basique ou un fichier .ENV sans dépendance externe."""
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Fichier de configuration introuvable : {file_path}")
+
+    # Si PyYAML est disponible, on l'utilise en priorité
+    try:
+        import yaml
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                return data
+    except ImportError:
+        pass
+
+    # Parser autonome pour arcia.config.yaml
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Détection si c'est un format .env plat (sans structure YAML indentée)
+    if file_path.endswith(".env") or "ARCIA_PUBLIC_FQDN=" in content:
+        return parse_env_format(content)
+
+    return parse_simple_yaml(content)
+
+def parse_env_format(content: str) -> Dict[str, Any]:
+    """Convertit un format .env plat en dictionnaire structuré ArcIA."""
+    env: Dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        # Nettoyage des commentaires inline (# ...) en dehors des guillemets
+        clean_v = v.strip()
+        if clean_v.startswith('"') and '"' in clean_v[1:]:
+            end_quote = clean_v[1:].find('"') + 1
+            clean_v = clean_v[1:end_quote]
+        elif clean_v.startswith("'") and "'" in clean_v[1:]:
+            end_quote = clean_v[1:].find("'") + 1
+            clean_v = clean_v[1:end_quote]
+        else:
+            clean_v = clean_v.split("#")[0].strip()
+        env[k.strip()] = clean_v.strip()
+
+    return {
+        "kubernetes": {
+            "mode": env.get("ARCIA_K8S_MODE", "local"),
+            "kubeconfig": env.get("ARCIA_KUBE_CONFIG", ""),
+            "context": env.get("ARCIA_KUBE_CONTEXT", ""),
+            "namespace": env.get("ARCIA_NAMESPACE", "arcia"),
+            "storage_class": env.get("ARCIA_STORAGE_CLASS", ""),
+            "remote_ssh": {
+                "node_ip": env.get("ARCIA_K3S_NODE", "127.0.0.1"),
+                "ssh_user": env.get("ARCIA_K3S_USER", "debian"),
+                "ssh_port": int(env.get("ARCIA_K3S_PORT", "22")),
+            }
+        },
+        "network": {
+            "public_fqdn": env.get("ARCIA_PUBLIC_FQDN", "assistant.example.org"),
+            "ingress_class": env.get("ARCIA_INGRESS_CLASS", "traefik"),
+            "tls_mode": env.get("ARCIA_TLS_MODE", "letsencrypt-prod"),
+            "acme_email": env.get("ARCIA_ACME_EMAIL", "admin@example.org"),
+            "tls_secret_name": env.get("ARCIA_TLS_SECRET", "arcia-tls-cert"),
+        },
+        "llm_gateway": {
+            "openrouter_api_key": env.get("OPENROUTER_API_KEY", ""),
+            "default_model": env.get("ARCIA_DEFAULT_MODEL", "openrouter/auto"),
+            "local_vllm_endpoint": env.get("VLLM_INTERNAL_URL", ""),
+        },
+        "hermes": {
+            "admin_password": env.get("HERMES_ADMIN_PASSWORD", "admin"),
+            "api_token": env.get("HERMES_API_SERVER_KEY", "arcia-pat-default"),
+            "storage_size": env.get("HERMES_STORAGE_SIZE", "20Gi"),
+        },
+        "presidio": {
+            "enabled": env.get("PRESIDIO_ENABLED", "true").lower() in ("true", "1", "yes"),
+            "master_key": env.get("PRESIDIO_MASTER_KEY", "arcia-presidio-master-key"),
+        },
+        "open_webui": {
+            "enabled": env.get("OPEN_WEBUI_ENABLED", "true").lower() in ("true", "1", "yes"),
+            "storage_size": env.get("OPEN_WEBUI_STORAGE_SIZE", "20Gi"),
+        },
+        "entra_id_sso": {
+            "enabled": env.get("ENTRA_ID_ENABLED", "false").lower() in ("true", "1", "yes"),
+            "tenant_id": env.get("ENTRA_TENANT_ID", ""),
+            "client_id": env.get("ENTRA_CLIENT_ID", ""),
+            "client_secret": env.get("ENTRA_CLIENT_SECRET", ""),
+            "cookie_secret": env.get("OAUTH2_PROXY_COOKIE_SECRET", ""),
+        },
+        "teams_bot": {
+            "enabled": env.get("TEAMS_BOT_ENABLED", "false").lower() in ("true", "1", "yes"),
+            "app_id": env.get("TEAMS_BOT_APP_ID", ""),
+            "app_password": env.get("TEAMS_BOT_APP_PASSWORD", ""),
+            "system_prompt": env.get("TEAMS_SYSTEM_PROMPT", "Tu es ArcIA, l'assistant d'entreprise."),
+        },
+        "microsoft365_integration": {
+            "enabled": env.get("M365_ENABLED", "false").lower() in ("true", "1", "yes"),
+            "config_file": "instance/microsoft365.yaml",
+        }
+    }
+
+def parse_simple_yaml(text: str) -> Dict[str, Any]:
+    """Parseur récursif simple pour le format arcia.config.yaml."""
+    result: Dict[str, Any] = {}
+    stack: List[Tuple[int, Dict[str, Any]]] = [(0, result)]
+
+    for line_idx, raw_line in enumerate(text.splitlines(), start=1):
+        # Enlever les commentaires inline si non entre guillemets
+        clean = raw_line.split("#", 1)[0].rstrip()
+        if not clean.strip():
+            continue
+
+        indent = len(clean) - len(clean.lstrip())
+        trimmed = clean.strip()
+
+        # Ajuster le niveau de stack selon l'indentation
+        while len(stack) > 1 and indent <= stack[-1][0]:
+            stack.pop()
+
+        current_dict = stack[-1][1]
+
+        if ":" in trimmed:
+            k, v = trimmed.split(":", 1)
+            key = k.strip()
+            val_str = v.strip()
+
+            if not val_str:
+                # C'est une section / dictionnaire parent
+                new_dict: Dict[str, Any] = {}
+                current_dict[key] = new_dict
+                stack.append((indent, new_dict))
+            else:
+                # C'est une valeur scalaire
+                current_dict[key] = cast_scalar(val_str)
+
+    return result
+
+def cast_scalar(val: str) -> Any:
+    val = val.strip()
+    if val in ("null", "None", "~", ""):
+        return ""
+    if val.lower() == "true":
+        return True
+    if val.lower() == "false":
+        return False
+    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+        return val[1:-1]
+    try:
+        if "." in val:
+            return float(val)
+        return int(val)
+    except ValueError:
+        return val
+
+# -----------------------------------------------------------------------------
+# Exécuteur Kubernetes (Local ou Remote SSH)
+# -----------------------------------------------------------------------------
+class K8sRunner:
+    def __init__(self, mode: str, kubeconfig: str = "", context: str = "",
+                 ssh_node: str = "", ssh_user: str = "debian", ssh_port: int = 22):
+        self.mode = mode
+        self.kubeconfig = kubeconfig
+        self.context = context
+        self.ssh_node = ssh_node
+        self.ssh_user = ssh_user
+        self.ssh_port = ssh_port
+
+    def run(self, cmd_args: List[str], stdin_input: Optional[str] = None) -> Tuple[int, str, str]:
+        """Exécute une commande kubectl soit en local, soit via SSH."""
+        if self.mode == "local":
+            base_cmd = ["kubectl"]
+            if self.kubeconfig:
+                base_cmd.extend(["--kubeconfig", self.kubeconfig])
+            if self.context:
+                base_cmd.extend(["--context", self.context])
+            full_cmd = base_cmd + cmd_args
+
+            proc = subprocess.run(
+                full_cmd,
+                input=stdin_input.encode("utf-8") if stdin_input else None,
+                capture_output=True
+            )
+            return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+
+        elif self.mode == "remote-ssh":
+            # Construction de la commande distante
+            # Si K3s est présent, sudo k3s kubectl sinon sudo kubectl
+            quoted_args = " ".join([f"'{arg}'" if " " in arg or "|" in arg or ";" in arg else arg for arg in cmd_args])
+            remote_shell = f"if command -v k3s >/dev/null 2>&1; then sudo k3s kubectl {quoted_args}; else sudo kubectl {quoted_args}; fi"
+
+            ssh_cmd = [
+                "ssh",
+                "-o", "StrictHostKeyChecking=accept-new",
+                "-p", str(self.ssh_port),
+                f"{self.ssh_user}@{self.ssh_node}",
+                remote_shell
+            ]
+
+            proc = subprocess.run(
+                ssh_cmd,
+                input=stdin_input.encode("utf-8") if stdin_input else None,
+                capture_output=True
+            )
+            return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+
+        else:
+            raise ValueError(f"Mode d'exécution inconnu : {self.mode}")
+
+    def apply_manifest(self, manifest_yaml: str) -> None:
+        """Applique un manifeste YAML via stdin."""
+        rc, out, err = self.run(["apply", "-f", "-"], stdin_input=manifest_yaml)
+        if rc != 0:
+            raise RuntimeError(f"Échec de l'application du manifeste :\n{err or out}")
+
+# -----------------------------------------------------------------------------
+# Validation des Prérequis & Données de Configuration
+# -----------------------------------------------------------------------------
+def validate_config(cfg: Dict[str, Any]) -> None:
+    errors = []
+
+    k8s = cfg.get("kubernetes", {})
+    mode = k8s.get("mode", "local")
+    if mode not in ("local", "remote-ssh"):
+        errors.append(f"kubernetes.mode doit valoir 'local' ou 'remote-ssh' (actuel: {mode})")
+
+    if mode == "remote-ssh":
+        ssh_node = k8s.get("remote_ssh", {}).get("node_ip", "")
+        if not ssh_node or ssh_node in ("127.0.0.1", "0.0.0.0"):
+            errors.append("kubernetes.remote_ssh.node_ip doit être renseigné avec l'adresse IP de votre nœud K3s.")
+
+    net = cfg.get("network", {})
+    fqdn = net.get("public_fqdn", "").strip()
+    if not fqdn:
+        errors.append("network.public_fqdn est OBLIGATOIRE (ex: assistant.entreprise.com).")
+    elif fqdn == "assistant.example.org":
+        log_warn("network.public_fqdn est configuré avec la valeur par défaut 'assistant.example.org'. Pensez à utiliser votre vrai nom d'hôte.")
+
+    tls_mode = net.get("tls_mode", "letsencrypt-prod")
+    if tls_mode.startswith("letsencrypt"):
+        acme_email = net.get("acme_email", "").strip()
+        if not acme_email or "@" not in acme_email:
+            errors.append("network.acme_email est OBLIGATOIRE pour l'émission Let's Encrypt (ex: admin@entreprise.com).")
+
+    llm = cfg.get("llm_gateway", {})
+    openrouter_key = llm.get("openrouter_api_key", "").strip()
+    if not openrouter_key or openrouter_key.startswith("sk-or-v1-xxxx"):
+        errors.append("llm_gateway.openrouter_api_key est OBLIGATOIRE pour contacter les modèles Cloud.")
+
+    hermes = cfg.get("hermes", {})
+    if not hermes.get("admin_password"):
+        errors.append("hermes.admin_password est OBLIGATOIRE pour sécuriser Hermes Studio.")
+    if not hermes.get("api_token"):
+        errors.append("hermes.api_token est OBLIGATOIRE pour la connexion Hermes Desktop Gateway.")
+
+    sso = cfg.get("entra_id_sso", {})
+    if sso.get("enabled"):
+        for field in ("tenant_id", "client_id", "client_secret", "cookie_secret"):
+            if not sso.get(field):
+                errors.append(f"entra_id_sso.{field} est OBLIGATOIRE lorsque entra_id_sso.enabled est à true.")
+
+    teams = cfg.get("teams_bot", {})
+    if teams.get("enabled"):
+        for field in ("app_id", "app_password"):
+            if not teams.get(field):
+                errors.append(f"teams_bot.{field} est OBLIGATOIRE lorsque teams_bot.enabled est à true.")
+
+    if errors:
+        log_err("La configuration comporte des erreurs de validation :")
+        for err in errors:
+            print(f"  [-] {err}")
+        print("\nVeuillez corriger ces points dans 'arcia.config.yaml' puis relancer.")
+        sys.exit(1)
+
+    log_ok("Validation de la configuration : Tous les paramètres obligatoires sont valides.")
+
+# -----------------------------------------------------------------------------
+# Déploiement des Composants & Rendu des Manifestes
+# -----------------------------------------------------------------------------
+def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
+    k8s_cfg = cfg.get("kubernetes", {})
+    mode = k8s_cfg.get("mode", "local")
+    kubeconfig = k8s_cfg.get("kubeconfig", "")
+    context = k8s_cfg.get("context", "")
+    namespace = k8s_cfg.get("namespace", "arcia")
+    storage_class = k8s_cfg.get("storage_class", "")
+
+    ssh_info = k8s_cfg.get("remote_ssh", {})
+    ssh_node = ssh_info.get("node_ip", "127.0.0.1")
+    ssh_user = ssh_info.get("ssh_user", "debian")
+    ssh_port = ssh_info.get("ssh_port", 22)
+
+    runner = K8sRunner(
+        mode=mode,
+        kubeconfig=kubeconfig,
+        context=context,
+        ssh_node=ssh_node,
+        ssh_user=ssh_user,
+        ssh_port=ssh_port
+    )
+
+    total_steps = 7
+
+    # 1. Pré-requis Kubernetes & Connectivité
+    log_step(1, total_steps, "Vérification de la connectivité au cluster Kubernetes")
+    rc, out, err = runner.run(["get", "nodes", "-o", "wide"])
+    if rc != 0:
+        log_err(f"Impossible de joindre le cluster Kubernetes :\n{err or out}")
+        sys.exit(1)
+    nodes_count = len([l for l in out.strip().splitlines() if l and not l.startswith("NAME")])
+    log_ok(f"Cluster connecté avec succès ({nodes_count} nœud(s) détecté(s)).")
+
+    # Détection de la StorageClass
+    rc, sc_out, _ = runner.run(["get", "sc", "-o", "jsonpath={.items[*].metadata.name}"])
+    available_sc = sc_out.strip().split() if rc == 0 and sc_out.strip() else []
+    if storage_class:
+        if storage_class in available_sc:
+            log_ok(f"StorageClass spécifiée : '{storage_class}' (présente sur le cluster).")
+        else:
+            log_warn(f"StorageClass '{storage_class}' introuvable dans le cluster (disponibles: {', '.join(available_sc) or 'aucune'}).")
+    else:
+        log_ok(f"StorageClass : Utilisation automatique de la StorageClass par défaut du cluster.")
+
+    # 2. Création du Namespace
+    log_step(2, total_steps, f"Création et vérification du namespace '{namespace}'")
+    ns_manifest = f"""apiVersion: v1
+kind: Namespace
+metadata:
+  name: {namespace}
+"""
+    runner.apply_manifest(ns_manifest)
+    log_ok(f"Namespace '{namespace}' prêt.")
+
+    # 3. Création des Secrets Applicatifs
+    log_step(3, total_steps, "Génération et injection des secrets Kubernetes")
+    llm_cfg = cfg.get("llm_gateway", {})
+    hermes_cfg = cfg.get("hermes", {})
+    presidio_cfg = cfg.get("presidio", {})
+    sso_cfg = cfg.get("entra_id_sso", {})
+    teams_cfg = cfg.get("teams_bot", {})
+
+    # enterprise-llm-secret
+    openrouter_key = llm_cfg.get("openrouter_api_key", "")
+    runner.run([
+        "create", "secret", "generic", "enterprise-llm-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=openrouter-key={openrouter_key}",
+        "--dry-run=client", "-o", "yaml"
+    ], stdin_input=None)
+    rc, out, err = runner.run([
+        "create", "secret", "generic", "enterprise-llm-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=openrouter-key={openrouter_key}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if rc == 0:
+        runner.apply_manifest(out)
+
+    # hermes-gateway-secret
+    hermes_key = hermes_cfg.get("api_token", "")
+    hermes_pass = hermes_cfg.get("admin_password", "admin")
+    rc, out, _ = runner.run([
+        "create", "secret", "generic", "hermes-gateway-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=api-server-key={hermes_key}",
+        f"--from-literal=admin-password={hermes_pass}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if rc == 0:
+        runner.apply_manifest(out)
+
+    # presidio-secret
+    presidio_key = presidio_cfg.get("master_key", "arcia-master-key")
+    rc, out, _ = runner.run([
+        "create", "secret", "generic", "presidio-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=master-key={presidio_key}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if rc == 0:
+        runner.apply_manifest(out)
+
+    # entraid-secret (si SSO actif)
+    if sso_cfg.get("enabled"):
+        rc, out, _ = runner.run([
+            "create", "secret", "generic", "entraid-secret",
+            f"--namespace={namespace}",
+            f"--from-literal=tenant-id={sso_cfg.get('tenant_id', '')}",
+            f"--from-literal=client-id={sso_cfg.get('client_id', '')}",
+            f"--from-literal=client-secret={sso_cfg.get('client_secret', '')}",
+            f"--from-literal=cookie-secret={sso_cfg.get('cookie_secret', '')}",
+            "--dry-run=client", "-o", "yaml"
+        ])
+        if rc == 0:
+            runner.apply_manifest(out)
+
+    # teams-bot-secret (si bot actif)
+    if teams_cfg.get("enabled"):
+        rc, out, _ = runner.run([
+            "create", "secret", "generic", "teams-bot-secret",
+            f"--namespace={namespace}",
+            f"--from-literal=app-id={teams_cfg.get('app_id', '')}",
+            f"--from-literal=app-password={teams_cfg.get('app_password', '')}",
+            "--dry-run=client", "-o", "yaml"
+        ])
+        if rc == 0:
+            runner.apply_manifest(out)
+
+    log_ok("Tous les secrets Kubernetes sont provisionnés.")
+
+    # 4. Déploiement des Microservices Fondamentaux
+    log_step(4, total_steps, "Déploiement des microservices du socle ArcIA")
+
+    manifests_dir = os.path.join(root_dir, "deploy", "manifests")
+
+    # A. Presidio DLP
+    log_info(" -> Déploiement de Presidio DLP (03-presidio.yaml)...")
+    presidio_path = os.path.join(manifests_dir, "03-presidio.yaml")
+    with open(presidio_path, "r", encoding="utf-8") as f:
+        runner.apply_manifest(f.read())
+
+    # B. LiteLLM Proxy (avec modèle optionnel local vLLM)
+    log_info(" -> Déploiement de LiteLLM Proxy (05-litellm.yaml)...")
+    litellm_path = os.path.join(manifests_dir, "05-litellm.yaml")
+    with open(litellm_path, "r", encoding="utf-8") as f:
+        litellm_yaml = f.read()
+
+    local_vllm = llm_cfg.get("local_vllm_endpoint", "").strip()
+    if local_vllm:
+        litellm_yaml = litellm_yaml.replace("http://vllm-internal.corp.local:8000/v1", local_vllm)
+    runner.apply_manifest(litellm_yaml)
+
+    # C. Hermes Agent (Studio & Gateway Desktop)
+    log_info(" -> Déploiement de Hermes Agent & Studio (06-hermes-agent.yaml)...")
+    hermes_path = os.path.join(manifests_dir, "06-hermes-agent.yaml")
+    with open(hermes_path, "r", encoding="utf-8") as f:
+        hermes_yaml = f.read()
+
+    if storage_class:
+        hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+    runner.apply_manifest(hermes_yaml)
+
+    # D. Open-WebUI Portal
+    log_info(" -> Déploiement de Open-WebUI (07-open-webui.yaml)...")
+    webui_path = os.path.join(manifests_dir, "07-open-webui.yaml")
+    with open(webui_path, "r", encoding="utf-8") as f:
+        webui_yaml = f.read()
+
+    if storage_class:
+        webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+    runner.apply_manifest(webui_yaml)
+
+    # E. Services Optionnels : Teams Bot et OAuth2-Proxy
+    if teams_cfg.get("enabled"):
+        log_info(" -> [Optionnel Activé] Déploiement de l'adaptateur Teams Bot (08-teams-bot.yaml)...")
+        teams_path = os.path.join(manifests_dir, "08-teams-bot.yaml")
+        with open(teams_path, "r", encoding="utf-8") as f:
+            teams_yaml = f.read()
+            prompt = teams_cfg.get("system_prompt", "Tu es ArcIA, l'assistant d'entreprise.")
+            teams_yaml = re.sub(r'value: "Tu es ArcIA.*?"', f'value: "{prompt}"', teams_yaml)
+            runner.apply_manifest(teams_yaml)
+    else:
+        log_info(" -> [Optionnel Ignoré] Adaptateur Microsoft Teams désactivé.")
+
+    if sso_cfg.get("enabled"):
+        log_info(" -> [Optionnel Activé] Déploiement du proxy SSO Entra ID (02-oauth2-proxy.yaml)...")
+        oauth_path = os.path.join(manifests_dir, "02-oauth2-proxy.yaml")
+        with open(oauth_path, "r", encoding="utf-8") as f:
+            runner.apply_manifest(f.read())
+    else:
+        log_info(" -> [Optionnel Ignoré] Authentification SSO Entra ID désactivée.")
+
+    # 5. Gestion des Certificats TLS & Ingress
+    log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
+    net_cfg = cfg.get("network", {})
+    public_fqdn = net_cfg.get("public_fqdn", "assistant.example.org")
+    tls_mode = net_cfg.get("tls_mode", "letsencrypt-prod")
+    acme_email = net_cfg.get("acme_email", "admin@example.org")
+    ingress_class = net_cfg.get("ingress_class", "traefik")
+    tls_secret_name = net_cfg.get("tls_secret_name", "arcia-tls-cert")
+
+    # ClusterIssuer si Let's Encrypt
+    if tls_mode.startswith("letsencrypt"):
+        server_url = "https://acme-v02.api.letsencrypt.org/directory" if tls_mode == "letsencrypt-prod" else "https://acme-staging-v02.api.letsencrypt.org/directory"
+        issuer_yaml = f"""apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {tls_mode}
+spec:
+  acme:
+    server: {server_url}
+    email: {acme_email}
+    privateKeySecretRef:
+      name: {tls_mode}-key
+    solvers:
+    - http01:
+        ingress:
+          class: {ingress_class}
+"""
+        runner.apply_manifest(issuer_yaml)
+        log_ok(f"ClusterIssuer '{tls_mode}' configuré avec le contact {acme_email}.")
+
+    # Ingress Render
+    ingress_annotations = ""
+    if ingress_class == "traefik":
+        ingress_annotations = """    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true" """
+    elif ingress_class == "nginx":
+        ingress_annotations = """    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true" """
+
+    if tls_mode.startswith("letsencrypt"):
+        ingress_annotations += f'\n    cert-manager.io/cluster-issuer: "{tls_mode}"'
+
+    studio_middleware_line = ""
+    if sso_cfg.get("enabled"):
+        studio_middleware_line = "    traefik.ingress.kubernetes.io/router.middlewares: arcia-entra-id-auth@kubernetescrd"
+
+    # Construction dynamique des routes Ingress
+    teams_path_block = ""
+    if teams_cfg.get("enabled"):
+        teams_path_block = """      - path: /api/teams/messages
+        pathType: Prefix
+        backend:
+          service:
+            name: teams-bot-adapter
+            port:
+              number: 3978"""
+
+    oauth_path_block = ""
+    if sso_cfg.get("enabled"):
+        oauth_path_block = """      - path: /oauth2
+        pathType: Prefix
+        backend:
+          service:
+            name: oauth2-proxy
+            port:
+              number: 4180"""
+
+    rendered_ingress = f"""# 1. Ingress Public (Open-WebUI, OAuth2, Teams)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-public-ingress
+  namespace: {namespace}
+  annotations:
+{ingress_annotations}
+spec:
+  tls:
+  - hosts:
+    - {public_fqdn}
+    secretName: {tls_secret_name}
+  rules:
+  - host: {public_fqdn}
+    http:
+      paths:
+{oauth_path_block}
+{teams_path_block}
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: open-webui
+            port:
+              number: 8080
+---
+# 2. Ingress Studio & Gateway Desktop
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-studio-ingress
+  namespace: {namespace}
+  annotations:
+{ingress_annotations}
+{studio_middleware_line}
+spec:
+  tls:
+  - hosts:
+    - {public_fqdn}
+    secretName: {tls_secret_name}
+  rules:
+  - host: {public_fqdn}
+    http:
+      paths:
+      - path: /studio
+        pathType: Prefix
+        backend:
+          service:
+            name: hermes-studio
+            port:
+              number: 9119
+      - path: /gateway
+        pathType: Prefix
+        backend:
+          service:
+            name: hermes-studio
+            port:
+              number: 8642
+"""
+    runner.apply_manifest(rendered_ingress)
+    log_ok(f"Ingress configuré pour l'hôte public : https://{public_fqdn}/")
+
+    # 6. Attente et Vérification du Rollout des Pods
+    log_step(6, total_steps, "Vérification de l'état de démarrage des Pods (Rollout)")
+    deployments_to_check = ["presidio-dlp", "litellm-proxy", "hermes-agent", "open-webui"]
+    if teams_cfg.get("enabled"):
+        deployments_to_check.append("teams-bot-adapter")
+    if sso_cfg.get("enabled"):
+        deployments_to_check.append("oauth2-proxy")
+
+    for dep in deployments_to_check:
+        log_info(f" -> Attente du démarrage de {dep}...")
+        rc, out, err = runner.run(["rollout", "status", f"deployment/{dep}", f"-n={namespace}", "--timeout=90s"])
+        if rc == 0:
+            log_ok(f"Déploiement '{dep}' est opérationnel.")
+        else:
+            log_warn(f"Le déploiement '{dep}' met du temps à démarrer ({err.strip() or out.strip()}).")
+
+    # 7. Synthèse et Liens d'Accès
+    log_step(7, total_steps, "Récapitulatif de Déploiement d'ArcIA")
+    print(f"\n{C_BOLD}{C_GREEN}================================================================={C_RESET}")
+    print(f"{C_BOLD}{C_GREEN}   [+] DEPLOIEMENT D'ARCIA EFFECTUE AVEC SUCCES SUR KUBERNETES   {C_RESET}")
+    print(f"{C_BOLD}{C_GREEN}================================================================={C_RESET}\n")
+
+    print(f"{C_BOLD}Points d'accès de votre instance :{C_RESET}")
+    print(f"  * {C_BOLD}Portail Collaborateur (Open-WebUI) :{C_RESET} https://{public_fqdn}/")
+    print(f"  * {C_BOLD}Hermes Studio (Kanban Multi-Agents) :{C_RESET} https://{public_fqdn}/studio")
+    print(f"  * {C_BOLD}Hermes Desktop Gateway (WebSocket)  :{C_RESET} https://{public_fqdn}/gateway")
+    if teams_cfg.get("enabled"):
+        print(f"  * {C_BOLD}Webhook Microsoft Teams             :{C_RESET} https://{public_fqdn}/api/teams/messages")
+
+    print(f"\n{C_BOLD}Identifiants d'accès :{C_RESET}")
+    print(f"  - {C_BOLD}Hermes Studio Web :{C_RESET} Identifiant: 'admin' | Mot de passe: '{hermes_cfg.get('admin_password', 'admin')}'")
+    print(f"  - {C_BOLD}Hermes Desktop PAT:{C_RESET} '{hermes_cfg.get('api_token', '')}'")
+
+    print(f"\n{C_BOLD}Rappel DNS & Réseau :{C_RESET}")
+    print(f"  Assurez-vous que le nom de domaine {C_CYAN}{public_fqdn}{C_RESET} pointe vers l'adresse IP publique de votre Ingress.")
+    print(f"  Les flux HTTPS entrants sur le port 443 doivent être routés vers le contrôleur Ingress du cluster.\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Déploiement Universel d'ArcIA sur Kubernetes")
+    parser.add_argument("--config", "-c", default="arcia.config.yaml",
+                        help="Chemin vers le fichier arcia.config.yaml ou arcia.env")
+    parser.add_argument("--dry-run", action="store_true", help="Valide la configuration sans appliquer")
+    args = parser.parse_args()
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(script_dir)
+
+    config_path = args.config
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(root_dir, config_path)
+
+    # Fallback automatique sur arcia.env si arcia.config.yaml n'existe pas
+    if not os.path.exists(config_path):
+        env_fallback = os.path.join(root_dir, "arcia.env")
+        if os.path.exists(env_fallback):
+            config_path = env_fallback
+        else:
+            log_err(f"Fichier de configuration introuvable : {config_path}")
+            print("\nPour démarrer :")
+            print("  1. Copiez le gabarit d'exemple :")
+            print(f"     cp {os.path.join(root_dir, 'arcia.config.yaml.example')} {os.path.join(root_dir, 'arcia.config.yaml')}")
+            print("  2. Renseignez votre FQDN public et votre clé OpenRouter.")
+            print("  3. Relancez ce script.\n")
+            sys.exit(1)
+
+    print(f"{C_BOLD}{C_CYAN}================================================================={C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}         ArcIA — Déploiement Universel sur Kubernetes            {C_RESET}")
+    print(f"{C_BOLD}{C_CYAN}================================================================={C_RESET}")
+    log_info(f"Lecture du fichier de configuration : {config_path}")
+
+    cfg = parse_yaml_or_env(config_path)
+    validate_config(cfg)
+
+    if args.dry_run:
+        log_ok("Mode --dry-run : Configuration analysée et validée avec succès. Aucun déploiement exécuté.")
+        sys.exit(0)
+
+    deploy_arcia(cfg, root_dir)
+
+if __name__ == "__main__":
+    main()

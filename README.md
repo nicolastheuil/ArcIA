@@ -16,6 +16,7 @@ Elle offre aux collaborateurs une interface de chat web moderne et un bot Micros
 
 | Domaine / Fonctionnalité | Rôle & Description | Documentation Spécifique |
 |---|---|---|
+| 🚀 **Déploiement Universel** | Guide complet pour déployer ArcIA sur n'importe quel cluster Kubernetes | 📖 [docs/guides/deploiement-universel.md](docs/guides/deploiement-universel.md) |
 | 🏗️ **Architecture Globale** | Vue d'ensemble du cluster unifié, flux de requêtes et isolation | 📖 [docs/architecture.md](docs/architecture.md) |
 | 🤖 **Moteur d'Agents Hermes** | Hermes Studio (Kanban 9119), Gateway Desktop (8642) et Tokenmaxing | 📖 [docs/guides/hermes-agent.md](docs/guides/hermes-agent.md) |
 | 🛡️ **Confidentialité & DLP** | Caviardage automatique des secrets, mots de passe et PII (Presidio) | 📖 [docs/guides/confidentialite-presidio.md](docs/guides/confidentialite-presidio.md) |
@@ -26,6 +27,55 @@ Elle offre aux collaborateurs une interface de chat web moderne et un bot Micros
 | ☸️ **Infrastructure & K3s** | Cluster 3 nœuds VMware, StorageClass CSI et certificats Let's Encrypt | 📖 [docs/guides/infrastructure-k3s.md](docs/guides/infrastructure-k3s.md) |
 | 🛠️ **Runbook d'Exploitation** | Commandes d'administration, consultation des logs et maintenance | 📖 [docs/runbooks/exploitation.md](docs/runbooks/exploitation.md) |
 | 📋 **Suivi & Handoff** | Journal d'exécution, état de qualification et prochaines étapes | 📖 [docs/etat-reprise.md](docs/etat-reprise.md) |
+
+---
+
+## 🚀 Déploiement Rapide en 5 Minutes (Cluster Kubernetes Quelconque)
+
+ArcIA est **100% reproductible et automatisé**. N'importe quel cluster Kubernetes (K3s, EKS, AKS, GKE, KinD, Minikube...) peut héberger votre instance à partir d'un **seul et unique fichier de configuration**.
+
+### 1. Cloner le dépôt
+```bash
+git clone https://github.com/nicolastheuil/ArcIA.git
+cd ArcIA
+```
+
+### 2. Renseigner le fichier de configuration unique
+Copiez le gabarit officiel [arcia.config.yaml.example](arcia.config.yaml.example) vers `arcia.config.yaml` :
+```bash
+# Sous Linux / macOS
+cp arcia.config.yaml.example arcia.config.yaml
+
+# Sous Windows PowerShell
+Copy-Item arcia.config.yaml.example arcia.config.yaml
+```
+
+Ce fichier unique regroupe tous les réglages et stipule clairement :
+- **Éléments Obligatoires** :
+  - Connexion Kubernetes (`local` avec votre Kubeconfig ou `remote-ssh`).
+  - Nom de domaine public FQDN (ex: `assistant.mon-entreprise.com`).
+  - Clé d'API Cloud pour les modèles LLM ([OpenRouter API Key](https://openrouter.ai/)).
+  - Mot de passe administrateur Hermes Studio et token PAT pour Hermes Desktop.
+  - Certificat SSL / TLS (Let's Encrypt automatique avec votre email, ou secret existant).
+- **Éléments Optionnels** :
+  - Serveur GPU local souverain (`vLLM` interne).
+  - Authentification d'entreprise SSO Microsoft Entra ID (Zero-Trust via `oauth2-proxy`).
+  - Bot conversationnel Microsoft Teams (DM & mentions en canaux).
+  - Intégration Microsoft 365 (Graph, SharePoint, réunions).
+
+### 3. Lancer le déploiement automatisé
+
+```powershell
+# Sous Windows (PowerShell) :
+.\scripts\Deploy-ArcIA.ps1
+
+# Sous Linux / macOS / Serveur CI (Bash) :
+./scripts/deploy-arcia.sh
+```
+
+Le script prépare le namespace, injecte les secrets en mémoire, configure les PVC sur votre StorageClass, déploie les microservices, installe l'Ingress et attend la mise en service complète des Pods.
+
+👉 Pour le détail complet, consultez le **[Guide de Déploiement Universel](docs/guides/deploiement-universel.md)**.
 
 ---
 
@@ -102,12 +152,17 @@ arcia/
 ├── skills/                     # Scripts de gestion des compétences partagées
 │   └── sync-skills.sh          # Synchronisation des catalogues (Anthropic, Vercel, Superpowers)
 ├── scripts/                    # Outillage d'exploitation et d'automatisation
-│   ├── Invoke-K3s.ps1          # Wrapper d'exécution distant sécurisé sur le cluster
-│   ├── Apply-Secrets.ps1       # Injection chiffrée des secrets Kubernetes (PowerShell)
-│   ├── apply-secrets.sh        # Injection chiffrée des secrets Kubernetes (Bash)
+│   ├── deploy.py               # Moteur universel de déploiement Kubernetes (Python)
+│   ├── Deploy-ArcIA.ps1        # Script de déploiement en une commande (PowerShell)
+│   ├── deploy-arcia.sh         # Script de déploiement en une commande (Bash / Linux)
+│   ├── Invoke-K3s.ps1          # Wrapper d'exécution distant sur cluster K3s SSH
+│   ├── Apply-Secrets.ps1       # Injection directe des secrets Kubernetes (PowerShell)
+│   ├── apply-secrets.sh        # Injection directe des secrets Kubernetes (Bash)
 │   └── test-validation.sh      # Suite de validation automatisée (6/6 tests)
+├── arcia.config.yaml.example   # Gabarit officiel unique de configuration (recommandé)
+├── arcia.env.example           # Alternative .env plate pour la configuration
 ├── secrets/                    # Gestion des variables d'environnement et secrets
-│   ├── arcia.env.template      # Gabarit officiel de configuration
+│   ├── arcia.env.template      # Gabarit officiel de secrets
 │   └── arcia.env               # Fichier de secrets réels (strictement ignoré par Git)
 └── docs/                       # Documentation exhaustive du projet
     ├── architecture.md         # Spécification détaillée de l'architecture

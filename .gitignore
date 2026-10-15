@@ -11,6 +11,10 @@ kubeconfig*
 .env
 .env.*
 !.env.example
+arcia.config.yaml
+!arcia.config.yaml.example
+arcia.env
+!arcia.env.example
 private/
 secrets/*
 !secrets/*.template

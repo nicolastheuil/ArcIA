@@ -6,7 +6,6 @@ metadata:
 spec:
   accessModes:
   - ReadWriteOnce
-  storageClassName: arcia-vsphere
   resources:
     requests:
       storage: 20Gi
