@@ -170,3 +170,16 @@ microsoft365_integration:
 
   # Chemin vers le fichier de contrat Microsoft 365
   config_file: "instance/microsoft365.yaml"
+
+# ==============================================================================
+# 10. ROUTEUR MULTI-FOURNISSEURS OMNIROUTE [OPTIONNEL]
+# ==============================================================================
+# OmniRoute v3.8.51 est un routeur IA multi-fournisseurs doté d'une interface d'administration
+# LAN (port 20129) et d'un point d'accès API (port 20128).
+# Par défaut dans ArcIA v0.2, LiteLLM Proxy (:4000) assure le routage central unifié avec DLP.
+# Activez OmniRoute si vous souhaitez disposer du routeur OmniRoute en tant que composant autonome
+# ou comme backend d'inférence en amont de LiteLLM.
+omniroute:
+  enabled: false
+  storage_size: "5Gi"
+

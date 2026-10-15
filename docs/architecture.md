@@ -79,6 +79,7 @@ flowchart TD
 | **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-latest` | `4000` | Interne cluster | Statelesse | Passerelle LLM, routage auto, fallbacks |
 | **Presidio DLP** | `python:3.11-slim` + FastAPI | `8080` | Interne cluster | Statelesse | Caviardage des secrets, tokens et PII |
 | **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.6.0` | `4180` | Middleware Traefik | Statelesse | Validation SSO OIDC avec Entra ID |
+| **OmniRoute (Optionnel)** | `node:22-alpine` + OmniRoute v3.8.51 | `20128` (API) / `20129` (Admin) | LAN interne | PVC 5Gi | Routeur multi-fournisseurs et portail LAN |
 
 ---
 
@@ -87,9 +88,13 @@ flowchart TD
 Pour approfondir chaque brique :
 - [Moteur d'Agents Hermes & Studio](guides/hermes-agent.md)
 - [Passerelle d'Inférence d'Entreprise LiteLLM](guides/inference-litellm.md)
+- [Routeur Multi-Fournisseurs OmniRoute](guides/omniroute.md)
 - [Gouvernance & Confidentialité Presidio DLP](guides/confidentialite-presidio.md)
+- [Optimisation Tokenmaxing (RTK + Headroom)](guides/tokenmaxing.md)
 - [Portail Collaborateur Open-WebUI & SSO Entra ID](guides/portail-webui-entraid.md)
 - [Intégration Microsoft Teams](guides/integration-teams.md)
 - [Catalogue de Compétences Partagées (Skills)](guides/skills.md)
+- [Moteur de Déploiement Universel Kubernetes](guides/deploiement-universel.md)
 - [Infrastructure K3s & Exploitation](guides/infrastructure-k3s.md)
 - [Suivi d'Exploitation & Handoff Opérationnel](etat-reprise.md)
+

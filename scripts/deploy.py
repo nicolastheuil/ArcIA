@@ -149,6 +149,10 @@ def parse_env_format(content: str) -> Dict[str, Any]:
         "microsoft365_integration": {
             "enabled": env.get("M365_ENABLED", "false").lower() in ("true", "1", "yes"),
             "config_file": "instance/microsoft365.yaml",
+        },
+        "omniroute": {
+            "enabled": env.get("OMNIROUTE_ENABLED", "false").lower() in ("true", "1", "yes"),
+            "storage_size": env.get("OMNIROUTE_STORAGE_SIZE", "5Gi"),
         }
     }
 
@@ -390,6 +394,7 @@ metadata:
     presidio_cfg = cfg.get("presidio", {})
     sso_cfg = cfg.get("entra_id_sso", {})
     teams_cfg = cfg.get("teams_bot", {})
+    omniroute_cfg = cfg.get("omniroute", {})
 
     # enterprise-llm-secret
     openrouter_key = llm_cfg.get("openrouter_api_key", "")
@@ -521,6 +526,19 @@ metadata:
             runner.apply_manifest(f.read())
     else:
         log_info(" -> [Optionnel Ignoré] Authentification SSO Entra ID désactivée.")
+
+    if omniroute_cfg.get("enabled"):
+        log_info(" -> [Optionnel Activé] Déploiement d'OmniRoute (09-omniroute.yaml)...")
+        omni_path = os.path.join(manifests_dir, "09-omniroute.yaml")
+        with open(omni_path, "r", encoding="utf-8") as f:
+            omni_yaml = f.read()
+        storage_size = omniroute_cfg.get("storage_size", "5Gi")
+        omni_yaml = omni_yaml.replace("storage: 5Gi", f"storage: {storage_size}")
+        if storage_class:
+            omni_yaml = omni_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+        runner.apply_manifest(omni_yaml)
+    else:
+        log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé.")
 
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
@@ -659,6 +677,8 @@ spec:
         deployments_to_check.append("teams-bot-adapter")
     if sso_cfg.get("enabled"):
         deployments_to_check.append("oauth2-proxy")
+    if omniroute_cfg.get("enabled"):
+        deployments_to_check.append("omniroute")
 
     for dep in deployments_to_check:
         log_info(f" -> Attente du démarrage de {dep}...")
@@ -680,6 +700,10 @@ spec:
     print(f"  * {C_BOLD}Hermes Desktop Gateway (WebSocket)  :{C_RESET} https://{public_fqdn}/gateway")
     if teams_cfg.get("enabled"):
         print(f"  * {C_BOLD}Webhook Microsoft Teams             :{C_RESET} https://{public_fqdn}/api/teams/messages")
+    if omniroute_cfg.get("enabled"):
+        print(f"  * {C_BOLD}OmniRoute API interne               :{C_RESET} http://omniroute.{namespace}.svc.cluster.local:20128/v1")
+        print(f"  * {C_BOLD}OmniRoute Portail LAN (:20129)      :{C_RESET} http://omniroute.{namespace}.svc.cluster.local:20129")
+
 
     print(f"\n{C_BOLD}Identifiants d'accès :{C_RESET}")
     print(f"  - {C_BOLD}Hermes Studio Web :{C_RESET} Identifiant: 'admin' | Mot de passe: '{hermes_cfg.get('admin_password', 'admin')}'")

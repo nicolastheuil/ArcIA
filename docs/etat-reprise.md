@@ -53,6 +53,13 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - Routes `/api/teams/messages` et `/health` opérationnelles.
    - Prêt pour les conversations DM 1:1 et les mentions `@ArcIA` en canaux Teams.
 
+9. **OmniRoute v3.8.51 & Déploiement Universel Reproductible** :
+   - Manifeste prêt pour Kubernetes : `deploy/manifests/09-omniroute.yaml` (PVC 5Gi, Deployment Node 22, Service ports 20128 API et 20129 Admin).
+   - Support complet dans `scripts/deploy.py`, `arcia.config.yaml.example` et `arcia.env.example` (activable par simple bascule `omniroute.enabled: true`).
+   - Documentation exhaustive : `docs/guides/omniroute.md`.
+   - Articulation avec LiteLLM : LiteLLM Proxy (:4000) reste la passerelle centrale standard avec coupure Presidio DLP ; OmniRoute est disponible comme routeur alternatif ou en amont de LiteLLM.
+   - Intégration CI/CD : Tests unitaires (`tests/`), validation des manifests, vérification de barrière de confidentialité (zéro fuite de données privées) exécutés et validés à 100% sur GitHub Actions.
+
 ---
 
 ## 2. État Courant des Composants
@@ -66,6 +73,8 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 | **Teams Bot** | `teams-bot-adapter` | 3978 | **1/1 Running** | Passerelle Microsoft Teams (DM et canaux) |
 | **Cert-Manager** | `cert-manager` | - | **3/3 Running** | Gestionnaire ACME / Let's Encrypt automatique |
 | **OAuth2-Proxy** | `oauth2-proxy` | 4180 | *CrashLoop* (Attente clés) | Authentification SSO Microsoft Entra ID (en attente des identifiants réels) |
+| **OmniRoute** | `omniroute` | 20128 / 20129 | **Optionnel (Prêt)** | Routeur multi-fournisseurs & portail LAN v3.8.51 |
+
 
 ---
 

@@ -36,8 +36,10 @@ class TestArcIADeploy(unittest.TestCase):
         self.assertIn("network", cfg)
         self.assertIn("llm_gateway", cfg)
         self.assertIn("hermes", cfg)
+        self.assertIn("omniroute", cfg)
         self.assertEqual(cfg["kubernetes"]["namespace"], "arcia")
         self.assertEqual(cfg["network"]["public_fqdn"], "assistant.example.org")
+        self.assertFalse(cfg["omniroute"]["enabled"])
 
     def test_parse_env_example(self):
         """Vérifie le parsing de arcia.env.example."""
@@ -45,9 +47,11 @@ class TestArcIADeploy(unittest.TestCase):
         self.assertIsInstance(cfg, dict)
         self.assertIn("kubernetes", cfg)
         self.assertIn("network", cfg)
+        self.assertIn("omniroute", cfg)
         self.assertEqual(cfg["kubernetes"]["mode"], "local")
         self.assertEqual(cfg["kubernetes"]["namespace"], "arcia")
         self.assertEqual(cfg["network"]["public_fqdn"], "assistant.example.org")
+        self.assertFalse(cfg["omniroute"]["enabled"])
 
     def test_validation_success_with_valid_keys(self):
         """Vérifie que la validation réussit avec des clés valides."""
