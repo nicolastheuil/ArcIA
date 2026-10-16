@@ -1,19 +1,19 @@
 /* ==============================================================================
    ArcIA Enterprise Agentic AI Platform — Charte Graphique Officielle arcITek
-   Palette: Noir profond (#070A14), Deep Navy (#0C1222), Cyan arcITek (#6BE7DD)
-   Thème sombre unifié, sobre, raffiné et sans rupture de contraste.
+   Palette: Noir profond (#060913), Anthracite card (#0E121C), Cyan arcITek (#6BE7DD)
+   Élimination complète du fond gris et du bleu foncé agressif sur le champ de prompt.
    ============================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-  --arcia-bg: #070a14;
-  --arcia-sidebar: #050710;
-  --arcia-surface: #0c1222;
-  --arcia-surface-hover: #121b32;
+  --font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  --arcia-bg: #060913;
+  --arcia-sidebar: #04060d;
+  --arcia-surface: #0e121c;
+  --arcia-surface-hover: #141a28;
   --arcia-border: rgba(255, 255, 255, 0.08);
-  --arcia-border-focus: rgba(107, 231, 221, 0.45);
+  --arcia-border-input: rgba(255, 255, 255, 0.12);
   --arcia-cyan: #6be7dd;
   --arcia-royal-blue: #1659e4;
   --arcia-coral: #fa7b4e;
@@ -22,56 +22,98 @@
   --arcia-text-secondary: #94a3b8;
 }
 
-/* 1. Global Background & Typography — Harmonie Sombre Douce */
-body, html, .dark body, html.dark, .dark {
+/* 1. Élimination totale du fond gris sur la page principale et conteneurs */
+html,
+body,
+.dark,
+html.dark,
+.dark body,
+.dark main,
+.dark #app,
+.dark #main-container,
+.dark [class*="bg-gray-950"],
+.dark [class*="bg-gray-900"],
+.dark [class*="bg-gray-850"],
+.dark [class*="dark:bg-gray-850"],
+.dark [class*="dark:bg-gray-900"],
+.dark [class*="dark:bg-gray-950"],
+.dark div[class*="min-h-screen"],
+.dark div[class*="overflow-y-auto"] {
   font-family: var(--font-family) !important;
   background-color: var(--arcia-bg) !important;
   color: var(--arcia-text-primary) !important;
 }
 
-/* 2. Barre Latérale (Sidebar) — Légèrement plus sombre que le fond principal */
-.dark #sidebar, .dark .sidebar, .dark aside {
+/* 2. Barre Latérale (Sidebar) — Légèrement plus sombre pour un contraste de profondeur élégant */
+.dark #sidebar,
+.dark .sidebar,
+.dark aside {
   background-color: var(--arcia-sidebar) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-/* 3. Fenêtre de Chat Principale & Conteneurs */
-.dark .bg-gray-900, 
-.dark .bg-gray-950 {
-  background-color: var(--arcia-bg) !important;
-}
-
-/* 4. Zone de Saisie du Prompt (Chat Input Container) — Cartouche sobre avec bordure fine */
-.dark #chat-input,
-.dark textarea,
-.dark .bg-gray-800 {
+/* 3. Champ de saisie du prompt (Chat Input) — Surface anthracite sobre, PAS DE BLEU FONCÉ ! */
+.dark #message-input-container,
+.dark #chat-input-container,
+.dark form:has(textarea),
+.dark .bg-gray-800:not([role="menu"]):not([role="listbox"]) {
   background-color: var(--arcia-surface) !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid var(--arcia-border-input) !important;
   color: var(--arcia-text-primary) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
 }
 
-.dark #chat-input:focus-within,
-.dark textarea:focus {
-  border-color: var(--arcia-border-focus) !important;
-  box-shadow: 0 0 18px rgba(22, 89, 228, 0.22) !important;
+.dark #message-input-container:focus-within,
+.dark form:has(textarea:focus) {
+  border-color: rgba(107, 231, 221, 0.5) !important;
+  box-shadow: 0 0 20px rgba(107, 231, 221, 0.15) !important;
 }
 
-/* Placeholder doux et lisible */
+/* Textarea transparent à l'intérieur du conteneur sans bordure imbriquée */
+.dark textarea,
+.dark #chat-input,
+.dark div:has(> textarea) {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 textarea::placeholder, input::placeholder {
   color: #64748b !important;
   opacity: 0.9 !important;
 }
 
+/* 4. Cartes de suggestions de prompts ("Suggéré") */
+.dark [class*="suggestion"],
+.dark button[class*="rounded-xl"],
+.dark div[class*="grid"] > button {
+  background-color: #0a0e19 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 12px 18px !important;
+  color: var(--arcia-text-primary) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dark [class*="suggestion"]:hover,
+.dark button[class*="rounded-xl"]:hover,
+.dark div[class*="grid"] > button:hover {
+  background-color: var(--arcia-surface-hover) !important;
+  border-color: rgba(107, 231, 221, 0.4) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
 /* 5. Menus Déroulants & Fenêtres Surgissantes (Model Selector, Popovers, Modals) */
 .dark [role="menu"],
 .dark [role="listbox"],
-.dark .bg-gray-850,
-.dark [id*="dropdown"],
-.dark [id*="popover"],
-.dark div.bg-gray-850 {
-  background-color: var(--arcia-surface) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
+.dark div[id*="dropdown"],
+.dark div[id*="popover"] {
+  background-color: #0b0f19 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7) !important;
   border-radius: 12px !important;
 }
 
@@ -82,34 +124,15 @@ textarea::placeholder, input::placeholder {
   color: var(--arcia-cyan) !important;
 }
 
-/* Champ de recherche dans le sélecteur de modèle */
+/* Champ de recherche dans les listes déroulantes */
 .dark [role="menu"] input,
 .dark [role="listbox"] input {
-  background-color: #070b16 !important;
+  background-color: #060913 !important;
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  color: #ffffff !important;
 }
 
-/* 6. Cartes de Suggestions de Prompts ("Suggéré") — Cartes élégantes avec contour */
-.dark [class*="suggestion"],
-.dark button[class*="rounded-xl"],
-.dark div[class*="grid"] > button {
-  background-color: #0a0f1d !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 12px 16px !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-.dark [class*="suggestion"]:hover,
-.dark button[class*="rounded-xl"]:hover,
-.dark div[class*="grid"] > button:hover {
-  background-color: var(--arcia-surface-hover) !important;
-  border-color: rgba(107, 231, 221, 0.35) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
-  transform: translateY(-1px) !important;
-}
-
-/* 7. Boutons d'Action & Validation (Dégradé Officiel arcITek) */
+/* 6. Boutons d'Action & Validation (Dégradé Officiel arcITek) */
 button[type="submit"], 
 .dark .bg-emerald-600, 
 .dark .bg-emerald-700, 
@@ -129,18 +152,25 @@ button[type="submit"]:hover, button.bg-black:hover {
   box-shadow: 0 0 16px rgba(107, 231, 221, 0.4) !important;
 }
 
-/* 8. Badge Icône du Modèle (remplacement du carré blanc [01] disgracieux) */
-.dark .bg-black.text-white,
-.dark div[class*="rounded-lg"].bg-black,
-.dark div[class*="rounded-lg"].bg-white {
-  background: linear-gradient(135deg, #0c2762 0%, #1659e4 100%) !important;
-  border: 1px solid rgba(107, 231, 221, 0.35) !important;
-  color: #6be7dd !important;
-  font-weight: 700 !important;
-  border-radius: 8px !important;
+/* Boutons audio/voice */
+button[aria-label*="voice"],
+button[aria-label*="audio"],
+button:has(svg path[d*="M12 2a3"]) {
+  background: linear-gradient(135deg, var(--arcia-royal-blue) 0%, #5ad8ce 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
-/* 9. Remplacement des Logos par les SVG Officiels ArcIA */
+/* 7. Masquage et remplacement de l'avatar [01] disgracieux */
+.dark div[class*="rounded-lg"].bg-black.text-white,
+.dark div[class*="rounded-lg"].bg-white.text-black,
+div:has(> span):has(> img[alt*="arcia"]) {
+  background: url("/static/favicon.svg") no-repeat center center / contain !important;
+  color: transparent !important;
+  border: none !important;
+}
+
+/* 8. Logos & Splash Screen */
 img[alt="Open WebUI"], 
 .sidebar-header img, 
 #logo, 
@@ -148,24 +178,28 @@ img[alt="Open WebUI"],
 img[src*="splash"],
 img[src*="logo.png"] {
   content: url("/static/logo.svg") !important;
-  max-height: 44px !important;
+  max-height: 42px !important;
   width: auto !important;
 }
 
-/* 10. Pied de Sidebar & Profil Utilisateur */
+#splash-screen {
+  background: #060913 !important;
+}
+
+/* 9. Pied de Sidebar & Profil */
 .dark #sidebar footer,
 .dark aside footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
   background-color: var(--arcia-sidebar) !important;
 }
 
-/* Masquage de la bannière de mise à jour v0.12.3 si présente */
+/* Masquage de la bannière de mise à jour */
 [id*="update-toast"],
 div:has(> a[href*="github.com/open-webui/open-webui/releases"]) {
   display: none !important;
 }
 
-/* 11. Barre de Défilement (Scrollbar) Élégante */
+/* 10. Barre de Défilement (Scrollbar) Sobre */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -179,4 +213,20 @@ div:has(> a[href*="github.com/open-webui/open-webui/releases"]) {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--arcia-royal-blue);
+}
+
+/* 11. Animation du Logo Central aIA */
+@keyframes arciaHeroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+#arcia-center-hero {
+  animation: arciaHeroFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

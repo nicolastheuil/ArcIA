@@ -176,11 +176,18 @@ spec:
     ports:
     - protocol: TCP
       port: 4000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: hermes-agent
+    ports:
+    - protocol: TCP
+      port: 8642
   - ports:
     - protocol: TCP
       port: 443
 ---
-# Flux Hermes Agent : Strictement canalisé vers la passerelle d'inférence d'entreprise LiteLLM
+# Flux Hermes Agent : Inférence vers LiteLLM et sessions agentiques depuis Open-WebUI
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -191,7 +198,16 @@ spec:
     matchLabels:
       app: hermes-agent
   policyTypes:
+  - Ingress
   - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: open-webui
+    ports:
+    - protocol: TCP
+      port: 8642
   egress:
   - to:
     - podSelector:
@@ -200,6 +216,7 @@ spec:
     ports:
     - protocol: TCP
       port: 4000
+
 ---
 # Flux Teams Bot Adapter : Communication vers LiteLLM et Webhook Azure Bot Framework
 apiVersion: networking.k8s.io/v1

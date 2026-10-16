@@ -1,6 +1,6 @@
 /**
  * ArcIA Enterprise Agentic Platform — UI Brand Injector
- * Dynamically enforces the ArcIA brand identity, logos, titles, and styles across Open-WebUI.
+ * Dynamically enforces the official ArcIA brand identity, logos, titles, and styles across Open-WebUI.
  */
 (function () {
   'use strict';
@@ -8,6 +8,7 @@
   var BRAND_TITLE = 'ArcIA — Enterprise Agentic Platform';
   var BRAND_NAME = 'ArcIA';
 
+  // 1. Recursive text node cleaner (strips "(Open WebUI)" everywhere)
   function sanitizeTextNodes(root) {
     if (!root) return;
     try {
@@ -23,18 +24,107 @@
             .trim();
         }
       }
-    } catch (e) {
-      // Ignore walker errors
+    } catch (e) {}
+  }
+
+  // 2. Center Hero Logo (Official aIA Monogram in the middle of empty chat)
+  function ensureCenterHeroLogo() {
+    // Detect if the chat already has conversation messages
+    var hasMessages = document.querySelector('[data-message-id]') ||
+                      document.querySelector('.chat-message') ||
+                      document.querySelector('.message-bubble') ||
+                      document.querySelector('div:has(> .prose):not(#arcia-center-hero *)');
+
+    var hero = document.getElementById('arcia-center-hero');
+
+    if (hasMessages) {
+      if (hero) hero.remove();
+      return;
+    }
+
+    // Target the center empty state container
+    // Open-WebUI empty state: div[class*="translate-y-6"] containing the model title (b$)
+    var centerTarget = null;
+    var modelTitle = document.querySelector('.text-2xl, [class*="text-2xl"]');
+    if (modelTitle) {
+      var row = modelTitle.closest('.flex-row') || modelTitle.closest('div.w-fit');
+      if (row) {
+        centerTarget = row;
+      }
+    }
+
+    if (!centerTarget) {
+      var emptyCol = document.querySelector('div[class*="translate-y-6"] div.flex-col.items-center');
+      if (emptyCol) {
+        centerTarget = emptyCol.firstElementChild;
+      }
+    }
+
+    if (!centerTarget) {
+      var textarea = document.querySelector('textarea');
+      if (textarea) {
+        var form = textarea.closest('form');
+        if (form) {
+          centerTarget = form;
+        }
+      }
+    }
+
+    if (!centerTarget || !centerTarget.parentElement) return;
+
+    if (!hero) {
+      hero = document.createElement('div');
+      hero.id = 'arcia-center-hero';
+      hero.style.cssText = 'display:flex; flex-direction:column; align-items:center; justify-content:center; margin-bottom:24px; width:100%; text-align:center; user-select:none;';
+      hero.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto;">
+          <div style="position:relative; width:88px; height:88px; margin-bottom:14px;">
+            <img src="/static/favicon.svg" alt="ArcIA" style="width:88px; height:88px; filter: drop-shadow(0 0 28px rgba(107, 231, 221, 0.45)); cursor:pointer; transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'" />
+          </div>
+          <div style="font-family:'Montserrat', system-ui, sans-serif; font-size:30px; font-weight:800; color:#f8fafc; letter-spacing:-0.5px; margin-bottom:4px; text-shadow:0 2px 14px rgba(0,0,0,0.7);">
+            ArcIA
+          </div>
+          <div style="font-family:'Montserrat', system-ui, sans-serif; font-size:11px; font-weight:700; color:#6be7dd; letter-spacing:2.5px; text-transform:uppercase;">
+            Plateforme IA Agentique Souveraine
+          </div>
+        </div>
+      `;
+
+      centerTarget.parentElement.insertBefore(hero, centerTarget);
+    } else {
+      hero.style.display = 'flex';
+      if (!hero.parentElement) {
+        centerTarget.parentElement.insertBefore(hero, centerTarget);
+      }
     }
   }
 
+  // 3. Replace model avatar [01] with official aIA monogram
+  function replaceModelAvatars() {
+    document.querySelectorAll('div, button, span').forEach(function (el) {
+      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+        var text = el.textContent.trim();
+        if (/^0[1-9]$/.test(text) && el.offsetWidth < 48 && el.offsetHeight < 48) {
+          el.style.backgroundImage = 'url("/static/favicon.svg")';
+          el.style.backgroundRepeat = 'no-repeat';
+          el.style.backgroundPosition = 'center';
+          el.style.backgroundSize = 'contain';
+          el.style.color = 'transparent';
+          el.style.backgroundColor = 'transparent';
+          el.style.border = 'none';
+        }
+      }
+    });
+  }
+
+  // 4. Global Brand Applicator
   function applyArcIABranding() {
-    // 1. Maintain document title
+    // A. Enforce Document Title
     if (document.title.includes('Open WebUI') || document.title === 'ArcIA (Open WebUI)') {
       document.title = BRAND_TITLE;
     }
 
-    // 2. Enforce official ArcIA Squircle Favicon
+    // B. Enforce Favicon
     var favicons = document.querySelectorAll("link[rel*='icon']");
     favicons.forEach(function (link) {
       if (!link.href.includes('/static/favicon.svg')) {
@@ -43,9 +133,8 @@
       }
     });
 
-    // 3. Replace all default logos / splashes with official ArcIA SVG
-    var images = document.querySelectorAll('img');
-    images.forEach(function (img) {
+    // C. Replace default logos/splashes with ArcIA SVG
+    document.querySelectorAll('img').forEach(function (img) {
       var src = img.getAttribute('src') || '';
       var alt = img.getAttribute('alt') || '';
 
@@ -66,28 +155,39 @@
           img.src = '/static/favicon.svg';
         }
       }
+
+      if (!img.dataset.arciaBound) {
+        img.dataset.arciaBound = 'true';
+        img.addEventListener('error', function () {
+          this.src = '/static/favicon.svg';
+        });
+      }
     });
 
-    // 4. Sanitize text across all text nodes (removes "(Open WebUI)" in sidebar, titles, buttons)
+    // D. Inject Center Hero Logo (aIA in the middle)
+    ensureCenterHeroLogo();
+
+    // E. Replace Model Avatar Badge [01]
+    replaceModelAvatars();
+
+    // F. Sanitize Text in the DOM
     sanitizeTextNodes(document.body || document.documentElement);
 
-    // 5. Hide any update banner notification
+    // G. Hide Update Banner
     document.querySelectorAll('a[href*="github.com/open-webui/open-webui/releases"]').forEach(function (el) {
       var container = el.closest('div.fixed, div.toast, div[class*="bottom-"]');
-      if (container) {
-        container.style.display = 'none';
-      }
+      if (container) container.style.display = 'none';
     });
   }
 
-  // Initial execution
+  // Initial Execution
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applyArcIABranding);
   } else {
     applyArcIABranding();
   }
 
-  // Continuous DOM observation for SPA navigation & dynamic components
+  // Continuous Observer for SvelteKit Dynamic Components
   var observer = new MutationObserver(function () {
     applyArcIABranding();
   });
