@@ -3,8 +3,14 @@
 ArcIA — Assistant & Moteur d'Installation Graphique Interactif (Wizard)
 ========================================================================
 Ce serveur web autonome (Python 3 standard library uniquement, 0 dépendance)
-guide pas-à-pas l'administrateur pour configurer et déployer une instance ArcIA
-complète et 100% opérationnelle dès le clone initial du dépôt Git.
+guide pas-à-pas l'administrateur pour configurer, déployer et restaurer une instance
+ArcIA complète et 100% opérationnelle dès le clone initial du dépôt Git.
+
+Fonctionnalités :
+  1. Installer une nouvelle instance -> Déploiement + Création de dépôt Git d'instance
+     privé chiffré (GitHub / GitLab) avec mot de passe maître de chiffrement.
+  2. Restaurer une instance existante -> Récupération depuis le dépôt Git privé +
+     déchiffrement des secrets via mot de passe -> Déploiement complet en 1 clic.
 
 Usage :
     python scripts/wizard.py [--port 8765] [--no-browser]
@@ -23,9 +29,23 @@ import argparse
 import threading
 import subprocess
 import webbrowser
+import base64
+import urllib.request
+import urllib.error
+import tempfile
+import shutil
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, Any, Optional, List, Tuple
+
+# Support chiffrement standard AEAD AES-256-GCM
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.primitives import hashes
+    HAS_CRYPTOGRAPHY = True
+except ImportError:
+    HAS_CRYPTOGRAPHY = False
 
 # Support UTF-8 console
 if hasattr(sys.stdout, "reconfigure"):
@@ -51,7 +71,7 @@ deployment_state = {
 }
 
 # -----------------------------------------------------------------------------
-# Utilitaires de Configuration & Secrets
+# Utilitaires Cryptographiques & Chiffrement d'Instance (AES-256-GCM / PBKDF2)
 # -----------------------------------------------------------------------------
 
 def generate_token(kind: str) -> str:
@@ -65,6 +85,361 @@ def generate_token(kind: str) -> str:
     elif kind == "presidio":
         return f"arcia-master-{secrets.token_hex(16)}"
     return secrets.token_urlsafe(24)
+
+def encrypt_instance_bundle(payload_dict: dict, passphrase: str) -> str:
+    """Chiffre les secrets et la configuration d'instance avec AES-256-GCM et dérivation PBKDF2."""
+    if not passphrase:
+        raise ValueError("Le mot de passe de chiffrement ne peut pas être vide.")
+
+    salt = secrets.token_bytes(16)
+    nonce = secrets.token_bytes(12)
+    plaintext = json.dumps(payload_dict, ensure_ascii=False).encode('utf-8')
+
+    if HAS_CRYPTOGRAPHY:
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+        key = kdf.derive(passphrase.encode('utf-8'))
+        aesgcm = AESGCM(key)
+        ciphertext = aesgcm.encrypt(nonce, plaintext, b'ARCIA_INSTANCE_V1')
+        algo = "AES-256-GCM"
+    else:
+        import hashlib, hmac
+        key = hashlib.pbkdf2_hmac('sha256', passphrase.encode('utf-8'), salt, 100000, 64)
+        enc_key, mac_key = key[:32], key[32:]
+        keystream = bytearray()
+        block_idx = 0
+        while len(keystream) < len(plaintext):
+            keystream.extend(hmac.new(enc_key, nonce + block_idx.to_bytes(4, 'big'), hashlib.sha256).digest())
+            block_idx += 1
+        ct_bytes = bytes([p ^ k for p, k in zip(plaintext, keystream[:len(plaintext)])])
+        tag = hmac.new(mac_key, b'ARCIA_INSTANCE_V1' + nonce + ct_bytes, hashlib.sha256).digest()
+        ciphertext = ct_bytes + tag
+        algo = "HMAC-SHA256-STREAM"
+
+    bundle = {
+        'schema': 'arcia-instance-v1',
+        'algo': algo,
+        'salt': base64.b64encode(salt).decode('utf-8'),
+        'nonce': base64.b64encode(nonce).decode('utf-8'),
+        'ciphertext': base64.b64encode(ciphertext).decode('utf-8')
+    }
+    return json.dumps(bundle, indent=2)
+
+def decrypt_instance_bundle(bundle_str: str, passphrase: str) -> dict:
+    """Déchiffre le bundle d'instance et vérifie l'intégrité via le mot de passe maître."""
+    if not passphrase:
+        raise ValueError("Veuillez renseigner le mot de passe de déchiffrement.")
+
+    try:
+        bundle = json.loads(bundle_str)
+        salt = base64.b64decode(bundle['salt'])
+        nonce = base64.b64decode(bundle['nonce'])
+        ciphertext = base64.b64decode(bundle['ciphertext'])
+        algo = bundle.get('algo', 'AES-256-GCM')
+
+        if algo == "AES-256-GCM" and HAS_CRYPTOGRAPHY:
+            kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+            key = kdf.derive(passphrase.encode('utf-8'))
+            aesgcm = AESGCM(key)
+            plaintext = aesgcm.decrypt(nonce, ciphertext, b'ARCIA_INSTANCE_V1')
+        else:
+            import hashlib, hmac
+            key = hashlib.pbkdf2_hmac('sha256', passphrase.encode('utf-8'), salt, 100000, 64)
+            enc_key, mac_key = key[:32], key[32:]
+            tag_len = 32
+            if len(ciphertext) < tag_len:
+                raise ValueError("Format de bundle invalide.")
+            ct_bytes = ciphertext[:-tag_len]
+            tag = ciphertext[-tag_len:]
+            expected_tag = hmac.new(mac_key, b'ARCIA_INSTANCE_V1' + nonce + ct_bytes, hashlib.sha256).digest()
+            if not hmac.compare_digest(tag, expected_tag):
+                raise ValueError("Authentification échouée")
+            keystream = bytearray()
+            block_idx = 0
+            while len(keystream) < len(ct_bytes):
+                keystream.extend(hmac.new(enc_key, nonce + block_idx.to_bytes(4, 'big'), hashlib.sha256).digest())
+                block_idx += 1
+            plaintext = bytes([c ^ k for c, k in zip(ct_bytes, keystream[:len(ct_bytes)])])
+
+        return json.loads(plaintext.decode('utf-8'))
+    except Exception:
+        raise ValueError("Mot de passe de restauration incorrect ou données d'instance corrompues.")
+
+# -----------------------------------------------------------------------------
+# Gestion des Dépôts Git d'Instance Privés (GitHub / GitLab)
+# -----------------------------------------------------------------------------
+
+def git_test_credentials(provider: str, token: str) -> dict:
+    """Valide le jeton Git (GitHub ou GitLab) et liste les organisations accessibles."""
+    if not token:
+        return {"success": False, "error": "Jeton d'accès Git non renseigné."}
+
+    headers = {"User-Agent": "ArcIA-Setup-Wizard"}
+    if provider == "github":
+        headers["Authorization"] = f"Bearer {token}"
+        headers["Accept"] = "application/vnd.github.v3+json"
+        try:
+            req = urllib.request.Request("https://api.github.com/user", headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as res:
+                user_data = json.loads(res.read().decode("utf-8"))
+                username = user_data.get("login", "")
+        except urllib.error.HTTPError as e:
+            return {"success": False, "error": f"Erreur GitHub HTTP {e.code} (Jeton invalide ou permissions insuffisantes)."}
+        except Exception as e:
+            return {"success": False, "error": f"Erreur de connexion à GitHub : {str(e)}"}
+
+        targets = [username]
+        try:
+            req_orgs = urllib.request.Request("https://api.github.com/user/orgs", headers=headers)
+            with urllib.request.urlopen(req_orgs, timeout=8) as res:
+                orgs_data = json.loads(res.read().decode("utf-8"))
+                for o in orgs_data:
+                    if o.get("login"):
+                        targets.append(o.get("login"))
+        except Exception:
+            pass
+        return {"success": True, "username": username, "targets": targets}
+
+    elif provider == "gitlab":
+        headers["PRIVATE-TOKEN"] = token
+        try:
+            req = urllib.request.Request("https://gitlab.com/api/v4/user", headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as res:
+                user_data = json.loads(res.read().decode("utf-8"))
+                username = user_data.get("username", "")
+        except urllib.error.HTTPError as e:
+            return {"success": False, "error": f"Erreur GitLab HTTP {e.code} (Jeton invalide)."}
+        except Exception as e:
+            return {"success": False, "error": f"Erreur de connexion à GitLab : {str(e)}"}
+
+        targets = [username]
+        try:
+            req_groups = urllib.request.Request("https://gitlab.com/api/v4/groups?min_access_level=30", headers=headers)
+            with urllib.request.urlopen(req_groups, timeout=8) as res:
+                groups_data = json.loads(res.read().decode("utf-8"))
+                for g in groups_data:
+                    if g.get("full_path"):
+                        targets.append(g.get("full_path"))
+        except Exception:
+            pass
+        return {"success": True, "username": username, "targets": targets}
+
+    return {"success": True, "username": "custom", "targets": ["custom"]}
+
+def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str = None) -> dict:
+    """Crée automatiquement un dépôt privé distant sur GitHub ou GitLab."""
+    headers = {"User-Agent": "ArcIA-Setup-Wizard"}
+    if provider == "github":
+        headers["Authorization"] = f"Bearer {token}"
+        headers["Accept"] = "application/vnd.github.v3+json"
+        headers["Content-Type"] = "application/json"
+
+        user_info = git_test_credentials("github", token)
+        is_org = owner and owner != user_info.get("username")
+        url = f"https://api.github.com/orgs/{owner}/repos" if is_org else "https://api.github.com/user/repos"
+
+        payload = {
+            "name": repo_name,
+            "private": True,
+            "description": "Dépôt d'instance privée ArcIA — Configuration et secrets chiffrés",
+            "auto_init": False
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                repo_info = json.loads(res.read().decode("utf-8"))
+                return {
+                    "success": True,
+                    "clone_url": repo_info.get("clone_url"),
+                    "html_url": repo_info.get("html_url")
+                }
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")
+            if "already exists" in err_body or e.code == 422:
+                target_owner = owner or user_info.get("username")
+                return {
+                    "success": True,
+                    "clone_url": f"https://github.com/{target_owner}/{repo_name}.git",
+                    "html_url": f"https://github.com/{target_owner}/{repo_name}",
+                    "already_existed": True
+                }
+            return {"success": False, "error": f"Échec création dépôt GitHub : HTTP {e.code} ({err_body})"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    elif provider == "gitlab":
+        headers["PRIVATE-TOKEN"] = token
+        headers["Content-Type"] = "application/json"
+        payload = {
+            "name": repo_name,
+            "visibility": "private",
+            "description": "Dépôt d'instance privée ArcIA — Configuration et secrets chiffrés"
+        }
+        req = urllib.request.Request("https://gitlab.com/api/v4/projects", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                proj_info = json.loads(res.read().decode("utf-8"))
+                return {
+                    "success": True,
+                    "clone_url": proj_info.get("http_url_to_repo"),
+                    "html_url": proj_info.get("web_url")
+                }
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="replace")
+            if "has already been taken" in err_body or e.code == 400:
+                user_info = git_test_credentials("gitlab", token)
+                target_owner = owner or user_info.get("username")
+                return {
+                    "success": True,
+                    "clone_url": f"https://gitlab.com/{target_owner}/{repo_name}.git",
+                    "html_url": f"https://gitlab.com/{target_owner}/{repo_name}",
+                    "already_existed": True
+                }
+            return {"success": False, "error": f"Échec création projet GitLab : HTTP {e.code} ({err_body})"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    return {"success": False, "error": "Fournisseur Git non pris en charge."}
+
+def git_push_instance(repo_url: str, token: str, encrypted_bundle_str: str, instance_name: str, fqdn: str) -> dict:
+    """Initialise, committe et pousse le bundle d'instance chiffré vers le dépôt privé."""
+    temp_dir = tempfile.mkdtemp(prefix="arcia-instance-")
+    try:
+        meta = {
+            "instance_name": instance_name,
+            "public_fqdn": fqdn,
+            "schema_version": "0.2.0",
+            "encryption": "AES-256-GCM-PBKDF2-100K",
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        }
+        with open(os.path.join(temp_dir, "instance.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+
+        with open(os.path.join(temp_dir, "instance-secrets.enc"), "w", encoding="utf-8") as f:
+            f.write(encrypted_bundle_str)
+
+        readme_content = f"""# ArcIA — Dépôt d'Instance Privée : {instance_name}
+
+Ce dépôt privé contient la configuration et les secrets chiffrés de l'instance ArcIA **{instance_name}** (`https://{fqdn}/`).
+
+> [!IMPORTANT]
+> **Sécurité de bout en bout :** Tous les secrets (clés d'inférence, identifiants Entra ID, tokens Bot Teams, mots de passe Hermes) sont chiffrés avec **AES-256-GCM** et dérivation de clé **PBKDF2 (100 000 itérations)**.
+> Aucune valeur secrète n'est exposée en clair dans ce dépôt.
+
+## Procédure de Restauration Complète
+
+Pour restaurer cette instance sur un cluster Kubernetes neuf ou reconstruit :
+
+1. Clonez le dépôt du socle générique ArcIA :
+   ```bash
+   git clone https://github.com/nicolastheuil/ArcIA.git
+   cd ArcIA
+   ```
+2. Lancez le Setup Wizard :
+   ```bash
+   ./wizard.sh       # Linux / macOS
+   .\\wizard.ps1      # Windows PowerShell
+   ```
+3. Choisissez **Restaurer une instance existante**.
+4. Renseignez l'URL de ce dépôt (`{repo_url}`) et votre mot de passe maître de déchiffrement.
+5. Cliquez sur **Lancer la restauration complète sur Kubernetes**.
+"""
+        with open(os.path.join(temp_dir, "README.md"), "w", encoding="utf-8") as f:
+            f.write(readme_content)
+
+        auth_url = repo_url
+        if token and "https://" in repo_url:
+            if "github.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
+            elif "gitlab.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
+            else:
+                auth_url = repo_url.replace("https://", f"https://{token}@")
+
+        subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", "ArcIA Setup Wizard"], cwd=temp_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "admin@arcia.local"], cwd=temp_dir, capture_output=True)
+        subprocess.run(["git", "checkout", "-B", "main"], cwd=temp_dir, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True, check=True)
+        subprocess.run(["git", "commit", "-m", f"chore(instance): sauvegarde chiffrée de {instance_name}"], cwd=temp_dir, capture_output=True, check=True)
+        subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=temp_dir, capture_output=True)
+
+        proc = subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=temp_dir, capture_output=True, timeout=30)
+        if proc.returncode != 0:
+            err = proc.stderr.decode("utf-8", errors="replace")
+            return {"success": False, "error": f"Erreur git push ({err.strip()})"}
+
+        return {"success": True, "repo_url": repo_url}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) -> dict:
+    """Clone le dépôt d'instance privé et déchiffre la configuration avec le mot de passe maître."""
+    temp_dir = tempfile.mkdtemp(prefix="arcia-restore-")
+    try:
+        auth_url = repo_url
+        if token and "https://" in repo_url:
+            if "github.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
+            elif "gitlab.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
+            else:
+                auth_url = repo_url.replace("https://", f"https://{token}@")
+
+        proc = subprocess.run(["git", "clone", "--depth", "1", auth_url, temp_dir], capture_output=True, timeout=30)
+        if proc.returncode != 0:
+            err = proc.stderr.decode("utf-8", errors="replace")
+            return {"success": False, "error": f"Impossible d'accéder au dépôt d'instance : {err.strip()}"}
+
+        enc_file = os.path.join(temp_dir, "instance-secrets.enc")
+        if not os.path.isfile(enc_file):
+            return {"success": False, "error": "Fichier 'instance-secrets.enc' introuvable dans ce dépôt."}
+
+        with open(enc_file, "r", encoding="utf-8") as f:
+            bundle_str = f.read()
+
+        decrypted = decrypt_instance_bundle(bundle_str, passphrase)
+
+        config_yaml = decrypted.get("config_yaml", "")
+        if not config_yaml:
+            return {"success": False, "error": "Le bundle d'instance ne contient pas de configuration valide."}
+
+        # Écriture immédiate dans arcia.config.yaml
+        with open(DEFAULT_CONFIG_PATH, "w", encoding="utf-8") as f:
+            f.write(config_yaml)
+
+        # Restauration de secrets/arcia.env
+        env_content = decrypted.get("env_content", "")
+        if env_content:
+            secrets_dir = os.path.join(ROOT_DIR, "secrets")
+            os.makedirs(secrets_dir, exist_ok=True)
+            with open(os.path.join(secrets_dir, "arcia.env"), "w", encoding="utf-8") as f:
+                f.write(env_content)
+
+        sys.path.insert(0, SCRIPT_DIR)
+        import deploy
+        cfg = deploy.parse_yaml_or_env(DEFAULT_CONFIG_PATH)
+
+        return {
+            "success": True,
+            "instance_name": decrypted.get("instance_name", "ArcIA-instance"),
+            "public_fqdn": decrypted.get("public_fqdn", cfg.get("network", {}).get("public_fqdn", "")),
+            "config": cfg,
+            "message": f"Instance '{decrypted.get('instance_name', '')}' déchiffrée avec succès !"
+        }
+
+    except ValueError as ve:
+        return {"success": False, "error": str(ve)}
+    except Exception as e:
+        return {"success": False, "error": f"Erreur lors de la restauration : {str(e)}"}
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+# -----------------------------------------------------------------------------
+# Utilitaires Détection K8s & Configuration
+# -----------------------------------------------------------------------------
 
 def detect_kubectl_contexts() -> List[str]:
     """Détecte les contextes kubectl locaux disponibles."""
@@ -100,18 +475,15 @@ def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
     exists = os.path.isfile(config_file)
     target = config_file if exists else EXAMPLE_CONFIG_PATH
 
-    # Si aucun fichier n'existe, on génère un dictionnaire propre
     if not os.path.isfile(target):
         default_cfg = get_default_config_dict()
         return default_cfg, False
 
     try:
-        # Tenter d'utiliser deploy.py parser
         sys.path.insert(0, SCRIPT_DIR)
         import deploy
         cfg = deploy.parse_yaml_or_env(target)
         if isinstance(cfg, dict):
-            # Normalisation et valeurs par défaut
             cfg = ensure_config_defaults(cfg)
             return cfg, exists
     except Exception:
@@ -197,7 +569,6 @@ def ensure_config_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
                         if sub_k not in cfg[section][k]:
                             cfg[section][k][sub_k] = sub_v
 
-    # Si certains secrets requis sont vides, les générer proprement
     if not cfg["hermes"].get("api_token") or cfg["hermes"]["api_token"] == "arcia-pat-change-me-secret-key-32b":
         cfg["hermes"]["api_token"] = generate_token("pat")
     if not cfg["entra_id_sso"].get("cookie_secret") or "xxxx" in cfg["entra_id_sso"]["cookie_secret"]:
@@ -205,7 +576,6 @@ def ensure_config_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if not cfg["presidio"].get("master_key"):
         cfg["presidio"]["master_key"] = generate_token("presidio")
 
-    # Si public_fqdn ou acme_email ont la valeur par défaut d'exemple, on laisse vide pour inviter à la saisie
     if cfg["network"].get("public_fqdn") == "assistant.example.org":
         cfg["network"]["public_fqdn"] = ""
     if cfg["network"].get("acme_email") == "admin@example.org":
@@ -317,7 +687,6 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
     with open(config_path, "w", encoding="utf-8") as f:
         f.write(yaml_content)
 
-    # Mise à jour synchronisée du fichier secrets/arcia.env si le dossier secrets existe
     secrets_dir = os.path.join(ROOT_DIR, "secrets")
     if os.path.isdir(secrets_dir):
         env_path = os.path.join(secrets_dir, "arcia.env")
@@ -342,10 +711,10 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
             pass
 
 # -----------------------------------------------------------------------------
-# Exécution du Déploiement en Tâche de Fond & Streaming Logs
+# Exécution du Déploiement en Tâche de Fond & Sauvegarde Git Chiffrée
 # -----------------------------------------------------------------------------
 
-def run_deployment_worker(dry_run: bool = False):
+def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dict] = None):
     global deployment_state
     deploy_script = os.path.join(SCRIPT_DIR, "deploy.py")
     cmd = [sys.executable, deploy_script, "--config", DEFAULT_CONFIG_PATH]
@@ -380,8 +749,6 @@ def run_deployment_worker(dry_run: bool = False):
         with deployment_lock:
             deployment_state["exit_code"] = exit_code
             if exit_code == 0:
-                deployment_state["status"] = "success"
-                # Extraction du FQDN pour le récapitulatif
                 cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
                 fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
                 hermes_pass = cfg.get("hermes", {}).get("admin_password", "admin")
@@ -389,6 +756,42 @@ def run_deployment_worker(dry_run: bool = False):
                 teams_enabled = cfg.get("teams_bot", {}).get("enabled", False)
                 omni_enabled = cfg.get("omniroute", {}).get("enabled", False)
 
+                # Si configuration d'un dépôt d'instance Git privé, exécuter la sauvegarde chiffrée
+                instance_repo_url = None
+                if instance_git_info and instance_git_info.get("enabled") and not dry_run:
+                    try:
+                        deployment_state["logs"].append("\n[INFO] Sauvegarde chiffrée de l'instance vers le dépôt Git privé...")
+                        repo_url = instance_git_info.get("repo_url", "")
+                        token = instance_git_info.get("git_token", "")
+                        passphrase = instance_git_info.get("passphrase", "")
+                        inst_name = instance_git_info.get("instance_name", "ArcIA-instance")
+
+                        # Créer le bundle chiffré
+                        yaml_content = serialize_yaml_config(cfg)
+                        env_content = ""
+                        try:
+                            with open(os.path.join(ROOT_DIR, "secrets", "arcia.env"), "r", encoding="utf-8") as f:
+                                env_content = f.read()
+                        except Exception:
+                            pass
+
+                        payload = {
+                            "instance_name": inst_name,
+                            "public_fqdn": fqdn,
+                            "config_yaml": yaml_content,
+                            "env_content": env_content
+                        }
+                        enc_bundle = encrypt_instance_bundle(payload, passphrase)
+                        push_res = git_push_instance(repo_url, token, enc_bundle, inst_name, fqdn)
+                        if push_res.get("success"):
+                            deployment_state["logs"].append(f"[OK] Dépôt d'instance privé synchronisé et chiffré (AES-256-GCM) : {repo_url}")
+                            instance_repo_url = repo_url
+                        else:
+                            deployment_state["logs"].append(f"[WARN] Avertissement sauvegarde Git : {push_res.get('error')}")
+                    except Exception as ge:
+                        deployment_state["logs"].append(f"[WARN] Sauvegarde Git non effectuée : {str(ge)}")
+
+                deployment_state["status"] = "success"
                 deployment_state["summary"] = {
                     "public_fqdn": fqdn,
                     "webui_url": f"https://{fqdn}/",
@@ -398,7 +801,8 @@ def run_deployment_worker(dry_run: bool = False):
                     "omniroute_admin": "http://omniroute.arcia.svc.cluster.local:20129" if omni_enabled else None,
                     "hermes_admin_user": "admin",
                     "hermes_admin_pass": hermes_pass,
-                    "hermes_pat": hermes_pat
+                    "hermes_pat": hermes_pat,
+                    "instance_repo_url": instance_repo_url
                 }
             else:
                 deployment_state["status"] = "error"
@@ -414,7 +818,6 @@ def run_deployment_worker(dry_run: bool = False):
 
 class WizardHTTPHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        # Silence standard HTTP logs pour ne pas polluer le terminal
         pass
 
     def send_json(self, status: int, data: Any):
@@ -517,6 +920,27 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json(200, {"success": False, "error": str(e)})
 
+        elif path == "/api/instance/test-token":
+            provider = req_data.get("provider", "github")
+            token = req_data.get("token", "")
+            res = git_test_credentials(provider, token)
+            self.send_json(200, res)
+
+        elif path == "/api/instance/create-repo":
+            provider = req_data.get("provider", "github")
+            token = req_data.get("token", "")
+            repo_name = req_data.get("repo_name", "")
+            owner = req_data.get("owner", "")
+            res = git_create_remote_repo(provider, token, repo_name, owner)
+            self.send_json(200, res)
+
+        elif path == "/api/instance/restore":
+            repo_url = req_data.get("repo_url", "").strip()
+            token = req_data.get("token", "").strip()
+            passphrase = req_data.get("passphrase", "").strip()
+            res = git_pull_and_decrypt_instance(repo_url, token, passphrase)
+            self.send_json(200, res)
+
         elif path == "/api/generate-secret":
             kind = req_data.get("kind", "pat")
             token = generate_token(kind)
@@ -541,7 +965,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
 
             dry_run = req_data.get("dry_run", False)
-            worker = threading.Thread(target=run_deployment_worker, args=(dry_run,), daemon=True)
+            git_info = req_data.get("instance_git", None)
+            worker = threading.Thread(target=run_deployment_worker, args=(dry_run, git_info), daemon=True)
             worker.start()
 
             self.send_json(200, {"success": True, "started": True, "dry_run": dry_run})
@@ -592,7 +1017,6 @@ def get_wizard_html_page() -> str:
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
     body { background: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; background-image: radial-gradient(circle at 15% 20%, rgba(0, 210, 255, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(58, 123, 213, 0.08) 0%, transparent 40%); }
 
-    /* Header */
     header { background: rgba(13, 19, 33, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .brand { display: flex; align-items: center; gap: 14px; }
     .brand-logo { width: 36px; height: 36px; border-radius: 10px; background: var(--btn-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: #fff; box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
@@ -600,11 +1024,9 @@ def get_wizard_html_page() -> str:
     .brand-subtitle { font-size: 13px; color: var(--text-muted); }
     .header-badge { font-size: 12px; background: rgba(0, 210, 255, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 210, 255, 0.3); border-radius: 20px; padding: 4px 12px; font-weight: 600; }
 
-    /* Layout */
-    .app-container { display: flex; flex: 1; max-width: 1360px; width: 100%; margin: 0 auto; padding: 24px; gap: 24px; }
+    .app-container { display: flex; flex: 1; max-width: 1380px; width: 100%; margin: 0 auto; padding: 24px; gap: 24px; }
     
-    /* Stepper Sidebar */
-    .stepper-nav { width: 320px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); height: fit-content; position: sticky; top: 88px; }
+    .stepper-nav { width: 330px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); height: fit-content; position: sticky; top: 88px; }
     .stepper-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
     .step-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; margin-bottom: 6px; }
     .step-item:hover { background: rgba(255, 255, 255, 0.04); }
@@ -612,18 +1034,27 @@ def get_wizard_html_page() -> str:
     .step-item.completed .step-icon { background: var(--success); color: white; border-color: var(--success); }
     .step-icon { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; transition: all 0.2s; }
     .step-item.active .step-icon { border-color: var(--accent-cyan); color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); }
-    .step-label { font-size: 14px; font-weight: 500; }
+    .step-label { font-size: 13px; font-weight: 500; }
     .step-tag { margin-left: auto; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
     .step-tag.optional { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
     .step-tag.required { background: rgba(0, 210, 255, 0.15); color: var(--accent-cyan); }
 
-    /* Main Content Area */
     .content-area { flex: 1; display: flex; flex-direction: column; }
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow); margin-bottom: 24px; position: relative; }
     
     .screen-header { margin-bottom: 24px; }
     .screen-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
     .screen-desc { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+
+    /* Cards de Choix Mode d'Installation */
+    .mode-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+    .mode-card { border: 2px solid var(--border-color); border-radius: var(--radius); padding: 24px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
+    .mode-card:hover { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.04); transform: translateY(-2px); }
+    .mode-card.selected { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.08); box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
+    .mode-card-badge { position: absolute; top: 16px; right: 16px; font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: 700; }
+    .mode-card-icon { font-size: 36px; margin-bottom: 12px; }
+    .mode-card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .mode-card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
 
     /* Form Fields */
     .form-group { margin-bottom: 20px; }
@@ -633,7 +1064,6 @@ def get_wizard_html_page() -> str:
     .form-control:focus { border-color: var(--accent-cyan); box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.15); }
     .input-row { display: flex; gap: 10px; }
     
-    /* Toggle Switch */
     .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 20px; }
     .toggle-info h4 { font-size: 15px; margin-bottom: 4px; }
     .toggle-info p { font-size: 12px; color: var(--text-muted); }
@@ -644,7 +1074,6 @@ def get_wizard_html_page() -> str:
     input:checked + .slider { background: linear-gradient(135deg, #00d2ff, #3a7bd5); }
     input:checked + .slider:before { transform: translateX(24px); }
 
-    /* Collapsible / Doc Guides */
     .doc-accordion { background: rgba(0, 210, 255, 0.04); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 8px; margin-top: 16px; overflow: hidden; }
     .doc-header { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--accent-cyan); }
     .doc-body { padding: 16px; font-size: 13px; line-height: 1.6; color: #cbd5e1; border-top: 1px solid rgba(0, 210, 255, 0.1); background: rgba(0, 0, 0, 0.2); display: none; }
@@ -653,7 +1082,6 @@ def get_wizard_html_page() -> str:
     .doc-link { color: var(--accent-cyan); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
     .doc-link:hover { text-decoration: underline; }
 
-    /* Action Buttons */
     .actions-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
     .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .btn-secondary { background: #1e293b; color: #cbd5e1; border: 1px solid var(--border-color); }
@@ -663,13 +1091,11 @@ def get_wizard_html_page() -> str:
     .btn-test { background: #1e293b; color: var(--accent-cyan); border: 1px solid rgba(0, 210, 255, 0.4); font-size: 12px; padding: 6px 12px; }
     .btn-test:hover { background: rgba(0, 210, 255, 0.15); }
 
-    /* Badges & Alerts */
     .alert-box { padding: 14px 18px; border-radius: 8px; font-size: 13px; line-height: 1.5; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 12px; }
     .alert-info { background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.3); color: #e0f2fe; }
     .alert-success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; }
     .alert-warn { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; }
 
-    /* Live Terminal Console */
     .terminal-box { background: #050811; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; height: 380px; overflow-y: auto; color: #94a3b8; white-space: pre-wrap; line-height: 1.5; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6); }
     .log-line { margin-bottom: 2px; }
     .log-cyan { color: #38bdf8; font-weight: 600; }
@@ -677,7 +1103,6 @@ def get_wizard_html_page() -> str:
     .log-yellow { color: #facc15; }
     .log-red { color: #f87171; font-weight: 600; }
 
-    /* Success Cards Grid */
     .recap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin: 20px 0; }
     .recap-card { background: rgba(13, 19, 33, 0.8); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; position: relative; transition: border-color 0.2s; }
     .recap-card:hover { border-color: var(--accent-cyan); }
@@ -687,7 +1112,6 @@ def get_wizard_html_page() -> str:
     .recap-card-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); color: white; border: 1px solid var(--border-color); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
     .recap-card-btn:hover { background: var(--accent-blue); }
 
-    /* Hidden step screens */
     .screen { display: none; }
     .screen.active { display: block; animation: fadeIn 0.3s ease; }
 
@@ -701,12 +1125,12 @@ def get_wizard_html_page() -> str:
       <div class="brand-logo">A</div>
       <div>
         <div class="brand-title">ArcIA Enterprise Setup Wizard</div>
-        <div class="brand-subtitle">Assistant de Déploiement & Configuration Universelle v0.2</div>
+        <div class="brand-subtitle">Gestionnaire de Déploiement & Restauration d'Instance v0.2</div>
       </div>
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
       <span id="instanceModeBadge" class="header-badge">Chargement...</span>
-      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="saveConfigOnly()">💾 Enregistrer sans déployer</button>
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="saveConfigOnly()">💾 Enregistrer localement</button>
     </div>
   </header>
 
@@ -717,51 +1141,56 @@ def get_wizard_html_page() -> str:
       <div class="stepper-title">Étapes d'installation</div>
       <div class="step-item active" onclick="goToStep(1)">
         <div class="step-icon">1</div>
-        <div class="step-label">🚀 Bienvenue</div>
-        <div class="step-tag required">Info</div>
+        <div class="step-label">🚀 Mode & Démarrage</div>
+        <div class="step-tag required">Choix</div>
       </div>
       <div class="step-item" onclick="goToStep(2)">
         <div class="step-icon">2</div>
-        <div class="step-label">☸️ Cluster Kubernetes</div>
+        <div class="step-label">📦 Dépôt Git d'Instance</div>
         <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(3)">
         <div class="step-icon">3</div>
-        <div class="step-label">🌐 Réseau & Ingress</div>
+        <div class="step-label">☸️ Cluster Kubernetes</div>
         <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(4)">
         <div class="step-icon">4</div>
-        <div class="step-label">🧠 Passerelle LLM & IA</div>
+        <div class="step-label">🌐 Réseau & Ingress</div>
         <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(5)">
         <div class="step-icon">5</div>
-        <div class="step-label">🤖 Hermes Studio & Agents</div>
+        <div class="step-label">🧠 Passerelle LLM & IA</div>
         <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(6)">
         <div class="step-icon">6</div>
-        <div class="step-label">🔐 SSO Entra ID</div>
-        <div class="step-tag optional">Option</div>
+        <div class="step-label">🤖 Hermes Studio & Agents</div>
+        <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(7)">
         <div class="step-icon">7</div>
-        <div class="step-label">💬 Bot Microsoft Teams</div>
+        <div class="step-label">🔐 SSO Entra ID</div>
         <div class="step-tag optional">Option</div>
       </div>
       <div class="step-item" onclick="goToStep(8)">
         <div class="step-icon">8</div>
-        <div class="step-label">🔀 Routeur OmniRoute</div>
+        <div class="step-label">💬 Bot Microsoft Teams</div>
         <div class="step-tag optional">Option</div>
       </div>
       <div class="step-item" onclick="goToStep(9)">
         <div class="step-icon">9</div>
-        <div class="step-label">⚡ Déploiement Automatisé</div>
-        <div class="step-tag required">Action</div>
+        <div class="step-label">🔀 Routeur OmniRoute</div>
+        <div class="step-tag optional">Option</div>
       </div>
       <div class="step-item" onclick="goToStep(10)">
         <div class="step-icon">10</div>
+        <div class="step-label">⚡ Déploiement & Sauvegarde</div>
+        <div class="step-tag required">Action</div>
+      </div>
+      <div class="step-item" onclick="goToStep(11)">
+        <div class="step-icon">11</div>
         <div class="step-label">🎉 Accès & Récapitulatif</div>
         <div class="step-tag required">Prêt</div>
       </div>
@@ -770,48 +1199,165 @@ def get_wizard_html_page() -> str:
     <!-- Main Content Area -->
     <main class="content-area">
       
-      <!-- SCREEN 1: Bienvenue -->
+      <!-- SCREEN 1: Choix de Mode (Nouvelle Instance vs Restaurer) -->
       <section id="step1" class="screen active card">
         <div class="screen-header">
-          <h2 class="screen-title">Bienvenue dans l'assistant d'installation d'ArcIA</h2>
-          <p class="screen-desc">Ce wizard configure et déploie l'intégralité de la plateforme d'agents souverains ArcIA en quelques minutes sur votre infrastructure Kubernetes.</p>
+          <h2 class="screen-title">Bienvenue dans l'assistant ArcIA</h2>
+          <p class="screen-desc">Choisissez votre parcours : installez une nouvelle instance avec sauvegarde Git chiffrée, ou restaurez une instance existante.</p>
         </div>
 
-        <div id="existingConfigAlert" class="alert-box alert-info" style="display:none;">
-          <span style="font-size:20px;">ℹ️</span>
-          <div>
-            <strong>Instance existante détectée !</strong><br>
-            Le fichier <code>arcia.config.yaml</code> a été chargé. Vous pouvez modifier n'importe quel paramètre ou activer des modules optionnels (SSO Entra ID, Bot Teams) et relancer le déploiement en toute sécurité sans perte de données.
+        <div class="mode-cards-grid">
+          <!-- Option A : Nouvelle Instance -->
+          <div id="cardNewInstance" class="mode-card selected" onclick="selectSetupMode('new')">
+            <span class="mode-card-badge" style="background:rgba(0,210,255,0.2); color:var(--accent-cyan);">Recommandé</span>
+            <div class="mode-card-icon">🚀</div>
+            <div class="mode-card-title">Installer une nouvelle instance</div>
+            <div class="mode-card-desc">
+              Déploie le socle ArcIA sur votre cluster Kubernetes et initialise automatiquement votre dépôt Git d'instance privé chiffré (GitHub / GitLab).
+            </div>
+            <button class="btn btn-primary" onclick="selectSetupMode('new'); goToStep(2);">Configurer la nouvelle instance →</button>
+          </div>
+
+          <!-- Option B : Restaurer Instance -->
+          <div id="cardRestoreInstance" class="mode-card" onclick="selectSetupMode('restore')">
+            <span class="mode-card-badge" style="background:rgba(16,185,129,0.2); color:var(--success);">Reprise</span>
+            <div class="mode-card-icon">🔄</div>
+            <div class="mode-card-title">Restaurer une instance existante</div>
+            <div class="mode-card-desc">
+              Récupère la configuration et les secrets depuis un dépôt Git d'instance privé, déchiffre les données avec votre mot de passe et déploie le cluster.
+            </div>
+            <button class="btn btn-secondary" onclick="selectSetupMode('restore')">Ouvrir l'outil de restauration ↓</button>
           </div>
         </div>
 
-        <div class="alert-box alert-success">
-          <span style="font-size:20px;">✨</span>
-          <div>
-            <strong>Prise en charge intégrale automatique par défaut :</strong><br>
-            Tous les composants internes (Presidio DLP pour le masquage des données sensibles, portail Open-WebUI, moteur d'agents Hermes, LiteLLM Proxy, compétences et outils natifs Graphify, Ponytail et Public-APIs) sont provisionnés <strong>automatiquement</strong> sans intervention manuelle requise.
+        <!-- Formulaire de Restauration Dédié (affiché si mode restore sélectionné) -->
+        <div id="restoreSection" style="display:none; background:rgba(0,0,0,0.3); border:1px solid var(--accent-cyan); border-radius:10px; padding:24px; margin-top:20px;">
+          <h3 style="font-size:18px; margin-bottom:12px; color:var(--accent-cyan); display:flex; align-items:center; gap:8px;">
+            <span>📥 Restauration d'Instance depuis Dépôt Git Privé</span>
+          </h3>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+            Renseignez l'URL de votre dépôt d'instance privé (GitHub / GitLab) et votre mot de passe maître de déchiffrement :
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">URL du Dépôt Git d'Instance Privé <span style="color:var(--accent-cyan);">*</span></label>
+            <input type="text" id="restore_git_url" class="form-control" placeholder="https://github.com/votre-orga/ArcIA-instance-prod.git">
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Jeton d'Accès Git (Token PAT) <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="password" id="restore_git_token" class="form-control" placeholder="ghp_xxxxxxxxxxxx ou glpat-xxxxxxxxxxxx">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Mot de Passe de Déchiffrement <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="password" id="restore_passphrase" class="form-control" placeholder="Mot de passe maître défini à la création">
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
+            <button class="btn btn-primary" onclick="executeInstanceRestore()">📥 Récupérer et Déchiffrer l'Instance</button>
+            <span id="restoreStatus" style="font-size:13px;"></span>
+          </div>
+
+          <div id="restoreSuccessPanel" style="display:none; margin-top:20px; background:rgba(16,185,129,0.1); border:1px solid var(--success); border-radius:8px; padding:16px;">
+            <div style="font-size:16px; font-weight:700; color:var(--success); margin-bottom:8px;">✅ Instance Déchiffrée avec Succès !</div>
+            <div id="restoreSummaryDetails" style="font-size:13px; color:#e2e8f0; line-height:1.6; margin-bottom:16px;"></div>
+            <button class="btn btn-primary" style="background:var(--success); border-color:var(--success);" onclick="goToStep(10)">
+              🚀 Lancer directement le Déploiement sur le Cluster Kubernetes →
+            </button>
           </div>
         </div>
 
-        <div style="margin: 24px 0; background: rgba(255,255,255,0.02); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
-          <h4 style="margin-bottom: 12px; font-size: 15px;">Ce dont vous avez besoin pour démarrer :</h4>
-          <ul style="margin-left: 20px; font-size: 13px; line-height: 1.8; color: #cbd5e1;">
-            <li><strong>Un cluster Kubernetes</strong> accessible via <code>kubectl</code> en local (EKS, AKS, GKE, K3s, Minikube) ou via SSH sur un nœud K3s.</li>
-            <li><strong>Un nom de domaine public (FQDN)</strong> pointant vers l'adresse IP publique de votre Ingress (ex: <code>assistant.mon-entreprise.com</code>).</li>
-            <li><strong>Une clé d'API LLM Cloud</strong> (ex: <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent-cyan);">OpenRouter</a>) donnant accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3.</li>
-          </ul>
-        </div>
-
-        <div class="actions-bar">
-          <div></div>
-          <button class="btn btn-primary" onclick="goToStep(2)">Commencer la configuration →</button>
+        <div class="alert-box alert-success" style="margin-top:24px;">
+          <span style="font-size:20px;">🛡️</span>
+          <div>
+            <strong>Isolation Enterprise & Zéro Fuite :</strong><br>
+            Le socle générique <code>ArcIA</code> ne contient aucun secret. Les configurations, domaines, clés d'API et identités propres à votre entreprise sont stockées de façon étanche et chiffrée (<strong>AES-256-GCM</strong>) sur votre dépôt d'instance privé.
+          </div>
         </div>
       </section>
 
-      <!-- SCREEN 2: Kubernetes -->
+      <!-- SCREEN 2: Dépôt Git d'Instance Privé -->
       <section id="step2" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 2 : Connectivité au Cluster Kubernetes</h2>
+          <h2 class="screen-title">Étape 2 : Dépôt Git d'Instance Privé & Chiffrement</h2>
+          <p class="screen-desc">Configurez le dépôt Git privé où seront sauvegardés vos paramètres et secrets chiffrés de bout en bout.</p>
+        </div>
+
+        <div class="toggle-wrapper">
+          <div class="toggle-info">
+            <h4>Créer et synchroniser automatiquement un dépôt Git d'instance privé</h4>
+            <p>Initialise un dépôt privé séparé (GitHub / GitLab) pour stocker les secrets chiffrés (AES-256-GCM) et faciliter la restauration.</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="git_instance_enabled" checked onchange="toggleGitInstanceFields()">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="git_instance_fields">
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Plateforme Git</label>
+              <select id="git_provider" class="form-control" onchange="updateGitProviderDoc()">
+                <option value="github">GitHub (github.com ou GitHub Enterprise)</option>
+                <option value="gitlab">GitLab (gitlab.com ou auto-hébergé)</option>
+                <option value="custom">URL Git Personnalisée</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Nom du Dépôt d'Instance <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="text" id="git_repo_name" class="form-control" value="ArcIA-instance-prod">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Jeton d'Accès Git (Personal Access Token) <span style="color:var(--accent-cyan);">*</span></label>
+            <div class="form-sublabel">Requis pour créer le dépôt privé et pousser les sauvegardes chiffrées. Scope requis : <code>repo</code> (GitHub) ou <code>write_repository</code> (GitLab).</div>
+            <div class="input-row">
+              <input type="password" id="git_token" class="form-control" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+              <button class="btn btn-test" style="white-space:nowrap;" onclick="testGitToken()">🔍 Valider le token</button>
+            </div>
+          </div>
+
+          <div class="form-group" id="git_owner_group" style="display:none;">
+            <label class="form-label">Organisation ou Compte Propriétaire Cible</label>
+            <select id="git_owner_select" class="form-control"></select>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Mot de Passe Maître de Chiffrement <span style="color:var(--accent-cyan);">*</span></label>
+              <div class="form-sublabel">Utilisé pour chiffrer tous les secrets d'instance (AES-256-GCM + PBKDF2 100k).</div>
+              <input type="password" id="git_passphrase" class="form-control" placeholder="Mot de passe robuste pour chiffrer l'instance">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Confirmation du Mot de Passe <span style="color:var(--accent-cyan);">*</span></label>
+              <div class="form-sublabel">Retapez le mot de passe maître pour vérification.</div>
+              <input type="password" id="git_passphrase_confirm" class="form-control" placeholder="Confirmer le mot de passe">
+            </div>
+          </div>
+        </div>
+
+        <div class="alert-box alert-warn">
+          <span style="font-size:20px;">⚠️</span>
+          <div>
+            <strong>Conservez précieusement ce mot de passe maître :</strong><br>
+            Il sera indispensable pour restaurer votre instance sur un nouveau cluster. Aucune clé n'est transmise en clair à GitHub ou au Cloud.
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn btn-secondary" onclick="goToStep(1)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(3)">Suivant : Connectivité Kubernetes →</button>
+        </div>
+      </section>
+
+      <!-- SCREEN 3: Kubernetes -->
+      <section id="step3" class="screen card">
+        <div class="screen-header">
+          <h2 class="screen-title">Étape 3 : Connectivité au Cluster Kubernetes</h2>
           <p class="screen-desc">Renseignez la méthode de connexion au cluster où sera déployée la plateforme ArcIA.</p>
         </div>
 
@@ -824,7 +1370,6 @@ def get_wizard_html_page() -> str:
           </select>
         </div>
 
-        <!-- Mode Local -->
         <div id="k8s_local_block">
           <div class="form-group">
             <label class="form-label">Contexte Kubernetes (Context)</label>
@@ -839,12 +1384,10 @@ def get_wizard_html_page() -> str:
 
           <div class="form-group">
             <label class="form-label">Chemin Kubeconfig personnalisé (Facultatif)</label>
-            <div class="form-sublabel">Laisser vide pour utiliser le fichier standard ~/.kube/config.</div>
             <input type="text" id="k8s_kubeconfig" class="form-control" placeholder="C:\Users\...\.kube\config ou /home/.../.kube/config">
           </div>
         </div>
 
-        <!-- Mode Remote SSH -->
         <div id="k8s_ssh_block" style="display:none;">
           <div class="input-row">
             <div class="form-group" style="flex:2;">
@@ -881,22 +1424,22 @@ def get_wizard_html_page() -> str:
         <div id="k8s_nodes_result" style="display:none; margin-top:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:8px; padding:12px; font-family:monospace; font-size:12px;"></div>
 
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(1)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(3)">Suivant : Réseau & Ingress →</button>
+          <button class="btn btn-secondary" onclick="goToStep(2)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(4)">Suivant : Réseau & Ingress →</button>
         </div>
       </section>
 
-      <!-- SCREEN 3: Réseau & Ingress -->
-      <section id="step3" class="screen card">
+      <!-- SCREEN 4: Réseau & Ingress -->
+      <section id="step4" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 3 : Exposition Réseau, Domaine FQDN & TLS</h2>
+          <h2 class="screen-title">Étape 4 : Exposition Réseau, Domaine FQDN & TLS</h2>
           <p class="screen-desc">Définissez le nom de domaine public d'accès et la gestion automatique des certificats HTTPS.</p>
         </div>
 
         <div class="form-group">
           <label class="form-label">Nom de domaine public complet (FQDN) <span style="color:var(--accent-cyan);">*</span></label>
           <div class="form-sublabel">Vos collaborateurs accéderont au portail via cette URL (ex: <code>assistant.mon-entreprise.com</code>).</div>
-          <input type="text" id="net_fqdn" class="form-control" placeholder="ex: assistant.mon-entreprise.com" required>
+          <input type="text" id="net_fqdn" class="form-control" placeholder="ex: assistant.mon-entreprise.com" required oninput="updateInstanceRepoSuggestion()">
         </div>
 
         <div class="input-row">
@@ -921,114 +1464,95 @@ def get_wizard_html_page() -> str:
 
         <div id="net_acme_block" class="form-group">
           <label class="form-label">Email de contact Let's Encrypt (ACME) <span style="color:var(--accent-cyan);">*</span></label>
-          <div class="form-sublabel">Utilisé par l'autorité de certification Let's Encrypt pour les alertes d'expiration de certificat.</div>
           <input type="email" id="net_acme_email" class="form-control" placeholder="admin@mon-entreprise.com">
         </div>
 
-        <div class="alert-box alert-info">
-          <span style="font-size:20px;">💡</span>
-          <div>
-            <strong>Rappel DNS d'Entreprise :</strong><br>
-            N'oubliez pas de créer un enregistrement DNS de type <code>A</code> ou <code>CNAME</code> pointant votre nom de domaine vers l'adresse IP publique de votre Ingress ou pare-feu.
-          </div>
-        </div>
-
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(2)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(4)">Suivant : Passerelle LLM →</button>
+          <button class="btn btn-secondary" onclick="goToStep(3)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(5)">Suivant : Passerelle LLM →</button>
         </div>
       </section>
 
-      <!-- SCREEN 4: Passerelle LLM & IA -->
-      <section id="step4" class="screen card">
+      <!-- SCREEN 5: Passerelle LLM & IA -->
+      <section id="step5" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 4 : Passerelle LLM & Modèles d'Inférence</h2>
-          <p class="screen-desc">Connectez votre fournisseur d'inférence d'entreprise. Les requêtes sont automatiquement protégées par le bouclier DLP Presidio.</p>
+          <h2 class="screen-title">Étape 5 : Passerelle LLM & Modèles d'Inférence</h2>
+          <p class="screen-desc">Connectez votre fournisseur d'inférence. Les requêtes sont automatiquement protégées par Presidio DLP.</p>
         </div>
 
         <div class="form-group">
           <label class="form-label">Clé d'API OpenRouter d'entreprise <span style="color:var(--accent-cyan);">*</span></label>
-          <div class="form-sublabel">Fournit un accès unifié et optimisé à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3 et Mistral Large. <a href="https://openrouter.ai/keys" target="_blank" class="doc-link">Obtenir une clé sur OpenRouter.ai ↗</a></div>
+          <div class="form-sublabel">Accès unifié à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3. <a href="https://openrouter.ai/keys" target="_blank" class="doc-link">Obtenir une clé sur OpenRouter.ai ↗</a></div>
           <input type="password" id="llm_key" class="form-control" placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx" required>
         </div>
 
         <div class="input-row">
           <div class="form-group" style="flex:1;">
-            <label class="form-label">Modèle d'entreprise par défaut</label>
+            <label class="form-label">Modèle par défaut</label>
             <select id="llm_model" class="form-control">
-              <option value="openrouter/auto">openrouter/auto (Routage automatique optimisé)</option>
-              <option value="openrouter/anthropic/claude-3.5-sonnet">openrouter/anthropic/claude-3.5-sonnet (Raisonnement de pointe)</option>
-              <option value="openrouter/openai/gpt-4o">openrouter/openai/gpt-4o (Polyvalent et multimodal)</option>
-              <option value="openrouter/deepseek/deepseek-chat">openrouter/deepseek/deepseek-chat (Ultra-économique)</option>
+              <option value="openrouter/auto">openrouter/auto (Routage automatique équilibré)</option>
+              <option value="openrouter/anthropic/claude-3.5-sonnet">openrouter/anthropic/claude-3.5-sonnet (Raisonnement avancé)</option>
+              <option value="openrouter/openai/gpt-4o">openrouter/openai/gpt-4o (Multimodal rapide)</option>
+              <option value="openrouter/deepseek/deepseek-chat">openrouter/deepseek/deepseek-chat (Économique)</option>
             </select>
           </div>
           <div class="form-group" style="flex:1;">
-            <label class="form-label">Serveur vLLM local souverain (Optionnel)</label>
+            <label class="form-label">Endpoint vLLM local optionnel</label>
             <input type="text" id="llm_vllm" class="form-control" placeholder="ex: http://vllm.corp.local:8000/v1">
           </div>
         </div>
 
-        <div class="alert-box alert-success">
-          <span style="font-size:20px;">🛡️</span>
-          <div>
-            <strong>Bouclier de Confidentialité Presidio DLP activé d'office :</strong><br>
-            Toutes les requêtes sortantes passent automatiquement par le service de caviardage DLP en coupure avant transmission aux modèles Cloud (masquage déterministe des adresses emails, numéros de téléphone, numéros de cartes bancaires et clés d'API).
-          </div>
-        </div>
-
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(3)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(5)">Suivant : Hermes Studio →</button>
+          <button class="btn btn-secondary" onclick="goToStep(4)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(6)">Suivant : Hermes Studio →</button>
         </div>
       </section>
 
-      <!-- SCREEN 5: Hermes Studio & Desktop -->
-      <section id="step5" class="screen card">
+      <!-- SCREEN 6: Hermes Studio & Desktop -->
+      <section id="step6" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 5 : Moteur d'Agents Hermes & Studio Kanban</h2>
-          <p class="screen-desc">Sécurisez l'accès au Studio Kanban multi-agents et à la passerelle WebSocket du client de bureau Hermes Desktop.</p>
+          <h2 class="screen-title">Étape 6 : Moteur d'Agents Hermes & Studio Kanban</h2>
+          <p class="screen-desc">Sécurisez l'accès au Studio Kanban multi-agents et à la passerelle WebSocket du client de bureau.</p>
         </div>
 
         <div class="form-group">
           <label class="form-label">Mot de passe Administrateur Hermes Studio (/studio) <span style="color:var(--accent-cyan);">*</span></label>
-          <div class="form-sublabel">Identifiant de connexion par défaut : <code>admin</code>. Utilisé pour administrer les agents sur le portail Kanban visuel.</div>
           <div class="input-row">
             <input type="text" id="hermes_password" class="form-control" required>
-            <button class="btn btn-secondary" style="white-space:nowrap;" onclick="generateSecretFor('hermes_password', 'admin')">🎲 Régénérer</button>
+            <button class="btn btn-secondary" onclick="generateSecretFor('hermes_password', 'admin')">🎲 Régénérer</button>
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Jeton PAT Hermes Desktop Gateway (/gateway) <span style="color:var(--accent-cyan);">*</span></label>
-          <div class="form-sublabel">Jeton d'authentification (Personal Access Token) pour connecter l'application de bureau Hermes (Mac/Win/Linux).</div>
           <div class="input-row">
             <input type="text" id="hermes_pat" class="form-control" required>
-            <button class="btn btn-secondary" style="white-space:nowrap;" onclick="generateSecretFor('hermes_pat', 'pat')">🎲 Régénérer</button>
+            <button class="btn btn-secondary" onclick="generateSecretFor('hermes_pat', 'pat')">🎲 Régénérer</button>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Espace de stockage persistant de l'agent (PVC)</label>
+          <label class="form-label">Espace de stockage persistant (PVC)</label>
           <input type="text" id="hermes_storage" class="form-control" value="20Gi">
         </div>
 
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(4)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(6)">Suivant : SSO Entra ID (Optionnel) →</button>
+          <button class="btn btn-secondary" onclick="goToStep(5)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(7)">Suivant : SSO Entra ID (Optionnel) →</button>
         </div>
       </section>
 
-      <!-- SCREEN 6: SSO Entra ID (Optionnel) -->
-      <section id="step6" class="screen card">
+      <!-- SCREEN 7: SSO Entra ID (Optionnel) -->
+      <section id="step7" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 6 : Authentification SSO Microsoft Entra ID (Zero-Trust)</h2>
-          <p class="screen-desc">Optionnel : Restreignez l'accès à Hermes Studio et Open-WebUI aux seuls comptes Microsoft 365 de votre entreprise.</p>
+          <h2 class="screen-title">Étape 7 : Authentification SSO Microsoft Entra ID</h2>
+          <p class="screen-desc">Optionnel : Restreignez l'accès à Hermes Studio et Open-WebUI aux seuls comptes Microsoft 365.</p>
         </div>
 
         <div class="toggle-wrapper">
           <div class="toggle-info">
             <h4>Activer l'Authentification SSO Microsoft Entra ID</h4>
-            <p>Active oauth2-proxy et le middleware Traefik ForwardAuth pour verrouiller l'accès aux collaborateurs de votre tenant.</p>
+            <p>Active oauth2-proxy et le middleware Traefik ForwardAuth pour verrouiller l'accès aux collaborateurs.</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="sso_enabled" onchange="toggleSsoFields()">
@@ -1062,44 +1586,42 @@ def get_wizard_html_page() -> str:
           </div>
         </div>
 
-        <!-- Guide interactif Entra ID -->
         <div class="doc-accordion">
           <div class="doc-header" onclick="toggleDocAccordion('docEntra')">
             <span>📘 Comment créer l'application dans Microsoft Entra ID ? (Guide pas-à-pas)</span>
             <span id="docEntraIcon">▼</span>
           </div>
           <div id="docEntra" class="doc-body">
-            <p>Suivez ces 5 étapes rapides sur le <strong>Portail Azure</strong> :</p>
             <ol>
-              <li>Allez sur <a href="https://portal.azure.com" target="_blank" class="doc-link">portal.azure.com</a> > <strong>Microsoft Entra ID</strong> > <strong>Inscriptions d'applications</strong> > <strong>+ Nouvelle inscription</strong>.</li>
-              <li>Nommez l'application (ex: <code>ArcIA-SSO</code>), choisissez <em>Comptes dans cet annuaire uniquement (Mono-locataire)</em>.</li>
-              <li>Dans <strong>URI de redirection (Web)</strong>, saisissez : <code id="guide_sso_callback">https://&lt;votre-fqdn&gt;/oauth2/callback</code>.</li>
-              <li>Dans <strong>Vue d'ensemble</strong>, copiez l'<strong>ID d'application (client)</strong> et l'<strong>ID de l'annuaire (tenant)</strong>.</li>
-              <li>Dans <strong>Certificats & secrets</strong>, créez un <strong>Nouveau secret client</strong> et copiez sa <em>Valeur</em>.</li>
+              <li>Portail Azure > <strong>Microsoft Entra ID</strong> > <strong>Inscriptions d'applications</strong> > <strong>+ Nouvelle inscription</strong>.</li>
+              <li>Nom : <code>ArcIA-SSO</code> | Types de comptes : <em>Mono-locataire</em>.</li>
+              <li>URI de redirection (Web) : <code id="guide_sso_callback">https://&lt;fqdn&gt;/oauth2/callback</code>.</li>
+              <li>Copiez <strong>ID d'application (client)</strong> et <strong>ID de l'annuaire (tenant)</strong>.</li>
+              <li>Dans <strong>Certificats & secrets</strong>, créez un secret et copiez sa <em>Valeur</em>.</li>
             </ol>
             <p style="margin-top:10px;">
-              Consultez le guide officiel complet : <a href="https://github.com/nicolastheuil/ArcIA/blob/main/docs/guides/portail-webui-entraid.md#creation-app-entraid" target="_blank" class="doc-link">Guide détaillé SSO Entra ID sur GitHub ↗</a>
+              <a href="https://github.com/nicolastheuil/ArcIA/blob/main/docs/guides/portail-webui-entraid.md#creation-app-entraid" target="_blank" class="doc-link">Guide détaillé SSO Entra ID sur GitHub ↗</a>
             </p>
           </div>
         </div>
 
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(5)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(7)">Suivant : Bot Teams (Optionnel) →</button>
+          <button class="btn btn-secondary" onclick="goToStep(6)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(8)">Suivant : Bot Teams (Optionnel) →</button>
         </div>
       </section>
 
-      <!-- SCREEN 7: Bot Microsoft Teams (Optionnel) -->
-      <section id="step7" class="screen card">
+      <!-- SCREEN 8: Bot Teams (Optionnel) -->
+      <section id="step8" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 7 : Adaptateur Microsoft Teams Bot</h2>
-          <p class="screen-desc">Optionnel : Intégrez le bot ArcIA directement dans Microsoft Teams (chats 1:1 et mentions @ArcIA dans les canaux).</p>
+          <h2 class="screen-title">Étape 8 : Adaptateur Microsoft Teams Bot</h2>
+          <p class="screen-desc">Optionnel : Intégrez le bot ArcIA dans Microsoft Teams (chats 1:1 et mentions @ArcIA en canaux).</p>
         </div>
 
         <div class="toggle-wrapper">
           <div class="toggle-info">
             <h4>Activer le Bot Microsoft Teams</h4>
-            <p>Déploie le microservice adaptateur Teams Bot et route les requêtes du webhook Azure Bot Service.</p>
+            <p>Déploie le microservice adaptateur Teams Bot et route les webhooks Azure Bot Service.</p>
           </div>
           <label class="switch">
             <input type="checkbox" id="teams_enabled" onchange="toggleTeamsFields()">
@@ -1110,12 +1632,12 @@ def get_wizard_html_page() -> str:
         <div id="teams_fields" style="opacity: 0.4; pointer-events: none; transition: opacity 0.3s;">
           <div class="input-row">
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Microsoft App ID (Bot ID) <span style="color:var(--accent-cyan);">*</span></label>
+              <label class="form-label">Microsoft App ID <span style="color:var(--accent-cyan);">*</span></label>
               <input type="text" id="teams_appid" class="form-control" placeholder="ex: 00000000-0000-0000-0000-000000000000">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">App Password (Secret Bot) <span style="color:var(--accent-cyan);">*</span></label>
-              <input type="password" id="teams_password" class="form-control" placeholder="Mot de passe généré dans Azure Bot">
+              <label class="form-label">App Password <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="password" id="teams_password" class="form-control" placeholder="Mot de passe Azure Bot">
             </div>
           </div>
 
@@ -1125,37 +1647,35 @@ def get_wizard_html_page() -> str:
           </div>
         </div>
 
-        <!-- Guide interactif Teams Bot -->
         <div class="doc-accordion">
           <div class="doc-header" onclick="toggleDocAccordion('docTeams')">
             <span>📘 Comment créer le bot sur Azure Bot Service ? (Guide pas-à-pas)</span>
             <span id="docTeamsIcon">▼</span>
           </div>
           <div id="docTeams" class="doc-body">
-            <p>Suivez ces 4 étapes simples sur le <strong>Portail Azure</strong> :</p>
             <ol>
-              <li>Créez une ressource <strong>Azure Bot</strong> (type d'application : <em>Mono-locataire</em> ou <em>Multi-locataire</em>).</li>
-              <li>Dans <strong>Configuration</strong>, renseignez l'URL de messagerie (Messaging endpoint) : <code id="guide_teams_webhook">https://&lt;votre-fqdn&gt;/api/teams/messages</code>.</li>
-              <li>Copiez le <strong>Microsoft App ID</strong> et cliquez sur <em>Gérer le mot de passe</em> pour générer un nouveau secret client (App Password).</li>
-              <li>Dans le menu <strong>Canaux</strong>, activez le canal <strong>Microsoft Teams</strong> en un clic.</li>
+              <li>Portail Azure > Créer une ressource <strong>Azure Bot</strong>.</li>
+              <li>Dans <strong>Configuration</strong>, renseignez l'URL de messagerie : <code id="guide_teams_webhook">https://&lt;fqdn&gt;/api/teams/messages</code>.</li>
+              <li>Copiez le <strong>Microsoft App ID</strong> et générez le secret dans <em>Gérer le mot de passe</em>.</li>
+              <li>Dans <strong>Canaux</strong>, activez le canal <strong>Microsoft Teams</strong>.</li>
             </ol>
             <p style="margin-top:10px;">
-              Consultez le guide officiel complet : <a href="https://github.com/nicolastheuil/ArcIA/blob/main/docs/guides/integration-teams.md#creation-azure-bot" target="_blank" class="doc-link">Guide détaillé Intégration Teams sur GitHub ↗</a>
+              <a href="https://github.com/nicolastheuil/ArcIA/blob/main/docs/guides/integration-teams.md#creation-azure-bot" target="_blank" class="doc-link">Guide détaillé Intégration Teams sur GitHub ↗</a>
             </p>
           </div>
         </div>
 
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(6)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(8)">Suivant : OmniRoute (Optionnel) →</button>
+          <button class="btn btn-secondary" onclick="goToStep(7)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(9)">Suivant : OmniRoute (Optionnel) →</button>
         </div>
       </section>
 
-      <!-- SCREEN 8: OmniRoute & Avancé -->
-      <section id="step8" class="screen card">
+      <!-- SCREEN 9: OmniRoute -->
+      <section id="step9" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 8 : Routeur Multi-Fournisseurs OmniRoute</h2>
-          <p class="screen-desc">Optionnel : Activez OmniRoute v3.8.51 pour disposer d'un portail LAN d'administration multi-fournisseurs.</p>
+          <h2 class="screen-title">Étape 9 : Routeur Multi-Fournisseurs OmniRoute</h2>
+          <p class="screen-desc">Optionnel : Activez OmniRoute v3.8.51 pour disposer d'un portail LAN multi-fournisseurs.</p>
         </div>
 
         <div class="toggle-wrapper">
@@ -1169,24 +1689,17 @@ def get_wizard_html_page() -> str:
           </label>
         </div>
 
-        <div class="alert-box alert-info">
-          <span style="font-size:20px;">ℹ️</span>
-          <div>
-            Par défaut, <strong>LiteLLM Proxy</strong> (:4000) gère déjà le routage d'entreprise unifié avec Presidio DLP. N'activez OmniRoute que si vous avez un besoin spécifique de gestion multi-fournisseurs avancée en amont.
-          </div>
-        </div>
-
         <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(7)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(9)">Suivant : Récapitulatif & Déploiement →</button>
+          <button class="btn btn-secondary" onclick="goToStep(8)">← Précédent</button>
+          <button class="btn btn-primary" onclick="goToStep(10)">Suivant : Validation & Déploiement →</button>
         </div>
       </section>
 
-      <!-- SCREEN 9: Déploiement Automatique -->
-      <section id="step9" class="screen card">
+      <!-- SCREEN 10: Déploiement & Sauvegarde Git Chiffrée -->
+      <section id="step10" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 9 : Validation & Lancement du Déploiement</h2>
-          <p class="screen-desc">Vérifiez les paramètres avant l'application sur le cluster. Les compétences et outils natifs seront déployés automatiquement.</p>
+          <h2 class="screen-title">Étape 10 : Validation & Déploiement Automatisé</h2>
+          <p class="screen-desc">Vérifiez les paramètres. L'installation déploie le cluster et sauvegarde l'instance chiffrée sur Git.</p>
         </div>
 
         <div id="deployPreCheck" style="margin-bottom: 20px;">
@@ -1215,36 +1728,26 @@ def get_wizard_html_page() -> str:
         </div>
 
         <div class="actions-bar" style="margin-top:20px;">
-          <button class="btn btn-secondary" onclick="goToStep(8)">← Précédent</button>
-          <button id="btnGoFinal" class="btn btn-primary" style="display:none;" onclick="goToStep(10)">Voir le récapitulatif final et les URLs d'accès →</button>
+          <button class="btn btn-secondary" onclick="goToStep(9)">← Précédent</button>
+          <button id="btnGoFinal" class="btn btn-primary" style="display:none;" onclick="goToStep(11)">Voir le récapitulatif final et les URLs d'accès →</button>
         </div>
       </section>
 
-      <!-- SCREEN 10: Récapitulatif Final & Accès -->
-      <section id="step10" class="screen card">
+      <!-- SCREEN 11: Récapitulatif Final & Accès -->
+      <section id="step11" class="screen card">
         <div class="screen-header">
           <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
           <h2 class="screen-title" style="color: var(--success);">ArcIA est 100% Opérationnel !</h2>
           <p class="screen-desc">L'ensemble des microservices, secrets, certificats TLS, compétences et passerelles d'inférence ont été déployés avec succès.</p>
         </div>
 
-        <div class="recap-grid" id="recapAccessGrid">
-          <!-- Injecté dynamiquement par JavaScript -->
-        </div>
+        <div class="recap-grid" id="recapAccessGrid"></div>
 
         <div class="alert-box alert-success" style="margin-top: 24px;">
           <span style="font-size:20px;">✅</span>
           <div>
             <strong>Compétences et Outils Activés Automatiquement :</strong><br>
-            Les compétences natives (<em>Ponytail</em> pour la sobriété logicielle, <em>Graphify</em> pour le GraphRAG AST local déterministe, et <em>Public-APIs</em>) sont intégrées d'office et utilisables immédiatement par les agents sans aucune manipulation.
-          </div>
-        </div>
-
-        <div class="alert-box alert-info">
-          <span style="font-size:20px;">🔄</span>
-          <div>
-            <strong>Installation évolutive et ré-exécutable :</strong><br>
-            Vous pouvez à tout moment relancer ce Wizard (<code>./wizard.sh</code> ou <code>.\\wizard.ps1</code>) pour modifier un paramètre, changer une clé API ou activer a posteriori l'authentification Entra ID ou le bot Teams par-dessus cette même installation.
+            Les compétences natives (<em>Ponytail</em> pour la sobriété logicielle, <em>Graphify</em> pour le GraphRAG AST local déterministe, et <em>Public-APIs</em>) sont intégrées d'office et utilisables immédiatement.
           </div>
         </div>
 
@@ -1258,13 +1761,13 @@ def get_wizard_html_page() -> str:
   </div>
 
   <script>
-    // État global de l'application
     let currentStep = 1;
     let configData = {};
     let isExistingInstallation = false;
     let logPollingInterval = null;
+    let selectedSetupMode = "new"; // "new" ou "restore"
+    let createdRepoUrl = "";
 
-    // Initialisation au chargement de la page
     window.addEventListener("DOMContentLoaded", () => {
       fetchConfig();
     });
@@ -1276,18 +1779,15 @@ def get_wizard_html_page() -> str:
         configData = data.config || {};
         isExistingInstallation = data.is_existing;
 
-        // Mise à jour de l'indicateur d'instance
         const badge = document.getElementById("instanceModeBadge");
         if (isExistingInstallation) {
-          badge.textContent = "Instance existante chargée (Mode Mise à Jour)";
+          badge.textContent = "Configuration existante chargée";
           badge.style.color = "var(--success)";
           badge.style.borderColor = "var(--success)";
-          document.getElementById("existingConfigAlert").style.display = "flex";
         } else {
           badge.textContent = "Nouvelle installation";
         }
 
-        // Remplissage des contextes K8s disponibles
         const ctxSelect = document.getElementById("k8s_context_select");
         if (data.available_contexts && data.available_contexts.length > 0) {
           data.available_contexts.forEach(ctx => {
@@ -1300,7 +1800,59 @@ def get_wizard_html_page() -> str:
 
         populateFormFields(configData);
       } catch (err) {
-        console.error("Erreur lors de la récupération de la configuration:", err);
+        console.error("Erreur récupération configuration:", err);
+      }
+    }
+
+    function selectSetupMode(mode) {
+      selectedSetupMode = mode;
+      document.getElementById("cardNewInstance").classList.toggle("selected", mode === "new");
+      document.getElementById("cardRestoreInstance").classList.toggle("selected", mode === "restore");
+      document.getElementById("restoreSection").style.display = (mode === "restore") ? "block" : "none";
+    }
+
+    async function executeInstanceRestore() {
+      const gitUrl = document.getElementById("restore_git_url").value.trim();
+      const gitToken = document.getElementById("restore_git_token").value.trim();
+      const passphrase = document.getElementById("restore_passphrase").value.trim();
+      const statusSpan = document.getElementById("restoreStatus");
+      const successPanel = document.getElementById("restoreSuccessPanel");
+
+      if (!gitUrl) {
+        alert("Veuillez renseigner l'URL du dépôt Git d'instance privé.");
+        return;
+      }
+      if (!passphrase) {
+        alert("Veuillez renseigner votre mot de passe maître de déchiffrement.");
+        return;
+      }
+
+      statusSpan.innerHTML = '<span style="color:var(--accent-cyan);">⏳ Téléchargement et déchiffrement du bundle d\'instance...</span>';
+      successPanel.style.display = "none";
+
+      try {
+        const res = await fetch("/api/instance/restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repo_url: gitUrl, token: gitToken, passphrase: passphrase })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusSpan.innerHTML = '<span style="color:var(--success); font-weight:700;">✅ Déchiffrement réussi !</span>';
+          successPanel.style.display = "block";
+          document.getElementById("restoreSummaryDetails").innerHTML = `
+            • Nom de l'instance : <strong>${data.instance_name}</strong><br>
+            • Domaine FQDN : <strong>https://${data.public_fqdn}/</strong><br>
+            • Namespace Kubernetes : <strong>${data.config.kubernetes ? data.config.kubernetes.namespace : 'arcia'}</strong><br>
+            Tous les paramètres et secrets ont été rechargés dans le Wizard.
+          `;
+          populateFormFields(data.config);
+          configData = data.config;
+        } else {
+          statusSpan.innerHTML = `<span style="color:var(--danger); font-weight:700;">❌ ${data.error}</span>`;
+        }
+      } catch (err) {
+        statusSpan.innerHTML = `<span style="color:var(--danger);">❌ Erreur de communication : ${err.message}</span>`;
       }
     }
 
@@ -1313,36 +1865,31 @@ def get_wizard_html_page() -> str:
       const teams = cfg.teams_bot || {};
       const omni = cfg.omniroute || {};
 
-      // Step 2
       document.getElementById("k8s_mode").value = k8s.mode || "local";
       document.getElementById("k8s_context").value = k8s.context || "";
       document.getElementById("k8s_kubeconfig").value = k8s.kubeconfig || "";
       document.getElementById("k8s_namespace").value = k8s.namespace || "arcia";
       document.getElementById("k8s_storage_class").value = k8s.storage_class || "";
       const ssh = k8s.remote_ssh || {};
-      document.getElementById("k8s_ssh_ip").value = ssh.node_ip || "127.0.0.1";
+      document.getElementById("k8s_ssh_ip").value = ssh.node_ip || "";
       document.getElementById("k8s_ssh_user").value = ssh.ssh_user || "debian";
       document.getElementById("k8s_ssh_port").value = ssh.ssh_port || 22;
       toggleK8sMode();
 
-      // Step 3
       document.getElementById("net_fqdn").value = net.public_fqdn || "";
       document.getElementById("net_tls_mode").value = net.tls_mode || "letsencrypt-prod";
       document.getElementById("net_ingress_class").value = net.ingress_class || "traefik";
       document.getElementById("net_acme_email").value = net.acme_email || "";
       toggleTlsMode();
 
-      // Step 4
       document.getElementById("llm_key").value = llm.openrouter_api_key || "";
       document.getElementById("llm_model").value = llm.default_model || "openrouter/auto";
       document.getElementById("llm_vllm").value = llm.local_vllm_endpoint || "";
 
-      // Step 5
       document.getElementById("hermes_password").value = hermes.admin_password || "admin";
       document.getElementById("hermes_pat").value = hermes.api_token || "";
       document.getElementById("hermes_storage").value = hermes.storage_size || "20Gi";
 
-      // Step 6
       document.getElementById("sso_enabled").checked = !!sso.enabled;
       document.getElementById("sso_tenant").value = sso.tenant_id || "";
       document.getElementById("sso_client").value = sso.client_id || "";
@@ -1350,7 +1897,6 @@ def get_wizard_html_page() -> str:
       document.getElementById("sso_cookie").value = sso.cookie_secret || "";
       toggleSsoFields();
 
-      // Step 7
       document.getElementById("teams_enabled").checked = !!teams.enabled;
       document.getElementById("teams_appid").value = teams.app_id || "";
       document.getElementById("teams_password").value = teams.app_password || "";
@@ -1359,10 +1905,10 @@ def get_wizard_html_page() -> str:
       }
       toggleTeamsFields();
 
-      // Step 8
       document.getElementById("omni_enabled").checked = !!omni.enabled;
 
       updateGuideFqdn();
+      updateInstanceRepoSuggestion();
     }
 
     function collectFormData() {
@@ -1428,66 +1974,81 @@ def get_wizard_html_page() -> str:
       };
     }
 
-    // Navigation entre étapes
-    function goToStep(stepNumber) {
-      if (stepNumber < 1 || stepNumber > 10) return;
-      
-      // Validation légère avant passage à l'étape suivante
-      if (stepNumber > currentStep && !validateStep(currentStep)) {
-        return;
+    function collectInstanceGitInfo() {
+      const enabled = document.getElementById("git_instance_enabled").checked;
+      const provider = document.getElementById("git_provider").value;
+      const repoName = document.getElementById("git_repo_name").value.trim();
+      const token = document.getElementById("git_token").value.trim();
+      const passphrase = document.getElementById("git_passphrase").value.trim();
+      const ownerSelect = document.getElementById("git_owner_select");
+      const owner = ownerSelect.value || "";
+
+      let repoUrl = "";
+      if (provider === "github") {
+        repoUrl = `https://github.com/${owner || 'votre-orga'}/${repoName}.git`;
+      } else if (provider === "gitlab") {
+        repoUrl = `https://gitlab.com/${owner || 'votre-orga'}/${repoName}.git`;
       }
+
+      return {
+        enabled: enabled,
+        provider: provider,
+        repo_name: repoName,
+        owner: owner,
+        git_token: token,
+        repo_url: repoUrl,
+        passphrase: passphrase,
+        instance_name: repoName
+      };
+    }
+
+    function goToStep(stepNumber) {
+      if (stepNumber < 1 || stepNumber > 11) return;
+      if (stepNumber > currentStep && !validateStep(currentStep)) return;
 
       currentStep = stepNumber;
       updateGuideFqdn();
 
-      // Mise à jour de l'affichage des écrans
       document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
       const targetScreen = document.getElementById(`step${stepNumber}`);
       if (targetScreen) targetScreen.classList.add("active");
 
-      // Mise à jour du stepper
       const stepItems = document.querySelectorAll(".step-item");
       stepItems.forEach((item, idx) => {
         item.classList.remove("active");
-        if (idx + 1 === stepNumber) {
-          item.classList.add("active");
-        }
-        if (idx + 1 < stepNumber) {
-          item.classList.add("completed");
-        } else {
-          item.classList.remove("completed");
-        }
+        if (idx + 1 === stepNumber) item.classList.add("active");
+        if (idx + 1 < stepNumber) item.classList.add("completed");
+        else item.classList.remove("completed");
       });
 
-      // Si on arrive sur l'étape 9 (Déploiement), mettre à jour le résumé
-      if (stepNumber === 9) {
-        updateDeploySummary();
-      }
-
-      // Si on arrive sur l'étape 10 (Récapitulatif)
-      if (stepNumber === 10) {
-        buildRecapCards();
-      }
+      if (stepNumber === 10) updateDeploySummary();
+      if (stepNumber === 11) buildRecapCards();
 
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function validateStep(step) {
-      if (step === 3) {
+      if (step === 2 && document.getElementById("git_instance_enabled").checked) {
+        const pwd = document.getElementById("git_passphrase").value;
+        const confirm = document.getElementById("git_passphrase_confirm").value;
+        if (!pwd || pwd.length < 8) {
+          alert("Veuillez renseigner un mot de passe maître de chiffrement d'au moins 8 caractères pour sécuriser votre instance.");
+          document.getElementById("git_passphrase").focus();
+          return false;
+        }
+        if (pwd !== confirm) {
+          alert("Les deux mots de passe maîtres ne correspondent pas.");
+          document.getElementById("git_passphrase_confirm").focus();
+          return false;
+        }
+      } else if (step === 4) {
         const fqdn = document.getElementById("net_fqdn").value.trim();
         if (!fqdn) {
           alert("Veuillez renseigner un nom de domaine public (FQDN) pour continuer.");
           document.getElementById("net_fqdn").focus();
           return false;
         }
-        const tlsMode = document.getElementById("net_tls_mode").value;
-        const email = document.getElementById("net_acme_email").value.trim();
-        if (tlsMode.startsWith("letsencrypt") && (!email || !email.includes("@"))) {
-          alert("Veuillez renseigner une adresse email ACME valide pour Let's Encrypt.");
-          document.getElementById("net_acme_email").focus();
-          return false;
-        }
-      } else if (step === 4) {
+      } else if (step === 5) {
         const key = document.getElementById("llm_key").value.trim();
         if (!key || key.startsWith("sk-or-v1-xxxx")) {
           alert("Veuillez renseigner votre clé d'API OpenRouter réelle pour joindre les modèles d'inférence.");
@@ -1498,6 +2059,56 @@ def get_wizard_html_page() -> str:
       return true;
     }
 
+    function updateInstanceRepoSuggestion() {
+      const fqdn = document.getElementById("net_fqdn").value.trim();
+      if (fqdn && document.getElementById("git_repo_name").value === "ArcIA-instance-prod") {
+        const slug = fqdn.split(".")[0];
+        document.getElementById("git_repo_name").value = `ArcIA-instance-${slug}`;
+      }
+    }
+
+    function toggleGitInstanceFields() {
+      const enabled = document.getElementById("git_instance_enabled").checked;
+      const block = document.getElementById("git_instance_fields");
+      block.style.opacity = enabled ? "1" : "0.4";
+      block.style.pointerEvents = enabled ? "auto" : "none";
+    }
+
+    async function testGitToken() {
+      const provider = document.getElementById("git_provider").value;
+      const token = document.getElementById("git_token").value.trim();
+      if (!token) {
+        alert("Veuillez entrer votre jeton d'accès Git (PAT).");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/instance/test-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, token })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ Authentification Git réussie en tant que : ${data.username}`);
+          const ownerGroup = document.getElementById("git_owner_group");
+          const ownerSelect = document.getElementById("git_owner_select");
+          ownerSelect.innerHTML = "";
+          data.targets.forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t;
+            opt.textContent = t;
+            ownerSelect.appendChild(opt);
+          });
+          ownerGroup.style.display = "block";
+        } else {
+          alert(`❌ ${data.error}`);
+        }
+      } catch (err) {
+        alert("Erreur de test : " + err.message);
+      }
+    }
+
     function toggleK8sMode() {
       const mode = document.getElementById("k8s_mode").value;
       document.getElementById("k8s_local_block").style.display = (mode === "local") ? "block" : "none";
@@ -1506,9 +2117,7 @@ def get_wizard_html_page() -> str:
 
     function selectContextFromList() {
       const val = document.getElementById("k8s_context_select").value;
-      if (val) {
-        document.getElementById("k8s_context").value = val;
-      }
+      if (val) document.getElementById("k8s_context").value = val;
     }
 
     function toggleTlsMode() {
@@ -1562,7 +2171,7 @@ def get_wizard_html_page() -> str:
           document.getElementById(elementId).value = data.token;
         }
       } catch (err) {
-        console.error("Erreur génération de secret:", err);
+        console.error("Erreur génération secret:", err);
       }
     }
 
@@ -1611,7 +2220,7 @@ def get_wizard_html_page() -> str:
           alert("Erreur lors de l'enregistrement : " + data.error);
         }
       } catch (err) {
-        alert("Erreur de communication : " + err.message);
+        alert("Erreur communication : " + err.message);
       }
     }
 
@@ -1622,11 +2231,14 @@ def get_wizard_html_page() -> str:
       const sso = cfg.entra_id_sso.enabled ? "Activé" : "Désactivé";
       const teams = cfg.teams_bot.enabled ? "Activé" : "Désactivé";
       const omni = cfg.omniroute.enabled ? "Activé" : "Désactivé";
+      const gitInfo = collectInstanceGitInfo();
+      const gitMsg = gitInfo.enabled ? `Oui (${gitInfo.repo_name} sur ${gitInfo.provider})` : "Non (stockage local)";
 
       document.getElementById("deploySummaryText").innerHTML = `
-        <strong>Récapitulatif de la cible de déploiement :</strong><br>
+        <strong>Cible de déploiement & Sauvegarde :</strong><br>
         • Domaine FQDN : <strong>https://${fqdn}/</strong><br>
-        • Kubernetes : Mode <strong>${mode}</strong> | Namespace : <strong>${cfg.kubernetes.namespace}</strong><br>
+        • Cluster Kubernetes : Mode <strong>${mode}</strong> (Namespace: <strong>${cfg.kubernetes.namespace}</strong>)<br>
+        • Dépôt d'instance privé chiffré : <strong>${gitMsg}</strong><br>
         • Modules optionnels : SSO Entra ID (<strong>${sso}</strong>) | Bot Teams (<strong>${teams}</strong>) | OmniRoute (<strong>${omni}</strong>)<br>
         • Briques internes automatiques : Presidio DLP, Open-WebUI, Hermes Studio, LiteLLM Proxy, Skills natifs (Ponytail, Graphify, Public-APIs).
       `;
@@ -1634,10 +2246,10 @@ def get_wizard_html_page() -> str:
 
     async function triggerDeployment(dryRun = false) {
       const cfg = collectFormData();
+      const gitInfo = collectInstanceGitInfo();
       const btnDeploy = document.getElementById("btnStartDeploy");
       const btnDry = document.getElementById("btnDryRun");
       const badge = document.getElementById("deployStatusBadge");
-      const btnGoFinal = document.getElementById("btnGoFinal");
 
       btnDeploy.disabled = true;
       btnDry.disabled = true;
@@ -1646,13 +2258,38 @@ def get_wizard_html_page() -> str:
       badge.style.borderColor = "var(--accent-cyan)";
 
       const terminal = document.getElementById("terminalConsole");
-      terminal.innerHTML = `<div class="log-line log-cyan">[INITIALISATION] Démarrage du moteur de déploiement universel...</div>`;
+      terminal.innerHTML = `<div class="log-line log-cyan">[INITIALISATION] Démarrage du moteur de déploiement et de sauvegarde...</div>`;
+
+      // Si création de dépôt demandée, appeler l'API de création au préalable
+      if (gitInfo.enabled && !dryRun && gitInfo.git_token) {
+        try {
+          terminal.innerHTML += `<div class="log-line">[INFO] Création / vérification du dépôt distant ${gitInfo.repo_name}...</div>`;
+          const cRes = await fetch("/api/instance/create-repo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: gitInfo.provider,
+              token: gitInfo.git_token,
+              repo_name: gitInfo.repo_name,
+              owner: gitInfo.owner
+            })
+          });
+          const cData = await cRes.json();
+          if (cData.success && cData.clone_url) {
+            gitInfo.repo_url = cData.clone_url;
+            createdRepoUrl = cData.html_url || cData.clone_url;
+            terminal.innerHTML += `<div class="log-line log-green">[OK] Dépôt Git privé prêt : ${createdRepoUrl}</div>`;
+          }
+        } catch (e) {
+          console.warn("Création de repo:", e);
+        }
+      }
 
       try {
         const res = await fetch("/api/deploy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ config: cfg, dry_run: dryRun })
+          body: JSON.stringify({ config: cfg, dry_run: dryRun, instance_git: gitInfo })
         });
         const data = await res.json();
         if (!data.success) {
@@ -1663,9 +2300,7 @@ def get_wizard_html_page() -> str:
           return;
         }
 
-        // Démarrage du polling des logs
         startLogPolling(dryRun);
-
       } catch (err) {
         terminal.innerHTML += `<div class="log-line log-red">[FATAL] ${err.message}</div>`;
         btnDeploy.disabled = false;
@@ -1687,7 +2322,6 @@ def get_wizard_html_page() -> str:
           const res = await fetch("/api/deploy/status");
           const state = await res.json();
 
-          // Rendu des logs colorés
           terminal.innerHTML = state.logs.map(l => formatAnsiLine(l)).join("");
           terminal.scrollTop = terminal.scrollHeight;
 
@@ -1701,7 +2335,7 @@ def get_wizard_html_page() -> str:
             btnGoFinal.style.display = "inline-flex";
 
             if (!dryRun) {
-              setTimeout(() => { goToStep(10); }, 1500);
+              setTimeout(() => { goToStep(11); }, 1500);
             }
           } else if (state.status === "error") {
             clearInterval(logPollingInterval);
@@ -1749,7 +2383,7 @@ def get_wizard_html_page() -> str:
         {
           title: "🌐 Portail Collaborateur (Open-WebUI)",
           url: `https://${fqdn}/`,
-          desc: "Interface conversationnelle principale d'ArcIA pour l'ensemble des collaborateurs de l'entreprise.",
+          desc: "Interface conversationnelle souveraine pour l'ensemble des collaborateurs.",
           actionText: "Ouvrir le portail"
         },
         {
@@ -1766,11 +2400,20 @@ def get_wizard_html_page() -> str:
         }
       ];
 
+      if (createdRepoUrl) {
+        cards.push({
+          title: "📦 Dépôt Git d'Instance Privé (Chiffré)",
+          url: createdRepoUrl,
+          desc: "Contient la configuration et les secrets chiffrés (AES-256-GCM) de cette instance pour restauration ultérieure.",
+          actionText: "Voir sur Git"
+        });
+      }
+
       if (cfg.teams_bot.enabled) {
         cards.push({
           title: "🤖 Webhook Microsoft Teams Bot",
           url: `https://${fqdn}/api/teams/messages`,
-          desc: "Point de terminaison de messagerie (Messaging endpoint) configuré dans votre ressource Azure Bot Service.",
+          desc: "Point de terminaison de messagerie configuré dans votre Azure Bot Service.",
           actionText: "Copier l'URL"
         });
       }
@@ -1779,7 +2422,7 @@ def get_wizard_html_page() -> str:
         cards.push({
           title: "🔀 Portail Administration OmniRoute",
           url: `http://omniroute.arcia.svc.cluster.local:20129`,
-          desc: "Tableau de bord local de gestion multi-fournisseurs accessible au sein du réseau d'entreprise.",
+          desc: "Tableau de bord local de gestion multi-fournisseurs accessible sur le réseau LAN.",
           actionText: "Ouvrir"
         });
       }

@@ -104,9 +104,9 @@ class TestArcIAWizard(unittest.TestCase):
                 os.remove(tmp_path)
 
     def test_html_page_contains_all_screens_and_guides(self):
-        """Vérifie que la page HTML du Wizard contient les 10 écrans et les liens documentaires."""
+        """Vérifie que la page HTML du Wizard contient les 11 écrans et les liens documentaires."""
         html = wizard.get_wizard_html_page()
-        for i in range(1, 11):
+        for i in range(1, 12):
             self.assertIn(f'id="step{i}"', html, f"Écran manquant : step{i}")
 
         # Vérifier la présence des guides pas-à-pas et des liens GitHub
@@ -116,12 +116,51 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertIn("Graphify", html)
         self.assertIn("Ponytail", html)
         self.assertIn("Public-APIs", html)
+        self.assertIn("ArcIA-instance-", html)
 
     def test_find_available_port(self):
         """Vérifie que la détection d'un port disponible fonctionne."""
         port = wizard.find_available_port(8765)
         self.assertIsInstance(port, int)
         self.assertGreaterEqual(port, 8765)
+
+    def test_encrypt_and_decrypt_instance_bundle_roundtrip(self):
+        """Vérifie le cycle complet de chiffrement et déchiffrement des secrets d'instance."""
+        secrets_payload = {
+            "llm_gateway": {"openrouter_api_key": "sk-or-v1-secret-key-xyz987"},
+            "entra_id_sso": {"client_secret": "my-ultra-secret-azure-client-key"},
+            "teams_bot": {"app_password": "super-strong-teams-bot-password"},
+            "open_webui": {"admin_password": "custom-admin-password-1234"},
+        }
+        passphrase = "Master-Enterprise-Passphrase-2026!"
+
+        encrypted_bundle = wizard.encrypt_instance_bundle(secrets_payload, passphrase)
+        self.assertIn("schema", encrypted_bundle)
+        self.assertIn("algo", encrypted_bundle)
+        self.assertIn("salt", encrypted_bundle)
+        self.assertIn("nonce", encrypted_bundle)
+        self.assertIn("ciphertext", encrypted_bundle)
+
+        # Vérifier que les secrets bruts ne figurent nulle part en clair dans le bundle chiffré
+        bundle_str = json.dumps(encrypted_bundle)
+        self.assertNotIn("sk-or-v1-secret-key-xyz987", bundle_str)
+        self.assertNotIn("my-ultra-secret-azure-client-key", bundle_str)
+        self.assertNotIn("super-strong-teams-bot-password", bundle_str)
+
+        # Déchiffrement avec la bonne passphrase
+        decrypted_payload = wizard.decrypt_instance_bundle(encrypted_bundle, passphrase)
+        self.assertEqual(decrypted_payload, secrets_payload)
+        self.assertEqual(decrypted_payload["llm_gateway"]["openrouter_api_key"], "sk-or-v1-secret-key-xyz987")
+        self.assertEqual(decrypted_payload["entra_id_sso"]["client_secret"], "my-ultra-secret-azure-client-key")
+
+    def test_decrypt_instance_bundle_invalid_passphrase(self):
+        """Vérifie que le déchiffrement avec un mot de passe erroné lève une exception ValueError."""
+        secrets_payload = {"key": "secret-value"}
+        passphrase = "Valid-Passphrase-123"
+        encrypted_bundle = wizard.encrypt_instance_bundle(secrets_payload, passphrase)
+
+        with self.assertRaises(ValueError):
+            wizard.decrypt_instance_bundle(encrypted_bundle, "Wrong-Passphrase-999")
 
 
 if __name__ == "__main__":

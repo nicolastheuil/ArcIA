@@ -169,18 +169,30 @@ Les secrets de production ont été restaurés depuis le coffre DPAPI local (`Ar
 
 ---
 
-## 6. Assistant Graphique Interactif (Setup Wizard) & Déploiement Simplifié (16 octobre 2026)
+## 6. Assistant Graphique Interactif (Setup Wizard), Dépôts d'Instance Privés & Restauration (16 octobre 2026)
 
-Conformément à l'exigence de fluidification intégrale du parcours d'installation :
+Conformément à l'exigence de fluidification intégrale du parcours d'installation et de stricte séparation socle/instance :
 1. **Wizard Graphique Autonome (`scripts/wizard.py`, `./wizard.sh`, `.\wizard.ps1`)** :
-   - Parcours complet écran-par-écran (10 étapes) : Bienvenue -> Cluster K8s (test interactif de connectivité) -> Réseau/TLS -> Passerelle LLM -> Hermes Studio/Desktop -> SSO Entra ID -> Bot Teams -> OmniRoute -> Déploiement live avec streaming de logs -> Récapitulatif 100% opérationnel avec URLs et credentials.
+   - Parcours complet écran-par-écran (11 étapes) :
+     - *Étape 1* : Choix du mode (**Nouvelle Instance** ou **Restaurer une Instance existante**).
+     - *Étape 2* : **Dépôt Git d'Instance Privé** (GitHub ou GitLab, test live de PAT, création automatique de `ArcIA-instance-XXXX`, mot de passe maître de chiffrement AES-256-GCM / PBKDF2).
+     - *Étape 3* : Cluster K8s (test interactif de connectivité `kubectl` ou SSH K3s).
+     - *Étape 4* : Réseau & TLS FQDN (`assistant.votre-entreprise.com`).
+     - *Étape 5* : Passerelle LLM Cloud & Local (OpenRouter, LiteLLM).
+     - *Étape 6* : Hermes Studio & Desktop (génération automatique des PAT et mots de passe).
+     - *Étape 7* : SSO Microsoft Entra ID (optionnel, avec guide pas-à-pas intégré).
+     - *Étape 8* : Bot Microsoft Teams (optionnel, avec guide pas-à-pas intégré).
+     - *Étape 9* : OmniRoute (optionnel).
+     - *Étape 10* : Déploiement live avec streaming de logs + synchronisation chiffrée vers le Git d'instance privé.
+     - *Étape 11* : Récapitulatif 100% opérationnel avec URLs, identifiants et lien d'accès au dépôt d'instance privé.
    - Serveur Web local autonome (Python standard library uniquement, 0 dépendance pip/npm requise).
-   - Détection et pré-remplissage automatique des configurations existantes (`arcia.config.yaml`) permettant des réexécutions sans perte de données.
+   - Mode restauration : téléchargement automatique de `instance-secrets.enc`, déchiffrement via le mot de passe maître, pré-remplissage de toute la configuration et déploiement 1-clic.
 2. **Auto-Configuration Intégrale des Éléments Internes & Compétences** :
    - Presidio DLP, Open-WebUI, Hermes Studio/Gateway, LiteLLM et synchronisation automatique de 100% des compétences natives (*Ponytail*, *Graphify*, *Public-APIs*) déployés d'office sans aucune manipulation utilisateur.
-3. **Guides Documentaires Intégrés** :
-   - Guides pas-à-pas intégrés directement dans l'interface et documentés sur GitHub pour la création d'application Microsoft Entra ID ([Guide SSO](guides/portail-webui-entraid.md#creation-app-entraid)) et Azure Bot Service ([Guide Teams](guides/integration-teams.md#creation-azure-bot)).
+3. **État du Cluster Kubernetes** :
+   - Cluster entièrement remis à blanc : namespace `arcia` détruit, 24 Persistent Volumes orphelins VMware CSI purgés, état prêt pour une installation fraîche 100% propre via le Wizard.
 4. **Vérification Complète** :
-   - 29 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_deploy.py`, etc.).
+   - 31 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_privacy.py`, `tests/test_deploy.py`, etc.).
    - Validation documentaire stricte à 100% (`scripts/validate_docs.py`).
+
 

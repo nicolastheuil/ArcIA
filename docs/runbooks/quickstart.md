@@ -28,7 +28,7 @@ cd ArcIA
 
 ### Étape 2 : Lancer le Setup Wizard Graphique
 
-Pour une installation fluide sans manipulation de fichiers, lancez le Wizard interactif :
+Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez le Wizard interactif :
 
 ```bash
 # Sous Linux / macOS :
@@ -41,14 +41,27 @@ Pour une installation fluide sans manipulation de fichiers, lancez le Wizard int
 python scripts/wizard.py
 ```
 
-Le Wizard s'ouvre dans votre navigateur et vous guide écran par écran :
-1. **Cluster Kubernetes** : Détection automatique des contextes ou saisie SSH K3s, avec test de connectivité en direct.
-2. **Réseau & Certificats** : FQDN public (`https://assistant.votre-entreprise.com/`) et émission automatique Let's Encrypt.
-3. **Passerelle LLM** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) (accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3).
-4. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
-5. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
-6. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
-7. **Accès 100% Opérationnel** : Récapitulatif instantané avec toutes les URLs prêtes à l'emploi.
+Le Wizard s'ouvre dans votre navigateur et vous propose deux parcours :
+
+#### Parcours A : Installer une nouvelle instance ArcIA
+1. **Dépôt Git d'Instance Privé** :
+   - Connectez votre compte **GitHub** ou **GitLab** avec un jeton personnel (PAT).
+   - Le Wizard teste les permissions et **crée automatiquement le dépôt privé** d'instance (ex: `ArcIA-instance-prod`).
+   - Définissez un **mot de passe maître de chiffrement** : tous les secrets d'instance (`instance-secrets.enc`) sont chiffrés en **AES-256-GCM** (dérivation PBKDF2 100 000 itérations) avant d'être sauvegardés sur votre Git privé. Le dépôt racine ArcIA reste ainsi 100% générique et inviolable.
+2. **Cluster Kubernetes** : Détection automatique des contextes `kubeconfig` ou saisie SSH K3s, avec test de connectivité interactif en un clic.
+3. **Réseau & Certificats** : FQDN public (`https://assistant.votre-entreprise.com/`) et émission automatique Let's Encrypt.
+4. **Passerelle LLM** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) (accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3).
+5. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
+6. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
+7. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement sans aucune manipulation technique.
+8. **Déploiement & Sauvegarde** : Déploiement en streaming sur Kubernetes, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
+9. **Accès 100% Opérationnel** : Récapitulatif instantané avec toutes les URLs prêtes à l'emploi et le lien direct vers votre dépôt d'instance.
+
+#### Parcours B : Restaurer une instance existante
+1. Indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`) et votre token d'accès.
+2. Saisissez votre **mot de passe maître de déchiffrement**.
+3. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc`, pré-remplit instantanément l'intégralité des 10 écrans de configuration.
+4. Cliquez sur **Déployer** pour reconstruire fidèlement l'instance sur n'importe quel cluster Kubernetes en quelques minutes.
 
 ---
 
