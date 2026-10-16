@@ -68,4 +68,4 @@ spec:
     targetPort: 20128
   - name: admin
     port: 20129
-    targetPort: 20129
+    targetPort: 20128

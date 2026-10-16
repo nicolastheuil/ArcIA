@@ -473,6 +473,38 @@ data:
 
     log_ok("Toutes les compétences et outils natifs d'ArcIA sont déployés.")
 
+def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
+    """Crée le ConfigMap arcia-webui-branding avec les logos SVG officiels ArcIA."""
+    symbol_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-symbol.svg")
+    dark_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-dark.svg")
+
+    symbol_content = ""
+    dark_content = ""
+    if os.path.isfile(symbol_path):
+        with open(symbol_path, "r", encoding="utf-8") as f:
+            symbol_content = f.read()
+    if os.path.isfile(dark_path):
+        with open(dark_path, "r", encoding="utf-8") as f:
+            dark_content = f.read()
+
+    cm_lines = [
+        "apiVersion: v1",
+        "kind: ConfigMap",
+        "metadata:",
+        "  name: arcia-webui-branding",
+        f"  namespace: {namespace}",
+        "data:",
+        "  favicon.svg: |",
+    ]
+    for line in symbol_content.splitlines():
+        cm_lines.append(f"    {line}")
+    cm_lines.append("  logo.svg: |")
+    for line in dark_content.splitlines():
+        cm_lines.append(f"    {line}")
+
+    runner.apply_manifest("\n".join(cm_lines))
+    log_ok("Identité visuelle ArcIA (monogramme squircle et logos SVG) injectée dans le cluster.")
+
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
 # -----------------------------------------------------------------------------
@@ -647,6 +679,8 @@ metadata:
     runner.apply_manifest(adapt_manifest_namespace(hermes_yaml, namespace))
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
+    log_info(" -> [Branding ArcIA] Injection de l'identité visuelle officielle (SVG & CSS)...")
+    sync_webui_branding(runner, namespace, root_dir)
     log_info(" -> Déploiement de Open-WebUI (07-open-webui.yaml)...")
     webui_path = os.path.join(manifests_dir, "07-open-webui.yaml")
     with open(webui_path, "r", encoding="utf-8") as f:
