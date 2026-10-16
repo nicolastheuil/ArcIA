@@ -1,6 +1,6 @@
-# Sauvegarde et Reconstruction de la Plateforme ArcIA v0.2
+# Sauvegarde et Reconstruction de la Plateforme ArcIA v0.3
 
-Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.2**.
+Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.3**.
 
 ---
 
@@ -14,7 +14,7 @@ Ce runbook détaille les procédures de sauvegarde, de restauration et de repris
 | **Cluster K3s (etcd)** | `/var/lib/rancher/k3s/server/db/snapshots` | Snapshot etcd natif K3s | Snapshot etcd périodique automatique ou manuel |
 | **État Hermes Agent** | PVC 20Gi `hermes-user-pvc` | Volume CSI (`state.db`, mémoire SQLite) | Snapshot de volume CSI VMware ou backup fichier SQLite |
 | **Données Open-WebUI** | PVC 20Gi `open-webui-pvc` | Volume CSI (comptes, préférences, historiques) | Snapshot de volume CSI VMware |
-| **Configuration OmniRoute** | PVC 5Gi `omniroute-pvc` | Volume CSI (clés et profils LAN) | Snapshot de volume CSI VMware |
+| **Base LiteLLM (PostgreSQL)** | PVC 10Gi `litellm-db-pvc` | Volume CSI (`/var/lib/postgresql/data`, virtual keys, budgets) | Snapshot de volume CSI VMware ou `pg_dump` |
 
 ---
 

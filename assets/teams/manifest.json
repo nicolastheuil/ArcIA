@@ -1,9 +1,8 @@
 {
-  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.16",
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.25",
   "version": "1.0.0",
-  "id": "00000000-0000-0000-0000-000000000000",
-  "packageName": "fr.arcitek.arcia",
+  "id": "dc38b670-e5dc-5b15-b0b2-ff7c02f5a4de",
   "developer": {
     "name": "arcITek",
     "websiteUrl": "https://www.arcitek.fr",
@@ -16,23 +15,43 @@
   },
   "name": {
     "short": "ArcIA",
-    "full": "ArcIA — Enterprise Agentic AI Platform by arcITek"
+    "full": "ArcIA Enterprise Assistant"
   },
   "description": {
-    "short": "Plateforme IA agentique d'entreprise par arcITek.",
+    "short": "Plateforme IA agentique souveraine d'entreprise par arcITek.",
     "full": "ArcIA est la plateforme IA agentique souveraine d'entreprise conçue par arcITek, intégrant Hermes Agent, LiteLLM et le filtrage DLP Presidio."
   },
   "accentColor": "#0C2762",
+  "supportsChannelFeatures": "tier1",
   "bots": [
     {
-      "botId": "00000000-0000-0000-0000-000000000000",
+      "botId": "dc38b670-e5dc-5b15-b0b2-ff7c02f5a4de",
       "scopes": [
         "personal",
         "team",
         "groupchat"
       ],
       "supportsFiles": false,
-      "isNotificationOnly": false
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team",
+            "groupchat"
+          ],
+          "commands": [
+            {
+              "title": "aide",
+              "description": "Affiche les capacités et les consignes d'utilisation d'ArcIA"
+            },
+            {
+              "title": "statut",
+              "description": "Vérifie la disponibilité du service et des passerelles d'inférence"
+            }
+          ]
+        }
+      ]
     }
   ],
   "permissions": [

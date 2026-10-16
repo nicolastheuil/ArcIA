@@ -110,12 +110,14 @@ spec:
         - name: ENABLE_OPENAI_API
           value: "true"
         - name: DEFAULT_MODELS
-          value: "ArcIA-Agentic (auto)"
+          value: "arcia/standard"
         - name: TASK_MODEL
-          value: "ArcIA-Agentic (auto)"
+          value: "arcia/standard"
         - name: ENABLE_SUBAGENTS
           value: "true"
         - name: ENABLE_DIRECT_CONNECTIONS
+          value: "false"
+        - name: ENABLE_FORWARD_USER_INFO_HEADERS
           value: "true"
         - name: ENABLE_OAUTH_SIGNUP
           value: "true"
@@ -140,6 +142,25 @@ spec:
               key: client-secret
         - name: OPENID_PROVIDER_URL
           value: "https://login.microsoftonline.com/$(ENTRA_TENANT_ID)/v2.0/.well-known/openid-configuration"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
         volumeMounts:
         - name: webui-data
           mountPath: /app/backend/data

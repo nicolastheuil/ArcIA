@@ -1,71 +1,20 @@
+# ==============================================================================
+# ArcIA v0.3 — Hermes Agent Runtime & Studio Dashboard
+# ==============================================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hermes-plugin-code
+  name: hermes-config
   namespace: arcia
 data:
-  arcia_tokenmaxing.py: |
-    import os
-    import json
-    import subprocess
-    from typing import Any, Dict
-
-    MAX_JSON_BYTES = 8192
-
-    def compress_shell_output(command: str, output: str) -> str:
-        if not output:
-            return output
-        if os.path.exists("/usr/local/bin/rtk"):
-            try:
-                proc = subprocess.run(
-                    ["/usr/local/bin/rtk", "compress"],
-                    input=output.encode("utf-8"),
-                    capture_output=True,
-                    timeout=5
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    return proc.stdout.decode("utf-8")
-            except Exception:
-                pass
-        if "git log" in command and len(output.splitlines()) > 50:
-            lines = output.splitlines()
-            head = lines[:30]
-            tail = lines[-10:]
-            return "\n".join(head) + f"\n\n[... {len(lines) - 40} lines truncated by ArcIA Tokenmaxing ...]\n\n" + "\n".join(tail)
-        return output
-
-    def compress_large_json(raw_text: str) -> str:
-        if len(raw_text.encode("utf-8")) <= MAX_JSON_BYTES:
-            return raw_text
-        try:
-            data = json.loads(raw_text)
-            if isinstance(data, list) and len(data) > 20:
-                sample = data[:10]
-                summary = {
-                    "_arcia_tokenmaxing": f"List truncated: showing 10 of {len(data)} items",
-                    "sample": sample,
-                    "total_items": len(data)
-                }
-                return json.dumps(summary, indent=2)
-            elif isinstance(data, dict):
-                truncated = {}
-                for k, v in data.items():
-                    if isinstance(v, (dict, list)) and len(str(v)) > 1024:
-                        truncated[k] = f"[Truncated container: {type(v).__name__} with size {len(v)}]"
-                    else:
-                        truncated[k] = v
-                truncated["_arcia_tokenmaxing"] = "Large JSON keys pruned to stay within context budget"
-                return json.dumps(truncated, indent=2)
-        except Exception:
-            pass
-        return raw_text
-
-    def on_tool_result(tool_name: str, command: str, result: str) -> str:
-        if tool_name in ["terminal", "bash", "exec"]:
-            return compress_shell_output(command, result)
-        if tool_name in ["read_file", "fetch_url", "http"]:
-            return compress_large_json(result)
-        return result
+  config.yaml: |
+    model:
+      provider: custom
+      base_url: http://litellm-proxy.arcia.svc:4000/v1
+      default: arcia/standard
+    agent:
+      auto_approve_safe_commands: true
+      max_iterations: 30
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -99,43 +48,41 @@ spec:
       securityContext:
         fsGroup: 10000
       initContainers:
-      - name: init-permissions
-        image: docker.io/arcia/hermes-agent:v0.2
+      - name: init-config-and-perms
+        image: nousresearch/hermes-agent:latest
         command:
         - /bin/sh
         - -c
         - |
-          chown -R 10000:10000 /opt/data
-          mkdir -p /opt/shared-skills/arcia/ponytail /opt/shared-skills/arcia/graphify /opt/shared-skills/arcia/public-apis/scripts
+          mkdir -p /opt/data/.hermes /opt/data/shared-skills/arcia/ponytail /opt/data/shared-skills/arcia/graphify /opt/data/shared-skills/arcia/public-apis/scripts
+          cp /etc/hermes/config.yaml /opt/data/.hermes/config.yaml
           if [ -d /opt/native-skills-cm ]; then
-            [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/shared-skills/arcia/ponytail/SKILL.md
-            [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/shared-skills/arcia/graphify/SKILL.md
-            [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/shared-skills/arcia/public-apis/SKILL.md
-            [ -f /opt/native-skills-cm/public-apis-script.py ] && cp /opt/native-skills-cm/public-apis-script.py /opt/shared-skills/arcia/public-apis/scripts/public_apis.py && chmod +x /opt/shared-skills/arcia/public-apis/scripts/public_apis.py
-            [ -f /opt/native-skills-cm/public-apis-catalog.json ] && cp /opt/native-skills-cm/public-apis-catalog.json /opt/shared-skills/arcia/public-apis/catalog.json
+            [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/shared-skills/arcia/ponytail/SKILL.md
+            [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/data/shared-skills/arcia/graphify/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/data/shared-skills/arcia/public-apis/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-script.py ] && cp /opt/native-skills-cm/public-apis-script.py /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py && chmod +x /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py
+            [ -f /opt/native-skills-cm/public-apis-catalog.json ] && cp /opt/native-skills-cm/public-apis-catalog.json /opt/data/shared-skills/arcia/public-apis/catalog.json
           fi
-          chown -R 10000:10000 /opt/shared-skills
+          chown -R 10000:10000 /opt/data
         securityContext:
           runAsUser: 0
         volumeMounts:
         - name: user-state
           mountPath: /opt/data
-        - name: shared-skills
-          mountPath: /opt/shared-skills
+        - name: hermes-cfg
+          mountPath: /etc/hermes
         - name: native-skills
           mountPath: /opt/native-skills-cm
       containers:
       - name: hermes
-        image: docker.io/arcia/hermes-agent:v0.2
+        image: nousresearch/hermes-agent:latest
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data
-          # Démarrage de la Gateway API (port 8642) en arrière-plan pour Hermes Desktop
-          hermes serve --host 0.0.0.0 --port 8642 --skip-build &
-          # Démarrage du Studio Dashboard (port 9119) au premier plan pour le pilotage Kanban
+          mkdir -p $HOME/.hermes
+          cp /opt/data/.hermes/config.yaml $HOME/.hermes/config.yaml
           exec hermes dashboard --host 0.0.0.0 --port 9119 --skip-build --no-open
         ports:
         - containerPort: 9119
@@ -162,30 +109,37 @@ spec:
             secretKeyRef:
               name: hermes-gateway-secret
               key: api-server-key
-        - name: OPENAI_API_BASE
+        - name: OPENAI_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
-        - name: OPENAI_MODEL_NAME
-          value: "ArcIA-Agentic (auto)"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1500m
+            memory: 2Gi
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 9119
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9119
+          initialDelaySeconds: 30
+          periodSeconds: 20
         volumeMounts:
         - name: user-state
           mountPath: /opt/data
-        - name: shared-skills
-          mountPath: /opt/shared-skills
-          readOnly: true
-        - name: tokenmaxing-plugin
-          mountPath: /opt/hermes/plugins/arcia_tokenmaxing.py
-          subPath: arcia_tokenmaxing.py
       volumes:
       - name: user-state
         persistentVolumeClaim:
           claimName: hermes-user-pvc
-      - name: shared-skills
-        hostPath:
-          path: /var/data/arcia/shared-skills
-          type: DirectoryOrCreate
-      - name: tokenmaxing-plugin
+      - name: hermes-cfg
         configMap:
-          name: hermes-plugin-code
+          name: hermes-config
       - name: native-skills
         configMap:
           name: arcia-native-skills

@@ -33,6 +33,8 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@arcia.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminArcIA2026!}
       - BYPASS_MODEL_ACCESS_CONTROL=true
+      - DEFAULT_MODELS=arcia/standard
+      - ENABLE_DIRECT_CONNECTIONS=false
     volumes:
       - arcia_webui_data:/app/backend/data
     depends_on:

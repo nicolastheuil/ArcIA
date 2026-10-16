@@ -90,33 +90,29 @@ instincts, apprentissage ou export ne sont pas activés ; leurs skills restent
 consultables comme méthodes. Les connaissances communes vivent dans le RAG sous
 ACL, pas dans une mémoire globale de conversations.
 
-La gestion de contexte native Hermes reste la référence. RTK raccourcit automatiquement les commandes git log simples ; les autres usages restent explicites. Headroom fournit un outil de lecture compressée des JSON du workspace. OmniRoute est le routeur par défaut du contrat ; son CLI est installé et son
-portail LAN dispose d’un bootstrap distinct. Le raccordement générique de
-l’inférence reste à intégrer/qualifier ; le pilote conserve sa passerelle filtrée.
-[Configuration et droits](omniroute.md). Aucune instruction de skill ne crée un droit réseau, un budget, un
-fournisseur ou une autorisation d'action externe.
+La gestion de contexte native Hermes reste la référence. RTK et Headroom restent cantonnés à des usages explicites d'outillage. La passerelle d'inférence LiteLLM Proxy unifiée gère l'ensemble des flux d'inférence en v0.3 (OmniRoute ayant été retiré du socle par défaut). Aucune instruction de skill ne crée un droit réseau, un budget, un fournisseur ou une autorisation d'action externe.
 
 ## Versions, cycle d'installation et mises à jour
 
 Le fonctionnement détaillé, l'inventaire complet des dépôts (ECC, Superpowers, Vercel, Anthropics, ArcIA natifs) et la gouvernance sont documentés dans le guide de référence : [skills/README.md](../../skills/README.md).
 
 ### 1. À quel moment les skills sont-elles installées ?
-- **Instantanément au déploiement (deploy.py / Setup Wizard)** : Le volume partagé /var/data/arcia/shared-skills est monté en lecture seule dans Hermes Agent (/opt/shared-skills). Les compétences souveraines ArcIA (**Ponytail**, **Graphify**, **Public-APIs**) sont injectées d'office via le ConfigMap Kubernetes rcia-native-skills. Elles sont disponibles dès la première seconde sans accès internet requis.
+- **Instantanément au déploiement (deploy.py / Setup Wizard)** : Le volume partagé `/var/data/arcia/shared-skills` est monté en lecture seule dans Hermes Agent (`/opt/shared-skills`). Les compétences souveraines ArcIA (**Ponytail**, **Graphify**, **Public-APIs**) sont injectées d'office via le ConfigMap Kubernetes `arcia-native-skills`. Elles sont disponibles dès la première seconde sans accès internet requis.
 - **Initialisation des catalogues étendus** : L'administrateur ou le script d'initialisation exécute la synchronisation initiale pour rapatrier les fiches méthodologiques communautaires (ECC, Superpowers, Vercel AI SDK, Anthropics) dans le volume partagé.
 
 ### 2. Comment les garder à jour ? (Est-ce un one-shot ?)
 L'installation de base n'est pas obligatoirement figée :
 - **Mise à jour manuelle à la demande (Recommandée en entreprise)** :
-  `powershell
+  ```powershell
   # Actualisation sous PowerShell
   .\scripts\Sync-Skills.ps1 -Update
-  `
-  `ash
+  ```
+  ```bash
   # Actualisation sous Linux / Bash
   bash skills/sync-skills.sh --update
-  `
+  ```
 - **Mise à jour automatisée programmée (Kubernetes CronJob optionnel)** :
-  ArcIA fournit le manifeste [deploy/manifests/10-skills-sync-cronjob.yaml](../../deploy/manifests/10-skills-sync-cronjob.yaml) pour planifier une synchronisation hebdomadaire automatique.
+  ArcIA fournit le manifeste [deploy/manifests/10-skills-sync-cronjob.yaml](../../deploy/manifests/10-skills-sync-cronjob.yaml) pour planifier une synchronisation hebdomadaire automatique. En v0.3, ce CronJob est suspendu par défaut (`suspend: true`) pour prévenir toute dérive externe non sollicitée en environnement d'entreprise.
 - **Mode Souverain / Air-Gapped** :
   Toutes les compétences sont figées dans le dépôt Git ou le volume persistant ; aucun flux réseau externe n'est sollicité à l'exécution.
 

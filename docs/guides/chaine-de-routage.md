@@ -1,275 +1,136 @@
-# 🔀 Chaîne de Routage IA & Cycle de Vie d'une Requête dans ArcIA
+# 🔀 Chaîne de Routage IA & Cycle de Vie d'une Requête dans ArcIA v0.3
 
-Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.2**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le bouclier de confidentialité et les mécanismes d'auto-sélection.
+> **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+
+Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.3**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le bouclier de confidentialité Presidio DLP et la gestion comptable LiteLLM.
 
 ---
 
-## 1. Vue d'Ensemble : Le Voyage d'un Prompt en 30 Secondes
+## 1. Principes Fondamentaux de la Chaîne v0.3
 
-Dans une entreprise, l'accès aux modèles d'IA générative doit répondre à **trois impératifs simultanés** :
-1. **Simplicité & Clarté** pour les collaborateurs : Ne pas leur imposer de choisir parmi des dizaines de modèles bruts techniques ou non configurés.
-2. **Confidentialité & Souveraineté Absolues** : Empêcher rigoureusement la moindre fuite de secrets d'entreprise, mots de passe, tokens ou données personnelles (PII) vers des nuages tiers.
-3. **Autonomie Budgétaire & BYOK (Bring Your Own Key)** : Permettre aux équipes avancées (R&D, ingénieurs) d'utiliser leurs propres clés ou abonnements personnels sans compromettre le budget de l'organisation.
-
-Pour résoudre ce triptyque, ArcIA organise son routage selon une **architecture en couches étanches** :
+Dans ArcIA v0.3, la chaîne de routage répond à **quatre principes directeurs stricts** :
+1. **Un seul point de sortie vers le cloud : LiteLLM.** Aucun composant — navigateur client compris — ne parle directement à un fournisseur externe.
+2. **Couverture DLP 100 % Fail-Closed** : Tout prompt quittant le cluster passe obligatoirement par le bouclier Presidio (`/analyze` et `/anonymize`). En cas d'indisponibilité du guardrail, la requête est bloquée net.
+3. **Catalogue Standardisé à 3 Paliers** : Les collaborateurs et agents disposent de 3 paliers prévisibles (`arcia/standard`, `arcia/expert`, `arcia/reasoning`), avec Zéro Rétention de Données (ZDR) forcée.
+4. **Gouvernance et Autonomie Nominative (N1, N2, N3)** : Suivi comptable et budgétaire stocké en base PostgreSQL (`litellm-db`). Les power users disposent d'un accès programmatique direct via l'endpoint public `/v1` protégé par clé virtuelle (PAT).
 
 ```mermaid
 flowchart TD
-    subgraph Clients ["👥 Points d'Entrée Utilisateurs"]
-        UserWeb["Collaborateur Web (Open-WebUI)"]
-        UserTeams["Collaborateur Teams (Teams Bot)"]
-        PowerUser["Power User / Développeur (BYOK)"]
-        HermesRunner["Hermes Agent (Missions Autonomes)"]
+    subgraph Clients ["👥 Points d'Entrée Utilisateurs (N1, N2, N3)"]
+        UserWeb["Collaborateur Web (Open-WebUI N1/N2)"]
+        UserTeams["Collaborateur Teams (Teams Bot N1)"]
+        PowerUser["Power User / IDE / Script (Endpoint /v1 N3)"]
+        HermesRunner["Hermes Agent (Missions Autonomes N3)"]
     end
 
     subgraph SecurityGate ["🛡️ Périmètre Souverain ArcIA (Cluster K3s)"]
-        WebUIGate["Open-WebUI (:8080)<br/>• Catalogue managé épuré<br/>• Isolation BYOK"]
-        LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Pivot central souverain<br/>• Modèles virtuels managés<br/>• Masquage des clés d'instance"]
-        PresidioGate["Presidio DLP (:8080)<br/>• Guardrail Pre-Call obligatoire<br/>• Caviardage PII & Secrets"]
-        OmniRouteGate["OmniRoute v3.8.51 (:20128)<br/>• Routeur LAN optionnel<br/>• Combos auto/smart, auto/coding"]
+        WebUIGate["Open-WebUI (:8080)<br/>• Catalogue managé 3 paliers<br/>• Connexions directes désactivées"]
+        IngressGate["Ingress Traefik (:443)<br/>• Routeur public /<br/>• Passerelle API /v1 protégée par RateLimit"]
+        LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Pivot central souverain<br/>• Routage 3 paliers & fallbacks<br/>• Quotas d'équipes et PATs"]
+        PresidioGate["Presidio DLP (:8080)<br/>• Guardrail Pre-Call fail-closed<br/>• Caviardage Secrets, IP & PII"]
+        LiteLLMDB[("LiteLLM DB PostgreSQL (:5432)<br/>• Clés virtuelles nominatives<br/>• Budgets et traçabilité spend")]
     end
 
-    subgraph CloudInference ["☁️ Fournisseurs de Modèles Externes"]
-        OpenRouterHub["OpenRouter d'Entreprise<br/>(Claude 3.5 Sonnet, GPT-4o, DeepSeek)"]
-        PersonalKeys["Fournisseurs Cloud Directs<br/>(Clés privées OpenAI, Anthropic, Gemini)"]
+    subgraph CloudInference ["☁️ Fournisseur Cloud Sécurisé (ZDR)"]
+        OpenRouterHub["OpenRouter d'Entreprise<br/>(ZDR forcé : Standard, Expert, Reasoning)"]
     end
 
-    UserWeb -->|Modèles ArcIA-Agentic| WebUIGate
-    UserTeams -->|Requête Bot| LiteLLMGate
-    PowerUser -->|Clé Privée Déclarée| WebUIGate
-    HermesRunner -->|Inférence Agentique| LiteLLMGate
+    UserWeb -->|Session OIDC Entra ID| WebUIGate
+    UserTeams -->|Message Teams| LiteLLMGate
+    PowerUser -->|Appel API /v1 + PAT| IngressGate
+    IngressGate -->|Requête authentifiée| LiteLLMGate
+    HermesRunner -->|Inférence agentique| LiteLLMGate
 
-    WebUIGate -->|Inférence Managée d'Entreprise| LiteLLMGate
-    WebUIGate -->|Connexion Directe Isolée BYOK| PersonalKeys
+    WebUIGate -->|Requête d'inférence + Header User| LiteLLMGate
+    LiteLLMGate <--> LiteLLMDB
 
-    LiteLLMGate <-->|Interception Pré-Vol Obligatoire| PresidioGate
-    LiteLLMGate -->|Routage Direct Managé| OpenRouterHub
-    LiteLLMGate -.->|Upstream Optionnel Combos| OmniRouteGate
-    OmniRouteGate -->|Exécution Combos & Failover| OpenRouterHub
+    LiteLLMGate -->|Guardrail Pré-Inférence /analyze + /anonymize| PresidioGate
+    PresidioGate -->|Prompt Caviardé Fail-Closed| LiteLLMGate
+    LiteLLMGate -->|Inférence Sécurisée ZDR| OpenRouterHub
 ```
 
 ---
 
-## 2. Le Catalogue de Modèles Présenté aux Utilisateurs
+## 2. Le Catalogue de Modèles Canoniques v0.3
 
-Pour éviter la dispersion et les erreurs d'authentification, le menu déroulant des modèles d'ArcIA dans [Open-WebUI](../../deploy/manifests/07-open-webui.yaml) est strictement articulé autour de **deux modèles managés souverains**, complétés par le canal personnel **BYOK** :
+Dans Open-WebUI ([deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml)) et sur l'API `/v1/models`, le catalogue d'entreprise est strictement articulé autour de **trois paliers prévisibles** :
 
-| Modèle Affiché | Public Cible | Rôle & Intelligence de Routage | Traitement DLP | Source de Financement |
+| Palier Canonique | Cible par Défaut | Fallback Déclaré | Public Cible | Usage & Rationale |
 |---|---|---|---|---|
-| **`ArcIA-Agentic (auto)`** *(Par défaut)* | Tous les collaborateurs (usage quotidien, synthèses, rédaction) | **Auto-sélection dynamique** : Évalue la complexité du prompt et choisit en temps réel le meilleur modèle disponible (latence, coût, pertinence) avec bascule automatique sans coupure. | ✅ Caviardage Presidio systématique | Compte central d'organisation |
-| **`ArcIA-Agentic (expert)`** | Collaborateurs experts (architecture, code lourd, audits) | **Raisonnement frontière haute fidélité** : Modèle de pointe (ex: Claude 3.5 Sonnet / o1 / DeepSeek Reasoner). Le collaborateur peut **orienter la réflexion ou forcer un moteur précis directement dans son prompt**. | ✅ Caviardage Presidio systématique | Compte central d'organisation |
-| **BYOK (Modèles Personnels)** | Développeurs, data scientists, power users | **Inférence directe autonome** : Connexions directes déclarées par le collaborateur dans ses paramètres personnels (**Paramètres > Connexions**). | 🔒 Clé privée isolée (navigateur / session) | Carte bancaire ou quota personnel de l'utilisateur |
+| **`arcia/standard`** *(Défaut)* | Modèle rapide et économique (ex: `claude-3-5-haiku`) | `arcia/expert` | Tous collaborateurs (N1, N2, N3) | Usage quotidien, rédaction, synthèses, réactivité maximale et coût maîtrisé. |
+| **`arcia/expert`** | Modèle agentique de pointe (ex: `claude-3.7-sonnet`) | `arcia/standard` | Experts métier et développeurs (N2, N3) | Raisonnement approfondi, analyse de code, audits et architecture logicielle. |
+| **`arcia/reasoning`** | Modèle de réflexion profonde (ex: `deepseek-r1`) | `arcia/expert` | Power users et chercheurs (N3) | Tâches de réflexion mathématique, logique formelle et planification complexe. |
 
-> [!NOTE]
-> **Pourquoi avoir supprimé les modèles bruts (`gpt-4o`, `claude-3.5-sonnet`, `deepseek-chat`) ?**
-> Auparavant, ces entrées nécessitaient des clés d'API individuelles pour chaque éditeur, ce qui entraînait des erreurs si l'organisation n'avait pas souscrit à chacun d'entre eux. En unifiant le catalogue managé sur `ArcIA-Agentic (auto)` et `ArcIA-Agentic (expert)`, toute la complexité des fournisseurs sous-jacents est absorbée par la plateforme, avec la garantie d'une disponibilité continue et d'un coût maîtrisé.
-
----
-
-## 3. Les 5 Briques de la Chaîne et leur Rôle Précis
-
-### Brique 1 : Open-WebUI (Port `:8080`) — L'Interface et l'Aiguillage Frontal
-* **Rôle** : Portail web collaboratif moderne intégrant le SSO Microsoft Entra ID.
-* **Connexion amont** : Reçoit les requêtes HTTP/WebSocket des navigateurs collaborateurs.
-* **Connexion aval** : Envoie les requêtes de chat managées vers `http://litellm-proxy.arcia.svc:4000/v1`.
-* **Fonctionnalité clé (BYOK)** : Grâce au paramètre `ENABLE_DIRECT_CONNECTIONS=true`, Open-WebUI permet aux utilisateurs d'ajouter des connexions directes vers OpenAI, Anthropic, Mistral ou Gemini. Ces requêtes partent directement du navigateur du collaborateur vers le cloud tiers sans transiter par LiteLLM ni impacter le budget de l'entreprise.
-
-### Brique 2 : LiteLLM Proxy (Port `:4000`) — Le Pivot Central Souverain
-* **Rôle** : Passerelle centrale d'inférence de l'entreprise. C'est l'unique point de sortie réseau vers les fournisseurs d'IA pour tous les services internes (Open-WebUI, Hermes Agent, Teams Bot).
-* **Masquage des Secrets** : La clé réelle d'entreprise (`OPENROUTER_API_KEY`) est conservée dans le secret Kubernetes `enterprise-llm-secret`. Elle n'est jamais transmise aux clients frontaux.
-* **Gestion des Alias Invisibles (`router_settings.model_group_alias`)** :
-  ```yaml
-  router_settings:
-    model_group_alias:
-      "auto": "ArcIA-Agentic (auto)"
-      "ArcIA-Agentic": "ArcIA-Agentic (auto)"
-      "hermes-agent": "ArcIA-Agentic (auto)"
-  ```
-  Grâce à cette directive, les microservices qui appellent historiquement `auto` ou `hermes-agent` continuent de fonctionner parfaitement, tandis que l'API publique `/v1/models` ne présente aux utilisateurs que les deux modèles canoniques : `ArcIA-Agentic (auto)` et `ArcIA-Agentic (expert)`.
-
-### Brique 3 : Presidio DLP (Port `:8080`) — Le Bouclier de Sécurité Pré-Vol
-* **Rôle** : Caviardage en coupure automatique de toutes les requêtes avant leur départ vers le Cloud.
-* **Mode opératoire (`pre_call_rules`)** : Avant qu'un prompt ne quitte le cluster vers OpenRouter, LiteLLM transmet le payload à `http://presidio-dlp:8080/sanitize`.
-* **Éléments détectés et caviardés** :
-  - **Identifiants & Données personnelles** : Adresses emails (`[ARCIA_EMAIL_1]`), numéros de téléphone (`[ARCIA_PHONE_1]`), cartes bancaires, adresses IP.
-  - **Secrets techniques** : Clés privées RSA/ED25519, tokens JWT, clés d'API (`sk-...`), mots de passe et chaînes de connexion de bases de données (`[SECRET_REMOVED]`).
-* **Zéro Fuite Cloud** : Même si un collaborateur colle par mégarde un fichier de configuration contenant un mot de passe de production, le modèle Cloud ne reçoit que la version caviardée.
-
-### Brique 4 : OmniRoute v3.8.51 (Port `:20128` / `:20129`) — L'Orchestrateur Avancé LAN (Optionnel)
-* **Rôle** : Routeur complémentaire activable à la demande (`omniroute.enabled: true`) pour les besoins complexes de multi-tenancy et de gestion avancée de clés.
-* **Positionnement dans la chaîne** : OmniRoute se positionne en **fournisseur amont (*Upstream*) derrière LiteLLM**.
-* **Intérêt combiné** : LiteLLM applique d'abord le caviardage Presidio DLP, puis relaie la requête saine à OmniRoute (`http://omniroute.arcia.svc:20128/v1`). OmniRoute exécute ensuite sa propre logique de pools de clés d'équipes ou de combos intelligents (`auto/coding`, `auto/smart`).
-* **Console LAN Dédiée** : Son tableau de bord (`:20128/dashboard`) permet aux administrateurs réseau d'observer la latence en temps réel et la répartition de charge par fournisseur.
-
-### Brique 5 : Hermes Agent (Ports `:9119` & `:8642`) — Le Moteur d'Agents Autonome
-* **Rôle** : Exécuteur de missions longues, d'analyses de code complexes et d'orchestration multi-agents.
-* **Consommateur d'Inférence** : Hermes ne dispose pas de clé API directe. Il s'appuie sur `litellm-proxy.arcia.svc:4000/v1` en appelant le modèle `ArcIA-Agentic (auto)`.
-* **Optimisation Tokenmaxing (`arcia_tokenmaxing.py`)** : Avant de transmettre son contexte à LiteLLM, Hermes utilise le plugin natif ArcIA pour compresser les volumineuses sorties terminales (`git log`) et tronquer intelligemment les gros payloads JSON pour économiser les tokens et la mémoire de contexte.
+### Rétro-compatibilité des Alias
+Pour assurer la continuité des scripts et des intégrations existantes, les alias suivants sont maintenus dans `router_settings.model_group_alias` de LiteLLM :
+- `ArcIA-Agentic (auto)` → `arcia/standard`
+- `ArcIA-Agentic (expert)` → `arcia/expert`
+- `auto` → `arcia/standard`
+- `hermes-agent` → `arcia/standard`
 
 ---
 
-## 4. Diagrammes de Séquence Temporelle Pas-à-Pas
+## 3. Matrice des Niveaux d'Autonomie (Power Users & Collaborateurs)
 
-### Scénario 1 : Collaborateur Standard posant une question avec `ArcIA-Agentic (auto)`
+| Critère | N1 — Collaborateur | N2 — Expert Métier | N3 — Power User |
+|---|---|---|---|
+| **Canaux d'accès** | Open-WebUI, Microsoft Teams | Open-WebUI (+ RAG d'entreprise) | IDE (VS Code, Cursor), Hermes local, API `/v1` |
+| **Paliers accessibles** | `arcia/standard` | `arcia/standard`, `arcia/expert` | Les 3 paliers (`standard`, `expert`, `reasoning`) |
+| **Identité & Auth** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID (OIDC) | **Clé virtuelle LiteLLM nominative (PAT)** |
+| **Gouvernance Budgétaire** | Budget partagé par équipe | Budget partagé d'équipe + alerte 80% | Budget individuel mensuel plafonné (en €) |
+| **Couverture DLP** | Guardrail universel obligatoire | Guardrail universel obligatoire | Guardrail universel obligatoire (via `/v1`) |
+| **Gestion des Clés** | Aucune clé requise | Aucune clé requise | Émise via `scripts/arcia_keys.py` |
+
+> [!IMPORTANT]
+> **Pourquoi le BYOK direct a-t-il été retiré en v0.3 ?**  
+> L'audit technique a démontré que les connexions directes (`ENABLE_DIRECT_CONNECTIONS=true`) contournaient intégralement le bouclier DLP et le suivi budgétaire, tout en stockant les clés personnelles en clair dans la base SQLite du portail. En v0.3, toute inférence s'effectue via les budgets managés de l'entreprise ou des clés virtuelles nominatives.
+
+---
+
+## 4. Diagramme de Séquence : Cycle de Vie d'un Appel Inférence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Collaborateur
-    participant WebUI as Open-WebUI (:8080)
-    participant LiteLLM as LiteLLM Proxy (:4000)
-    participant Presidio as Presidio DLP (:8080)
-    participant OpenRouter as OpenRouter Cloud
-    participant Engine as LLM (DeepSeek / Claude / GPT)
+    actor User as Collaborateur / Power User
+    participant Front as Open-WebUI / Client /v1
+    participant Gateway as LiteLLM Proxy (:4000)
+    participant DB as LiteLLM PostgreSQL (:5432)
+    participant DLP as Presidio DLP (:8080)
+    participant Cloud as OpenRouter API (ZDR)
 
-    User->>WebUI: Saisie : "Corrige ce script d'accès à la DB : mot de passe root123"
-    Note over WebUI: Modèle sélectionné : ArcIA-Agentic (auto)
-    WebUI->>LiteLLM: POST /v1/chat/completions (model="ArcIA-Agentic (auto)")
-    Note over LiteLLM: Déclenchement du guardrail Pre-Call
-    LiteLLM->>Presidio: POST /sanitize (texte brut)
-    Note over Presidio: Détection PASSWORD_PATTERN ("root123")
-    Presidio-->>LiteLLM: Texte caviardé : "mot de passe [SECRET_REMOVED]"
-    Note over LiteLLM: Résolution vers openrouter/auto
-    LiteLLM->>OpenRouter: Inférence avec texte caviardé + OPENROUTER_API_KEY
-    OpenRouter->>Engine: Routage dynamique vers le meilleur modèle disponible
-    Engine-->>OpenRouter: Flux de réponse (streaming)
-    OpenRouter-->>LiteLLM: Réponse du modèle
-    LiteLLM-->>WebUI: Restitution de la correction sans fuite de mot de passe
-    WebUI-->>User: Affichage du script corrigé dans le navigateur
+    User->>Front: Saisie du prompt (ex: avec email et IP privée)
+    Front->>Gateway: POST /v1/chat/completions (model="arcia/standard")
+    
+    Gateway->>DB: Vérification de la clé / du budget utilisateur
+    alt Budget dépassé ou clé révoquée
+        Gateway-->>Front: HTTP 429 Too Many Requests (Budget Exceeded)
+        Front-->>User: Notification de dépassement budgétaire
+    else Budget valide
+        Gateway->>DLP: POST /analyze + POST /anonymize
+        alt Presidio DLP indisponible (Fail-Closed)
+            Gateway-->>Front: HTTP 503 Guardrail Unavailable
+            Front-->>User: Requête bloquée par sécurité DLP
+        else Analyse réussie
+            DLP-->>Gateway: Prompt caviardé ([ARCIA_EMAIL_1], [ARCIA_IP_ADDRESS_1])
+            Gateway->>Cloud: POST /v1/chat/completions (ZDR forcé)
+            Cloud-->>Gateway: Réponse du modèle de fondation
+            Gateway->>DB: Enregistrement du spend et des tokens consommés
+            Gateway-->>Front: Réponse finale streaming/texte
+            Front-->>User: Affichage du résultat dans l'interface
+        end
+    end
 ```
 
 ---
 
-### Scénario 2 : Collaborateur Expert guidant le modèle depuis son prompt avec `ArcIA-Agentic (expert)`
+## 5. Caviardage DLP Presidio : Ce qui est réellement masqué
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Expert as Collaborateur Expert
-    participant WebUI as Open-WebUI (:8080)
-    participant LiteLLM as LiteLLM Proxy (:4000)
-    participant Presidio as Presidio DLP (:8080)
-    participant OpenRouter as OpenRouter Cloud
-    participant Frontier as Modèle Raisonnement (Claude 3.5 Sonnet / o1)
-
-    Expert->>WebUI: Saisie : "[Consigne: Raisonnement approfondi] Conçois l'architecture distribuée de notre CSI..."
-    Note over WebUI: Modèle sélectionné : ArcIA-Agentic (expert)
-    WebUI->>LiteLLM: POST /v1/chat/completions (model="ArcIA-Agentic (expert)")
-    LiteLLM->>Presidio: POST /sanitize (vérification PII & secrets)
-    Presidio-->>LiteLLM: Prompt vérifié et assaini
-    Note over LiteLLM: Modèle ciblé : openrouter/anthropic/claude-3.5-sonnet<br/>(Fallback : openrouter/openai/gpt-4o)
-    LiteLLM->>OpenRouter: Envoi avec consigne de raisonnement haute fidélité
-    OpenRouter->>Frontier: Exécution de la chaîne de pensée (Chain of Thought)
-    Frontier-->>OpenRouter: Synthèse d'architecture approfondie
-    OpenRouter-->>LiteLLM: Réponse haute précision
-    LiteLLM-->>WebUI: Restitution du plan d'architecture
-    WebUI-->>Expert: Affichage détaillé dans le portail
-```
-
----
-
-### Scénario 3 : Power User utilisant sa propre clé personnelle (BYOK)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Dev as Développeur / Chercheur
-    participant WebUI as Open-WebUI (Navigateur Dev)
-    participant Vendor as Fournisseur Tiers (OpenAI / Anthropic Direct)
-
-    Note over Dev,WebUI: Configuration unique dans Open-WebUI :<br/>Paramètres > Connexions > Clé personnelle sk-proj-...
-    Dev->>WebUI: Sélection du modèle personnel : perso/gpt-4o
-    Dev->>WebUI: Saisie du prompt expérimental
-    Note over WebUI: ENABLE_DIRECT_CONNECTIONS=true actif :<br/>Bypass total du réseau interne ArcIA
-    WebUI->>Vendor: POST direct https://api.openai.com/v1/chat/completions<br/>Authorization: Bearer sk-proj-...
-    Vendor-->>WebUI: Flux de réponse chiffré HTTPS
-    WebUI-->>Dev: Affichage de la réponse
-    Note over Dev,WebUI: Zéro impact sur les quotas de l'entreprise<br/>Clé privée conservée dans le profil utilisateur
-```
-
----
-
-### Scénario 4 : Mission Autonome exécutée par Hermes Agent
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Admin as Administrateur / Ingénieur
-    participant Studio as Hermes Studio (:9119)
-    participant Hermes as Hermes Agent (:8642)
-    participant Tokenmaxing as Plugin ArcIA Tokenmaxing
-    participant LiteLLM as LiteLLM Proxy (:4000)
-    participant Presidio as Presidio DLP (:8080)
-    participant Cloud as Fournisseur Cloud
-
-    Admin->>Studio: Lancement de mission : "Auditer l'arborescence et générer un rapport de dépendances"
-    Studio->>Hermes: Création de tâche autonome
-    Note over Hermes: Exécution shell interne : git log & analyse fichiers
-    Hermes->>Tokenmaxing: Interception sortie shell brute (1500 lignes)
-    Tokenmaxing-->>Hermes: Sortie compressée RTK (50 lignes utiles)
-    Note over Hermes: Émission du plan de raisonnement
-    Hermes->>LiteLLM: POST /v1/chat/completions (model="ArcIA-Agentic (auto)")
-    LiteLLM->>Presidio: POST /sanitize
-    Presidio-->>LiteLLM: Prompt assaini
-    LiteLLM->>Cloud: Requête d'inférence
-    Cloud-->>LiteLLM: Décision d'outil / Synthèse
-    LiteLLM-->>Hermes: Restitution du plan validé
-    Hermes-->>Studio: Mise à jour temps réel sur le tableau Kanban
-```
-
----
-
-## 5. Exemple Concret de Caviardage en Direct
-
-Voici ce qui se produit concrètement lorsqu'un prompt franchit la barrière Presidio DLP :
-
-### 1. Payload émis par l'utilisateur (Open-WebUI)
-```text
-Bonjour, peux-tu analyser cette anomalie survenue sur le serveur de Jean Dupont (jean.dupont@example.org) ?
-Voici la chaîne de connexion utilisée : postgresql://app_user:SuperSecretPassword2026@192.168.1.45:5432/production_db
-```
-
-### 2. Payload intercepté et transformé par Presidio DLP
-```text
-Bonjour, peux-tu analyser cette anomalie survenue sur le serveur de Jean Dupont ([ARCIA_EMAIL_1]) ?
-Voici la chaîne de connexion utilisée : postgresql://app_user:[SECRET_REMOVED]@[IP_ADDRESS_1]:5432/production_db
-```
-
-### 3. Payload transmis au modèle Cloud (OpenRouter)
-Le modèle d'IA externe analyse le problème technique, comprend la structure de la requête PostgreSQL et formule ses recommandations de configuration **sans jamais avoir vu le mot de passe réel, l'adresse email nominative ou l'adresse IP interne**.
-
----
-
-## 6. Foire Aux Questions (FAQ) Décisionnelle
-
-### Q1. Pourquoi avoir à la fois LiteLLM et OmniRoute ? Ne font-ils pas doublon ?
-**Non, leurs responsabilités sont complémentaires et distinctes :**
-* **LiteLLM Proxy** est le **point d'ancrage de sécurité central** : c'est lui qui héberge le guardrail d'interception `pre_call` Presidio DLP pour garantir qu'aucune donnée ne fuit. Il présente une interface ultra-simple aux utilisateurs (`auto` et `expert`).
-* **OmniRoute** est un **orchestrateur amont optionnel** : il est déployé si l'organisation souhaite gérer graphiquement des pools de clés multi-équipes, construire des chaînes de repli sur mesure (*combos* `auto/coding`, `auto/smart`) ou observer les métriques réseau fines sur son portail LAN. Lorsqu'il est activé, il se place *derrière* LiteLLM, bénéficiant ainsi du caviardage DLP préalable.
-
-### Q2. Comment fonctionne le guidage par prompt dans `ArcIA-Agentic (expert)` ?
-Dans `ArcIA-Agentic (expert)`, la requête est acheminée vers un modèle de raisonnement de pointe (Claude 3.5 Sonnet par défaut, avec replis sur GPT-4o).
-Le collaborateur peut orienter l'exécution en précisant ses exigences au début de son prompt :
-* *Exemple 1* : `[Modèle: Claude] Rédige un contrat d'architecture conforme aux spécifications ci-jointes.`
-* *Exemple 2* : `[Raisonnement: Pas-à-pas] Démontre la résilience de ce quorum Raft en cas de perte simultanée de deux nœuds.`
-Le modèle de pointe interprète ces consignes pour adapter sa profondeur de réflexion, structurer sa chaîne de pensée (Chain of Thought) et fournir un niveau d'exigence technique maximal.
-
-### Q3. Les clés d'API des utilisateurs (BYOK) sont-elles visibles par les administrateurs du cluster ?
-**Non.** Avec `ENABLE_DIRECT_CONNECTIONS=true`, la clé d'API personnelle saisie par un utilisateur dans Open-WebUI est enregistrée dans sa propre session (`localStorage` du navigateur ou champ chiffré dans la base SQLite locale `webui.db`).
-La requête HTTP part directement du poste client vers les serveurs publics d'OpenAI ou d'Anthropic. Elle ne passe ni par le Pod LiteLLM, ni par Presidio, et n'apparaît dans aucun log Kubernetes du cluster.
-
-### Q4. Que se passe-t-il si le fournisseur principal Cloud subit une panne ?
-Le mécanisme de repli (*fallback*) configuré dans `05-litellm.yaml` prend immédiatement le relais de manière transparente :
-* Pour `ArcIA-Agentic (auto)` : si `openrouter/auto` échoue, LiteLLM bascule instantanément sur `openrouter/anthropic/claude-3.5-sonnet`, puis sur `openrouter/openai/gpt-4o`.
-* Pour `ArcIA-Agentic (expert)` : si Claude subit une coupure ou un rate-limit, LiteLLM bascule automatiquement sur GPT-4o puis sur le profil auto.
-L'utilisateur final ne reçoit aucune erreur 500 : sa requête aboutit sans friction.
-
----
-
-Voir également :
-- [Passerelle d'Inférence d'Entreprise LiteLLM](inference-litellm.md)
-- [Gouvernance & Confidentialité Presidio DLP](confidentialite-presidio.md)
-- [Routeur Complémentaire OmniRoute](omniroute.md)
-- [Moteur d'Agents Autonome Hermes](hermes-agent.md)
-- [Portail Open-WebUI & Authentification SSO](portail-webui-entraid.md)
-- [Quickstart & Configuration Pratique](../runbooks/quickstart.md)
+Le bouclier Presidio DLP d'ArcIA v0.3 applique une détection rigoureuse sur :
+1. **Secrets techniques** : Clés privées PEM, tokens Bearer, tokens GitHub (`ghp_`), clés d'API (`sk-`), clés AWS (`AKIA`), mots de passe explicites (`password=`) → Remplacés par `[SECRET_REMOVED]`.
+2. **Adresses IP** : Détection active IPv4 (`\b(?:\d{1,3}\.){3}\d{1,3}\b`) → Remplacées par `[ARCIA_IP_ADDRESS_n]`.
+3. **Données Personnelles (PII)** :
+   - Emails professionnels et personnels → `[ARCIA_EMAIL_n]`
+   - Numéros de téléphone français et internationaux → `[ARCIA_PHONE_n]`
+   - Coordonnées bancaires (IBAN, cartes) → `[ARCIA_IBAN_n]`, `[ARCIA_CREDIT_CARD_n]`
+   - Noms de personnes, organisations et lieux détectés via spaCy `fr_core_news_sm` et `en_core_web_sm` → `[ARCIA_<ENTITY>]`.

@@ -224,8 +224,8 @@ Cette méthode permet de versionner la définition de votre bot dans Git et d'au
 1. Créez un dossier local contenant votre fichier `manifest.json` :
    ```json
    {
-     "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
-     "manifestVersion": "1.16",
+     "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+     "manifestVersion": "1.25",
      "version": "1.0.0",
      "id": "<VOTRE_APP_ID>",
      "developer": {
@@ -247,10 +247,11 @@ Cette méthode permet de versionner la définition de votre bot dans Git et d'au
        "color": "color.png"
      },
      "accentColor": "#0078D4",
+     "supportsChannelFeatures": "tier1",
      "bots": [
        {
          "botId": "<VOTRE_APP_ID>",
-         "scopes": ["personal", "team"],
+         "scopes": ["personal", "team", "groupchat"],
          "supportsFiles": false,
          "isNotificationOnly": false
        }

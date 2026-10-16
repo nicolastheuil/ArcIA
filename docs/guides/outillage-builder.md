@@ -1,6 +1,8 @@
 # Outillage d’ArcIA : Moteur Hermes & Compétences Intégrées
 
-Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.2**.
+> **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+
+Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.3**.
 
 ---
 
@@ -8,11 +10,10 @@ Ce guide décrit l'outillage intégré, les extensions et les compétences agent
 
 | Outil / Compétence | Type | Emplacement | Rôle dans l'Architecture |
 |---|---|---|---|
-| **ArcIA Tokenmaxing** | Plugin Python natif Hermes | `services/hermes/plugin.py` | Compression dynamique des sorties terminales (`git log`), réduction JSON Headroom |
-| **ArcIA Graphify** | Script d'analyse AST local | `scripts/arcia_graphify.py` | Cartographie structurelle de codebase, graphes de dépendances déterministes (0 token, 0 fuite) |
-| **Ponytail** | Skill de sobriété logicielle | `skills/ponytail/SKILL.md` | Échelle de décision YAGNI, prévention du sur-développement et de l'over-engineering |
-| **Public-APIs** | Skill de gouvernance d'APIs | `skills/public-apis/SKILL.md` | Référentiel de veille et règles de sécurisation des intégrations d'APIs externes |
-| **OmniRoute** | Routeur LLM / Proxy | `deploy/manifests/09-omniroute.yaml` | Port 20128, routage multi-fournisseurs et portail d'administration LAN |
+| **ArcIA Graphify** | Script d'analyse AST local | [scripts/arcia_graphify.py](../../scripts/arcia_graphify.py) | Cartographie structurelle de codebase, graphes de dépendances déterministes (0 token, 0 fuite) |
+| **Ponytail** | Skill de sobriété logicielle | [skills/ponytail/SKILL.md](../../skills/ponytail/SKILL.md) | Échelle de décision YAGNI, prévention du sur-développement et de l'over-engineering |
+| **Public-APIs** | Skill de gouvernance d'APIs | [skills/public-apis/SKILL.md](../../skills/public-apis/SKILL.md) | Référentiel de veille et règles de sécurisation des intégrations d'APIs externes |
+| **Gestion des Clés PAT** | CLI de gestion | [scripts/arcia_keys.py](../../scripts/arcia_keys.py) | Émission de clés virtuelles LiteLLM et quotas pour power users N3 |
 
 ---
 

@@ -24,6 +24,8 @@ data:
     APP_PASSWORD = os.environ.get("MICROSOFT_APP_PASSWORD", "")
     LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm-proxy.arcia.svc:4000/v1")
 
+    LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
+
     SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD)
     ADAPTER = BotFrameworkAdapter(SETTINGS)
 
@@ -31,7 +33,7 @@ data:
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {
-                    "model": "auto",
+                    "model": "arcia/standard",
                     "messages": [
                         {
                             "role": "system",
@@ -43,7 +45,12 @@ data:
                         {"role": "user", "content": f"Message de {user_name}: {user_message}"}
                     ]
                 }
-                async with session.post(f"{LITELLM_URL}/chat/completions", json=payload, timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                headers = {"Content-Type": "application/json"}
+                if LITELLM_API_KEY:
+                    headers["Authorization"] = f"Bearer {LITELLM_API_KEY}"
+                headers["X-OpenWebUI-User-Email"] = f"{user_name.lower().replace(' ', '.')}@teams.local"
+
+                async with session.post(f"{LITELLM_URL}/chat/completions", json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=45)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         return data["choices"][0]["message"]["content"]
@@ -150,6 +157,26 @@ spec:
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         ports:
         - containerPort: 3978
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /api/teams/messages
+            port: 3978
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/teams/messages
+            port: 3978
+          initialDelaySeconds: 20
+          periodSeconds: 15
         volumeMounts:
         - name: code
           mountPath: /app

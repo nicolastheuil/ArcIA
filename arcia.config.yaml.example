@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA — Configuration Unique de Déploiement Universel
+# ArcIA v0.3 — Configuration Unique de Déploiement Universel
 # ==============================================================================
 # Ce fichier est le point d'entrée UNIQUE pour déployer la plateforme ArcIA sur
 # N'IMPORTE QUEL cluster Kubernetes (K3s, EKS, AKS, GKE, Minikube, KinD, etc.).
@@ -33,7 +33,7 @@ kubernetes:
   # Le namespace sera créé automatiquement s'il n'existe pas.
   namespace: "arcia"
 
-  # StorageClass pour l'allocation des volumes persistants PVC (Hermes, Open-WebUI) :
+  # StorageClass pour l'allocation des volumes persistants PVC (Hermes, Open-WebUI, LiteLLM DB) :
   # - Laisser vide ("") ou null : utilise la StorageClass par DÉFAUT du cluster
   #   (recommandé pour EKS 'gp3', GKE 'standard', AKS 'managed-csi', K3s 'local-path', etc.)
   # - Ou spécifier explicitement le nom de votre StorageClass
@@ -45,7 +45,7 @@ kubernetes:
     ssh_user: "debian"
     ssh_port: 22
     # Chemin vers votre clé privée SSH (ex: ~/.ssh/id_rsa, ~/.ssh/id_ed25519 ou key.pem).
-    # Laisser vide ("") pour utiliser l'agent SSH local ou la clé automatique du harness.
+    # Laisser vide ("") pour utiliser l'agent SSH local ou la variable ARCIA_SSH_KEY.
     ssh_key: ""
 
 # ==============================================================================
@@ -54,7 +54,7 @@ kubernetes:
 network:
   # [OBLIGATOIRE] Nom de domaine public complet (FQDN) de votre instance ArcIA
   # Vos utilisateurs accéderont à l'interface via : https://<public_fqdn>/
-  # Exemples : "assistant.mon-entreprise.com", "arcia.domaine.fr", "ia.local"
+  # Exemples : "assistant.mon-entreprise.com", "arcia.domaine.fr"
   public_fqdn: "assistant.example.org"
 
   # Classe du contrôleur Ingress du cluster :
@@ -83,18 +83,21 @@ network:
 # ==============================================================================
 llm_gateway:
   # [OBLIGATOIRE] Clé d'API du fournisseur d'inférence Cloud (OpenRouter)
-  # OpenRouter donne un accès unifié à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3, Mistral Large...
   # Obtenez votre clé sur : https://openrouter.ai/
   openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-  # Modèle d'entreprise par défaut (présenté dans Open-WebUI sous "ArcIA-Agentic (auto)")
-  # Le catalogue managé propose uniquement "ArcIA-Agentic (auto)" et "ArcIA-Agentic (expert)".
-  # Les modèles personnels sont configurables par les collaborateurs via BYOK dans Open-WebUI.
-  default_model: "ArcIA-Agentic (auto)"
+  # Clé maître de la passerelle LiteLLM (pour administrer les clés virtuelles et budgets)
+  master_key: "sk-arcia-master-key-change-me-32b"
+
+  # Modèle d'entreprise par défaut dans Open-WebUI et Teams :
+  # En v0.3, le catalogue canonique se compose de 3 paliers fixes :
+  # - "arcia/standard"  : rapide, économique, ZDR garantie (défaut)
+  # - "arcia/expert"    : modèles agentiques et raisonnement poussé
+  # - "arcia/reasoning" : analyse critique et résolution complexe
+  default_model: "arcia/standard"
 
   # [OPTIONNEL] Serveur d'inférence LLM local souverain (ex: vLLM on-premise sur GPU interne)
-  # Laisser vide ("") ou null si vous n'utilisez pas de serveur LLM local.
-  local_vllm_endpoint: ""   # ex: "http://vllm-internal.corp.local:8000/v1"
+  local_vllm_endpoint: ""
 
 # ==============================================================================
 # 4. MOTEUR D'AGENTS HERMES & STUDIO KANBAN [OBLIGATOIRE]
@@ -102,11 +105,10 @@ llm_gateway:
 hermes:
   # [OBLIGATOIRE] Mot de passe administrateur du Studio Kanban (:9119)
   # Identifiant web par défaut : admin
-  admin_password: "admin"
+  admin_password: "ChangeThisToAStrongPassword2026!"
 
   # [OBLIGATOIRE] Jeton d'API (Personal Access Token PAT) pour le client lourd Hermes Desktop (:8642)
-  # Connecte l'application de bureau Hermes (Mac/Win/Linux) en WebSocket sécurisé
-  api_token: "arcia-pat-change-me-secret-key-32b"
+  api_token: "arcia-pat-secret-key-32b-secure"
 
   # Espace de stockage alloué pour le dossier de travail persistant de l'agent
   storage_size: "20Gi"
@@ -115,8 +117,8 @@ hermes:
 # 5. BOUCLIER DE CONFIDENTIALITE PRESIDIO DLP [OBLIGATOIRE]
 # ==============================================================================
 presidio:
-  # Active le microservice de caviardage DLP en coupure avant tout appel LLM Cloud
-  # Masque automatiquement les emails, téléphones, numéros de CB, mots de passe et clés d'API
+  # Active le microservice de caviardage DLP en coupure (fail-closed)
+  # Masque automatiquement adresses IP, emails, téléphones, IBAN, cartes, mots de passe et secrets
   enabled: true
 
   # Clé maître interne de hachage Presidio
@@ -137,7 +139,6 @@ open_webui:
 # ==============================================================================
 # Déploie oauth2-proxy et le middleware Traefik ForwardAuth pour restreindre l'accès
 # à Hermes Studio (/studio) et la Gateway Desktop (/gateway) aux comptes Microsoft 365 de votre entreprise.
-# Si désactivé (false), l'accès au Studio reste protégé par l'authentification native Hermes.
 entra_id_sso:
   enabled: false
 
@@ -147,14 +148,11 @@ entra_id_sso:
   client_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
   # Secret de chiffrement des cookies de session pour oauth2-proxy (16, 24 ou 32 octets)
-  # Générer une clé aléatoire : openssl rand -base64 32
   cookie_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # ==============================================================================
 # 8. ADAPTATEUR MICROSOFT TEAMS BOT [OPTIONNEL]
 # ==============================================================================
-# Connecte ArcIA à Microsoft Teams (Conversations DM 1:1 et mentions @ArcIA en canaux d'équipe).
-# Nécessite la création d'un Azure Bot Service avec endpoint : https://<public_fqdn>/api/teams/messages
 teams_bot:
   enabled: false
 
@@ -168,22 +166,15 @@ teams_bot:
 # ==============================================================================
 # 9. INTEGRATION MICROSOFT 365 AVANCEE (GRAPH / SHAREPOINT) [OPTIONNEL]
 # ==============================================================================
-# Permet à l'agent d'accéder aux données Microsoft 365 (transcriptions de réunions, SharePoint, Outlook).
 microsoft365_integration:
   enabled: false
-
-  # Chemin vers le fichier de contrat Microsoft 365
   config_file: "instance/microsoft365.yaml"
 
 # ==============================================================================
-# 10. ROUTEUR MULTI-FOURNISSEURS OMNIROUTE [OPTIONNEL]
+# 10. ROUTEUR MULTI-FOURNISSEURS OMNIROUTE [RETIRÉ EN v0.3]
 # ==============================================================================
-# OmniRoute v3.8.51 est un routeur IA multi-fournisseurs doté d'une interface d'administration
-# LAN (port 20129) et d'un point d'accès API (port 20128).
-# Par défaut dans ArcIA v0.2, LiteLLM Proxy (:4000) assure le routage central unifié avec DLP.
-# Activez OmniRoute si vous souhaitez disposer du routeur OmniRoute en tant que composant autonome
-# ou comme backend d'inférence en amont de LiteLLM.
+# Conservé désactivé par défaut pour rétro-compatibilité.
+# LiteLLM Proxy (:4000) assure le routage central unifié avec DLP, quotas et budgets.
 omniroute:
   enabled: false
   storage_size: "5Gi"
-

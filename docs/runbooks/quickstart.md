@@ -1,6 +1,6 @@
-# Quickstart ArcIA v0.2
+# Quickstart ArcIA v0.3
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme souveraine d'entreprise **ArcIA v0.2** sur votre cluster Kubernetes K3s.
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme souveraine d'entreprise **ArcIA v0.3** sur votre cluster Kubernetes K3s.
 
 ---
 
@@ -68,7 +68,7 @@ Le Wizard s'ouvre dans votre navigateur et vous propose deux parcours :
 4. **Passerelle LLM** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) (accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3).
 5. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
 6. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
-7. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement sans aucune manipulation technique.
+7. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM (avec base PostgreSQL 16) et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement sans aucune manipulation technique.
 8. **Déploiement & Sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
 9. **Accès 100% Opérationnel** : Récapitulatif instantané avec toutes les URLs prêtes à l'emploi et le lien direct vers votre dépôt d'instance.
 
@@ -106,7 +106,7 @@ Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
 
 La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèles et masque les clés d'API derrière des modèles virtuels sécurisés :
 
-1. Les secrets d'entreprise sont stockés dans le fichier local `secrets/arcia.env` (généré automatiquement par le script de déploiement à partir de `secrets/arcia.env.template`).
+1. Les secrets d'entreprise sont stockés dans le secret Kubernetes `arcia-env-secret` et `litellm-secret`.
 2. Pour ajouter ou modifier des clés de fournisseurs (OpenRouter, OpenAI, Anthropic, DeepSeek, etc.), éditez `secrets/arcia.env` :
    ```env
    OPENROUTER_API_KEY=sk-or-v1-votre-cle-reelle
@@ -128,15 +128,19 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Modèles d'Entreprise Disponibles
 
-Dès le premier déploiement, le catalogue managé d'entreprise est strictement épuré aux deux profils d'élite ArcIA (visibles immédiatement par tous les collaborateurs grâce à `BYPASS_MODEL_ACCESS_CONTROL=true`) :
-- **`ArcIA-Agentic (auto)`** : Routage automatique intelligent par défaut. LiteLLM / OmniRoute / OpenRouter sélectionne dynamiquement le meilleur modèle disponible selon la complexité de la requête tout en optimisant la latence et les coûts, avec bascule résiliente sans coupure.
-- **`ArcIA-Agentic (expert)`** : Modèle de raisonnement frontière de haute précision (code d'architecture, analyse complexe). L'utilisateur peut orienter le comportement ou demander un type précis de modèle directement depuis son prompt.
+Dès le premier déploiement, le catalogue managé d'entreprise est strictement aligné sur les **trois tiers canoniques ArcIA** :
+- **`arcia/standard`** : Profil généraliste d'entreprise par défaut (ex: Claude 3.5 Sonnet / GPT-4o). Conçu pour le travail quotidien, l'assistance et les interactions courantes.
+- **`arcia/expert`** : Profil d'élite de haute précision (ex: Claude 3.7 Sonnet / OpenAI o3-mini). Recommandé pour l'architecture, la revue de code et les analyses complexes.
+- **`arcia/reasoning`** : Profil de raisonnement profond (ex: DeepSeek-R1 / OpenAI o1). Idéal pour les raisonnements mathématiques, logiques et l'investigation approfondie.
 
-Toutes les requêtes sortant vers des modèles cloud sont **automatiquement caviardées par Presidio DLP** (`presidio-dlp.arcia.svc:8080`, endpoints `/analyze` et `/anonymize`) avant transmission au fournisseur. Les clés API et modèles personnels s'ajoutent quant à eux en toute autonomie via la fonctionnalité BYOK ci-dessous.
+Toutes les requêtes sortant vers des modèles cloud bénéficient de :
+1. **Zero Data Retention (ZDR)** : Forcé au niveau de LiteLLM via `extra_body: {provider: {zdr: true}}` pour interdire l'entraînement des fournisseurs sur vos données.
+2. **Caviardage Presidio DLP Fail-Closed** : Filtrage préalable des PII (emails, téléphones, cartes, IPs, IBAN) et secrets d'entreprise. En cas d'indisponibilité du filtre, la requête est bloquée pour prévenir toute fuite.
+3. **Comptabilité et Budgets PostgreSQL** : Chaque requête est tracée dans la base PostgreSQL 16 (`litellm-db`) avec suivi précis de la consommation en euros.
 
 ---
 
-## 4. Portail Open-WebUI, SSO Entra ID & Comptes Personnels (BYOK)
+## 4. Portail Open-WebUI, SSO Entra ID & Accès Power Users (PAT N3)
 
 ### Accès au Portail Web & Configuration SSO Entra ID
 
@@ -149,43 +153,25 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.ent
     - `https://<public_fqdn>/oauth2/callback` *(Callback OAuth2-Proxy pour Hermes Studio / Gateway)*
 - **Sans SSO (Mode local)** : Le premier compte créé devient le compte administrateur d'Open-WebUI.
 
-### Mise en œuvre exacte des Connexions Personnelles (BYOK dans Open-WebUI)
+### Gouvernance DLP & Proscription du BYOK non contrôlé
 
-Le harness configure nativement `ENABLE_DIRECT_CONNECTIONS: "true"` dans [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml).
-Attention à ne pas confondre **Paramètres utilisateur** (connexion strictement personnelle, stockée dans le `localStorage` du navigateur de l'utilisateur) et **Panneau d'administration** (connexion partagée avec tous les utilisateurs du serveur).
+En conformité avec les règles de sécurité d'entreprise ArcIA v0.3 :
+- `ENABLE_DIRECT_CONNECTIONS: "false"` est activé dans [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml). Les connexions directes vers des LLM externes contournant le DLP et le stockage des clés en clair dans SQLite sont proscrits.
+- Tous les échanges sur le portail WebUI transitent obligatoirement par la passerelle d'inférence d'entreprise et le bouclier DLP.
 
-#### Étapes dans l'interface Open-WebUI
-1. Cliquez sur **votre nom / avatar** (en bas à gauche) > **Paramètres** (*Settings*).
-2. Ouvrez l'onglet **Connexions** (*Connections*) > section **Gérer les connexions directes** (*Manage Direct Connections*) > cliquez sur **`+`** (*Ajouter une connexion*).
-3. Remplissez la fenêtre modale selon le tableau ci-dessous :
+### Accès Développeurs / Power Users (Niveau N3 via /v1)
 
-| Champ de la fenêtre | Valeur attendue | Détail important |
-|---|---|---|
-| **URL** *(Base URL)* | URL de base compatible OpenAI **terminant par `/v1`** | Ne jamais ajouter `/chat/completions` à la fin |
-| **Clé** *(API Key / Jetons)* | Votre clé personnelle (`sk-...`) | Stockée uniquement dans le `localStorage` de votre navigateur |
-| **ID de préfixe** *(Prefix ID — optionnel)* | Court préfixe (ex: `perso`) | Permet d'afficher `perso/gpt-4o` pour le distinguer du catalogue d'entreprise |
-| **IDs de modèles** *(Model IDs)* | Saisir l'identifiant d'un modèle puis cliquer sur **`+`** | Recommandé sur OpenRouter pour éviter de charger +300 modèles dans le menu |
-
-#### 4 exemples concrets prêts à copier-coller
-
-* **Exemple 1 — Compte personnel OpenRouter** :
-  - **URL** : `https://openrouter.ai/api/v1`
-  - **Clé** : `sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
-  - **ID de préfixe** : `perso`
-  - **IDs de modèles** *(taper puis cliquer sur `+`)* : `anthropic/claude-3.7-sonnet`, `openai/o3-mini`
-* **Exemple 2 — Compte personnel OpenAI direct** :
-  - **URL** : `https://api.openai.com/v1`
-  - **Clé** : `sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
-  - **ID de préfixe** : `openai-perso`
-  - **IDs de modèles** : `gpt-4o` (ou laisser vide)
-* **Exemple 3 — Compte personnel DeepSeek ou Mistral AI** :
-  - **DeepSeek** : URL `https://api.deepseek.com/v1` | Clé `sk-...` | Modèles : `deepseek-chat`, `deepseek-reasoner`
-  - **Mistral AI** : URL `https://api.mistral.ai/v1` | Clé `<cle-mistral>` | Modèles : `mistral-large-latest`, `codestral-latest`
-* **Exemple 4 — Modèle local sur le PC de l'utilisateur (Ollama / LM Studio)** :
-  - Comme la requête part du navigateur de l'utilisateur, il peut interroger sa propre machine locale :
-  - **URL** : `http://localhost:11434/v1` *(Ollama)* ou `http://localhost:1234/v1` *(LM Studio)*
-  - **Clé** : `ollama`
-  - **ID de préfixe** : `local-pc` *(avec `OLLAMA_ORIGINS="https://<public_fqdn>"` côté poste client)*
+Pour les développeurs, scripts CI/CD ou IDEs (Cursor, VS Code, continue.dev) nécessitant un accès programmatique direct :
+1. Les accès sont délivrés sous forme de **Personal Access Tokens (PAT)** virtuels LiteLLM gérés par l'administrateur :
+   ```bash
+   # Création d'une clé virtuelle d'entreprise avec budget mensuel de 25€
+   python scripts/arcia_keys.py create --user dev-lead@entreprise.com --tier N3 --budget 25 --duration 30
+   ```
+2. Le développeur configure son IDE avec le endpoint d'entreprise :
+   - **Base URL** : `https://<public_fqdn>/v1`
+   - **API Key** : `sk-arcia-xxxxxxxx` (la clé virtuelle générée)
+   - **Modèle** : `arcia/standard` ou `arcia/expert`
+3. Les requêtes passent par l'Ingress Traefik (middleware RateLimit), Presidio DLP et LiteLLM avec décompte automatique sur le budget alloué.
 
 ---
 
@@ -195,7 +181,8 @@ Pour les ingénieurs IA et utilisateurs avancés souhaitant orchestrer des agent
 
 - **Hermes Studio (Kanban)** : Accessible à `https://<public_fqdn>/studio`. Connectez-vous avec `admin` et le mot de passe défini dans `hermes.admin_password`. Il permet de suivre l'exécution des missions longues, les réflexions (Chain of Thought), l'utilisation des outils et la collaboration multi-agents.
 - **Hermes Gateway & Desktop** : L'application client lourd **Hermes Desktop** se connecte en WebSocket sur `https://<public_fqdn>/gateway` avec votre jeton PAT.
-- **Tokenmaxing & Sobriété** : Le plugin ArcIA intégré ([services/hermes/plugin.py](../../services/hermes/plugin.py)) compresse automatiquement les sorties de terminaux et les gros fichiers JSON manipulés par les agents, réduisant drastiquement l'empreinte de tokens.
+- **Gestion de Contexte & Sobriété** : Hermes s'appuie sur ses mécanismes natifs de gestion de contexte (compaction d'historique, troncature de résultats) configurés dans `~/.hermes/config.yaml`, sans plugin ConfigMap tiers instable.
+- **Gouvernance des Clés d'Accès** : L'outil CLI `scripts/arcia_keys.py` permet de superviser, lister et révoquer les clés d'agents et de développeurs en temps réel.
 
 ---
 

@@ -6,28 +6,52 @@ metadata:
 data:
   config.yaml: |
     model_list:
-      # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
-      - model_name: "ArcIA-Agentic (auto)"
+      # 1. Palier Standard (Défaut) : Économique, rapide, souverain
+      - model_name: "arcia/standard"
         litellm_params:
-          model: openrouter/auto
+          model: openrouter/anthropic/claude-3-5-haiku
           api_key: os.environ/OPENROUTER_API_KEY
-          fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
+          extra_body:
+            provider:
+              zdr: true
 
-      # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
-      - model_name: "ArcIA-Agentic (expert)"
+      # 2. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
+      - model_name: "arcia/expert"
         litellm_params:
-          model: openrouter/anthropic/claude-3.5-sonnet
+          model: openrouter/anthropic/claude-3.7-sonnet
           api_key: os.environ/OPENROUTER_API_KEY
-          fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
+          extra_body:
+            provider:
+              zdr: true
+
+      # 3. Palier Raisonnement : Analyse architecturale et résolution critique
+      - model_name: "arcia/reasoning"
+        litellm_params:
+          model: openrouter/deepseek/deepseek-r1
+          api_key: os.environ/OPENROUTER_API_KEY
+          extra_body:
+            provider:
+              zdr: true
 
     router_settings:
+      fallbacks:
+        - "arcia/standard": ["arcia/expert"]
+        - "arcia/expert": ["arcia/standard"]
+        - "arcia/reasoning": ["arcia/expert"]
       model_group_alias:
-        "auto": "ArcIA-Agentic (auto)"
-        "ArcIA-Agentic": "ArcIA-Agentic (auto)"
-        "hermes-agent": "ArcIA-Agentic (auto)"
+        "ArcIA-Agentic (auto)": "arcia/standard"
+        "ArcIA-Agentic (expert)": "arcia/expert"
+        "auto": "arcia/standard"
+        "hermes-agent": "arcia/standard"
+
+    general_settings:
+      master_key: os.environ/LITELLM_MASTER_KEY
+      database_url: os.environ/DATABASE_URL
+      database_connection_pool_limit: 10
+      user_header_name: "X-OpenWebUI-User-Email"
 
     guardrails:
-      # Anonymisation universelle obligatoire vers le Cloud
+      # Anonymisation universelle obligatoire et fail-closed vers le Cloud
       - guardrail_name: "presidio-guard"
         litellm_params:
           guardrail: presidio
@@ -53,7 +77,7 @@ spec:
     spec:
       containers:
       - name: litellm
-        image: ghcr.io/berriai/litellm:main-latest
+        image: ghcr.io/berriai/litellm:main-v1.61.16
         args:
         - "--config"
         - "/app/config.yaml"
@@ -62,13 +86,47 @@ spec:
         ports:
         - containerPort: 4000
         env:
-        - name: LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY
-          value: "true"
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: master-key
+        - name: LITELLM_SALT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: salt-key
+        - name: LITELLM_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: db-password
+        - name: DATABASE_URL
+          value: "postgresql://litellm:$(LITELLM_DB_PASSWORD)@litellm-db.arcia.svc:5432/litellm"
         - name: OPENROUTER_API_KEY
           valueFrom:
             secretKeyRef:
               name: enterprise-llm-secret
               key: openrouter-key
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1536Mi
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 4000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health/liveness
+            port: 4000
+          initialDelaySeconds: 20
+          periodSeconds: 15
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml
@@ -89,3 +147,4 @@ spec:
   ports:
   - port: 4000
     targetPort: 4000
+    name: http

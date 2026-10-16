@@ -211,16 +211,15 @@ def cast_scalar(val: str) -> Any:
         return val
 
 def find_harness_ssh() -> Tuple[Optional[str], Optional[str]]:
-    """Localise automatiquement la clé SSH et le fichier known_hosts du harness ArcIA."""
-    harness_dirs = [
-        os.path.join(os.environ.get("LOCALAPPDATA", ""), "ArcIA-Harness"),
-        os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Local", "Packages", "OpenAI.Codex_2p2nqsd0c76g0", "LocalCache", "Local", "ArcIA-Harness")
-    ]
-    for d in harness_dirs:
-        candidate = os.path.join(d, "ssh", "arcia-vm_ed25519")
-        if os.path.isfile(candidate):
-            known = os.path.join(d, "known_hosts.arcia")
-            return candidate, (known if os.path.isfile(known) else None)
+    """Localise automatiquement la clé SSH et le fichier known_hosts du harness ArcIA si configurés."""
+    env_key = os.environ.get("ARCIA_SSH_KEY", "").strip()
+    if env_key and os.path.isfile(env_key):
+        return env_key, os.environ.get("ARCIA_KNOWN_HOSTS")
+    harness_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ArcIA-Harness")
+    candidate = os.path.join(harness_dir, "ssh", "arcia-vm_ed25519")
+    if os.path.isfile(candidate):
+        known = os.path.join(harness_dir, "known_hosts.arcia")
+        return candidate, (known if os.path.isfile(known) else None)
     return None, None
 
 def adapt_manifest_namespace(yaml_text: str, target_ns: str) -> str:
@@ -250,8 +249,6 @@ class K8sRunner:
         self.ident_key, self.known_hosts = find_harness_ssh()
         if not self.ssh_key and self.ident_key:
             self.ssh_key = self.ident_key
-        if self.ident_key and self.ssh_user == "debian" and not ssh_key:
-            self.ssh_user = "nicolas"
 
     def run(self, cmd_args: List[str], stdin_input: Optional[str] = None) -> Tuple[int, str, str]:
         """Exécute une commande kubectl soit en local, soit via SSH."""
@@ -606,6 +603,21 @@ metadata:
     if rc == 0:
         runner.apply_manifest(out)
 
+    # litellm-secret (Master key, DB password, Salt key pour la passerelle d'inférence)
+    litellm_master = llm_cfg.get("master_key", "sk-arcia-master-key-v03")
+    litellm_salt = llm_cfg.get("salt_key", "arcia-salt-key-32-chars-long-secret")
+    litellm_db_pass = llm_cfg.get("db_password", "ArcIALiteLLMPostgres2026!")
+    rc, out, _ = runner.run([
+        "create", "secret", "generic", "litellm-secret",
+        f"--namespace={namespace}",
+        f"--from-literal=master-key={litellm_master}",
+        f"--from-literal=salt-key={litellm_salt}",
+        f"--from-literal=db-password={litellm_db_pass}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if rc == 0:
+        runner.apply_manifest(out)
+
     # hermes-gateway-secret
     hermes_key = hermes_cfg.get("api_token", "")
     hermes_pass = hermes_cfg.get("admin_password", "admin")
@@ -672,7 +684,14 @@ metadata:
     with open(presidio_path, "r", encoding="utf-8") as f:
         runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
 
-    # B. LiteLLM Proxy (avec modèle optionnel local vLLM)
+    # B1. Base PostgreSQL LiteLLM (Gestion des clés virtuelles et comptabilité)
+    litellm_db_path = os.path.join(manifests_dir, "05-litellm-db.yaml")
+    if os.path.isfile(litellm_db_path):
+        log_info(" -> Déploiement de la base LiteLLM PostgreSQL (05-litellm-db.yaml)...")
+        with open(litellm_db_path, "r", encoding="utf-8") as f:
+            runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
+
+    # B2. LiteLLM Proxy (Passerelle d'inférence universelle avec guardrail fail-closed)
     log_info(" -> Déploiement de LiteLLM Proxy (05-litellm.yaml)...")
     litellm_path = os.path.join(manifests_dir, "05-litellm.yaml")
     with open(litellm_path, "r", encoding="utf-8") as f:
@@ -730,17 +749,20 @@ metadata:
         log_info(" -> [Optionnel Ignoré] Authentification SSO Entra ID désactivée.")
 
     if omniroute_cfg.get("enabled"):
-        log_info(" -> [Optionnel Activé] Déploiement d'OmniRoute (09-omniroute.yaml)...")
         omni_path = os.path.join(manifests_dir, "09-omniroute.yaml")
-        with open(omni_path, "r", encoding="utf-8") as f:
-            omni_yaml = f.read()
-        storage_size = omniroute_cfg.get("storage_size", "5Gi")
-        omni_yaml = omni_yaml.replace("storage: 5Gi", f"storage: {storage_size}")
-        if storage_class:
-            omni_yaml = omni_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-        runner.apply_manifest(adapt_manifest_namespace(omni_yaml, namespace))
+        if os.path.isfile(omni_path):
+            log_info(" -> [Optionnel Activé] Déploiement d'OmniRoute (09-omniroute.yaml)...")
+            with open(omni_path, "r", encoding="utf-8") as f:
+                omni_yaml = f.read()
+            storage_size = omniroute_cfg.get("storage_size", "5Gi")
+            omni_yaml = omni_yaml.replace("storage: 5Gi", f"storage: {storage_size}")
+            if storage_class:
+                omni_yaml = omni_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+            runner.apply_manifest(adapt_manifest_namespace(omni_yaml, namespace))
+        else:
+            log_info(" -> [v0.3 Note] OmniRoute est retiré en v0.3 au profit du routage unifié LiteLLM.")
     else:
-        log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé.")
+        log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé (retiré en v0.3).")
 
     # F. Synchronisation Automatique des Compétences & Outils (Skills)
     log_info(" -> [Automatique] Synchronisation des compétences natives (Ponytail, Graphify, Public-APIs)...")
@@ -856,6 +878,13 @@ spec:
       paths:
 {oauth_path_block}
 {teams_path_block}
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
       - path: /
         pathType: Prefix
         backend:
@@ -910,6 +939,10 @@ spec:
     if omniroute_cfg.get("enabled"):
         deployments_to_check.append("omniroute")
 
+    # Vérification préalable de la base LiteLLM
+    log_info(" -> Attente du démarrage de la base PostgreSQL LiteLLM...")
+    runner.run(["rollout", "status", "statefulset/litellm-db", f"-n={namespace}", "--timeout=180s"])
+
     for dep in deployments_to_check:
         log_info(f" -> Attente du démarrage de {dep}...")
         rc, out, err = runner.run(["rollout", "status", f"deployment/{dep}", f"-n={namespace}", "--timeout=180s"])
@@ -925,9 +958,10 @@ spec:
     print(f"{C_BOLD}{C_GREEN}================================================================={C_RESET}\n")
 
     print(f"{C_BOLD}Points d'accès de votre instance :{C_RESET}")
-    print(f"  * {C_BOLD}Portail Collaborateur (Open-WebUI) :{C_RESET} https://{public_fqdn}/")
-    print(f"  * {C_BOLD}Hermes Studio (Kanban Multi-Agents) :{C_RESET} https://{public_fqdn}/studio")
-    print(f"  * {C_BOLD}Hermes Desktop Gateway (WebSocket)  :{C_RESET} https://{public_fqdn}/gateway")
+    print(f"  * {C_BOLD}Portail Collaborateur (Open-WebUI)    :{C_RESET} https://{public_fqdn}/")
+    print(f"  * {C_BOLD}Passerelle Inférence Power User (/v1) :{C_RESET} https://{public_fqdn}/v1")
+    print(f"  * {C_BOLD}Hermes Studio (Kanban Multi-Agents)    :{C_RESET} https://{public_fqdn}/studio")
+    print(f"  * {C_BOLD}Hermes Desktop Gateway (WebSocket)     :{C_RESET} https://{public_fqdn}/gateway")
     if teams_cfg.get("enabled"):
         print(f"  * {C_BOLD}Webhook Microsoft Teams             :{C_RESET} https://{public_fqdn}/api/teams/messages")
     if omniroute_cfg.get("enabled"):

@@ -35,7 +35,10 @@ import urllib.request
 import urllib.error
 import tempfile
 import shutil
-from http.server import HTTPServer, BaseHTTPRequestHandler
+try:
+    from http.server import ThreadingHTTPServer as HttpServerClass, BaseHTTPRequestHandler
+except ImportError:
+    from http.server import HTTPServer as HttpServerClass, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from typing import Dict, Any, Optional, List, Tuple
 
@@ -171,6 +174,7 @@ def decrypt_instance_bundle(bundle_str: str, passphrase: str) -> dict:
 
 def git_test_credentials(provider: str, token: str) -> dict:
     """Valide le jeton Git (GitHub ou GitLab) et liste les organisations accessibles."""
+    token = (token or "").strip()
     if not token:
         return {"success": False, "error": "Jeton d'accès Git non renseigné."}
 
@@ -228,6 +232,15 @@ def git_test_credentials(provider: str, token: str) -> dict:
 
 def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str = None) -> dict:
     """Crée automatiquement un dépôt privé distant sur GitHub ou GitLab."""
+    token = (token or "").strip()
+    repo_name = (repo_name or "").strip()
+    owner = (owner or "").strip() if owner else ""
+
+    if not token:
+        return {"success": False, "error": "Jeton d'accès Git non renseigné."}
+    if not repo_name:
+        return {"success": False, "error": "Nom du dépôt Git non renseigné."}
+
     headers = {"User-Agent": "ArcIA-Setup-Wizard"}
     if provider == "github":
         headers["Authorization"] = f"Bearer {token}"
@@ -235,7 +248,14 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
         headers["Content-Type"] = "application/json"
 
         user_info = git_test_credentials("github", token)
-        is_org = owner and owner != user_info.get("username")
+        if not user_info.get("success"):
+            return {
+                "success": False,
+                "error": f"Authentification GitHub impossible : {user_info.get('error', 'Jeton invalide')}"
+            }
+
+        username = user_info.get("username", "")
+        is_org = bool(owner and owner.lower() != username.lower())
         url = f"https://api.github.com/orgs/{owner}/repos" if is_org else "https://api.github.com/user/repos"
 
         payload = {
@@ -246,7 +266,7 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
         }
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=10) as res:
+            with urllib.request.urlopen(req, timeout=15) as res:
                 repo_info = json.loads(res.read().decode("utf-8"))
                 return {
                     "success": True,
@@ -256,20 +276,39 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
             if "already exists" in err_body or e.code == 422:
-                target_owner = owner or user_info.get("username")
+                target_owner = owner if is_org else username
                 return {
                     "success": True,
                     "clone_url": f"https://github.com/{target_owner}/{repo_name}.git",
                     "html_url": f"https://github.com/{target_owner}/{repo_name}",
                     "already_existed": True
                 }
+            elif e.code == 404:
+                return {
+                    "success": False,
+                    "error": f"Échec création dépôt GitHub (HTTP 404) : L'organisation ou compte '{owner or username}' est introuvable ou vous n'avez pas les droits d'administration."
+                }
+            elif e.code == 403:
+                return {
+                    "success": False,
+                    "error": f"Échec création dépôt GitHub (HTTP 403) : Droits insuffisants sur '{owner or username}'. Vérifiez les permissions (scope 'repo') de votre jeton d'accès personnel."
+                }
             return {"success": False, "error": f"Échec création dépôt GitHub : HTTP {e.code} ({err_body})"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Erreur de connexion à GitHub : {str(e)}"}
 
     elif provider == "gitlab":
         headers["PRIVATE-TOKEN"] = token
         headers["Content-Type"] = "application/json"
+
+        user_info = git_test_credentials("gitlab", token)
+        if not user_info.get("success"):
+            return {
+                "success": False,
+                "error": f"Authentification GitLab impossible : {user_info.get('error', 'Jeton invalide')}"
+            }
+
+        username = user_info.get("username", "")
         payload = {
             "name": repo_name,
             "visibility": "private",
@@ -277,7 +316,7 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
         }
         req = urllib.request.Request("https://gitlab.com/api/v4/projects", data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=10) as res:
+            with urllib.request.urlopen(req, timeout=15) as res:
                 proj_info = json.loads(res.read().decode("utf-8"))
                 return {
                     "success": True,
@@ -287,8 +326,7 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
             if "has already been taken" in err_body or e.code == 400:
-                user_info = git_test_credentials("gitlab", token)
-                target_owner = owner or user_info.get("username")
+                target_owner = owner or username
                 return {
                     "success": True,
                     "clone_url": f"https://gitlab.com/{target_owner}/{repo_name}.git",
@@ -297,7 +335,7 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
                 }
             return {"success": False, "error": f"Échec création projet GitLab : HTTP {e.code} ({err_body})"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Erreur de connexion à GitLab : {str(e)}"}
 
     return {"success": False, "error": "Fournisseur Git non pris en charge."}
 
@@ -308,7 +346,7 @@ def git_push_instance(repo_url: str, token: str, encrypted_bundle_str: str, inst
         meta = {
             "instance_name": instance_name,
             "public_fqdn": fqdn,
-            "schema_version": "0.2.0",
+            "schema_version": "0.3.0",
             "encryption": "AES-256-GCM-PBKDF2-100K",
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
@@ -1038,25 +1076,33 @@ def ensure_config_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 def serialize_yaml_config(cfg: Dict[str, Any]) -> str:
     """Sérialise proprement le dictionnaire de configuration en syntaxe YAML conforme."""
-    k8s = cfg.get("kubernetes", {})
-    net = cfg.get("network", {})
-    llm = cfg.get("llm_gateway", {})
-    hermes = cfg.get("hermes", {})
-    presidio = cfg.get("presidio", {})
-    webui = cfg.get("open_webui", {})
-    sso = cfg.get("entra_id_sso", {})
-    teams = cfg.get("teams_bot", {})
-    m365 = cfg.get("microsoft365_integration", {})
-    omni = cfg.get("omniroute", {})
+    if not isinstance(cfg, dict):
+        cfg = {}
+    k8s = cfg.get("kubernetes") or {}
+    net = cfg.get("network") or {}
+    llm = cfg.get("llm_gateway") or {}
+    hermes = cfg.get("hermes") or {}
+    presidio = cfg.get("presidio") or {}
+    webui = cfg.get("open_webui") or {}
+    sso = cfg.get("entra_id_sso") or {}
+    teams = cfg.get("teams_bot") or {}
+    m365 = cfg.get("microsoft365_integration") or {}
+    omni = cfg.get("omniroute") or {}
 
-    def bstr(val: bool) -> str:
-        return "true" if val else "false"
+    def bstr(val: Any) -> str:
+        return "true" if bool(val) else "false"
 
     def qstr(val: Any) -> str:
         s = str(val or "")
         return f'"{s}"'
 
-    ssh = k8s.get("remote_ssh", {})
+    def istr(val: Any, default: int = 22) -> int:
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+
+    ssh = k8s.get("remote_ssh") or {}
 
     yaml_text = f"""# ==============================================================================
 # ArcIA — Configuration Générée par le Setup Wizard Graphique
@@ -1073,7 +1119,7 @@ kubernetes:
   remote_ssh:
     node_ip: {qstr(ssh.get('node_ip', '127.0.0.1'))}
     ssh_user: {qstr(ssh.get('ssh_user', 'debian'))}
-    ssh_port: {int(ssh.get('ssh_port', 22))}
+    ssh_port: {istr(ssh.get('ssh_port'), 22)}
     ssh_key: {qstr(ssh.get('ssh_key', ''))}
 
 # 2. Exposition Réseau, Domaine FQDN & Certificats TLS
@@ -1136,6 +1182,7 @@ omniroute:
 def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_PATH) -> None:
     """Enregistre la configuration dans arcia.config.yaml et synchronise secrets/arcia.env."""
     yaml_content = serialize_yaml_config(cfg)
+    os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
     with open(config_path, "w", encoding="utf-8") as f:
         f.write(yaml_content)
 
@@ -1355,67 +1402,79 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
 # -----------------------------------------------------------------------------
 
 class WizardHTTPHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def log_message(self, format, *args):
         pass
+
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        super().end_headers()
 
     def send_json(self, status: int, data: Any):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_GET(self):
-        parsed = urlparse(self.path)
-        path = parsed.path
+        try:
+            parsed = urlparse(self.path)
+            path = parsed.path
 
-        if path in ("/", "/index.html"):
-            self.serve_wizard_ui()
-        elif path == "/api/config":
-            cfg, exists = load_config_data(DEFAULT_CONFIG_PATH)
-            contexts = detect_kubectl_contexts()
-            current_ctx = detect_current_context()
-            ssh_keys = detect_available_ssh_keys()
-            self.send_json(200, {
-                "config": cfg,
-                "is_existing": exists,
-                "available_contexts": contexts,
-                "current_context": current_ctx,
-                "available_ssh_keys": ssh_keys,
-                "os": os.name
-            })
-        elif path == "/api/deploy/status":
-            with deployment_lock:
-                state_copy = {
-                    "status": deployment_state["status"],
-                    "logs": deployment_state["logs"],
-                    "exit_code": deployment_state["exit_code"],
-                    "summary": deployment_state["summary"],
-                    "count": len(deployment_state["logs"])
-                }
-            self.send_json(200, state_copy)
-        elif path == "/api/docker/status":
-            st = get_docker_status()
-            self.send_json(200, st)
-        elif path == "/api/vmware/tiers":
-            self.send_json(200, VMWARE_SIZING_TIERS)
-        elif path == "/api/health":
-            self.send_json(200, {"status": "ok"})
-        else:
-            self.send_error(404, "Page non trouvée")
+            if path in ("/", "/index.html"):
+                self.serve_wizard_ui()
+            elif path == "/api/config":
+                cfg, exists = load_config_data(DEFAULT_CONFIG_PATH)
+                contexts = detect_kubectl_contexts()
+                current_ctx = detect_current_context()
+                ssh_keys = detect_available_ssh_keys()
+                self.send_json(200, {
+                    "config": cfg,
+                    "is_existing": exists,
+                    "available_contexts": contexts,
+                    "current_context": current_ctx,
+                    "available_ssh_keys": ssh_keys,
+                    "os": os.name
+                })
+            elif path == "/api/deploy/status":
+                with deployment_lock:
+                    state_copy = {
+                        "status": deployment_state["status"],
+                        "logs": deployment_state["logs"],
+                        "exit_code": deployment_state["exit_code"],
+                        "summary": deployment_state["summary"],
+                        "count": len(deployment_state["logs"])
+                    }
+                self.send_json(200, state_copy)
+            elif path == "/api/docker/status":
+                st = get_docker_status()
+                self.send_json(200, st)
+            elif path == "/api/vmware/tiers":
+                self.send_json(200, VMWARE_SIZING_TIERS)
+            elif path == "/api/health":
+                self.send_json(200, {"status": "ok"})
+            else:
+                self.send_error(404, "Page non trouvée")
+        except Exception as e:
+            self.send_json(500, {"success": False, "error": f"Erreur serveur (GET) : {str(e)}"})
 
     def do_POST(self):
+        try:
+            self._handle_post_internal()
+        except Exception as e:
+            self.send_json(500, {"success": False, "error": f"Erreur serveur (POST) : {str(e)}"})
+
+    def _handle_post_internal(self):
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -1538,23 +1597,26 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     self.send_json(400, {"success": False, "error": "Un déploiement est déjà en cours d'exécution."})
                     return
 
-            cfg = req_data.get("config")
-            if cfg:
-                save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
+            try:
+                cfg = req_data.get("config")
+                if cfg:
+                    save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
 
-            dry_run = req_data.get("dry_run", False)
-            git_info = req_data.get("instance_git", None)
-            infra_target = req_data.get("infra_target", "k8s_existing")
-            infra_config = req_data.get("infra_config", None)
+                dry_run = req_data.get("dry_run", False)
+                git_info = req_data.get("instance_git", None)
+                infra_target = req_data.get("infra_target", "k8s_existing")
+                infra_config = req_data.get("infra_config", None)
 
-            worker = threading.Thread(
-                target=run_deployment_worker,
-                args=(dry_run, git_info, infra_target, infra_config),
-                daemon=True
-            )
-            worker.start()
+                worker = threading.Thread(
+                    target=run_deployment_worker,
+                    args=(dry_run, git_info, infra_target, infra_config),
+                    daemon=True
+                )
+                worker.start()
 
-            self.send_json(200, {"success": True, "started": True, "dry_run": dry_run, "infra_target": infra_target})
+                self.send_json(200, {"success": True, "started": True, "dry_run": dry_run, "infra_target": infra_target})
+            except Exception as de:
+                self.send_json(500, {"success": False, "error": f"Erreur lors de la configuration ou du démarrage du déploiement : {str(de)}"})
 
         else:
             self.send_error(404, "Endpoint non trouvé")
@@ -1735,7 +1797,7 @@ def get_wizard_html_page() -> str:
       </div>
       <div>
         <div class="brand-title">ArcIA Enterprise Setup Wizard</div>
-        <div class="brand-subtitle">Gestionnaire de Déploiement & Restauration d'Instance v0.2</div>
+        <div class="brand-subtitle">Gestionnaire de Déploiement & Restauration d'Instance v0.3</div>
       </div>
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
@@ -3347,10 +3409,27 @@ def get_wizard_html_page() -> str:
           if (cData.success && cData.clone_url) {
             gitInfo.repo_url = cData.clone_url;
             createdRepoUrl = cData.html_url || cData.clone_url;
-            terminal.innerHTML += `<div class="log-line log-green">[OK] Dépôt Git privé prêt : ${createdRepoUrl}</div>`;
+            const existMsg = cData.already_existed ? " (dépôt existant réutilisé)" : "";
+            terminal.innerHTML += `<div class="log-line log-green">[OK] Dépôt Git privé prêt : ${createdRepoUrl}${existMsg}</div>`;
+          } else {
+            terminal.innerHTML += `<div class="log-line log-red">[ERREUR DÉPÔT GIT] ${cData.error || 'Erreur lors de la création du dépôt distant.'}</div>`;
+            terminal.innerHTML += `<div class="log-line log-yellow">[CONSEIL] Vérifiez votre jeton PAT Git (permissions 'repo') et le propriétaire sélectionné, ou décochez la sauvegarde Git à l'étape 4 pour continuer sans dépôt distant.</div>`;
+            btnDeploy.disabled = false;
+            btnDry.disabled = false;
+            badge.textContent = "Erreur Dépôt Git";
+            badge.style.color = "var(--accent-red)";
+            badge.style.borderColor = "var(--accent-red)";
+            return;
           }
         } catch (e) {
           console.warn("Création de repo:", e);
+          terminal.innerHTML += `<div class="log-line log-red">[ERREUR DÉPÔT GIT] Échec de communication avec le serveur Wizard : ${e.message}</div>`;
+          btnDeploy.disabled = false;
+          btnDry.disabled = false;
+          badge.textContent = "Erreur Réseau";
+          badge.style.color = "var(--accent-red)";
+          badge.style.borderColor = "var(--accent-red)";
+          return;
         }
       }
 
@@ -3393,14 +3472,20 @@ def get_wizard_html_page() -> str:
           btnDeploy.disabled = false;
           btnDry.disabled = false;
           badge.textContent = "Erreur";
+          badge.style.color = "var(--accent-red)";
+          badge.style.borderColor = "var(--accent-red)";
           return;
         }
 
         startLogPolling(dryRun);
       } catch (err) {
-        terminal.innerHTML += `<div class="log-line log-red">[FATAL] ${err.message}</div>`;
+        terminal.innerHTML += `<div class="log-line log-red">[FATAL] Erreur de communication avec le serveur : ${err.message}</div>`;
+        terminal.innerHTML += `<div class="log-line log-yellow">[CONSEIL] Vérifiez que le serveur Wizard tourne toujours dans votre terminal PowerShell.</div>`;
         btnDeploy.disabled = false;
         btnDry.disabled = false;
+        badge.textContent = "Erreur";
+        badge.style.color = "var(--accent-red)";
+        badge.style.borderColor = "var(--accent-red)";
       }
     }
 
@@ -3593,12 +3678,12 @@ def main():
 
     port = find_available_port(args.port)
     server_address = (args.host, port)
-    httpd = HTTPServer(server_address, WizardHTTPHandler)
+    httpd = HttpServerClass(server_address, WizardHTTPHandler)
 
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.2              \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.3              \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

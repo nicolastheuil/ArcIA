@@ -1,108 +1,99 @@
-# LiteLLM Proxy — Passerelle d'Inférence d'Entreprise
+# LiteLLM Proxy — Passerelle d'Inférence d'Entreprise (v0.3)
 
-LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises par les composants de la plateforme ArcIA (Open-WebUI, Hermes Agent, Bot Teams).
+> **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
----
-
-## 1. Rôles et Avantages
-
-1. **Abstraction Complète des Fournisseurs** :
-   - Expose une API compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
-   - Route les demandes vers les meilleurs modèles d'OpenRouter (Anthropic Claude 3.5 Sonnet, DeepSeek Chat/Coder, OpenAI GPT-4o).
-2. **Catalogue Épuré & Modèles Managés Souverains** :
-   - Expose deux profils d'entreprise dans le catalogue utilisateur :
-     - **`ArcIA-Agentic (auto)`** : Routage automatique dynamique du meilleur modèle disponible (OpenRouter / OmniRoute) avec bascule résiliente et caviardage DLP Presidio.
-     - **`ArcIA-Agentic (expert)`** : Modèle de raisonnement frontière haute fidélité, dont le comportement ou moteur sous-jacent peut être orienté par consigne directement dans le prompt.
-   - Les collaborateurs disposant de clés personnelles utilisent le canal **BYOK** d'Open-WebUI sans polluer le catalogue managé de l'entreprise.
-3. **Maîtrise des Budgets & Observabilité** :
-   - Centralisation des métriques d'utilisation des tokens par service et utilisateur.
-   - Prévention des dépassements de coûts.
+LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises par les composants de la plateforme ArcIA (Open-WebUI, Hermes Agent, Bot Teams, ainsi que les postes des power users via `/v1`).
 
 ---
 
-## 2. Déploiement Kubernetes
+## 1. Rôles et Architecture v0.3
 
-Le service est déployé via [deploy/manifests/05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) :
-- **Service interne** : `litellm-proxy.arcia.svc:4000`.
-- **Secret injecté** : `OPENROUTER_API_KEY` depuis `enterprise-llm-secret`.
-- **Healthcheck** : Vérifiable en continu sur `/health/readiness` (HTTP 200).
+1. **Abstraction & Pivot Unique Sécurisé** :
+   - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
+   - Route les demandes vers les meilleurs modèles d'OpenRouter avec Zéro Rétention de Données (ZDR) forcée.
+2. **Catalogue Épuré à 3 Paliers Canoniques** :
+   - **`arcia/standard`** *(Défaut)* : Modèle rapide et économique pour tous collaborateurs (N1, N2, N3).
+   - **`arcia/expert`** : Modèle agentique de pointe (Claude 3.7 Sonnet) pour l'expertise métier et le code.
+   - **`arcia/reasoning`** : Modèle de réflexion profonde (DeepSeek-R1) pour l'analyse critique et complexe.
+3. **Persistance Relationnelle & Base Comptable (`litellm-db`)** :
+   - Base de données PostgreSQL 16 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
+   - Gestion des budgets d'équipes et des **clés virtuelles nominatives (PAT)** pour les power users N3.
+   - Suivi unifié des coûts et de la consommation par utilisateur (`X-OpenWebUI-User-Email`).
 
 ---
 
-## 3. Configuration du Routage
+## 2. Déploiement Kubernetes & Base Comptable
+
+Le service est déployé via :
+- **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service interne `litellm-proxy.arcia.svc:4000`, exposition Ingress `/v1` avec RateLimit).
+- **Base Comptable PostgreSQL** : [05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml) (Service `litellm-db.arcia.svc:5432`, PVC 10Gi).
+- **Secrets injectés** : `litellm-secret` (`master-key`, `salt-key`, `db-password`) et `enterprise-llm-secret` (`openrouter-key`).
+
+---
+
+## 3. Configuration du Routage v0.3
 
 Le ConfigMap `litellm-config` définit la matrice de modèles :
 
 ```yaml
 model_list:
-  # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
-  - model_name: "ArcIA-Agentic (auto)"
+  - model_name: "arcia/standard"
     litellm_params:
-      model: openrouter/auto
+      model: openrouter/anthropic/claude-3-5-haiku
       api_key: os.environ/OPENROUTER_API_KEY
-      fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
+      extra_body:
+        provider:
+          zdr: true
 
-  # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
-  - model_name: "ArcIA-Agentic (expert)"
+  - model_name: "arcia/expert"
     litellm_params:
-      model: openrouter/anthropic/claude-3.5-sonnet
+      model: openrouter/anthropic/claude-3.7-sonnet
       api_key: os.environ/OPENROUTER_API_KEY
-      fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
+      extra_body:
+        provider:
+          zdr: true
+
+  - model_name: "arcia/reasoning"
+    litellm_params:
+      model: openrouter/deepseek/deepseek-r1
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          zdr: true
 
 router_settings:
+  fallbacks:
+    - "arcia/standard": ["arcia/expert"]
+    - "arcia/expert": ["arcia/standard"]
+    - "arcia/reasoning": ["arcia/expert"]
   model_group_alias:
-    "auto": "ArcIA-Agentic (auto)"
-    "ArcIA-Agentic": "ArcIA-Agentic (auto)"
-    "hermes-agent": "ArcIA-Agentic (auto)"
+    "ArcIA-Agentic (auto)": "arcia/standard"
+    "ArcIA-Agentic (expert)": "arcia/expert"
+    "auto": "arcia/standard"
+    "hermes-agent": "arcia/standard"
 ```
 
 ---
 
-## 4. Où et Comment Configurer les Clés d'Inférence d'Entreprise
+## 4. Gestion des Clés Virtuelles et Budgets (Power Users N3)
 
-1. **Point d'entrée standard (`arcia.config.yaml`)** :
-   Dans la section `llm_gateway`, renseigner votre clé :
-   ```yaml
-   llm_gateway:
-     openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-     default_model: "openrouter/auto"
-     local_vllm_endpoint: ""  # optionnel: "http://vllm-internal.corp.local:8000/v1"
-   ```
-2. **Alternative `.env` (`secrets/arcia.env`)** :
-   ```env
-   OPENROUTER_API_KEY="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-   ```
-3. **Application automatique** :
-   Lors de l'exécution de `./scripts/Deploy-ArcIA.ps1` ou `./scripts/Apply-Secrets.ps1`, la clé est injectée dans le secret Kubernetes chiffré `enterprise-llm-secret`. Elle n'apparaît jamais dans les logs ni sur les navigateurs.
+L'administration des clés virtuelles nominatives pour les power users et clients locaux (IDE, Hermes CLI) s'effectue via le script dédié :
 
----
+```bash
+# Créer une clé nominative avec budget mensuel contraint
+python scripts/arcia_keys.py create-user jean.dupont@entreprise.com --level N3 --team engineering
 
-## 5. Raccordement Direct de Fournisseurs Spécifiques (Azure OpenAI, AWS Bedrock, Anthropic)
+# Lister les clés et leur consommation
+python scripts/arcia_keys.py list
 
-Si l'organisation dispose de souscriptions directes auprès d'éditeurs Cloud sans passer par OpenRouter :
-1. Dans `deploy/manifests/05-litellm.yaml`, déclarer le modèle dans `model_list` :
-   - **Azure OpenAI** :
-     ```yaml
-     - model_name: gpt-4o
-       litellm_params:
-         model: azure/gpt-4o
-         api_base: https://mon-endpoint.openai.azure.com/
-         api_key: os.environ/AZURE_OPENAI_API_KEY
-     ```
-   - **Anthropic Direct** :
-     ```yaml
-     - model_name: claude-3.5-sonnet
-       litellm_params:
-         model: anthropic/claude-3-5-sonnet-20241022
-         api_key: os.environ/ANTHROPIC_API_KEY
-     ```
-2. Injecter la variable correspondante dans le secret Kubernetes via `secrets/arcia.env` et `05-litellm.yaml`.
-3. Presidio DLP continue d'intercepter tout prompt avant envoi pour caviarder PII et secrets.
+# Révoquer une clé
+python scripts/arcia_keys.py revoke sk-xxxx
+```
 
 ---
 
 Voir également :
 - [Chaîne de Routage Complète & Cycle de Vie d'une Requête](chaine-de-routage.md)
 - [Gouvernance & Confidentialité Presidio DLP](confidentialite-presidio.md)
-- [Routeur Complémentaire OmniRoute](omniroute.md)
+- [État des fonctionnalités v0.3](../etat-des-fonctionnalites.md)
 - [Quickstart & Configuration Pratique](../runbooks/quickstart.md)

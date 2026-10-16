@@ -32,6 +32,10 @@ Ce dossier regroupe l'ensemble des outils d'automatisation, assistants de config
   python scripts/arcia_graphify.py --src ./mon-code --output ./graph.json
   ```
 * **[Sync-Skills.ps1](Sync-Skills.ps1)** : Script de synchronisation du catalogue de compétences d'entreprise vers le volume partagé `/var/data/arcia/shared-skills`.
+* **[package_teams_app.py](package_teams_app.py)** / **[Package-TeamsApp.ps1](Package-TeamsApp.ps1)** : Empaquetage et validation de l'archive Microsoft Teams (`arcia-teams-app.zip`) pour importation directe dans le Portail Développeur Teams.
+  ```bash
+  python scripts/package_teams_app.py --bot-id "<BOT_APP_ID>"
+  ```
 * **[Invoke-K3s.ps1](Invoke-K3s.ps1)** : Wrapper d'exécution de commandes kubectl/k3s sécurisées avec gestion de session.
 
 ### 4. Validation & Qualité

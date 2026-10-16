@@ -1,42 +1,41 @@
-# Presidio DLP — Gouvernance & Confidentialité des Données
+# Presidio DLP — Gouvernance & Confidentialité des Données (v0.3)
 
-Presidio DLP est la brique de sécurité de premier plan d'ArcIA. Elle garantit qu'aucune information personnelle identifiable (PII), clé d'API, mot de passe ou secret d'entreprise n'est envoyée en clair vers des modèles d'IA hébergés dans le cloud.
+> **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
----
-
-## 1. Mécanisme de Fonctionnement
-
-Le microservice est développé en Python (FastAPI + Microsoft Presidio Analyzer & Anonymizer) dans [services/presidio/app.py](../../services/presidio/app.py) :
-
-1. **Interception du Texte** : Le texte soumis est analysé par des modèles NLP et des reconnaisseurs par expressions régulières (Regex).
-2. **Entités Détectées par Défaut** :
-   - Adresses email (`EMAIL_ADDRESS`)
-   - Numéros de téléphone (`PHONE_NUMBER`)
-   - Numéros de carte bancaire (`CREDIT_CARD`)
-   - Adresses IP (`IP_ADDRESS`)
-3. **Reconnaisseurs Spécifiques Entreprise** :
-   - Mots de passe et jetons secrets (`PASSWORD_PATTERN`, `API_KEY_PATTERN`)
-   - Jetons bearer, hashs et certificats
-4. **Anonymisation / Caviardage** :
-   - Les entités détectées sont substituées par des placeholders identifiés : `[ARCIA_EMAIL_1]`, `[ARCIA_PHONE_1]`, `[SECRET_REMOVED]`.
+Presidio DLP est la brique de sécurité de premier plan d'ArcIA. Elle garantit qu'aucune information personnelle identifiable (PII), clé d'API, mot de passe ou adresse IP d'entreprise n'est envoyée en clair vers des modèles d'IA hébergés dans le cloud.
 
 ---
 
-## 2. Déploiement Kubernetes & Endpoints
+## 1. Mécanisme de Fonctionnement & Mode Fail-Closed
 
-Déployé via [deploy/manifests/03-presidio.yaml](../../deploy/manifests/03-presidio.yaml) :
-- **Service** : `presidio-dlp.arcia.svc:8080`
-- **Route `/sanitize`** :
-  - **Méthode** : `POST`
-  - **Payload** : `{"text": "Mon mot de passe est SecretPass123 et mon email collaborateur@example.org"}`
-  - **Réponse** :
-    ```json
-    {
-      "text": "Mon mot de passe est [SECRET_REMOVED] et mon email [ARCIA_EMAIL_1]",
-      "sanitized_text": "...",
-      "original_length": 68,
-      "sanitized_length": 65,
-      "entities_detected": ["EMAIL_ADDRESS", "PASSWORD"]
-    }
-    ```
-- **Route `/health`** : Vérification de disponibilité immédiate.
+Le microservice est développé en Python dans [services/presidio/app.py](../../services/presidio/app.py) et projeté dans le ConfigMap de [deploy/manifests/03-presidio.yaml](../../deploy/manifests/03-presidio.yaml) :
+
+1. **Architecture Fail-Closed** : Si le service DLP est arrêté ou dégradé, LiteLLM bloque immédiatement les requêtes et lève une erreur explicite, interdisant tout contournement silencieux vers le cloud.
+2. **Entités et Motifs Détectés** :
+   - **Secrets techniques** : Clés d'API (`sk-`), tokens Bearer, tokens GitHub (`ghp_`), clés AWS (`AKIA`), mots de passe et chaînes de connexion (`password=`) → `[SECRET_REMOVED]`.
+   - **Adresses IP** : IPv4 complète (`\b(?:\d{1,3}\.){3}\d{1,3}\b`) → `[ARCIA_IP_ADDRESS_n]`.
+   - **Emails** : Professionnels et personnels → `[ARCIA_EMAIL_n]`.
+   - **Téléphones** : Formats français et internationaux (`+33`, `06...`) → `[ARCIA_PHONE_n]`.
+   - **Coordonnées Bancaires** : IBAN et numéros de cartes → `[ARCIA_IBAN_n]`, `[ARCIA_CREDIT_CARD_n]`.
+   - **Analyse NLP Avancée** : Modèles spaCy `fr_core_news_sm` et `en_core_web_sm` via `NlpEngineProvider` pour les noms de personnes, organisations et lieux.
+
+---
+
+## 2. Endpoints Disponibles
+
+Le service expose 4 routes REST sur le port interne `8080` :
+
+* **`POST /anonymize`** : Endpoint standard consommé par LiteLLM Proxy dans son guardrail `pre_call`. Retourne le texte assaini.
+* **`POST /analyze`** : Endpoint d'analyse retournant la liste structurée des entités détectées (offsets, types, scores de confiance).
+* **`POST /sanitize`** : Endpoint direct de désensibilisation unifiée avec rapport d'entités.
+* **`GET /healthz`** : Vérification de disponibilité immédiate, confirmant que le moteur NLP est chargé et opérationnel.
+
+---
+
+## 3. Qualification & Non-Régression
+
+Le bouclier DLP est activement testé et qualifié par la suite de tests automatisés :
+```bash
+python -m unittest tests/test_dlp.py
+```
+Ce test valide en continu le caviardage effectif des adresses IP, secrets, emails, IBAN et numéros de téléphone.

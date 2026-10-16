@@ -1,0 +1,98 @@
+# ==============================================================================
+# ArcIA v0.3 — Base de Données Comptable & Clés Virtuelles LiteLLM (PostgreSQL)
+# ==============================================================================
+# Porte la persistance des clés virtuelles nominatives (PAT), des budgets
+# par équipe/utilisateur, et de l'historique d'inférence sécurisé.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: litellm-db-pvc
+  namespace: arcia
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: litellm-db
+  namespace: arcia
+spec:
+  serviceName: litellm-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm-db
+  template:
+    metadata:
+      labels:
+        app: litellm-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: "litellm"
+        - name: POSTGRES_USER
+          value: "litellm"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: db-password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - litellm
+            - -d
+            - litellm
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - litellm
+            - -d
+            - litellm
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: db-data
+        persistentVolumeClaim:
+          claimName: litellm-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-db
+  namespace: arcia
+spec:
+  selector:
+    app: litellm-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres

@@ -1,26 +1,58 @@
-# Configuration LiteLLM Proxy pour ArcIA (Mode Lab / Docker Local)
+# ==============================================================================
+# Configuration LiteLLM Proxy pour ArcIA v0.3 (Mode Lab / Docker Local)
+# ==============================================================================
 model_list:
-  # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
-  - model_name: "ArcIA-Agentic (auto)"
+  # 1. Palier Standard (Défaut) : Économique, rapide, souverain
+  - model_name: "arcia/standard"
     litellm_params:
-      model: openrouter/auto
+      model: openrouter/anthropic/claude-3-5-haiku
       api_key: os.environ/OPENROUTER_API_KEY
-      fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
+      extra_body:
+        provider:
+          zdr: true
 
-  # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
-  - model_name: "ArcIA-Agentic (expert)"
+  # 2. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
+  - model_name: "arcia/expert"
     litellm_params:
-      model: openrouter/anthropic/claude-3.5-sonnet
+      model: openrouter/anthropic/claude-3.7-sonnet
       api_key: os.environ/OPENROUTER_API_KEY
-      fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
+      extra_body:
+        provider:
+          zdr: true
+
+  # 3. Palier Raisonnement : Analyse architecturale et résolution critique
+  - model_name: "arcia/reasoning"
+    litellm_params:
+      model: openrouter/deepseek/deepseek-r1
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          zdr: true
 
 router_settings:
+  fallbacks:
+    - "arcia/standard": ["arcia/expert"]
+    - "arcia/expert": ["arcia/standard"]
+    - "arcia/reasoning": ["arcia/expert"]
   model_group_alias:
-    "auto": "ArcIA-Agentic (auto)"
-    "ArcIA-Agentic": "ArcIA-Agentic (auto)"
-    "hermes-agent": "ArcIA-Agentic (auto)"
+    "ArcIA-Agentic (auto)": "arcia/standard"
+    "ArcIA-Agentic (expert)": "arcia/expert"
+    "auto": "arcia/standard"
+    "hermes-agent": "arcia/standard"
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+guardrails:
+  # Anonymisation universelle obligatoire et fail-closed vers le Cloud
+  - guardrail_name: "presidio-guard"
+    litellm_params:
+      guardrail: presidio
+      mode: "pre_call"
+      default_on: true
+      presidio_analyzer_api_base: "http://presidio-analyzer:3000"
+      presidio_anonymizer_api_base: "http://presidio-anonymizer:3000"
 
 litellm_settings:
   drop_params: true
   set_verbose: false
-

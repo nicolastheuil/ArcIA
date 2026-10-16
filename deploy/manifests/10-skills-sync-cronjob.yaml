@@ -9,8 +9,8 @@ spec:
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
-  # Définir à false pour activer la synchronisation automatique programmée
-  suspend: false
+  # Suspendu par défaut en v0.3 : les compétences sont revues et versionnées dans le dépôt d'instance
+  suspend: true
   jobTemplate:
     spec:
       template:

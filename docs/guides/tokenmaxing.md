@@ -1,5 +1,9 @@
 # Tokenmaxing : choix, mesures et intégration dans Hermes
 
+> [!NOTE]
+> **Statut en v0.3 : Abandonné du déploiement par défaut.**
+> Le plugin tiers injecté par ConfigMap (`hermes-tokenmaxing-plugin`) a été retiré du manifest Kubernetes `deploy/manifests/06-hermes-agent.yaml` afin d'éliminer les erreurs de runtime au démarrage de Hermes et de privilégier les mécanismes natifs de gestion de contexte de Hermes Agent (compaction native, summarization, tool result truncation standard). Les benchmarks ci-dessous sont conservés pour référence historique.
+
 Le harness distingue trois fonctions. **Hermes conserve la gestion et la
 compaction de l'historique. RTK réduit certaines sorties CLI. Headroom produit
 une vue réduite des gros résultats JSON de lecture avant leur envoi au modèle,

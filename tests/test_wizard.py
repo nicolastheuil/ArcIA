@@ -285,6 +285,49 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertIn("Permission refusée", api_check["message"])
         self.assertIn("clé privée SSH", api_check["recommendation"])
 
+    def test_serialize_yaml_config_defensive_against_nulls_and_empty_values(self):
+        """Vérifie que serialize_yaml_config ne plante pas avec des valeurs None, vides ou manquantes."""
+        # Test 1: configuration vide
+        out = wizard.serialize_yaml_config({})
+        self.assertIn('ssh_port: 22', out)
+
+        # Test 2: port SSH None et chaîne vide
+        out2 = wizard.serialize_yaml_config({"kubernetes": {"remote_ssh": {"ssh_port": None}}})
+        self.assertIn('ssh_port: 22', out2)
+
+        out3 = wizard.serialize_yaml_config({"kubernetes": {"remote_ssh": {"ssh_port": ""}}})
+        self.assertIn('ssh_port: 22', out3)
+
+        # Test 3: sections à None
+        out4 = wizard.serialize_yaml_config({
+            "kubernetes": None,
+            "network": None,
+            "llm_gateway": None,
+            "hermes": None,
+            "presidio": None,
+            "open_webui": None,
+            "entra_id_sso": None,
+            "teams_bot": None
+        })
+        self.assertIn('ssh_port: 22', out4)
+        self.assertIn('mode: "local"', out4)
+
+    def test_git_create_remote_repo_validation(self):
+        """Vérifie la validation des paramètres d'entrée de git_create_remote_repo."""
+        res_no_token = wizard.git_create_remote_repo("github", "", "test-repo", "owner")
+        self.assertFalse(res_no_token["success"])
+        self.assertIn("non renseigné", res_no_token["error"])
+
+        res_no_repo = wizard.git_create_remote_repo("github", "ghp_dummy", "", "owner")
+        self.assertFalse(res_no_repo["success"])
+        self.assertIn("non renseigné", res_no_repo["error"])
+
+    def test_http_server_uses_threading_class(self):
+        """Vérifie que HttpServerClass est bien importé pour supporter la concurrence."""
+        self.assertTrue(hasattr(wizard, "HttpServerClass"))
+        self.assertTrue(hasattr(wizard.WizardHTTPHandler, "protocol_version"))
+        self.assertEqual(wizard.WizardHTTPHandler.protocol_version, "HTTP/1.1")
+
 
 if __name__ == "__main__":
     unittest.main()
