@@ -42,7 +42,8 @@ Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic entraid-secret
 
 # 3. hermes-gateway-secret
 $hermesKey = $envVars['HERMES_API_SERVER_KEY']
-Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic hermes-gateway-secret --namespace arcia --from-literal=api-server-key='$hermesKey' --dry-run=client -o yaml | /usr/local/bin/k3s kubectl apply -f -"
+$hermesPass = if ($envVars['HERMES_ADMIN_PASSWORD']) { $envVars['HERMES_ADMIN_PASSWORD'] } else { 'admin' }
+Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic hermes-gateway-secret --namespace arcia --from-literal=api-server-key='$hermesKey' --from-literal=admin-password='$hermesPass' --dry-run=client -o yaml | /usr/local/bin/k3s kubectl apply -f -"
 
 # 4. teams-bot-secret
 $teamsId = $envVars['TEAMS_BOT_APP_ID']

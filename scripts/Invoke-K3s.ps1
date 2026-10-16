@@ -36,27 +36,47 @@ if (-not $privateRoot) {
 $identity = Join-Path $privateRoot 'ssh\arcia-vm_ed25519'
 $known = Join-Path $privateRoot 'known_hosts.arcia'
 
+if ($Node -eq "127.0.0.1" -and (Test-Path $known)) {
+    $match = (Get-Content $known | Select-String -Pattern '^\s*([0-9\.]+)' | Select-Object -First 1)
+    if ($match -and $match.Matches.Count -gt 0) {
+        $Node = $match.Matches[0].Groups[1].Value
+    }
+}
+
+$remoteCmd = if ($RawShell) {
+    "sudo /bin/sh -c '$Command'"
+} else {
+    "sudo /usr/local/bin/k3s kubectl $Command"
+}
+
+$argsList = @(
+    '-F', 'NUL',
+    '-o', 'BatchMode=yes',
+    '-o', 'StrictHostKeyChecking=yes',
+    '-o', 'IdentitiesOnly=yes',
+    '-o', 'HostKeyAlgorithms=ssh-ed25519',
+    ("-oUserKnownHostsFile=$known"),
+    '-i', $identity,
+    "nicolas@$Node",
+    $remoteCmd
+)
+
 $pinfo = New-Object Diagnostics.ProcessStartInfo
 $pinfo.FileName = 'ssh'
-$pinfo.ArgumentList.Add('-F')
-$pinfo.ArgumentList.Add('NUL')
-$pinfo.ArgumentList.Add('-o')
-$pinfo.ArgumentList.Add('BatchMode=yes')
-$pinfo.ArgumentList.Add('-o')
-$pinfo.ArgumentList.Add('StrictHostKeyChecking=yes')
-$pinfo.ArgumentList.Add('-o')
-$pinfo.ArgumentList.Add('IdentitiesOnly=yes')
-$pinfo.ArgumentList.Add('-o')
-$pinfo.ArgumentList.Add('HostKeyAlgorithms=ssh-ed25519')
-$pinfo.ArgumentList.Add(('-oUserKnownHostsFile=' + $known))
-$pinfo.ArgumentList.Add('-i')
-$pinfo.ArgumentList.Add($identity)
-$pinfo.ArgumentList.Add("nicolas@$Node")
 
-if ($RawShell) {
-    $pinfo.ArgumentList.Add("sudo /bin/sh -c '$Command'")
+if ($pinfo.PSObject.Properties['ArgumentList'] -and $pinfo.ArgumentList -ne $null) {
+    foreach ($a in $argsList) {
+        $pinfo.ArgumentList.Add($a)
+    }
 } else {
-    $pinfo.ArgumentList.Add("sudo /usr/local/bin/k3s kubectl $Command")
+    $escaped = $argsList | ForEach-Object {
+        if ($_ -match '[\s"]') {
+            '"' + ($_ -replace '"', '\"') + '"'
+        } else {
+            $_
+        }
+    }
+    $pinfo.Arguments = $escaped -join ' '
 }
 
 if ($InputObject) {

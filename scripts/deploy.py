@@ -209,6 +209,28 @@ def cast_scalar(val: str) -> Any:
     except ValueError:
         return val
 
+def find_harness_ssh() -> Tuple[Optional[str], Optional[str]]:
+    """Localise automatiquement la clé SSH et le fichier known_hosts du harness ArcIA."""
+    harness_dirs = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "ArcIA-Harness"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Local", "Packages", "OpenAI.Codex_2p2nqsd0c76g0", "LocalCache", "Local", "ArcIA-Harness")
+    ]
+    for d in harness_dirs:
+        candidate = os.path.join(d, "ssh", "arcia-vm_ed25519")
+        if os.path.isfile(candidate):
+            known = os.path.join(d, "known_hosts.arcia")
+            return candidate, (known if os.path.isfile(known) else None)
+    return None, None
+
+def adapt_manifest_namespace(yaml_text: str, target_ns: str) -> str:
+    """Adapte dynamiquement les manifestes pour n'importe quel namespace (y compris sandbox)."""
+    if target_ns == "arcia":
+        return yaml_text
+    res = re.sub(r'(\bnamespace:\s*)arcia\b', rf'\g<1>{target_ns}', yaml_text)
+    res = res.replace('.arcia.svc', f'.{target_ns}.svc')
+    res = res.replace('arcia-entra-id-auth@kubernetescrd', f'{target_ns}-entra-id-auth@kubernetescrd')
+    return res
+
 # -----------------------------------------------------------------------------
 # Exécuteur Kubernetes (Local ou Remote SSH)
 # -----------------------------------------------------------------------------
@@ -221,6 +243,10 @@ class K8sRunner:
         self.ssh_node = ssh_node
         self.ssh_user = ssh_user
         self.ssh_port = ssh_port
+
+        self.ident_key, self.known_hosts = find_harness_ssh()
+        if self.ident_key and self.ssh_user == "debian":
+            self.ssh_user = "nicolas"
 
     def run(self, cmd_args: List[str], stdin_input: Optional[str] = None) -> Tuple[int, str, str]:
         """Exécute une commande kubectl soit en local, soit via SSH."""
@@ -240,18 +266,23 @@ class K8sRunner:
             return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
 
         elif self.mode == "remote-ssh":
-            # Construction de la commande distante
-            # Si K3s est présent, sudo k3s kubectl sinon sudo kubectl
             quoted_args = " ".join([f"'{arg}'" if " " in arg or "|" in arg or ";" in arg else arg for arg in cmd_args])
             remote_shell = f"if command -v k3s >/dev/null 2>&1; then sudo k3s kubectl {quoted_args}; else sudo kubectl {quoted_args}; fi"
 
-            ssh_cmd = [
-                "ssh",
-                "-o", "StrictHostKeyChecking=accept-new",
+            ssh_cmd = ["ssh", "-o", "BatchMode=yes"]
+            if self.known_hosts:
+                ssh_cmd.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={self.known_hosts}"])
+            else:
+                ssh_cmd.extend(["-o", "StrictHostKeyChecking=accept-new"])
+
+            if self.ident_key:
+                ssh_cmd.extend(["-i", self.ident_key])
+
+            ssh_cmd.extend([
                 "-p", str(self.ssh_port),
                 f"{self.ssh_user}@{self.ssh_node}",
                 remote_shell
-            ]
+            ])
 
             proc = subprocess.run(
                 ssh_cmd,
@@ -337,12 +368,14 @@ def sync_native_skills(runner: K8sRunner, namespace: str, root_dir: str) -> None
         return
 
     cm_data = []
+    skills_files = {}
     for skill_name in ["ponytail", "graphify", "public-apis"]:
         skill_file = os.path.join(skills_dir, skill_name, "SKILL.md")
         if os.path.isfile(skill_file):
             try:
                 with open(skill_file, "r", encoding="utf-8") as f:
                     content = f.read()
+                skills_files[skill_name] = content
                 indented = "\n".join("    " + line for line in content.splitlines())
                 cm_data.append(f"  {skill_name}-skill.md: |\n{indented}")
             except Exception as e:
@@ -365,16 +398,25 @@ data:
     # Synchronisation sur le système de fichiers hôte ou distant
     if runner.mode == "remote-ssh":
         try:
-            mkdir_cmd = "sudo mkdir -p /var/data/arcia/shared-skills/arcia/ponytail /var/data/arcia/shared-skills/arcia/graphify /var/data/arcia/shared-skills/arcia/public-apis"
-            runner_ssh = [
-                "ssh", "-o", "StrictHostKeyChecking=accept-new",
-                "-p", str(runner.ssh_port),
-                f"{runner.ssh_user}@{runner.ssh_node}",
-                mkdir_cmd
-            ]
-            subprocess.run(runner_ssh, capture_output=True)
-        except Exception:
-            pass
+            for skill_name, content in skills_files.items():
+                remote_dir = f"/var/data/arcia/shared-skills/arcia/{skill_name}"
+                tee_cmd = f"sudo mkdir -p {remote_dir} && sudo tee {remote_dir}/SKILL.md >/dev/null"
+                ssh_tee = ["ssh", "-o", "BatchMode=yes"]
+                if runner.known_hosts:
+                    ssh_tee.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
+                else:
+                    ssh_tee.extend(["-o", "StrictHostKeyChecking=accept-new"])
+                if runner.ident_key:
+                    ssh_tee.extend(["-i", runner.ident_key])
+                ssh_tee.extend([
+                    "-p", str(runner.ssh_port),
+                    f"{runner.ssh_user}@{runner.ssh_node}",
+                    tee_cmd
+                ])
+                subprocess.run(ssh_tee, input=content.encode("utf-8"), capture_output=True)
+            log_ok("Compétences natives (Ponytail, Graphify, Public-APIs) synchronisées sur le cluster.")
+        except Exception as e:
+            log_warn(f"Avertissement synchronisation distante des compétences : {e}")
     elif runner.mode == "local" and os.name != "nt":
         try:
             target_base = "/var/data/arcia/shared-skills/arcia"
@@ -385,6 +427,7 @@ data:
                 if os.path.isdir(src):
                     os.makedirs(dst, exist_ok=True)
                     shutil.copytree(src, dst, dirs_exist_ok=True)
+            log_ok("Compétences natives synchronisées en local.")
         except Exception:
             pass
 
@@ -537,7 +580,7 @@ metadata:
     log_info(" -> Déploiement de Presidio DLP (03-presidio.yaml)...")
     presidio_path = os.path.join(manifests_dir, "03-presidio.yaml")
     with open(presidio_path, "r", encoding="utf-8") as f:
-        runner.apply_manifest(f.read())
+        runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
 
     # B. LiteLLM Proxy (avec modèle optionnel local vLLM)
     log_info(" -> Déploiement de LiteLLM Proxy (05-litellm.yaml)...")
@@ -548,7 +591,7 @@ metadata:
     local_vllm = llm_cfg.get("local_vllm_endpoint", "").strip()
     if local_vllm:
         litellm_yaml = litellm_yaml.replace("http://vllm-internal.corp.local:8000/v1", local_vllm)
-    runner.apply_manifest(litellm_yaml)
+    runner.apply_manifest(adapt_manifest_namespace(litellm_yaml, namespace))
 
     # C. Hermes Agent (Studio & Gateway Desktop)
     log_info(" -> Déploiement de Hermes Agent & Studio (06-hermes-agent.yaml)...")
@@ -560,7 +603,7 @@ metadata:
     hermes_yaml = re.sub(r'storage:\s*20Gi', f'storage: {hermes_storage}', hermes_yaml, count=1)
     if storage_class:
         hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-    runner.apply_manifest(hermes_yaml)
+    runner.apply_manifest(adapt_manifest_namespace(hermes_yaml, namespace))
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
     log_info(" -> Déploiement de Open-WebUI (07-open-webui.yaml)...")
@@ -572,7 +615,7 @@ metadata:
     webui_yaml = re.sub(r'storage:\s*20Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-    runner.apply_manifest(webui_yaml)
+    runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))
 
     # E. Services Optionnels : Teams Bot et OAuth2-Proxy
     if teams_cfg.get("enabled"):
@@ -582,7 +625,7 @@ metadata:
             teams_yaml = f.read()
             prompt = teams_cfg.get("system_prompt", "Tu es ArcIA, l'assistant d'entreprise.")
             teams_yaml = re.sub(r'value: "Tu es ArcIA.*?"', f'value: "{prompt}"', teams_yaml)
-            runner.apply_manifest(teams_yaml)
+            runner.apply_manifest(adapt_manifest_namespace(teams_yaml, namespace))
     else:
         log_info(" -> [Optionnel Ignoré] Adaptateur Microsoft Teams désactivé.")
 
@@ -590,7 +633,7 @@ metadata:
         log_info(" -> [Optionnel Activé] Déploiement du proxy SSO Entra ID (02-oauth2-proxy.yaml)...")
         oauth_path = os.path.join(manifests_dir, "02-oauth2-proxy.yaml")
         with open(oauth_path, "r", encoding="utf-8") as f:
-            runner.apply_manifest(f.read())
+            runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
     else:
         log_info(" -> [Optionnel Ignoré] Authentification SSO Entra ID désactivée.")
 
@@ -603,13 +646,20 @@ metadata:
         omni_yaml = omni_yaml.replace("storage: 5Gi", f"storage: {storage_size}")
         if storage_class:
             omni_yaml = omni_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-        runner.apply_manifest(omni_yaml)
+        runner.apply_manifest(adapt_manifest_namespace(omni_yaml, namespace))
     else:
         log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé.")
 
     # F. Synchronisation Automatique des Compétences & Outils (Skills)
     log_info(" -> [Automatique] Synchronisation des compétences natives (Ponytail, Graphify, Public-APIs)...")
     sync_native_skills(runner, namespace, root_dir)
+
+    # G. Synchronisation Programmée Hebdomadaire des Compétences Externes
+    skills_cron_path = os.path.join(manifests_dir, "10-skills-sync-cronjob.yaml")
+    if os.path.isfile(skills_cron_path):
+        with open(skills_cron_path, "r", encoding="utf-8") as f:
+            runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
+        log_ok("CronJob 'arcia-skills-sync' déployé pour la mise à jour hebdomadaire.")
 
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
@@ -620,7 +670,24 @@ metadata:
     ingress_class = net_cfg.get("ingress_class", "traefik")
     tls_secret_name = net_cfg.get("tls_secret_name", "arcia-tls-cert")
 
-    # ClusterIssuer si Let's Encrypt
+    # Vérification et initialisation sécurisée du secret TLS si absent
+    rc_tls, _, _ = runner.run(["get", "secret", tls_secret_name, f"-n={namespace}"])
+    if rc_tls != 0:
+        log_info(f" -> Secret TLS '{tls_secret_name}' absent : génération d'un certificat bootstrap pour '{public_fqdn}'...")
+        gen_cmd = f"openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls_{namespace}.key -out /tmp/tls_{namespace}.crt -subj '/CN={public_fqdn}' >/dev/null 2>&1 && sudo k3s kubectl create secret tls {tls_secret_name} --cert=/tmp/tls_{namespace}.crt --key=/tmp/tls_{namespace}.key -n {namespace} >/dev/null 2>&1 && rm -f /tmp/tls_{namespace}.*"
+        if runner.mode == "remote-ssh":
+            ssh_tls = ["ssh", "-o", "BatchMode=yes"]
+            if runner.known_hosts:
+                ssh_tls.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
+            else:
+                ssh_tls.extend(["-o", "StrictHostKeyChecking=accept-new"])
+            if runner.ident_key:
+                ssh_tls.extend(["-i", runner.ident_key])
+            ssh_tls.extend(["-p", str(runner.ssh_port), f"{runner.ssh_user}@{runner.ssh_node}", gen_cmd])
+            subprocess.run(ssh_tls, capture_output=True)
+        else:
+            subprocess.run(gen_cmd, shell=True, capture_output=True)
+        log_ok(f"Secret TLS bootstrap '{tls_secret_name}' provisionné.")
     if tls_mode.startswith("letsencrypt"):
         server_url = "https://acme-v02.api.letsencrypt.org/directory" if tls_mode == "letsencrypt-prod" else "https://acme-staging-v02.api.letsencrypt.org/directory"
         issuer_yaml = f"""apiVersion: cert-manager.io/v1
@@ -753,7 +820,7 @@ spec:
 
     for dep in deployments_to_check:
         log_info(f" -> Attente du démarrage de {dep}...")
-        rc, out, err = runner.run(["rollout", "status", f"deployment/{dep}", f"-n={namespace}", "--timeout=90s"])
+        rc, out, err = runner.run(["rollout", "status", f"deployment/{dep}", f"-n={namespace}", "--timeout=180s"])
         if rc == 0:
             log_ok(f"Déploiement '{dep}' est opérationnel.")
         else:

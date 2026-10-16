@@ -21,10 +21,11 @@ kubectl create secret generic entraid-secret \
   --from-literal=cookie-secret="$OAUTH2_PROXY_COOKIE_SECRET" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Secret Hermes Gateway API
+# Secret Hermes Gateway API & Studio
 kubectl create secret generic hermes-gateway-secret \
   --namespace arcia \
   --from-literal=api-server-key="$HERMES_API_SERVER_KEY" \
+  --from-literal=admin-password="${HERMES_ADMIN_PASSWORD:-admin}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Secret Teams Bot

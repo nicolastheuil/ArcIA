@@ -865,16 +865,33 @@ def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
 
 def get_default_config_dict() -> Dict[str, Any]:
     """Génère un dictionnaire de configuration par défaut complet et sécurisé."""
+    sys.path.insert(0, SCRIPT_DIR)
+    import deploy
+    ident_key, known_hosts = deploy.find_harness_ssh()
+    detected_node = "127.0.0.1"
+    detected_user = "debian"
+    if known_hosts and os.path.isfile(known_hosts):
+        try:
+            with open(known_hosts, "r", encoding="utf-8") as f:
+                for line in f:
+                    m = re.match(r'^\s*([0-9\.]+)', line)
+                    if m:
+                        detected_node = m.group(1)
+                        detected_user = "nicolas"
+                        break
+        except Exception:
+            pass
+
     return {
         "kubernetes": {
-            "mode": "local",
+            "mode": "remote-ssh" if ident_key else "local",
             "kubeconfig": "",
             "context": detect_current_context(),
             "namespace": "arcia",
             "storage_class": "",
             "remote_ssh": {
-                "node_ip": "127.0.0.1",
-                "ssh_user": "debian",
+                "node_ip": detected_node,
+                "ssh_user": detected_user,
                 "ssh_port": 22
             }
         },
@@ -1496,18 +1513,19 @@ def get_wizard_html_page() -> str:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ArcIA — Assistant Graphique d'Installation</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect x='24' y='24' width='464' height='464' rx='108' fill='%23131B2E' stroke='%231E293B' stroke-width='8'/%3E%3Cg transform='translate(68, 174) scale(1.68)'%3E%3Cpath d='M43.61 26C47.78 26.09 51.8 26.57 55.66 27.43 59.52 28.29 62.99 30.27 66.07 33.36 68.7 35.9 70.54 38.89 71.58 42.35 72.63 45.8 73.15 49.34 73.15 52.96L73.15 97.75 22.24 97.75C14.89 97.75 9.25 95.73 5.35 91.69 1.45 87.66-0.32 82.06 0.05 74.88 0.68 66.26 3.72 60.68 9.17 58.13 14.62 55.59 21.11 54.32 28.64 54.32L53.55 54.19C53.82 48.29 52.3 44.61 48.99 43.16 45.68 41.71 41.48 40.98 36.4 40.98L4.81 40.84 4.81 26 43.61 26ZM29.99 83.32 53.68 83.32 53.68 68.48 31.35 68.48C31.17 68.57 30.99 68.62 30.81 68.62L30.27 68.62C27.73 68.71 25.37 69.19 23.19 70.05 21.01 70.91 19.87 72.93 19.78 76.1 19.6 79.64 20.57 81.73 22.71 82.37 24.84 83.01 27.27 83.37 29.99 83.46L29.99 83.32Z' fill='%23F8FAFC'/%3E%3Cpath d='M82.92 97.76 L100.16 0 L121.67 0 L104.43 97.76 Z' fill='%236BE7DD'/%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M177.86 0 L199.65 0 L224.07 97.76 L201.20 97.76 L196.32 74.48 L153.84 74.48 L141.02 97.76 L119.37 97.76 L177.86 0 Z M184.51 19.47 L163.58 57.05 L192.72 57.05 L184.51 19.47 Z' fill='%236BE7DD'/%3E%3C/g%3E%3C/svg%3E">
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: rgba(18, 24, 38, 0.95);
+      --bg: #050712;
+      --card-bg: rgba(19, 27, 46, 0.95);
       --card-border: #1e293b;
-      --accent-cyan: #00d2ff;
-      --accent-blue: #3a7bd5;
+      --accent-cyan: #6be7dd;
+      --accent-blue: #1659e4;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
-      --border-color: #2a374d;
-      --input-bg: #0d1321;
-      --btn-primary: linear-gradient(135deg, #00d2ff, #3a7bd5);
+      --border-color: #1e293b;
+      --input-bg: #0a0f1d;
+      --btn-primary: linear-gradient(135deg, #1659e4, #5ad8ce);
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
@@ -1516,14 +1534,14 @@ def get_wizard_html_page() -> str:
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-    body { background: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; background-image: radial-gradient(circle at 15% 20%, rgba(0, 210, 255, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(58, 123, 213, 0.08) 0%, transparent 40%); }
+    body { background: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; background-image: radial-gradient(circle at 15% 20%, rgba(107, 231, 221, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(22, 89, 228, 0.08) 0%, transparent 40%); }
 
-    header { background: rgba(13, 19, 33, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    header { background: rgba(10, 15, 29, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .brand { display: flex; align-items: center; gap: 14px; }
-    .brand-logo { width: 36px; height: 36px; border-radius: 10px; background: var(--btn-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: #fff; box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+    .brand-logo { width: 38px; height: 38px; border-radius: 10px; background: #131b2e; border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(107, 231, 221, 0.15); }
     .brand-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
     .brand-subtitle { font-size: 13px; color: var(--text-muted); }
-    .header-badge { font-size: 12px; background: rgba(0, 210, 255, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 210, 255, 0.3); border-radius: 20px; padding: 4px 12px; font-weight: 600; }
+    .header-badge { font-size: 12px; background: rgba(107, 231, 221, 0.1); color: var(--accent-cyan); border: 1px solid rgba(107, 231, 221, 0.3); border-radius: 20px; padding: 4px 12px; font-weight: 600; }
 
     .app-container { display: flex; flex: 1; max-width: 1380px; width: 100%; margin: 0 auto; padding: 24px; gap: 24px; }
     
@@ -1639,7 +1657,15 @@ def get_wizard_html_page() -> str:
 
   <header>
     <div class="brand">
-      <div class="brand-logo">A</div>
+      <div class="brand-logo">
+        <svg viewBox="0 0 512 512" width="28" height="28" fill="none">
+          <g transform="translate(68, 174) scale(1.68)">
+            <path d="M43.61 26C47.78 26.09 51.8 26.57 55.66 27.43 59.52 28.29 62.99 30.27 66.07 33.36 68.7 35.9 70.54 38.89 71.58 42.35 72.63 45.8 73.15 49.34 73.15 52.96L73.15 97.75 22.24 97.75C14.89 97.75 9.25 95.73 5.35 91.69 1.45 87.66-0.32 82.06 0.05 74.88 0.68 66.26 3.72 60.68 9.17 58.13 14.62 55.59 21.11 54.32 28.64 54.32L53.55 54.19C53.82 48.29 52.3 44.61 48.99 43.16 45.68 41.71 41.48 40.98 36.4 40.98L4.81 40.84 4.81 26 43.61 26ZM29.99 83.32 53.68 83.32 53.68 68.48 31.35 68.48C31.17 68.57 30.99 68.62 30.81 68.62L30.27 68.62C27.73 68.71 25.37 69.19 23.19 70.05 21.01 70.91 19.87 72.93 19.78 76.1 19.6 79.64 20.57 81.73 22.71 82.37 24.84 83.01 27.27 83.37 29.99 83.46L29.99 83.32Z" fill="#F8FAFC" />
+            <path d="M82.92 97.76 L100.16 0 L121.67 0 L104.43 97.76 Z" fill="#6BE7DD" />
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M177.86 0 L199.65 0 L224.07 97.76 L201.20 97.76 L196.32 74.48 L153.84 74.48 L141.02 97.76 L119.37 97.76 L177.86 0 Z M184.51 19.47 L163.58 57.05 L192.72 57.05 L184.51 19.47 Z" fill="#6BE7DD" />
+          </g>
+        </svg>
+      </div>
       <div>
         <div class="brand-title">ArcIA Enterprise Setup Wizard</div>
         <div class="brand-subtitle">Gestionnaire de Déploiement & Restauration d'Instance v0.2</div>
