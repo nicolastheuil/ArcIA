@@ -93,7 +93,7 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 | **Open-WebUI** | `open-webui` | 8080 | **1/1 Running** | Interface web chat pour l'ensemble des collaborateurs |
 | **Teams Bot** | `teams-bot-adapter` | 3978 | **1/1 Running** | Passerelle Microsoft Teams (DM et canaux) |
 | **Cert-Manager** | `cert-manager` | - | **3/3 Running** | Gestionnaire ACME / Let's Encrypt automatique |
-| **OAuth2-Proxy** | `oauth2-proxy` | 4180 | *CrashLoop* (Attente clés) | Authentification SSO Microsoft Entra ID (en attente des identifiants réels) |
+| **OAuth2-Proxy** | `oauth2-proxy` | 4180 | **1/1 Running** | Authentification SSO Microsoft Entra ID (OIDC v2.0 opérationnel) |
 | **OmniRoute** | `omniroute` | 20128 / 20129 | **1/1 Running** | Routeur multi-fournisseurs & portail LAN v3.8.51 (Opérationnel) |
 | **RTK CLI** | `rtk` (in hermes) | CLI | **v0.51.0 Qualifié** | CLI Tokenmaxing et observation de contexte LLM |
 | **Headroom AI** | `headroom-ai` (in hermes) | Lib | **v0.41.0 Qualifié** | Optimisation et compression de contextes dynamiques |
@@ -114,38 +114,28 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 La recette automatique a été exécutée avec succès sur le cluster K3s :
 
 ```
-[1/6] Vérification des Pods Kubernetes : OK (6/6 pods opérationnels)
+[1/6] Vérification des Pods Kubernetes : OK (7/7 pods opérationnels, oauth2-proxy inclus)
 [2/6] Test Presidio DLP Sanitization : SUCCESS (PII caviardé en [ARCIA_EMAIL_1])
-[3/6] Test LiteLLM Proxy Health : HTTP 200 (/health/readiness)
+[3/6] Test LiteLLM Proxy Health & Models : HTTP 200 (/health/readiness & /v1/models expose 6 modèles)
 [4/6] Test Hermes Agent Studio (9119) & Gateway (8642) : HTTP 302 (Auth Gate active)
 [5/6] Test Teams Bot Adapter Health : {"status": "ok", "service": "teams-bot-adapter", "version": "0.2.0"}
-[6/6] Test Open-WebUI Portal Health : HTTP 200 (/health)
+[6/6] Test Open-WebUI Portal Health & OIDC : HTTP 200 (/health) & HTTP 302 (/oauth/oidc/login vers login.microsoftonline.com)
 ```
 
 ---
 
-## 4. TODO / Prérequis Utilisateur (Activation Définitive)
+## 4. Activation des Secrets et Raccordement SSO / Modèles (16 octobre 2026)
 
-Le déploiement a été conduit sans blocage ni demande d'identifiants pendant l'exécution.
-Pour finaliser l'activation en production, compléter les valeurs manquantes dans `secrets/arcia.env` puis relancer `./scripts/Apply-Secrets.ps1` :
+Les secrets de production ont été restaurés depuis le coffre DPAPI local (`ArcIA-Harness\integrations.dpapi`) et l'état persistant du cluster, puis appliqués via `./scripts/Apply-Secrets.ps1` :
 
-1. **Clé API OpenRouter (`OPENROUTER_API_KEY`)** :
-   - Renseigner la clé de production dans `secrets/arcia.env`.
-   - Permet à LiteLLM et Hermes d'effectuer les appels vers les modèles cloud configurés (`auto`, Sonnet 3.5, etc.).
+1. **Clé API OpenRouter & Catalogue LiteLLM (`05-litellm.yaml`)** :
+   - Ajout explicite de `args: ["--config", "/app/config.yaml", "--port", "4000"]` sur `litellm-proxy` et mise au format v2 du guardrail Presidio (`/analyze` + `/anonymize`).
+   - Exposition vérifiée sur `/v1/models` : `auto`, `claude-3.5-sonnet`, `gpt-4o`, `deepseek-chat`, `hermes-agent`, `local-internal`.
 
-2. **Identifiants Microsoft Entra ID (SSO Collaborateurs & OAuth2-Proxy)** :
-   - `ENTRA_TENANT_ID`
-   - `ENTRA_CLIENT_ID`
-   - `ENTRA_CLIENT_SECRET`
-   - Dès ces valeurs saisies, `oauth2-proxy` démarre immédiatement (résolvant le CrashLoop actuel) et active la protection SSO sur `/studio` et `/gateway`.
-
-3. **Identifiants Microsoft Teams Bot Framework** :
-   - `TEAMS_BOT_APP_ID`
-   - `TEAMS_BOT_APP_PASSWORD`
-   - Configurer l'endpoint de messagerie dans Azure Bot Service vers `https://assistant.example.org/api/teams/messages` (remplacer par votre nom de domaine d'instance).
-
-4. **Enregistrement DNS Public** :
-   - Créer l'enregistrement DNS de type A pour votre domaine (ex: `assistant.example.org`) pointant vers l'adresse IP publique / VIP du cluster (actuellement `cm-acme-http-solver` attend la résolution pour finaliser le certificat SSL Let's Encrypt).
+2. **SSO Microsoft Entra ID (`02-oauth2-proxy.yaml` & `07-open-webui.yaml`)** :
+   - Correction de `OPENID_PROVIDER_URL` dans `07-open-webui.yaml` vers `https://login.microsoftonline.com/$(ENTRA_TENANT_ID)/v2.0/.well-known/openid-configuration` (au lieu du `tenant-id` brut qui provoquait une erreur HTTP 500 `Internal Server Error`).
+   - Passage d'`oauth2-proxy` en `--provider=oidc` avec `--oidc-issuer-url` explicite et `cookie-secret` AES 32 octets (`1/1 Running`).
+   - Activation de `BYPASS_MODEL_ACCESS_CONTROL=true` et synchronisation de la table `config` de `webui.db` pour rendre tous les modèles visibles immédiatement par les comptes utilisateurs (`user` et `admin`).
 
 ---
 
