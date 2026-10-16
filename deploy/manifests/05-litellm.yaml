@@ -6,39 +6,29 @@ metadata:
 data:
   config.yaml: |
     model_list:
-      # 1. Palier Standard (Défaut) : Économique, rapide, souverain
-      # Note : Modèle par défaut générique (ex: Claude Haiku, OpenAI mini ou Mistral vLLM selon l'instance)
+      # 1. Palier Standard (Défaut) : Économique, rapide, polyvalent
       - model_name: "arcia/standard"
         litellm_params:
-          model: openrouter/anthropic/claude-haiku-5.5
+          model: openrouter/auto
           api_key: os.environ/OPENROUTER_API_KEY
-          extra_body:
-            provider:
-              zdr: true
 
       # 2. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
       - model_name: "arcia/expert"
         litellm_params:
-          model: openrouter/anthropic/claude-sonnet-5.5
+          model: openrouter/auto
           api_key: os.environ/OPENROUTER_API_KEY
-          extra_body:
-            provider:
-              zdr: true
 
-      # 3. Palier Raisonnement : Analyse architecturale et résolution critique
-      - model_name: "arcia/reasoning"
+      # 3. Palier Gratuit : Découverte et qualification sans coût
+      - model_name: "arcia/free"
         litellm_params:
-          model: openrouter/deepseek/deepseek-v4.1-flash
+          model: openrouter/openrouter/free
           api_key: os.environ/OPENROUTER_API_KEY
-          extra_body:
-            provider:
-              zdr: true
 
     router_settings:
       fallbacks:
         - "arcia/standard": ["arcia/expert"]
         - "arcia/expert": ["arcia/standard"]
-        - "arcia/reasoning": ["arcia/expert"]
+        - "arcia/free": ["arcia/standard"]
       model_group_alias:
         "ArcIA-Agentic (auto)":
           model: "arcia/standard"
@@ -59,6 +49,9 @@ data:
       database_connection_pool_limit: 10
       user_header_name: "X-OpenWebUI-User-Email"
       store_model_in_db: true
+
+    litellm_settings:
+      drop_params: true
 
     guardrails:
       # Anonymisation universelle obligatoire et fail-closed vers le Cloud

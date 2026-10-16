@@ -759,7 +759,7 @@ metadata:
         webui_yaml = f.read()
 
     webui_storage = webui_cfg.get("storage_size", "50Gi")
-    webui_yaml = re.sub(r'storage:\s*20Gi', f'storage: {webui_storage}', webui_yaml, count=1)
+    webui_yaml = re.sub(r'storage:\s*(?:20|50)Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
     runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))

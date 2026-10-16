@@ -70,6 +70,8 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
         self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "true"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)
+        self.assertIn('name: OPENAI_API_BASE_URLS\n          value: "http://hermes-studio.arcia.svc:8642/v1"', content)
+        self.assertIn('name: hermes-gateway-secret\n              key: api-server-key', content)
 
     def test_ingress_v1_rate_limited(self):
         """Vérifie que l'Ingress /v1 est séparé et protégé par le middleware RateLimit et que LiteLLM UI n'est pas exposé sur l'Ingress public."""
@@ -95,7 +97,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("LITELLM_API_KEY", content)
 
     def test_hermes_native_config(self):
-        """Vérifie que Hermes utilise ~/.hermes/config.yaml, démarre la gateway et désactive auto_approve_safe_commands."""
+        """Vérifie que Hermes utilise ~/.hermes/config.yaml, démarre la gateway, expose model_routes et désactive auto_approve_safe_commands."""
         hermes_path = os.path.join(self.manifests_dir, "06-hermes-agent.yaml")
         with open(hermes_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -107,18 +109,26 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("hermes gateway &", content)
         self.assertIn("OPENAI_API_KEY", content)
         self.assertIn("path: /api/health", content)
+        self.assertIn("direct_model_requests: true", content)
+        self.assertIn("model_routes:", content)
+        self.assertIn("arcia/standard:", content)
         self.assertNotIn("OPENAI_API_BASE", content)
         self.assertNotIn("OPENAI_MODEL_NAME", content)
         self.assertNotIn("arcia_tokenmaxing.py", content)
 
     def test_litellm_db_manifest_present(self):
-        """Vérifie que la base comptable LiteLLM PostgreSQL est déclarée."""
+        """Vérifie que la base comptable LiteLLM PostgreSQL et drop_params sont déclarés."""
         db_path = os.path.join(self.manifests_dir, "05-litellm-db.yaml")
         self.assertTrue(os.path.isfile(db_path))
         with open(db_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("kind: StatefulSet", content)
         self.assertIn("name: litellm-db", content)
+
+        litellm_path = os.path.join(self.manifests_dir, "05-litellm.yaml")
+        with open(litellm_path, "r", encoding="utf-8") as f:
+            litellm_content = f.read()
+        self.assertIn("drop_params: true", litellm_content)
 
     def test_network_policy_manifest_present(self):
         """Vérifie que les politiques d'isolation réseau NetworkPolicy sont déclarées."""
@@ -129,6 +139,8 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("name: arcia-default-deny-all", content)
         self.assertIn("name: arcia-litellm-policy", content)
         self.assertIn("name: arcia-presidio-policy", content)
+        self.assertIn("name: arcia-hermes-policy", content)
+        self.assertIn("name: arcia-open-webui-policy", content)
 
 
 if __name__ == "__main__":

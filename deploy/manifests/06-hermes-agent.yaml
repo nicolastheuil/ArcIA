@@ -18,6 +18,17 @@ data:
       unattended_mode: deny
     agent:
       max_turns: 30
+    platforms:
+      api_server:
+        direct_model_requests: true
+        model_name: "hermes-agent"
+        model_routes:
+          arcia/standard:
+            model: "arcia/standard"
+          arcia/free:
+            model: "arcia/free"
+          arcia/expert:
+            model: "arcia/expert"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

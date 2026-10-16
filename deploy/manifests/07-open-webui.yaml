@@ -8,7 +8,7 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 20Gi
+      storage: 50Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -37,8 +37,10 @@ spec:
           value: "dark"
         - name: ENABLE_VERSION_UPDATE_CHECK
           value: "false"
+        - name: WEBUI_SECRET_KEY_FILE
+          value: "/app/backend/data/.webui_secret_key"
         - name: WEBUI_BANNERS
-          value: '[{"id":"arcia-brand","type":"info","title":"⚡ ArcIA — Enterprise Agentic Platform","content":"Plateforme IA Agentique Souveraine d''Entreprise • Hermes Agent & LiteLLM","dismissible":true}]'
+          value: '[{"id":"arcia-brand","type":"info","title":"ArcIA Enterprise Agentic Platform","content":"Plateforme IA Agentique Souveraine d\u0027Entreprise - Hermes Agent & LiteLLM","dismissible":true}]'
         - name: WEBUI_AUTH
           value: "true"
         - name: ENABLE_SIGNUP
@@ -49,20 +51,24 @@ spec:
           value: "false"
         - name: ENABLE_PERSISTENT_CONFIG
           value: "false"
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: master-key
+        - name: HERMES_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: hermes-gateway-secret
+              key: api-server-key
         - name: OPENAI_API_BASE_URLS
-          value: "http://litellm-proxy.arcia.svc:4000/v1"
+          value: "http://hermes-studio.arcia.svc:8642/v1"
         - name: OPENAI_API_KEYS
-          valueFrom:
-            secretKeyRef:
-              name: litellm-secret
-              key: master-key
+          value: "$(HERMES_API_TOKEN)"
         - name: OPENAI_API_BASE_URL
-          value: "http://litellm-proxy.arcia.svc:4000/v1"
+          value: "http://hermes-studio.arcia.svc:8642/v1"
         - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: litellm-secret
-              key: master-key
+          value: "$(HERMES_API_TOKEN)"
         - name: ENABLE_OLLAMA_API
           value: "false"
         - name: ENABLE_OPENAI_API
