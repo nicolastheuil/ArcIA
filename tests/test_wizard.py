@@ -248,6 +248,42 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertIn("panel_infra_k8s", html)
         self.assertIn("tier_card_100", html)
         self.assertIn("testK8sQualificationFull", html)
+        self.assertIn("k8s_ssh_key", html)
+        self.assertIn("k8s_ssh_key_select", html)
+
+    def test_detect_available_ssh_keys(self):
+        """Vérifie que la détection des clés SSH renvoie une liste valide."""
+        keys = wizard.detect_available_ssh_keys()
+        self.assertIsInstance(keys, list)
+        for k in keys:
+            self.assertIn("path", k)
+            self.assertIn("name", k)
+
+    def test_serialize_and_default_config_includes_ssh_key(self):
+        """Vérifie que la clé ssh_key est présente par défaut et correctement sérialisée."""
+        cfg = wizard.get_default_config_dict()
+        self.assertIn("ssh_key", cfg["kubernetes"]["remote_ssh"])
+        cfg["kubernetes"]["remote_ssh"]["ssh_key"] = "C:\\Users\\test\\.ssh\\id_ed25519"
+        yaml_text = wizard.serialize_yaml_config(cfg)
+        self.assertIn('ssh_key: "C:\\Users\\test\\.ssh\\id_ed25519"', yaml_text)
+
+    def test_audit_diagnoses_ssh_permission_denied(self):
+        """Vérifie que l'audit K8s diagnostique précisément un échec d'authentification SSH."""
+        class FailingSshRunner:
+            mode = "remote-ssh"
+            ssh_node = "192.168.1.50"
+            ssh_user = "ubuntu"
+            ssh_port = 22
+
+            def run(self, cmd_args, stdin_input=None):
+                return 255, "", "ubuntu@192.168.1.50: Permission denied (publickey)."
+
+        res = wizard.audit_kubernetes_environment_full(FailingSshRunner())
+        self.assertFalse(res["success"])
+        api_check = [c for c in res["checks"] if c["id"] == "api_server"][0]
+        self.assertEqual(api_check["status"], "error")
+        self.assertIn("Permission refusée", api_check["message"])
+        self.assertIn("clé privée SSH", api_check["recommendation"])
 
 
 if __name__ == "__main__":

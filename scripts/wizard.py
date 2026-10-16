@@ -611,9 +611,10 @@ def audit_kubernetes_environment_full(runner: Any) -> Dict[str, Any]:
     checks = []
 
     # 1. API Server & Version
-    rc_ver, out_ver, _ = runner.run(["version", "-o", "json"])
+    rc_ver, out_ver, err_ver = runner.run(["version", "-o", "json"])
     k8s_version = "Inconnue"
     ver_ok = False
+    err_ci = ""
     if rc_ver == 0:
         try:
             v_data = json.loads(out_ver)
@@ -625,15 +626,32 @@ def audit_kubernetes_environment_full(runner: Any) -> Dict[str, Any]:
         except Exception:
             ver_ok = True
     else:
-        rc_ci, out_ci, _ = runner.run(["cluster-info"])
+        rc_ci, out_ci, err_ci = runner.run(["cluster-info"])
         ver_ok = (rc_ci == 0)
+
+    api_msg = f"Connectivité confirmée ({k8s_version})" if ver_ok else "Impossible de joindre le serveur d'API Kubernetes."
+    api_rec = "Assurez-vous que le cluster K8s (v1.28+) est opérationnel et accessible."
+    if not ver_ok and runner.mode == "remote-ssh":
+        raw_err = (err_ver or err_ci or "").strip()
+        if "Permission denied" in raw_err:
+            api_msg = f"Échec d'authentification SSH ({runner.ssh_user}@{runner.ssh_node}) : Permission refusée."
+            api_rec = "Renseignez le chemin vers la clé privée SSH (.pem, id_rsa, id_ed25519) autorisée sur ce serveur."
+        elif "introuvable sur le disque" in raw_err:
+            api_msg = raw_err
+            api_rec = "Vérifiez le chemin local vers votre fichier de clé privée SSH."
+        elif "Could not resolve" in raw_err or "Connection refused" in raw_err or "timed out" in raw_err.lower():
+            api_msg = f"Échec réseau SSH vers {runner.ssh_node}:{runner.ssh_port} : {raw_err}"
+            api_rec = "Vérifiez que l'adresse IP et le port SSH sont corrects et joignables depuis cette machine."
+        elif raw_err:
+            api_msg = f"Échec SSH ({runner.ssh_user}@{runner.ssh_node}) : {raw_err}"
+            api_rec = "Vérifiez les paramètres d'accès SSH et la présence de kubectl ou k3s sur le nœud distant."
 
     checks.append({
         "id": "api_server",
         "title": "API Server Kubernetes & Version",
         "status": "ok" if ver_ok else "error",
-        "message": f"Connectivité confirmée ({k8s_version})" if ver_ok else "Impossible de joindre le serveur d'API Kubernetes.",
-        "recommendation": "Assurez-vous que le cluster K8s (v1.28+) est opérationnel et accessible."
+        "message": api_msg,
+        "recommendation": api_rec
     })
 
     # 2. Nodes & Capacités (CPU/RAM)
@@ -842,6 +860,49 @@ def detect_current_context() -> str:
         pass
     return ""
 
+def detect_available_ssh_keys() -> List[Dict[str, str]]:
+    """Détecte les clés privées SSH disponibles sur la machine locale (~/.ssh/ et harness ArcIA)."""
+    keys = []
+    seen = set()
+
+    # 1. Dossier ~/.ssh
+    ssh_dir = os.path.expanduser("~/.ssh")
+    if os.path.isdir(ssh_dir):
+        try:
+            for fname in sorted(os.listdir(ssh_dir)):
+                p = os.path.join(ssh_dir, fname)
+                if not os.path.isfile(p):
+                    continue
+                if fname.endswith((".pub", ".old", ".known_hosts", ".bak", ".txt")) or fname.startswith(("known_hosts", "authorized_keys", "config")):
+                    continue
+                try:
+                    with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                        first_line = f.readline()
+                        if "PRIVATE KEY" in first_line:
+                            norm = os.path.normpath(p)
+                            if norm not in seen:
+                                seen.add(norm)
+                                keys.append({"path": norm, "name": fname})
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # 2. Dossiers Harness ArcIA
+    harness_dirs = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "ArcIA-Harness", "ssh"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "AppData", "Local", "Packages", "OpenAI.Codex_2p2nqsd0c76g0", "LocalCache", "Local", "ArcIA-Harness", "ssh")
+    ]
+    for hd in harness_dirs:
+        candidate = os.path.join(hd, "arcia-vm_ed25519")
+        if os.path.isfile(candidate):
+            norm = os.path.normpath(candidate)
+            if norm not in seen:
+                seen.add(norm)
+                keys.append({"path": norm, "name": "arcia-vm_ed25519 (Harness)"})
+
+    return keys
+
 def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
     """Charge la configuration depuis un fichier existant ou utilise le modèle par défaut."""
     exists = os.path.isfile(config_file)
@@ -892,7 +953,8 @@ def get_default_config_dict() -> Dict[str, Any]:
             "remote_ssh": {
                 "node_ip": detected_node,
                 "ssh_user": detected_user,
-                "ssh_port": 22
+                "ssh_port": 22,
+                "ssh_key": ident_key or ""
             }
         },
         "network": {
@@ -1012,6 +1074,7 @@ kubernetes:
     node_ip: {qstr(ssh.get('node_ip', '127.0.0.1'))}
     ssh_user: {qstr(ssh.get('ssh_user', 'debian'))}
     ssh_port: {int(ssh.get('ssh_port', 22))}
+    ssh_key: {qstr(ssh.get('ssh_key', ''))}
 
 # 2. Exposition Réseau, Domaine FQDN & Certificats TLS
 network:
@@ -1323,11 +1386,13 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             cfg, exists = load_config_data(DEFAULT_CONFIG_PATH)
             contexts = detect_kubectl_contexts()
             current_ctx = detect_current_context()
+            ssh_keys = detect_available_ssh_keys()
             self.send_json(200, {
                 "config": cfg,
                 "is_existing": exists,
                 "available_contexts": contexts,
                 "current_context": current_ctx,
+                "available_ssh_keys": ssh_keys,
                 "os": os.name
             })
         elif path == "/api/deploy/status":
@@ -1376,7 +1441,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     context=context,
                     ssh_node=remote_ssh.get("node_ip", "127.0.0.1"),
                     ssh_user=remote_ssh.get("ssh_user", "debian"),
-                    ssh_port=int(remote_ssh.get("ssh_port", 22))
+                    ssh_port=int(remote_ssh.get("ssh_port", 22)),
+                    ssh_key=remote_ssh.get("ssh_key", "")
                 )
                 rc, out, err = runner.run(["get", "nodes", "-o", "wide"])
                 if rc == 0:
@@ -1453,7 +1519,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     context=context,
                     ssh_node=remote_ssh.get("node_ip", "127.0.0.1"),
                     ssh_user=remote_ssh.get("ssh_user", "debian"),
-                    ssh_port=int(remote_ssh.get("ssh_port", 22))
+                    ssh_port=int(remote_ssh.get("ssh_port", 22)),
+                    ssh_key=remote_ssh.get("ssh_key", "")
                 )
                 res = audit_kubernetes_environment_full(runner)
                 self.send_json(200, res)
@@ -2108,6 +2175,17 @@ def get_wizard_html_page() -> str:
                 <input type="number" id="k8s_ssh_port" class="form-control" value="22">
               </div>
             </div>
+
+            <div class="form-group" style="margin-top: 10px;">
+              <label class="form-label">Clé privée SSH (Chemin du fichier d'authentification)</label>
+              <div class="form-sublabel">Chemin local vers votre clé privée SSH (ex: <code>~/.ssh/id_rsa</code>, <code>~/.ssh/id_ed25519</code> ou <code>.pem</code>). Laissez vide si vous utilisez l'agent SSH local ou la clé automatique du harness.</div>
+              <div class="input-row">
+                <input type="text" id="k8s_ssh_key" class="form-control" placeholder="Défaut : agent SSH ou clé automatique (~/.ssh/id_rsa)">
+                <select id="k8s_ssh_key_select" class="form-control" style="max-width: 240px;" onchange="selectSshKeyFromList()">
+                  <option value="">Clés SSH détectées...</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div class="input-row">
@@ -2536,6 +2614,16 @@ def get_wizard_html_page() -> str:
           });
         }
 
+        const sshSelect = document.getElementById("k8s_ssh_key_select");
+        if (sshSelect && data.available_ssh_keys && data.available_ssh_keys.length > 0) {
+          data.available_ssh_keys.forEach(k => {
+            const opt = document.createElement("option");
+            opt.value = k.path;
+            opt.textContent = `${k.name}`;
+            sshSelect.appendChild(opt);
+          });
+        }
+
         populateFormFields(configData);
       } catch (err) {
         console.error("Erreur récupération configuration:", err);
@@ -2612,6 +2700,7 @@ def get_wizard_html_page() -> str:
       document.getElementById("k8s_ssh_ip").value = ssh.node_ip || "";
       document.getElementById("k8s_ssh_user").value = ssh.ssh_user || "debian";
       document.getElementById("k8s_ssh_port").value = ssh.ssh_port || 22;
+      document.getElementById("k8s_ssh_key").value = ssh.ssh_key || "";
       toggleK8sMode();
 
       document.getElementById("net_fqdn").value = net.public_fqdn || "";
@@ -2661,7 +2750,8 @@ def get_wizard_html_page() -> str:
           remote_ssh: {
             node_ip: document.getElementById("k8s_ssh_ip").value.trim() || "127.0.0.1",
             ssh_user: document.getElementById("k8s_ssh_user").value.trim() || "debian",
-            ssh_port: parseInt(document.getElementById("k8s_ssh_port").value, 10) || 22
+            ssh_port: parseInt(document.getElementById("k8s_ssh_port").value, 10) || 22,
+            ssh_key: document.getElementById("k8s_ssh_key").value.trim()
           }
         },
         network: {
@@ -3085,6 +3175,11 @@ def get_wizard_html_page() -> str:
     function selectContextFromList() {
       const val = document.getElementById("k8s_context_select").value;
       if (val) document.getElementById("k8s_context").value = val;
+    }
+
+    function selectSshKeyFromList() {
+      const val = document.getElementById("k8s_ssh_key_select").value;
+      if (val) document.getElementById("k8s_ssh_key").value = val;
     }
 
     function toggleTlsMode() {

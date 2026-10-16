@@ -106,6 +106,7 @@ def parse_env_format(content: str) -> Dict[str, Any]:
                 "node_ip": env.get("ARCIA_K3S_NODE", "127.0.0.1"),
                 "ssh_user": env.get("ARCIA_K3S_USER", "debian"),
                 "ssh_port": int(env.get("ARCIA_K3S_PORT", "22")),
+                "ssh_key": env.get("ARCIA_K3S_SSH_KEY", ""),
             }
         },
         "network": {
@@ -236,16 +237,20 @@ def adapt_manifest_namespace(yaml_text: str, target_ns: str) -> str:
 # -----------------------------------------------------------------------------
 class K8sRunner:
     def __init__(self, mode: str, kubeconfig: str = "", context: str = "",
-                 ssh_node: str = "", ssh_user: str = "debian", ssh_port: int = 22):
+                 ssh_node: str = "", ssh_user: str = "debian", ssh_port: int = 22,
+                 ssh_key: str = ""):
         self.mode = mode
         self.kubeconfig = kubeconfig
         self.context = context
         self.ssh_node = ssh_node
         self.ssh_user = ssh_user
         self.ssh_port = ssh_port
+        self.ssh_key = ssh_key.strip() if ssh_key else ""
 
         self.ident_key, self.known_hosts = find_harness_ssh()
-        if self.ident_key and self.ssh_user == "debian":
+        if not self.ssh_key and self.ident_key:
+            self.ssh_key = self.ident_key
+        if self.ident_key and self.ssh_user == "debian" and not ssh_key:
             self.ssh_user = "nicolas"
 
     def run(self, cmd_args: List[str], stdin_input: Optional[str] = None) -> Tuple[int, str, str]:
@@ -275,8 +280,13 @@ class K8sRunner:
             else:
                 ssh_cmd.extend(["-o", "StrictHostKeyChecking=accept-new"])
 
-            if self.ident_key:
-                ssh_cmd.extend(["-i", self.ident_key])
+            effective_key = self.ssh_key or self.ident_key
+            if effective_key:
+                expanded_key = os.path.expanduser(os.path.expandvars(effective_key))
+                if os.path.isfile(expanded_key):
+                    ssh_cmd.extend(["-i", expanded_key])
+                else:
+                    return 255, "", f"Clé SSH introuvable sur le disque local : {expanded_key}"
 
             ssh_cmd.extend([
                 "-p", str(self.ssh_port),
@@ -315,6 +325,11 @@ def validate_config(cfg: Dict[str, Any]) -> None:
         ssh_node = k8s.get("remote_ssh", {}).get("node_ip", "")
         if not ssh_node or ssh_node in ("127.0.0.1", "0.0.0.0"):
             errors.append("kubernetes.remote_ssh.node_ip doit être renseigné avec l'adresse IP de votre nœud K3s.")
+        ssh_key = k8s.get("remote_ssh", {}).get("ssh_key", "")
+        if ssh_key and ssh_key.strip():
+            expanded_key = os.path.expanduser(os.path.expandvars(ssh_key.strip()))
+            if not os.path.isfile(expanded_key):
+                errors.append(f"kubernetes.remote_ssh.ssh_key est configurée mais le fichier est introuvable : {ssh_key}")
 
     net = cfg.get("network", {})
     fqdn = net.get("public_fqdn", "").strip()
@@ -520,6 +535,7 @@ def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
     ssh_node = ssh_info.get("node_ip", "127.0.0.1")
     ssh_user = ssh_info.get("ssh_user", "debian")
     ssh_port = ssh_info.get("ssh_port", 22)
+    ssh_key = ssh_info.get("ssh_key", "")
 
     runner = K8sRunner(
         mode=mode,
@@ -527,7 +543,8 @@ def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
         context=context,
         ssh_node=ssh_node,
         ssh_user=ssh_user,
-        ssh_port=ssh_port
+        ssh_port=ssh_port,
+        ssh_key=ssh_key
     )
 
     total_steps = 7

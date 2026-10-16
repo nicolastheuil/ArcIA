@@ -44,6 +44,9 @@ kubernetes:
     node_ip: "127.0.0.1"
     ssh_user: "debian"
     ssh_port: 22
+    # Chemin vers votre clé privée SSH (ex: ~/.ssh/id_rsa, ~/.ssh/id_ed25519 ou key.pem).
+    # Laisser vide ("") pour utiliser l'agent SSH local ou la clé automatique du harness.
+    ssh_key: ""
 
 # ==============================================================================
 # 2. EXPOSITION RESEAU, DOMAINE FQDN & CERTIFICAT TLS [OBLIGATOIRE]

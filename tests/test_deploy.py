@@ -97,6 +97,49 @@ class TestArcIADeploy(unittest.TestCase):
         with self.assertRaises(SystemExit):
             deploy.validate_config(cfg)
 
+    def test_k8s_runner_ssh_key_handling(self):
+        """Vérifie l'initialisation et le support de ssh_key dans K8sRunner."""
+        runner = deploy.K8sRunner(
+            mode="remote-ssh",
+            ssh_node="192.168.1.100",
+            ssh_user="ubuntu",
+            ssh_port=2222,
+            ssh_key="~/.ssh/test_nonexistent_key_123"
+        )
+        self.assertEqual(runner.ssh_key, "~/.ssh/test_nonexistent_key_123")
+        self.assertEqual(runner.ssh_user, "ubuntu")
+        self.assertEqual(runner.ssh_port, 2222)
+        # Tester qu'une clé introuvable renvoie le code d'erreur 255 avec message clair
+        rc, out, err = runner.run(["get", "nodes"])
+        self.assertEqual(rc, 255)
+        self.assertIn("Clé SSH introuvable", err)
+
+    def test_validation_fails_on_invalid_ssh_key(self):
+        """Vérifie que validate_config rejette une clé SSH introuvable sur le disque."""
+        cfg = deploy.parse_yaml_or_env(self.config_example_path)
+        cfg["llm_gateway"]["openrouter_api_key"] = "sk-or-v1-valid-key"
+        cfg["network"]["public_fqdn"] = "assistant.corp.internal"
+        cfg["kubernetes"]["mode"] = "remote-ssh"
+        cfg["kubernetes"]["remote_ssh"] = {
+            "node_ip": "192.168.1.50",
+            "ssh_user": "ubuntu",
+            "ssh_port": 22,
+            "ssh_key": "/path/to/definitely_nonexistent_key.pem"
+        }
+        with self.assertRaises(SystemExit):
+            deploy.validate_config(cfg)
+
+    def test_parse_env_ssh_key(self):
+        """Vérifie que parse_env_format extrait correctement ARCIA_K3S_SSH_KEY."""
+        env_content = """ARCIA_K8S_MODE="remote-ssh"
+ARCIA_K3S_NODE="192.168.1.50"
+ARCIA_K3S_USER="ubuntu"
+ARCIA_K3S_PORT="22"
+ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
+"""
+        parsed = deploy.parse_env_format(env_content)
+        self.assertEqual(parsed["kubernetes"]["remote_ssh"]["ssh_key"], "~/.ssh/custom_key")
+        self.assertEqual(parsed["kubernetes"]["remote_ssh"]["ssh_user"], "ubuntu")
 
 if __name__ == "__main__":
     unittest.main()

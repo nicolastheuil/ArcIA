@@ -65,6 +65,7 @@ Le fichier est structuré en deux catégories clairement séparées :
 
 | Section | Paramètre | Description |
 |---|---|---|
+| `kubernetes.remote_ssh` | `node_ip`, `ssh_user`, `ssh_port`, `ssh_key` | Paramètres de connexion SSH au nœud maître (si `mode: "remote-ssh"`), incluant le chemin vers la clé privée |
 | `llm_gateway` | `local_vllm_endpoint` | URL d'un serveur GPU souverain on-premise (ex: `http://vllm.corp:8000/v1`) |
 | `entra_id_sso` | `enabled` | Active l'authentification obligatoire Microsoft Entra ID pour `/studio` et `/gateway` |
 | `entra_id_sso` | `tenant_id`, `client_id`, `client_secret`, `cookie_secret` | Identifiants Microsoft Entra ID d'entreprise |
