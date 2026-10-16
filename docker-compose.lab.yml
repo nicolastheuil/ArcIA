@@ -26,7 +26,10 @@ services:
       - OPENAI_API_KEY=${LITELLM_MASTER_KEY:-sk-or-v1-arcia-lab}
       - WEBUI_AUTH=true
       - ENABLE_SIGNUP=false
-      - WEBUI_NAME=ArcIA Enterprise Portal (Lab)
+      - WEBUI_NAME=ArcIA Enterprise Portal
+      - CUSTOM_NAME=ArcIA
+      - WEBUI_THEME=dark
+      - CUSTOM_CSS=body, .dark body { background-color: #050712 !important; color: #f8fafc !important; } .dark #sidebar { background-color: #0a0f1d !important; border-right: 1px solid #1e293b !important; } .dark .bg-gray-900, .dark .bg-gray-950, .dark .bg-gray-850 { background-color: #0a0f1d !important; } .dark .bg-gray-800 { background-color: #131b2e !important; border-color: #1e293b !important; } .dark .bg-emerald-600, .dark .bg-blue-600 { background: linear-gradient(135deg, #1659e4, #5ad8ce) !important; color: #ffffff !important; } *:focus-visible { outline: 2px solid #6be7dd !important; }
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@arcia.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminArcIA2026!}
       - BYPASS_MODEL_ACCESS_CONTROL=true
