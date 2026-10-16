@@ -86,6 +86,14 @@ spec:
         - key: app
           operator: In
           values: ["open-webui", "hermes-agent", "teams-bot-adapter"]
+    - podSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: ["hermes-poweruser"]
+    - podSelector:
+        matchLabels:
+          arcia.io/role: poweruser
     ports:
     - protocol: TCP
       port: 4000
@@ -261,3 +269,37 @@ spec:
   - ports:
     - protocol: TCP
       port: 443
+---
+# Flux Hermes Power Users : Ingress Traefik et Egress vers LiteLLM / Cloud (443)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-hermes-poweruser-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: In
+      values: ["hermes-poweruser"]
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 9119
+    - protocol: TCP
+      port: 8642
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
+  - ports:
+    - protocol: TCP
+      port: 443
+

@@ -31,7 +31,7 @@ data:
     model:
       provider: custom
       base_url: http://litellm-proxy.arcia.svc:4000/v1
-      default: arcia/auto
+      default: agentic/auto
       key_env: OPENAI_API_KEY
     approvals:
       mode: smart
@@ -93,6 +93,7 @@ spec:
         app: hermes-poweruser-{{USER_SLUG}}
         app.kubernetes.io/name: hermes-poweruser
         app.kubernetes.io/instance: {{USER_SLUG}}
+        arcia.io/role: poweruser
     spec:
       securityContext:
         fsGroup: 10000

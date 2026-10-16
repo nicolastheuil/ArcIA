@@ -150,6 +150,74 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
     return rendered
 
 
+def register_litellm_pat(pat: str, user_email: str, team: str = "engineering", max_budget: float = 200.0, ns: str = "arcia"):
+    """Enregistre le jeton PAT dans LiteLLM pour autoriser l'inférence du Power User."""
+    slug = email_to_slug(user_email)
+    py_code = f"""
+import os, json, urllib.request
+k = os.environ.get('LITELLM_MASTER_KEY')
+payload = json.dumps({{
+    'key': '{pat}',
+    'key_alias': 'pat-{slug}',
+    'user_id': '{user_email}',
+    'max_budget': {max_budget}
+}}).encode()
+req = urllib.request.Request(
+    'http://localhost:4000/key/generate',
+    data=payload,
+    headers={{'Authorization': f'Bearer {{k}}', 'Content-Type': 'application/json'}}
+)
+try:
+    resp = urllib.request.urlopen(req)
+    print('[OK] LiteLLM PAT enregistré avec succès.')
+except Exception as e:
+    print(f'[WARN] LiteLLM PAT non enregistré: {{e}}')
+"""
+    import base64
+    b64 = base64.b64encode(py_code.encode()).decode()
+    cmd = ["exec", "deployment/litellm-proxy", "-n", ns, "--", "python3", "-c", f"import base64; exec(base64.b64decode('{b64}'))"]
+    try:
+        proc = run_kubectl(cmd)
+        if proc.stdout:
+            print(f"    {proc.stdout.strip()}")
+    except Exception as e:
+        print(f"    [WARN] Erreur enregistrement PAT LiteLLM: {e}")
+
+
+def unregister_litellm_pat(user_email: str, ns: str = "arcia"):
+    """Supprime le jeton PAT de LiteLLM lors de la destruction de l'instance."""
+    slug = email_to_slug(user_email)
+    py_code = f"""
+import os, json, urllib.request
+k = os.environ.get('LITELLM_MASTER_KEY')
+req = urllib.request.Request(
+    'http://localhost:4000/key/list',
+    headers={{'Authorization': f'Bearer {{k}}'}}
+)
+try:
+    resp = urllib.request.urlopen(req)
+    data = json.loads(resp.read().decode())
+    keys_to_del = [item['token'] for item in data.get('keys', []) if item.get('key_alias') == 'pat-{slug}']
+    if keys_to_del:
+        del_req = urllib.request.Request(
+            'http://localhost:4000/key/delete',
+            data=json.dumps({{'tokens': keys_to_del}}).encode(),
+            headers={{'Authorization': f'Bearer {{k}}', 'Content-Type': 'application/json'}}
+        )
+        urllib.request.urlopen(del_req)
+        print('[OK] LiteLLM PAT révoqué avec succès.')
+except Exception:
+    pass
+"""
+    import base64
+    b64 = base64.b64encode(py_code.encode()).decode()
+    cmd = ["exec", "deployment/litellm-proxy", "-n", ns, "--", "python3", "-c", f"import base64; exec(base64.b64decode('{b64}'))"]
+    try:
+        run_kubectl(cmd)
+    except Exception:
+        pass
+
+
 def cmd_spawn(args):
     """Déploie une instance dédiée pour un Power User sur Kubernetes."""
     slug = email_to_slug(args.email)
@@ -195,6 +263,9 @@ def cmd_spawn(args):
         print(f"[ERREUR] Échec du déploiement Kubernetes :", file=sys.stderr)
         print(proc.stderr, file=sys.stderr)
         sys.exit(proc.returncode)
+
+    print("[*] Enregistrement du jeton PAT dans LiteLLM Proxy...")
+    register_litellm_pat(pat, args.email, team=args.team, ns=ns)
 
     print("\n[OK] Instance Power User déployée avec succès !")
     print(f"  - Dashboard Studio : https://{fqdn}/poweruser/{slug}/studio")
@@ -287,6 +358,7 @@ def cmd_destroy(args):
     else:
         print(f"[*] Le volume persistant PVC hermes-user-{slug}-pvc a été conservé.")
 
+    unregister_litellm_pat(args.email, ns=ns)
     print(f"[OK] Instance '{slug}' supprimée.")
 
 
