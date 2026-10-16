@@ -1,12 +1,11 @@
-# OmniRoute : routage, configuration et abonnements
+# OmniRoute : routage complémentaire, combos et abonnements (v0.2)
 
-OmniRoute constitue le premier choix de routage d'ArcIA. Son portail privé
-est déployé et vérifié ; le self-service et le raccordement cloud sont codés, en cours de recette.
-Un utilisateur
-standard utilise toujours le mode intelligent/automatique choisi par
-l'administrateur ; il ne choisit ni destination libre, ni credential, ni
-repli depuis son prompt. Le budget, les fournisseurs et les exigences
-ZDR/résidence appartiennent à l'instance. [Quickstart](../runbooks/quickstart.md).
+Dans **ArcIA v0.2**, **[LiteLLM Proxy](inference-litellm.md)** (`litellm-proxy:4000`) est devenu la **passerelle LLM centrale par défaut** (car elle porte nativement le guardrail `pre_call` Presidio DLP pour Open-WebUI, Hermes Agent et Teams Bot).
+
+**OmniRoute v3.8.51** (`omniroute:20128` / `:20129`) est **conservé comme brique complémentaire optionnelle** ([deploy/manifests/09-omniroute.yaml](../../deploy/manifests/09-omniroute.yaml)) pour répondre à trois besoins que LiteLLM ne couvre pas nativement de la même façon :
+1. **Un portail graphique d'administration LAN (`:20129/dashboard`)** pour construire visuellement des chaînes de fallback (*Combos* `auto`, `auto/smart`, `auto/coding`, `auto/cheap`).
+2. **L'agrégation d'abonnements OAuth et de pools de clés en rotation**, utilisables comme fournisseur amont (*upstream*) derrière LiteLLM (`http://omniroute.arcia.svc.cluster.local:20128/v1`).
+3. **La séparation stricte entre profils administrés et self-service** : un utilisateur standard utilise toujours le mode intelligent/automatique choisi par l'administrateur, sans pouvoir imposer de destination libre depuis son prompt. Le budget, les fournisseurs et les exigences ZDR/résidence appartiennent à l'instance. Voir le [Quickstart](../runbooks/quickstart.md).
 
 ## État et version
 
@@ -218,7 +217,7 @@ perte d'une clé peut rendre les connexions irrécupérables. Tester restauratio
 rotation et refus d'un second propriétaire avant une release. Le runtime
 SQLite unique ne devient pas HA parce que les trois relais TLS sont présents.
 [Sauvegarde/reconstruction](../runbooks/sauvegarde-reconstruction.md) ·
-[Backlog](../backlog.md) · [ADR du périmètre](../adr/0020-perimetre-harness-et-politiques-instance.md).
+[Backlog](../backlog.md) · [Architecture](../architecture.md).
 
 La synchronisation cloud native est désactivée et relue après application,
 avec la route officielle `POST /api/sync/cloud` limitée à `action=disable`.

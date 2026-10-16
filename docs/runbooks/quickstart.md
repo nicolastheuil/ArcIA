@@ -88,44 +88,68 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Modèles d'Entreprise Disponibles
 
-Dès le premier déploiement, LiteLLM expose les modèles suivants dans le portail :
-- `auto` : Routage intelligent par défaut (sélection automatique équilibrée).
+Dès le premier déploiement, LiteLLM expose les 6 modèles suivants dans le portail (visibles immédiatement par tous les comptes grâce à `BYPASS_MODEL_ACCESS_CONTROL=true`) :
+- `auto` : Routage intelligent par défaut (sélection automatique équilibrée avec fallback).
 - `claude-3.5-sonnet` : Modèle de pointe pour le raisonnement, le code et l'architecture.
 - `gpt-4o` : Modèle multimodal rapide et polyvalent.
 - `deepseek-chat` : Modèle hautement économique pour les requêtes volumineuses.
-- `local-internal` : Route interne sans sortie cloud (Ollama/vLLM).
+- `hermes-agent` : Profil dédié aux tâches agentiques Hermes.
+- `local-internal` : Route interne souveraine sans sortie cloud (Ollama/vLLM).
 
-Toutes les requêtes sortant vers des modèles cloud sont **automatiquement caviardées par Presidio DLP** (`presidio-dlp.arcia.svc:8080`) avant transmission au fournisseur.
+Toutes les requêtes sortant vers des modèles cloud sont **automatiquement caviardées par Presidio DLP** (`presidio-dlp.arcia.svc:8080`, endpoints `/analyze` et `/anonymize`) avant transmission au fournisseur.
 
 ---
 
-## 4. Portail Open-WebUI & Comptes Personnels (BYOK / OAuth)
+## 4. Portail Open-WebUI, SSO Entra ID & Comptes Personnels (BYOK)
 
-### Accès au Portail Web
+### Accès au Portail Web & Configuration SSO Entra ID
 
 Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.entreprise.com`).
 
-- **Avec SSO Entra ID activé** (`entra_id_sso.enabled: true`) : L'authentification est déléguée à Microsoft 365. Le compte de l'utilisateur est automatiquement provisionné sans mot de passe à créer.
+- **Avec SSO Entra ID activé** (`entra_id_sso.enabled: true`) :
+  - L'authentification OIDC v2.0 est déléguée à Microsoft Entra ID (`https://login.microsoftonline.com/<TENANT_ID>/v2.0/.well-known/openid-configuration`).
+  - Dans le portail Azure (**Microsoft Entra ID > Inscriptions d'applications > Votre App > Authentification > Plateforme Web > URI de redirection**), déclarez impérativement :
+    - `https://<public_fqdn>/oauth/oidc/callback` *(Callback OIDC natif Open-WebUI)*
+    - `https://<public_fqdn>/oauth2/callback` *(Callback OAuth2-Proxy pour Hermes Studio / Gateway)*
 - **Sans SSO (Mode local)** : Le premier compte créé devient le compte administrateur d'Open-WebUI.
 
-### Comment un utilisateur final peut inclure ses comptes personnels / clés perso (BYOK & OAuth) ?
+### Mise en œuvre exacte des Connexions Personnelles (BYOK dans Open-WebUI)
 
-Deux options sont offertes selon la politique de gouvernance de votre entreprise :
+Le harness configure nativement `ENABLE_DIRECT_CONNECTIONS: "true"` dans [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml).
+Attention à ne pas confondre **Paramètres utilisateur** (connexion strictement personnelle, stockée dans le `localStorage` du navigateur de l'utilisateur) et **Panneau d'administration** (connexion partagée avec tous les utilisateurs du serveur).
 
-#### Option A : Connexions Directes dans Open-WebUI (Recommandé, Activé par Défaut)
+#### Étapes dans l'interface Open-WebUI
+1. Cliquez sur **votre nom / avatar** (en bas à gauche) > **Paramètres** (*Settings*).
+2. Ouvrez l'onglet **Connexions** (*Connections*) > section **Gérer les connexions directes** (*Manage Direct Connections*) > cliquez sur **`+`** (*Ajouter une connexion*).
+3. Remplissez la fenêtre modale selon le tableau ci-dessous :
 
-Le harness configure nativement `ENABLE_DIRECT_CONNECTIONS: "true"` dans Open-WebUI :
-1. Dans Open-WebUI, l'utilisateur clique sur son avatar (en bas à gauche) > **Paramètres (Settings)**.
-2. Aller dans l'onglet **Connexions (Connections)** > section **Connexions directes (Direct connections)**.
-3. L'utilisateur active le commutateur et renseigne son endpoint compatible OpenAI et sa clé d'API personnelle (ex: sa clé OpenAI, Anthropic ou OpenRouter personnelle).
-4. **Garantie de Sécurité & Confidentialité** : La clé personnelle de l'utilisateur est stockée **exclusivement dans le stockage local de son navigateur (`localStorage`)**. Elle n'est jamais transmise ni persistée dans les bases de données d'ArcIA. Les requêtes de chat partent directement du navigateur du collaborateur vers son fournisseur.
+| Champ de la fenêtre | Valeur attendue | Détail important |
+|---|---|---|
+| **URL** *(Base URL)* | URL de base compatible OpenAI **terminant par `/v1`** | Ne jamais ajouter `/chat/completions` à la fin |
+| **Clé** *(API Key / Jetons)* | Votre clé personnelle (`sk-...`) | Stockée uniquement dans le `localStorage` de votre navigateur |
+| **ID de préfixe** *(Prefix ID — optionnel)* | Court préfixe (ex: `perso`) | Permet d'afficher `perso/gpt-4o` pour le distinguer du catalogue d'entreprise |
+| **IDs de modèles** *(Model IDs)* | Saisir l'identifiant d'un modèle puis cliquer sur **`+`** | Recommandé sur OpenRouter pour éviter de charger +300 modèles dans le menu |
 
-#### Option B : Connexions Personnelles OmniRoute (Contrôle Serveur Souverain)
+#### 4 exemples concrets prêts à copier-coller
 
-Si le routeur OmniRoute est activé (`omniroute.enabled: true`) :
-1. L'administrateur attribue à l'utilisateur l'accès au portail LAN OmniRoute (`https://<VIP>:20129/`).
-2. L'utilisateur y associe ses comptes de modèles personnels ou son OAuth tiers de façon étanche et chiffrée côté serveur.
-3. Ses requêtes personnelles sont strictement isolées de celles des autres collaborateurs.
+* **Exemple 1 — Compte personnel OpenRouter** :
+  - **URL** : `https://openrouter.ai/api/v1`
+  - **Clé** : `sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+  - **ID de préfixe** : `perso`
+  - **IDs de modèles** *(taper puis cliquer sur `+`)* : `anthropic/claude-3.7-sonnet`, `openai/o3-mini`
+* **Exemple 2 — Compte personnel OpenAI direct** :
+  - **URL** : `https://api.openai.com/v1`
+  - **Clé** : `sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+  - **ID de préfixe** : `openai-perso`
+  - **IDs de modèles** : `gpt-4o` (ou laisser vide)
+* **Exemple 3 — Compte personnel DeepSeek ou Mistral AI** :
+  - **DeepSeek** : URL `https://api.deepseek.com/v1` | Clé `sk-...` | Modèles : `deepseek-chat`, `deepseek-reasoner`
+  - **Mistral AI** : URL `https://api.mistral.ai/v1` | Clé `<cle-mistral>` | Modèles : `mistral-large-latest`, `codestral-latest`
+* **Exemple 4 — Modèle local sur le PC de l'utilisateur (Ollama / LM Studio)** :
+  - Comme la requête part du navigateur de l'utilisateur, il peut interroger sa propre machine locale :
+  - **URL** : `http://localhost:11434/v1` *(Ollama)* ou `http://localhost:1234/v1` *(LM Studio)*
+  - **Clé** : `ollama`
+  - **ID de préfixe** : `local-pc` *(avec `OLLAMA_ORIGINS="https://<public_fqdn>"` côté poste client)*
 
 ---
 
