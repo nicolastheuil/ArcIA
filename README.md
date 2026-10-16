@@ -8,7 +8,21 @@
   <a href="docs/guides/confidentialite-presidio.md"><img src="https://img.shields.io/badge/DLP-Presidio%20Active-6BE7DD.svg?style=flat-square&logo=shield&logoColor=050712" alt="DLP Engine"></a>
   <a href="docs/guides/hermes-agent.md"><img src="https://img.shields.io/badge/Engine-Hermes%20v0.2-1659E4.svg?style=flat-square&logo=openai&logoColor=white" alt="Agent Runtime"></a>
   <a href="docs/guides/integration-teams.md"><img src="https://img.shields.io/badge/Teams-Bot%20Framework-5B5FC7.svg?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Integration"></a>
-  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/Distribution-Enterprise%20Edition-050712.svg?style=flat-square&logoColor=6BE7DD" alt="Enterprise Edition"></a>
+  <a href="assets/README.md"><img src="https://img.shields.io/badge/Charte%20DA-Dark%20Mode-050712.svg?style=flat-square&logoColor=6BE7DD" alt="Charte DA Dark Mode"></a>
+</p>
+
+<h3 align="center">Plateforme Souveraine d'IA Agentique d'Entreprise</h3>
+
+<p align="center">
+  <b>Autonomie Agentique d'Élite • Bouclier DLP Presidio • Inférence Haute Disponibilité • Expérience Collaborateur Unifiée</b>
+</p>
+
+<p align="center">
+  <a href="#-démarrage-rapide-en-5-minutes"><b>🚀 Démarrage Rapide</b></a> •
+  <a href="#-architecture-globale-de-la-plateforme"><b>🏛️ Architecture</b></a> •
+  <a href="#-fonctionnalités-clés-de-la-plateforme"><b>🌟 Fonctionnalités</b></a> •
+  <a href="#-palette--charte-visuelle-officielle-dark-mode"><b>🎨 Charte DA</b></a> •
+  <a href="docs/README.md"><b>📖 Documentation</b></a>
 </p>
 
 ---
@@ -16,7 +30,7 @@
 **ArcIA** est la plateforme souveraine d'intelligence artificielle agentique d'entreprise conçue pour réconcilier **l'autonomie d'agents d'élite**, la **gouvernance stricte des données et des coûts** et une **expérience utilisateur collaborative unifiée**.
 
 Déployée sur cluster Kubernetes (K3s sur VMware ou Cloud), ArcIA standardise l'accès à l'IA pour toute l'organisation :
-* **Pour les Collaborateurs** : un portail de chat moderne (**Open-WebUI**) avec SSO Microsoft Entra ID et un bot interactif dans **Microsoft Teams**.
+* **Pour les Collaborateurs** : un portail de chat moderne (**Open-WebUI**) aux couleurs de l'entreprise avec SSO Microsoft Entra ID et un bot interactif dans **Microsoft Teams**.
 * **Pour les Ingénieurs & Power Users** : le moteur d'agents autonomes **Hermes**, le studio visuel Kanban, l'interopérabilité **Hermes Desktop**, et un mode hybride local pour exécuter des commandes sous VPN client ou piloter des IDEs.
 * **Pour la DSI & le RSSI** : un bouclier DLP souverain (**Microsoft Presidio**) caviardant secrets et PII avant toute inférence cloud, une passerelle d'inférence centralisée (**LiteLLM**) avec quotas d'entreprise, et une isolation étanche des données.
 
@@ -27,7 +41,7 @@ Déployée sur cluster Kubernetes (K3s sur VMware ou Cloud), ArcIA standardise l
 Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 
 ### 💬 1. Interfaces Collaborateurs & Canaux
-* **Portail Web d'Entreprise (Open-WebUI)** : Interface conversationnelle fluide, gestion documentaire et base vectorielle RAG (ChromaDB), authentification unique SSO Microsoft Entra ID (OIDC / OAuth2-Proxy). Support du mode BYOK (*Bring Your Own Key*) pour les power users.  
+* **Portail Web d'Entreprise (Open-WebUI)** : Interface conversationnelle fluide préconfigurée avec la DA sombre d'ArcIA, gestion documentaire et base vectorielle RAG (ChromaDB), authentification unique SSO Microsoft Entra ID (OIDC / OAuth2-Proxy). Support du mode BYOK (*Bring Your Own Key*) pour les power users.  
   👉 *Détail complet :* [Guide Portail Open-WebUI & Entra ID](docs/guides/portail-webui-entraid.md)
 * **Intégration Microsoft Teams Native** : Bot applicatif certifié Bot Framework permettant d'interagir avec ArcIA directement depuis Teams, en conversation privée (DM 1:1) ou par mention `@ArcIA` dans les canaux d'équipe.  
   👉 *Détail complet :* [Guide Intégration Microsoft Teams](docs/guides/integration-teams.md)
@@ -65,6 +79,7 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 Tous les services sont unifiés dans un namespace Kubernetes unique (`arcia`), sécurisés par Ingress Traefik et Cert-Manager TLS :
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'darkMode': true, 'primaryColor': '#0C2762', 'primaryTextColor': '#F8FAFC', 'primaryBorderColor': '#1659E4', 'lineColor': '#6BE7DD', 'secondaryColor': '#050712', 'tertiaryColor': '#050712', 'clusterBkg': '#050712', 'clusterBorder': '#1659E4', 'fontFamily': 'Montserrat, Inter, system-ui, sans-serif' }}}%%
 flowchart TD
     subgraph Clients ["👥 Points d'Entrée & Utilisateurs"]
         WebUser["Navigateur Web<br/>(Collaborateur Portail)"]
@@ -111,6 +126,16 @@ flowchart TD
     LiteLLM -->|Guardrail Pré-Vol Obligatoire| PresidioDLP
     PresidioDLP -->|Prompt Assaini & Caviardé| LiteLLM
     LiteLLM -->|Appel Modèle Sécurisé| OpenRouter
+
+    classDef core fill:#0C2762,stroke:#1659E4,stroke-width:2px,color:#F8FAFC;
+    classDef dlp fill:#050712,stroke:#6BE7DD,stroke-width:2.5px,color:#6BE7DD;
+    classDef llm fill:#050712,stroke:#1659E4,stroke-width:2.5px,color:#F8FAFC;
+    classDef cloud fill:#0C2762,stroke:#FA7B4E,stroke-width:1.5px,color:#F8FAFC;
+
+    class PresidioDLP dlp;
+    class LiteLLM llm;
+    class HermesAgent,WebUI,TeamsBot core;
+    class OpenRouter,EntraID,AzureBot cloud;
 ```
 
 👉 *Spécification d'architecture détaillée :* [docs/architecture.md](docs/architecture.md)
@@ -133,7 +158,25 @@ ArcIA permet à chaque profil d'entreprise de travailler avec le niveau d'autono
 
 ---
 
-## 🚀 Déploiement Rapide en 5 Minutes
+## 🎨 Palette & Charte Visuelle Officielle (Dark Mode)
+
+ArcIA applique une charte graphique d'entreprise rigoureuse, pensée pour la lisibilité et l'ergonomie opérationnelle en environnement sombre :
+
+| Nuance | Teinte | Code Hex | Rôle & Usage dans la Plateforme |
+|:---:|---|:---:|---|
+| ![#050712](https://img.shields.io/badge/%23050712-050712?style=flat-square) | **Noir Profond** | `#050712` | Fond principal de l'interface, terminaux et thèmes CSS sombres |
+| ![#0C2762](https://img.shields.io/badge/%230C2762-0C2762?style=flat-square) | **Deep Navy** | `#0C2762` | Cartes applicatives, conteneurs de surface et barres d'outils |
+| ![#1659E4](https://img.shields.io/badge/%231659E4-1659E4?style=flat-square) | **Royal Blue** | `#1659E4` | Éléments actifs, bordures de composants et Ingress Traefik |
+| ![#6BE7DD](https://img.shields.io/badge/%236BE7DD-6BE7DD?style=flat-square) | **Primary Cyan** | `#6BE7DD` | Accents technologiques, flux de requêtes et bouclier Presidio DLP |
+| ![#FA7B4E](https://img.shields.io/badge/%23FA7B4E-FA7B4E?style=flat-square) | **Accent Coral** | `#FA7B4E` | Modèles experts, actions d'administration et points d'attention |
+| ![#F1C557](https://img.shields.io/badge/%23F1C557-F1C557?style=flat-square) | **Accent Gold** | `#F1C557` | Optimisations Tokenmaxing, métriques de tokens et quotas |
+| ![#F8FAFC](https://img.shields.io/badge/%23F8FAFC-F8FAFC?style=flat-square) | **Text Slate** | `#F8FAFC` | Typographie principale haute lisibilité (*Montserrat / Inter*) |
+
+👉 *Fiches de marque et ressources vectorielles :* [assets/README.md](assets/README.md) · [assets/branding/palette.json](assets/branding/palette.json)
+
+---
+
+## 🚀 Démarrage Rapide en 5 Minutes
 
 ArcIA est **100 % reproductible et automatisé**. N'importe quel cluster Kubernetes (K3s sur VMware, EKS, AKS, GKE ou lab local) peut héberger votre instance à partir d'un **seul et unique fichier de configuration**.
 
@@ -155,7 +198,7 @@ Pour configurer et déployer votre instance écran par écran avec génération 
 # Ou directement avec Python :
 python scripts/wizard.py
 ```
-Le Wizard démarre un serveur local sur le port `8765` et ouvre votre navigateur avec un parcours guidé en 11 écrans.
+Le Wizard démarre un serveur local sur le port `8765` et ouvre votre navigateur avec un parcours guidé en 11 écrans intégrant la charte Dark Mode d'ArcIA.
 
 ### Alternative : Déploiement direct en ligne de commande
 ```bash
