@@ -176,11 +176,15 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertEqual(tier_100["nodes"], 3)
         self.assertEqual(tier_100["total_vcpu"], 12)
         self.assertEqual(tier_100["total_ram_gb"], 48)
+        self.assertEqual(tier_100["rag_storage_gb"], 200)
+        self.assertEqual(tier_100["open_webui_pvc"], "200Gi")
 
         # Vérifier le profil Pilote 20 utilisateurs
         tier_20 = tiers["20"]
         self.assertEqual(tier_20["nodes"], 1)
         self.assertEqual(tier_20["total_vcpu"], 4)
+        self.assertEqual(tier_20["rag_storage_gb"], 50)
+        self.assertEqual(tier_20["open_webui_pvc"], "50Gi")
 
     def test_vmware_connection_validation_missing_host(self):
         """Vérifie que le testeur VMware rejette les requêtes sans hôte."""

@@ -99,14 +99,15 @@ Write-Host "====================================================================
 Write-Host " ArcIA — Déploiement Automatisé de Cluster K3s sur VMware vSphere" -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan
 
-# 1. Calcul du dimensionnement selon la tranche d'utilisateurs
+# 1. Calcul du dimensionnement selon la tranche d'utilisateurs (incluant OS, K3s et stockage dédié RAG)
 $sizingProfiles = @{
     "20" = @{
         Label = "Équipe Pilote (jusqu'à 20 utilisateurs)"
         Nodes = 1
         Vcpu = 4
         RamGb = 8
-        DiskGb = 60
+        DiskGb = 100
+        RagStorageGb = 50
         Type = "All-in-One (Server + Worker)"
     }
     "100" = @{
@@ -114,7 +115,8 @@ $sizingProfiles = @{
         Nodes = 3
         Vcpu = 4
         RamGb = 16
-        DiskGb = 100
+        DiskGb = 150
+        RagStorageGb = 200
         Type = "3x Control-Plane HA (etcd multi-maître)"
     }
     "500" = @{
@@ -122,7 +124,8 @@ $sizingProfiles = @{
         Nodes = 5
         Vcpu = 8
         RamGb = 32
-        DiskGb = 200
+        DiskGb = 250
+        RagStorageGb = 600
         Type = "3x Control-Plane HA + 2x Workers Dédiés"
     }
     "1000" = @{
@@ -130,7 +133,8 @@ $sizingProfiles = @{
         Nodes = 7
         Vcpu = 16
         RamGb = 64
-        DiskGb = 300
+        DiskGb = 500
+        RagStorageGb = 2000
         Type = "3x Control-Plane HA + 4x Workers Haute Performance"
     }
 }
@@ -139,6 +143,7 @@ $profile = $sizingProfiles[$UserTier]
 Write-Host "[INFO] Profil de dimensionnement sélectionné : $($profile.Label)" -ForegroundColor Yellow
 Write-Host "  [-] Nombre de machines virtuelles : $($profile.Nodes)"
 Write-Host "  [-] Configuration par VM         : $($profile.Vcpu) vCPU, $($profile.RamGb) Go RAM, $($profile.DiskGb) Go SSD"
+Write-Host "  [-] Espace dédié RAG / Vecteurs   : $($profile.RagStorageGb) Go (Documents + ChromaDB)"
 Write-Host "  [-] Topologie de cluster         : $($profile.Type)"
 
 # 2. Vérification PowerCLI ou fallback REST

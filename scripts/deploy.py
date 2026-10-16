@@ -556,16 +556,20 @@ metadata:
     with open(hermes_path, "r", encoding="utf-8") as f:
         hermes_yaml = f.read()
 
+    hermes_storage = hermes_cfg.get("storage_size", "20Gi")
+    hermes_yaml = re.sub(r'storage:\s*20Gi', f'storage: {hermes_storage}', hermes_yaml, count=1)
     if storage_class:
         hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
     runner.apply_manifest(hermes_yaml)
 
-    # D. Open-WebUI Portal
+    # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
     log_info(" -> Déploiement de Open-WebUI (07-open-webui.yaml)...")
     webui_path = os.path.join(manifests_dir, "07-open-webui.yaml")
     with open(webui_path, "r", encoding="utf-8") as f:
         webui_yaml = f.read()
 
+    webui_storage = webui_cfg.get("storage_size", "50Gi")
+    webui_yaml = re.sub(r'storage:\s*20Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
     runner.apply_manifest(webui_yaml)

@@ -451,10 +451,13 @@ VMWARE_SIZING_TIERS = {
         "type": "All-in-One (Control-Plane + Worker)",
         "vcpu_per_node": 4,
         "ram_per_node_gb": 8,
-        "disk_per_node_gb": 60,
+        "disk_per_node_gb": 100,
         "total_vcpu": 4,
         "total_ram_gb": 8,
-        "total_disk_gb": 60,
+        "total_disk_gb": 100,
+        "rag_storage_gb": 50,
+        "rag_label": "50 Go dédiés RAG (~10 000 pages, documents + base vectorielle ChromaDB)",
+        "open_webui_pvc": "50Gi",
         "concurrency": "1 à 3 interactions agentiques simultanées",
         "recommended": False
     },
@@ -466,10 +469,13 @@ VMWARE_SIZING_TIERS = {
         "type": "3x Control-Plane HA / Workers",
         "vcpu_per_node": 4,
         "ram_per_node_gb": 16,
-        "disk_per_node_gb": 100,
+        "disk_per_node_gb": 150,
         "total_vcpu": 12,
         "total_ram_gb": 48,
-        "total_disk_gb": 300,
+        "total_disk_gb": 450,
+        "rag_storage_gb": 200,
+        "rag_label": "200 Go dédiés RAG (~100 000 pages, base vectorielle ChromaDB HNSW, collections inter-services)",
+        "open_webui_pvc": "200Gi",
         "concurrency": "15 interactions simultanées avec streaming et DLP en temps réel",
         "recommended": True
     },
@@ -481,10 +487,13 @@ VMWARE_SIZING_TIERS = {
         "type": "3x Control-Plane HA + 2x Workers Dédiés",
         "vcpu_per_node": 8,
         "ram_per_node_gb": 32,
-        "disk_per_node_gb": 200,
+        "disk_per_node_gb": 250,
         "total_vcpu": 28,
         "total_ram_gb": 112,
-        "total_disk_gb": 700,
+        "total_disk_gb": 1250,
+        "rag_storage_gb": 600,
+        "rag_label": "600 Go dédiés RAG (~500 000 pages, bases multi-départements, embeddings denses)",
+        "open_webui_pvc": "600Gi",
         "concurrency": "60 interactions simultanées, flux Teams continus, pipelines Graphify",
         "recommended": False
     },
@@ -496,10 +505,13 @@ VMWARE_SIZING_TIERS = {
         "type": "3x Control-Plane HA + 4x Workers Haute Performance",
         "vcpu_per_node": 16,
         "ram_per_node_gb": 64,
-        "disk_per_node_gb": 300,
+        "disk_per_node_gb": 500,
         "total_vcpu": 88,
         "total_ram_gb": 352,
-        "total_disk_gb": 2000,
+        "total_disk_gb": 3500,
+        "rag_storage_gb": 2000,
+        "rag_label": "2 To à 5 To dédiés RAG (Millions de documents, index distribué, modèles locaux)",
+        "open_webui_pvc": "2Ti",
         "concurrency": "200+ interactions simultanées, modèles LLM locaux vLLM optionnels",
         "recommended": False
     }
@@ -889,7 +901,7 @@ def get_default_config_dict() -> Dict[str, Any]:
         },
         "open_webui": {
             "enabled": True,
-            "storage_size": "20Gi"
+            "storage_size": "50Gi"
         },
         "entra_id_sso": {
             "enabled": False,
@@ -1903,23 +1915,27 @@ def get_wizard_html_page() -> str:
             <div id="tier_card_20" class="tier-card" onclick="selectVmwareTier('20')">
               <div style="font-weight:700; font-size:14px; margin-bottom:4px;">Jusqu'à 20 utilisateurs</div>
               <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Équipe Pilote / PoC</div>
-              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">1 VM All-in-One (4 vCPU, 8 Go RAM, 60 Go SSD)</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">1 VM (4 vCPU, 8 Go RAM, 100 Go SSD)</div>
+              <div style="font-size:11px; color:#38ef7d; font-weight:600; margin-top:4px;">📚 50 Go dédiés RAG / ChromaDB</div>
             </div>
             <div id="tier_card_100" class="tier-card active" onclick="selectVmwareTier('100')">
               <span style="position:absolute; top:8px; right:8px; font-size:10px; background:rgba(0,210,255,0.2); color:var(--accent-cyan); padding:2px 6px; border-radius:10px; font-weight:700;">Recommandé</span>
               <div style="font-weight:700; font-size:14px; margin-bottom:4px;">21 à 100 utilisateurs</div>
               <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">PME / Direction Métier</div>
-              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">3 VMs K3s HA (12 vCPU, 48 Go RAM, 300 Go SSD total)</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">3 VMs K3s HA (12 vCPU, 48 Go RAM, 450 Go SSD)</div>
+              <div style="font-size:11px; color:#38ef7d; font-weight:600; margin-top:4px;">📚 200 Go dédiés RAG / HNSW</div>
             </div>
             <div id="tier_card_500" class="tier-card" onclick="selectVmwareTier('500')">
               <div style="font-weight:700; font-size:14px; margin-bottom:4px;">101 à 500 utilisateurs</div>
               <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Entreprise</div>
-              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">5 VMs (3 CP HA + 2 Workers dédiés, 28 vCPU, 112 Go RAM)</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">5 VMs (3 CP HA + 2 Workers, 28 vCPU, 112 Go, 1,2 To)</div>
+              <div style="font-size:11px; color:#38ef7d; font-weight:600; margin-top:4px;">📚 600 Go dédiés RAG multi-équipes</div>
             </div>
             <div id="tier_card_1000" class="tier-card" onclick="selectVmwareTier('1000')">
               <div style="font-weight:700; font-size:14px; margin-bottom:4px;">Plus de 500 utilisateurs</div>
               <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Grande Entreprise</div>
-              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">7+ VMs multi-nœuds (88+ vCPU, 352+ Go, option vGPU)</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">7+ VMs multi-nœuds (88+ vCPU, 352+ Go, 3,5 To SSD)</div>
+              <div style="font-size:11px; color:#38ef7d; font-weight:600; margin-top:4px;">📚 2 To à 5 To dédiés RAG distribué</div>
             </div>
           </div>
 
@@ -2647,7 +2663,7 @@ def get_wizard_html_page() -> str:
         },
         open_webui: {
           enabled: true,
-          storage_size: "20Gi"
+          storage_size: (vmwareTiersData[currentVmwareTier] ? vmwareTiersData[currentVmwareTier].pvc : "50Gi")
         },
         entra_id_sso: {
           enabled: document.getElementById("sso_enabled").checked,
@@ -2817,7 +2833,10 @@ def get_wizard_html_page() -> str:
         nodes: 1,
         vcpu: 4,
         ram: 8,
-        disk: 60,
+        disk: 100,
+        ragGb: 50,
+        pvc: "50Gi",
+        ragLabel: "50 Go dédiés RAG (~10 000 pages, documents bruts + base vectorielle ChromaDB)",
         topo: "1x VM K3s All-in-One (Control-Plane + Worker)",
         desc: "Idéal pour évaluer ArcIA, tests métiers d'équipe ou qualification technique."
       },
@@ -2826,26 +2845,35 @@ def get_wizard_html_page() -> str:
         nodes: 3,
         vcpu: 12,
         ram: 48,
-        disk: 300,
-        topo: "3x VMs K3s Haute Disponibilité (etcd multi-maître, 4 vCPU / 16 Go / 100 Go par VM)",
-        desc: "Tolérance aux pannes, haute résilience et streaming fluide pour toute la direction."
+        disk: 450,
+        ragGb: 200,
+        pvc: "200Gi",
+        ragLabel: "200 Go dédiés RAG (~100 000 pages, base vectorielle ChromaDB HNSW, collections inter-services)",
+        topo: "3x VMs K3s Haute Disponibilité (etcd multi-maître, 4 vCPU / 16 Go / 150 Go par VM)",
+        desc: "Tolérance aux pannes, haute résilience, recherche sémantique rapide et streaming fluide."
       },
       "500": {
         title: "Entreprise / Multi-Départements (101 à 500 utilisateurs)",
         nodes: 5,
         vcpu: 28,
         ram: 112,
-        disk: 700,
-        topo: "3x Control-Plane HA (4 vCPU / 16 Go) + 2x Workers Dédiés (8 vCPU / 32 Go / 200 Go)",
-        desc: "Isolation du plan de contrôle, haute concurrence agentique et intégration Teams continue."
+        disk: 1250,
+        ragGb: 600,
+        pvc: "600Gi",
+        ragLabel: "600 Go dédiés RAG (~500 000 pages, bases multi-départements, embeddings denses)",
+        topo: "3x Control-Plane HA (4 vCPU / 16 Go) + 2x Workers Dédiés (8 vCPU / 32 Go / 250 Go)",
+        desc: "Isolation du plan de contrôle, haute concurrence agentique, RAG hybride et intégration Teams continue."
       },
       "1000": {
         title: "Grande Entreprise (Plus de 500 utilisateurs)",
         nodes: 7,
         vcpu: 88,
         ram: 352,
-        disk: 2000,
-        topo: "3x Control-Plane HA (8 vCPU / 32 Go) + 4x Workers Haute Performance (vGPU compatible)",
+        disk: 3500,
+        ragGb: 2000,
+        pvc: "2Ti",
+        ragLabel: "2 To à 5 To dédiés RAG (Millions de documents, index distribué, modèles locaux)",
+        topo: "3x Control-Plane HA (8 vCPU / 32 Go) + 4x Workers Haute Performance (16 vCPU / 64 Go / 500 Go)",
         desc: "Charge massive multi-tenant, modèles LLM locaux vLLM optionnels, stockage SAN rapide."
       }
     };
@@ -2898,6 +2926,7 @@ def get_wizard_html_page() -> str:
           <strong>Dimensionnement calculé : ${t.title}</strong><br>
           • Topologie : <strong>${t.topo}</strong><br>
           • Ressources totales requises : <strong>${t.vcpu} vCPU</strong>, <strong>${t.ram} Go RAM</strong>, <strong>${t.disk} Go SSD</strong><br>
+          • 📚 <strong>Espace RAG & Base Vectorielle inclus</strong> : <strong>${t.ragLabel}</strong> (PVC automatique <code>${t.pvc}</code>)<br>
           • Recommandation : ${t.desc}
         </div>
       `;

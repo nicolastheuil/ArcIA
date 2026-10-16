@@ -52,11 +52,11 @@ Le Wizard s'ouvre dans votre navigateur et vous propose deux parcours :
    Le Wizard propose trois cibles d'hébergement selon vos besoins :
    - **Nouveau cluster K3s sur VMware (vCenter / ESXi)** :
      - Provisionnement automatisé de machines virtuelles Debian avec initialisation K3s HA (`scripts/Deploy-VMwareCluster.ps1`).
-     - Dimensionnement matériel interactif par tranche d'utilisateurs pour garantir les performances :
-       - *Pilote (jusqu'à 20 utilisateurs)* : 1 VM All-in-One (4 vCPU, 8 Go RAM, 60 Go SSD).
-       - *PME / Équipe Métier (jusqu'à 100 utilisateurs) [Recommandé]* : 3 VMs K3s HA multi-master etcd (12 vCPU, 48 Go RAM, 300 Go SSD).
-       - *Entreprise (jusqu'à 500 utilisateurs)* : 5 VMs (3 Master HA + 2 Workers dédiés, 28 vCPU, 112 Go RAM, 700 Go SSD).
-       - *Grande Entreprise (> 500 utilisateurs)* : 7+ VMs (3 Master HA + 4+ Workers extensibles, support vGPU, 88+ vCPU, 352+ Go RAM, 2+ To).
+     - Dimensionnement matériel interactif par tranche d'utilisateurs avec **espace RAG & base vectorielle ChromaDB dédié** :
+       - *Pilote (jusqu'à 20 utilisateurs)* : 1 VM All-in-One (4 vCPU, 8 Go RAM, 100 Go SSD dont 50 Go RAG, PVC `50Gi`).
+       - *PME / Équipe Métier (jusqu'à 100 utilisateurs) [Recommandé]* : 3 VMs K3s HA multi-master etcd (12 vCPU, 48 Go RAM, 450 Go SSD total dont 200 Go RAG / index HNSW, PVC `200Gi`).
+       - *Entreprise (jusqu'à 500 utilisateurs)* : 5 VMs (3 Master HA + 2 Workers dédiés, 28 vCPU, 112 Go RAM, 1,25 To SSD dont 600 Go RAG multi-équipes, PVC `600Gi`).
+       - *Grande Entreprise (> 500 utilisateurs)* : 7+ VMs (3 Master HA + 4+ Workers extensibles, support vGPU, 88+ vCPU, 352+ Go RAM, 3,5 To SSD dont 2 To à 5 To RAG, PVC `2Ti`).
      - Test de connectivité TLS/vSphere intégré en un clic.
    - **Connexion à un environnement Kubernetes existant** :
      - Connexion via contexte `kubeconfig` local ou accès SSH distant.

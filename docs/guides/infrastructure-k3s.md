@@ -16,16 +16,25 @@ Le Setup Wizard ArcIA supporte nativement trois modes d'infrastructure adaptés 
 
 ## 2. Dimensionnement Matériel par Tranche d'Utilisateurs (VMware)
 
-Pour garantir la réactivité d'Open-WebUI, du proxy LiteLLM, du filtre Presidio DLP et des agents autonomes Hermes, l'infrastructure doit être dimensionnée selon l'effectif actif :
+Pour garantir la réactivité d'Open-WebUI, du proxy LiteLLM, du filtre Presidio DLP et des agents autonomes Hermes, l'infrastructure doit être dimensionnée selon l'effectif actif, **en intégrant spécifiquement l'espace requis pour le RAG (Retrieval-Augmented Generation)** :
 
-| Tranche d'utilisateurs | Type de Déploiement | Nombre de Nœuds | CPU / RAM / Disque par Nœud | Ressources Totales | Recommandation |
-|---|---|---|---|---|---|
-| **Jusqu'à 20 utilisateurs** | Pilote / Équipe restreinte | 1 VM All-in-One | 4 vCPU, 8 Go RAM, 60 Go SSD | 4 vCPU, 8 Go RAM, 60 Go SSD | Test rapide et qualification fonctionnelle |
-| **Jusqu'à 100 utilisateurs** | PME / Département métier | 3 VMs K3s HA (etcd) | 4 vCPU, 16 Go RAM, 100 Go SSD | 12 vCPU, 48 Go RAM, 300 Go SSD | **Configuration de référence recommandée** |
-| **Jusqu'à 500 utilisateurs** | Entreprise / Multi-filiales | 5 VMs (3 Masters + 2 Workers) | Masters : 4 vCPU / 16 Go / 100 Go<br>Workers : 8 vCPU / 32 Go / 200 Go | 28 vCPU, 112 Go RAM, 700 Go SSD | Haute disponibilité et montée en charge |
-| **Plus de 500 utilisateurs** | Grande Entreprise / Groupe | 7+ VMs (3 Masters + 4+ Workers) | Masters : 8 vCPU / 32 Go / 200 Go<br>Workers : 16 vCPU / 64 Go / 400 Go | 88+ vCPU, 352+ Go RAM, 2+ To | Déploiement extensible, support vGPU |
+### Architecture de Stockage RAG dans ArcIA
+Le RAG d'entreprise sous Open-WebUI requiert du stockage pour :
+1. **Le corpus documentaire brut** : PDFs, présentations, documents bureautiques, procédures, code source.
+2. **Le texte extrait et découpé** : Chunks de 500 à 1000 tokens avec overlap et métadonnées.
+3. **La base vectorielle ChromaDB** : Embeddings denses (ex: 1536 float32 pour `text-embedding-3-small`, ou modèles locaux 768/1024d) avec index **HNSW** (Hierarchical Navigable Small World) assurant des recherches de similarité cosinus en moins de 10 ms. L'index vectoriel consomme environ 1,5× à 2× la taille brute des vecteurs en RAM et sur disque.
+4. **Le cache local d'inférence et d'embeddings** : Poids des modèles d'embedding et SQLite `webui.db` pour l'historique et les citations.
 
-L'automatisation du provisionnement sous VMware est assurée par le script [`scripts/Deploy-VMwareCluster.ps1`](../../scripts/Deploy-VMwareCluster.ps1) ou directement orchestrée par le Wizard graphique.
+### Matrice de Dimensionnement (OS, K3s, Hermes et RAG Dédié)
+
+| Tranche d'utilisateurs | Type de Déploiement | Nœuds | CPU / RAM / Disque par VM | Ressources Totales | Espace Dédié RAG & Vecteurs | PVC `open-webui-pvc` | Recommandation |
+|---|---|---|---|---|---|---|---|
+| **Jusqu'à 20 utilisateurs** | Pilote / Équipe restreinte | 1 VM All-in-One | 4 vCPU, 8 Go RAM, 100 Go SSD | 4 vCPU, 8 Go RAM, 100 Go SSD | **50 Go dédiés** (~10 000 pages, base ChromaDB) | `50Gi` | Test rapide et qualification fonctionnelle |
+| **Jusqu'à 100 utilisateurs** | PME / Département métier | 3 VMs K3s HA (etcd) | 4 vCPU, 16 Go RAM, 150 Go SSD | 12 vCPU, 48 Go RAM, 450 Go SSD | **200 Go dédiés** (~100 000 pages, base HNSW inter-services) | `200Gi` | **Configuration de référence recommandée** |
+| **Jusqu'à 500 utilisateurs** | Entreprise / Multi-filiales | 5 VMs (3 Masters + 2 Workers) | Masters : 4 vCPU / 16 Go / 100 Go<br>Workers : 8 vCPU / 32 Go / 250 Go | 28 vCPU, 112 Go RAM, 1,25 To SSD | **600 Go dédiés** (~500 000 pages, multi-collections) | `600Gi` | Haute disponibilité, RAG hybride et charge continue |
+| **Plus de 500 utilisateurs** | Grande Entreprise / Groupe | 7+ VMs (3 Masters + 4+ Workers) | Masters : 8 vCPU / 32 Go / 200 Go<br>Workers : 16 vCPU / 64 Go / 500 Go | 88+ vCPU, 352+ Go RAM, 3,5 To SSD | **2 To à 5 To dédiés** (Millions de documents, index distribué) | `2Ti` | Déploiement extensible, support vGPU |
+
+L'automatisation du provisionnement sous VMware est assurée par le script [`scripts/Deploy-VMwareCluster.ps1`](../../scripts/Deploy-VMwareCluster.ps1) ou directement orchestrée par le Wizard graphique, qui injecte automatiquement la taille optimale du PVC `open-webui-pvc` selon la tranche sélectionnée.
 
 ---
 
