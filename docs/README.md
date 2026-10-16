@@ -1,7 +1,7 @@
 # Documentation d’ArcIA
 
 Le [README principal](../README.md) donne la vue synthétique du projet.
-L’[état de reprise](etat-reprise.md) est l’unique handoff courant. Les documents ci-dessous sont les
+L’[architecture](architecture.md) est la source de vérité technique unique du socle générique. Les documents ci-dessous sont les
 références complètes, regroupées par fonction.
 
 ## Architecture et cadrage
@@ -9,7 +9,6 @@ références complètes, regroupées par fonction.
 | Document | Portée |
 |---|---|
 | [Architecture](architecture.md) | Composants, réseau, stockage, flux et carte du code |
-| [État de reprise](etat-reprise.md) | Statut opérationnel courant et composants qualifiés |
 | [AGENTS.md](../AGENTS.md) | Instructions d'ingénierie et règles de développement |
 
 ## Guides fonctionnels
@@ -43,9 +42,7 @@ références complètes, regroupées par fonction.
 
 ## Pilotage et preuves
 
-L’[état de reprise](etat-reprise.md) résume les derniers résultats consignés et
-l’ordre de reprise.
-L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé.
+L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé. Les états de reprise, secrets et configurations particulières d'une instance appartiennent à son dépôt privé d'instance.
 
 **Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué
 à une cible désignée ; **vérifié** : scénario exécuté et preuve consignée.

@@ -38,12 +38,12 @@ Cible actuelle : trois VM Debian K3s sur VMware avec stockage partagé (ou Docke
 - Reporter toute correction manuelle dans Git avant livraison.
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - Résultats distingués : proposé, codé, déployé, vérifié. Ne jamais annoncer un test non exécuté.
-- Maintenir un état de reprise en fichiers, sans dépendre de la mémoire du chat.
-- `docs/etat-reprise.md` est l’unique handoff courant, mis à jour en place ; ne pas créer de nouveaux `handoff-*.md`. Vérifier les liens avec `scripts/validate_docs.py`.
+- Maintenir le harness strictement générique : les configurations, secrets et états de reprise d’une instance appartiennent à son dépôt d’instance privé.
+- Ne pas polluer le harness générique avec des journaux de déploiement d’instance. Vérifier les liens avec `scripts/validate_docs.py`.
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 
 ## Bootstrap évolutif obligatoire
 - `scripts/deploy-arcia.sh`, `scripts/Deploy-ArcIA.ps1` et `arcia.config.yaml` décrivent le parcours jusqu’à l’état courant de qualification.
-- Toute évolution de composant, outil, service, secret requis ou migration met à jour le déploiement, ses manifestes, ses contrôles de couverture, le runbook et le handoff dans le même lot sur main.
+- Toute évolution de composant, outil, service, secret requis ou migration met à jour le déploiement, ses manifestes, ses contrôles de couverture et le runbook dans le même lot sur main.
 - Préserver les identités et volumes existants à la réapplication ; une étape réussie dans un ancien journal ne dispense jamais de vérifier la cible actuelle.
 - Distinguer déploiement codé, réapplication vérifiée et reconstruction sur cluster neuf exécutée. Une CI synthétique ne vaut pas une recette VMware neuve.

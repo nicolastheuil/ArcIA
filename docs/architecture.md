@@ -98,5 +98,4 @@ Pour approfondir chaque brique :
 - [Outillage Agentique & Sobriété (Ponytail, Graphify, Public-APIs)](guides/outillage-builder.md)
 - [Moteur de Déploiement Universel Kubernetes](guides/deploiement-universel.md)
 - [Infrastructure K3s & Exploitation](guides/infrastructure-k3s.md)
-- [Suivi d'Exploitation & Handoff Opérationnel](etat-reprise.md)
 

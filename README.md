@@ -35,7 +35,6 @@ Elle offre aux collaborateurs une interface de chat web moderne (**Open-WebUI**)
 | ☸️ **Infrastructure & K3s** | Cluster 3 nœuds VMware, StorageClass CSI et certificats Let's Encrypt | 📖 [docs/guides/infrastructure-k3s.md](docs/guides/infrastructure-k3s.md) |
 | 🎨 **Identité Visuelle & DA** | Charte Dark Mode, logos vectoriels aIA, manifest Teams et assets Inno Setup | 📁 [assets/](assets/) & [assets/branding/palette.json](assets/branding/palette.json) |
 | 🛠️ **Runbook d'Exploitation** | Commandes d'administration, consultation des logs et maintenance | 📖 [docs/runbooks/exploitation.md](docs/runbooks/exploitation.md) |
-| 📋 **Suivi & Handoff** | Journal d'exécution, état de qualification et prochaines étapes | 📖 [docs/etat-reprise.md](docs/etat-reprise.md) |
 
 ---
 
@@ -142,6 +141,100 @@ flowchart TD
 
 ---
 
+## 🔀 Architecture de Routage IA : Imbrication LiteLLM, OmniRoute & BYOK Collaborateur
+
+L'un des défis majeurs d'une plateforme IA d'entreprise est de concilier **la gouvernance stricte des données et des budgets** avec **la liberté d'innovation des power users**. ArcIA résout cette équation grâce à une architecture de routage en couches étanches, combinant **LiteLLM Proxy**, **OmniRoute v3.8.51** et le mécanisme **BYOK (Bring Your Own Key)** intégré à **Open-WebUI**.
+
+```mermaid
+flowchart TD
+    subgraph Users ["👥 Profils Utilisateurs & Usages"]
+        StandardUser["Collaborateur Standard<br/>(Interface Web & Teams)"]
+        PowerUser["Power User / Développeur<br/>(BYOK Clé Personnelle)"]
+        AdminUser["Administrateur Plateforme<br/>(Pilotage Quotas & Coûts)"]
+    end
+
+    subgraph WebUI ["💻 Portail Collaborateur Open-WebUI (:8080)"]
+        DefaultChat["Chat d'Entreprise Standard<br/>(Modèles Managés de l'Organisation)"]
+        BYOKSettings["Paramètres Utilisateur BYOK<br/>(Clés OpenAI, Anthropic, Gemini, Mistral)"]
+        DirectConn["Connexions Directes Actives<br/>(ENABLE_DIRECT_CONNECTIONS=true)"]
+    end
+
+    subgraph CoreRouting ["🛡️ Socle de Routage & Sécurité d'Entreprise (Namespace arcia)"]
+        LiteLLMProxy["LiteLLM Proxy (:4000)<br/>Passerelle Centrale Managée<br/>Modèle Virtuel 'auto' & Fallbacks"]
+        PresidioDLP["Presidio DLP (:8080)<br/>Guardrail Pre-Call Obligatoire<br/>Caviardage Secrets, Mots de Passe & PII"]
+        OmniRouteRouter["OmniRoute v3.8.51 (:20128)<br/>Routeur Optionnel & Dashboard LAN<br/>Combos auto/smart, auto/coding, Pools"]
+        HermesEngine["Hermes Agent v0.2 (:8642 / :9119)<br/>Moteur Agentique Autonome & Studio<br/>Plugin Tokenmaxing & Skills"]
+    end
+
+    subgraph Providers ["☁️ Fournisseurs de Modèles (Cloud & Local)"]
+        OpenRouterAPI["OpenRouter d'Entreprise<br/>(Claude 3.5 Sonnet, DeepSeek, GPT-4o)"]
+        PrivateCloud["Cloud Direct Privé<br/>(Clés API Personnelles Collaborateurs)"]
+        LocalVLLM["Moteur Local vLLM / Ollama<br/>(Modèles Souverains On-Premise)"]
+    end
+
+    StandardUser -->|Requête Standard| DefaultChat
+    PowerUser -->|Configuration Clé Perso| BYOKSettings
+    AdminUser -->|Pilotage Combos & Quotas| OmniRouteRouter
+
+    BYOKSettings --> DirectConn
+    DirectConn -->|Inférence Directe Isolée| PrivateCloud
+
+    DefaultChat -->|Modèle auto, claude, deepseek| LiteLLMProxy
+    DefaultChat -->|Modèle hermes-agent| HermesEngine
+
+    HermesEngine -->|Inférence Agentique| LiteLLMProxy
+
+    LiteLLMProxy -->|Interception Pré-Vol Obligatoire| PresidioDLP
+    PresidioDLP -->|Prompt Assaini & Anonymisé| LiteLLMProxy
+
+    LiteLLMProxy -->|Routage Central Managé| OpenRouterAPI
+    LiteLLMProxy -.->|Upstream Optionnel Combos| OmniRouteRouter
+    LiteLLMProxy -.->|Inférence On-Premise| LocalVLLM
+
+    OmniRouteRouter -->|Exécution Combos & Failover| OpenRouterAPI
+```
+
+### 1. Les 4 Briques de Routage et leur Imbrication Précise
+
+#### A. Portail Open-WebUI & BYOK Collaborateur (`ENABLE_DIRECT_CONNECTIONS=true`)
+Open-WebUI est configuré out-of-the-box avec deux canaux d'inférence simultanés :
+- **Canal Managé d'Entreprise** : Par défaut, tous les collaborateurs envoient leurs requêtes vers `litellm-proxy:4000`. Les modèles d'entreprise disponibles (`auto`, `claude-3.5-sonnet`, `deepseek-chat`, `gpt-4o`) sont pré-configurés et facturés sur le compte central de l'organisation.
+- **Canal BYOK (Bring Your Own Key) & OAuth Direct** : Grâce à l'activation native de `ENABLE_DIRECT_CONNECTIONS=true`, tout utilisateur (ingénieur, chercheur, chef de projet) peut renseigner ses propres clés d'API (OpenAI, Anthropic, Mistral, Google Gemini, Groq, etc.) directement dans son profil utilisateur (**Paramètres > Connexions**).
+  - *Isolation Totale* : La clé personnelle est chiffrée dans la session utilisateur sur la base `webui.db` et n'est jamais exposée aux autres collaborateurs ni aux journaux du cluster.
+  - *Autonomie Budgétaire* : L'utilisateur consomme son propre quota ou abonnement personnel pour des besoins spécifiques ou expérimentaux sans impacter l'enveloppe budgétaire de l'entreprise.
+
+#### B. LiteLLM Proxy (`:4000`) : Le Pivot Central Souverain avec Bouclier DLP
+LiteLLM constitue le point névralgique de toute l'infrastructure d'inférence managée :
+- **Guardrail Presidio DLP en Interception Pré-Vol (`pre_call_rules`)** : Avant tout départ de requête vers un fournisseur externe (OpenRouter, OpenAI, Anthropic), le payload est intercepté en coupure par `presidio-dlp:8080`. Les secrets, clés d'API, mots de passe, adresses email et numéros de cartes sont caviardés en direct (`[ARCIA_EMAIL_1]`, `[ARCIA_SECRET_1]`).
+- **Modèle Virtuel Intelligent `auto`** : Les utilisateurs interrogent le modèle `auto`. LiteLLM applique dynamiquement la meilleure stratégie de coût/performance (ex: DeepSeek V4.1 Flash pour les requêtes courantes, Claude 3.5 Sonnet pour le code complexe) et bascule automatiquement sur un repli sans interruption en cas d'indisponibilité d'un fournisseur.
+- **Routage On-Premise (Optionnel)** : LiteLLM peut également adresser des serveurs vLLM ou Ollama locaux déployés sur le réseau d'entreprise pour un traitement 100% hors-ligne.
+
+#### C. OmniRoute v3.8.51 (`:20128`) : L'Orchestrateur & Routeur Avancé LAN (Optionnel)
+OmniRoute est une brique complémentaire activable à la demande (Étape 9 du Setup Wizard ou `omniroute.enabled: true`) :
+- **Portail d'Administration LAN Dédié (`:20128/dashboard`)** : Offre aux administrateurs une console visuelle moderne pour observer les flux, auditer la latence, mesurer les coûts par modèle et superviser l'ensemble des clés en rotation.
+- **Combos Intelligents Dynamiques** : Permet de créer graphiquement des chaînes de repli multi-fournisseurs avancées (`auto/smart` pour la recherche avancée, `auto/coding` pour le génie logiciel, `auto/cheap` pour minimiser les dépenses).
+- **Raccordement comme Fournisseur Amont (*Upstream*)** : OmniRoute peut être positionné derrière LiteLLM (`api_base: http://omniroute.arcia.svc:20128/v1`). Dans cette topologie, **LiteLLM effectue d'abord le caviardage DLP Presidio**, puis transmet le prompt sain à OmniRoute qui exécute ensuite sa logique de répartition de charge et de rotation de clés d'équipe.
+
+#### D. Hermes Agent (`:9119` / `:8642`) : L'Agent d'Élite Raccordé au Chat Collaborateur
+Le moteur d'agents Hermes s'intègre harmonieusement dans cette matrice :
+- **Consommateur d'Inférence** : Hermes envoie tous ses appels LLM (plans de tâches, raisonnement, outillage) à travers `litellm-proxy:4000`, bénéficiant ainsi du caviardage DLP et de la compression contextuelle du plugin ArcIA Tokenmaxing (`arcia_tokenmaxing.py`).
+- **Fournisseur de Modèle pour Open-WebUI** : Hermes expose son API compatible OpenAI sur le port `:8642/v1`. Open-WebUI y est connecté en direct via `OPENAI_API_BASE_URLS="http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"`.
+- **Expérience Utilisateur Unifiée** : Dans le menu déroulant des modèles d'Open-WebUI, le modèle **`hermes-agent`** est disponible au même titre que `auto` ou `claude-3.5-sonnet`. Le collaborateur peut donc converser avec un modèle statique OU déléguer une tâche complexe à l'agent autonome Hermes sans quitter son interface habituelle.
+
+---
+
+### 2. Matrice Récapitulative des Profils et Flux de Routage
+
+| Profil / Usage | Point d'Entrée | Composant de Routage | Protection DLP Active | Source de Facturation |
+|---|---|---|---|---|
+| **Collaborateur Standard** | Open-WebUI / Teams | `litellm-proxy:4000` | ✅ Presidio DLP obligatoire | Compte d'entreprise managé (OpenRouter) |
+| **Power User / Développeur** | Open-WebUI (BYOK) | Connexion Directe WebUI | 🔒 Clé privée isolée | Clé API personnelle ou OAuth utilisateur |
+| **Agent Autonome Hermes** | Hermes Studio / Gateway | `litellm-proxy:4000` | ✅ Presidio DLP + Tokenmaxing | Compte d'entreprise managé (OpenRouter) |
+| **Collaborateur via Hermes** | Open-WebUI (`hermes-agent`) | `hermes-studio:8642` → `litellm:4000` | ✅ Presidio DLP + Tokenmaxing | Compte d'entreprise managé |
+| **Routage Multi-Fournisseurs LAN** | API OmniRoute / Admin LAN | `omniroute:20128` (Upstream LiteLLM) | ✅ Préservée si en amont LiteLLM | Pools de clés et abonnements configurés dans OmniRoute |
+
+---
+
 ## 📦 Organisation du Répertoire
 
 ```
@@ -183,7 +276,6 @@ arcia/
 │   └── arcia.env               # Fichier de secrets réels (strictement ignoré par Git)
 └── docs/                       # Documentation exhaustive du projet
     ├── architecture.md         # Spécification détaillée de l'architecture
-    ├── etat-reprise.md         # Journal d'exploitation et handoff unique
     ├── guides/                 # Guides techniques par composant
     └── runbooks/               # Procédures opérationnelles et d'urgence
 ```

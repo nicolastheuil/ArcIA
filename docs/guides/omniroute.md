@@ -18,8 +18,7 @@ manifests imposent un seul écrivain et deux PVC RWOP
 réapplication conserve clés, mot de passe modifié et volumes ; une modification
 de runtime nécessite une migration administrative explicite.
 
-Le serveur et le portail LAN sont codés dans le bootstrap ; leurs résultats
-de déploiement sont consignés dans [l'état courant](../etat-reprise.md).
+Le serveur et le portail LAN sont intégrés dans les manifestes déclaratifs et le moteur de déploiement.
 La bibliothèque de politique contrôle mode, rôle, propriétaire et classe
 de route. **Le raccordement générique Hermes → OmniRoute, les fournisseurs
 personnels dans le portail utilisateur sont codés et restent à qualifier ; les routes internes restent à intégrer/qualifier.** Le pilote conserve son relais historique filtré tant
@@ -217,7 +216,7 @@ perte d'une clé peut rendre les connexions irrécupérables. Tester restauratio
 rotation et refus d'un second propriétaire avant une release. Le runtime
 SQLite unique ne devient pas HA parce que les trois relais TLS sont présents.
 [Sauvegarde/reconstruction](../runbooks/sauvegarde-reconstruction.md) ·
-[Architecture](../architecture.md) · [État de reprise](../etat-reprise.md).
+[Architecture](../architecture.md).
 
 La synchronisation cloud native est désactivée et relue après application,
 avec la route officielle `POST /api/sync/cloud` limitée à `action=disable`.
@@ -225,6 +224,6 @@ Cette opération exige l'absence d'URL cloud et n'effectue aucun appel cloud.
 Les routes de synchronisation, tunnel et login OIDC global restent fermées sur
 le relais LAN ; le mot de passe admin existant est préservé.
 
-L'état de qualification opérationnelle du service est documenté dans [l'état de reprise](../etat-reprise.md).
+La qualification opérationnelle du service est assurée par le script de test automatique (`scripts/test-validation.sh`).
 La compatibilité des endpoints fournisseurs, les quotas, le débit payant et
 le streaming token par token ne sont pas attestés par cette recette.
