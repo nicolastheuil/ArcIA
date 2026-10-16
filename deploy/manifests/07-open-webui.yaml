@@ -64,11 +64,11 @@ spec:
         - name: OPENAI_API_BASE_URLS
           value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
         - name: OPENAI_API_KEYS
-          value: "$(LITELLM_MASTER_KEY);$(HERMES_API_TOKEN)"
+          value: "sk-arcia-openwebui-direct-token;$(HERMES_API_TOKEN)"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEY
-          value: "$(LITELLM_MASTER_KEY)"
+          value: "sk-arcia-openwebui-direct-token"
         - name: ENABLE_OLLAMA_API
           value: "false"
         - name: ENABLE_OPENAI_API

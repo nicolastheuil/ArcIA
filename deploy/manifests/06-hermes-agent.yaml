@@ -33,12 +33,6 @@ data:
             model: "simple/auto"
           agentic/deepseek-v4.1-flash:
             model: "openrouter/deepseek/deepseek-v4.1-flash"
-          arcia/free:
-            model: "simple/free"
-          arcia/auto:
-            model: "simple/auto"
-          arcia/expert:
-            model: "openrouter/deepseek/deepseek-v4.1-flash"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

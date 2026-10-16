@@ -45,14 +45,14 @@ data:
     platforms:
       api_server:
         direct_model_requests: true
-        model_name: "arcia/auto"
+        model_name: "agentic/auto"
         model_routes:
-          arcia/free:
-            model: "arcia/free"
-          arcia/auto:
-            model: "arcia/auto"
-          arcia/expert:
-            model: "arcia/expert"
+          agentic/free:
+            model: "simple/free"
+          agentic/auto:
+            model: "simple/auto"
+          agentic/deepseek-v4.1-flash:
+            model: "openrouter/deepseek/deepseek-v4.1-flash"
   SOUL.md: |
 {{SOUL_CONTENT_INDENTED}}
   USER.md: |

@@ -158,6 +158,22 @@ spec:
             port: 4000
           initialDelaySeconds: 20
           periodSeconds: 15
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                python3 -c '
+                import urllib.request, json, os, time
+                time.sleep(5)
+                k = os.environ.get("LITELLM_MASTER_KEY")
+                payload = json.dumps({"key": "sk-arcia-openwebui-direct-token", "key_alias": "openwebui-frontend-token", "models": ["simple/free", "simple/auto"]}).encode()
+                req = urllib.request.Request("http://localhost:4000/key/generate", data=payload, headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"})
+                try: urllib.request.urlopen(req)
+                except Exception: pass
+                ' &
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml
