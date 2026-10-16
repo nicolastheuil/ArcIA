@@ -72,7 +72,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: litellm-secret\n              key: master-key', content)
 
     def test_ingress_v1_rate_limited(self):
-        """Vérifie que l'Ingress /v1 est séparé et protégé par le middleware RateLimit et que LiteLLM UI est exposé."""
+        """Vérifie que l'Ingress /v1 est séparé et protégé par le middleware RateLimit et que LiteLLM UI n'est pas exposé sur l'Ingress public."""
         ingress_path = os.path.join(self.manifests_dir, "04-ingress.yaml")
         with open(ingress_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -80,8 +80,9 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("name: arcia-v1-ingress", content)
         self.assertIn("arcia-litellm-ratelimit@kubernetescrd", content)
         self.assertIn("name: litellm-ratelimit", content)
-        self.assertIn("name: arcia-litellm-ui-ingress", content)
-        self.assertIn("path: /ui", content)
+        # L'interface graphique LiteLLM ne doit PAS être exposée sur Internet
+        self.assertNotIn("arcia-litellm-ui-ingress", content)
+        self.assertNotIn("path: /ui", content)
 
     def test_teams_bot_health_probes(self):
         """Vérifie que les sondes de Teams Bot ciblent /healthz et non /api/teams/messages."""
