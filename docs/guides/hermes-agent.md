@@ -12,8 +12,10 @@ Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'ex
   - Interface visuelle de pilotage de missions en mode **Kanban**.
   - Visualisation des réflexions (CoT), appels d'outils et sous-agents.
   - Protégé par une barrière d'authentification native et ForwardAuth Entra ID.
-- **Hermes Gateway & API Server (port 8642)** :
-  - Serveur WebSocket & HTTP permettant de connecter le client lourd natif **Hermes Desktop**.
+- **Hermes Gateway & API Server (port 8642) — Backend Exclusif Open-WebUI** :
+  - Expose une API standardisée compatible OpenAI (`/v1`).
+  - **Zéro Bypass Open-WebUI** : Open-WebUI se connecte exclusivement sur cette passerelle. Chaque conversation web devient une session agentique autonome avec historique stocké dans `state.db`, mémoire et accès aux skills (outils de recherche web, appels d'APIs publiques).
+  - Expose strictement les 3 modèles canoniques : `arcia/free`, `arcia/auto` (défaut), `arcia/expert`.
 - **Mode Local Power User (N3) via `/v1`** :
   - Permet aux développeurs d'exécuter Hermes ou leur IDE localement sur leur machine tout en bénéficiant de l'inférence managée, du caviardage DLP et du budget d'entreprise via une clé virtuelle LiteLLM (PAT).
 - **Persistance Dédiée (PVC 20Gi)** :
@@ -26,16 +28,28 @@ Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'ex
 Le déploiement Kubernetes est géré par [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml).
 
 ### Configuration Native (`~/.hermes/config.yaml`) :
-Contrairement aux variables génériques OpenAI, Hermes Agent utilise son fichier de configuration officiel projeté via ConfigMap :
+Hermes Agent utilise son fichier de configuration officiel projeté via ConfigMap :
 
 ```yaml
 model:
   provider: custom
   base_url: http://litellm-proxy.arcia.svc:4000/v1
-  default: arcia/standard
+  default: arcia/auto
+  key_env: OPENAI_API_KEY
 agent:
   auto_approve_safe_commands: true
   max_iterations: 30
+platforms:
+  api_server:
+    direct_model_requests: true
+    model_name: "arcia/auto"
+    model_routes:
+      arcia/free:
+        model: "arcia/free"
+      arcia/auto:
+        model: "arcia/auto"
+      arcia/expert:
+        model: "arcia/expert"
 ```
 
 ---
@@ -53,7 +67,7 @@ L'agent local ou l'IDE est configuré pour utiliser la passerelle d'entreprise e
 # Variables d'environnement pour Hermes local ou client compatible OpenAI
 export OPENAI_BASE_URL="https://assistant.example.org/v1"
 export OPENAI_API_KEY="<VOTRE_PAT_LITELLM_NOMINATIF>"
-export OPENAI_MODEL_NAME="arcia/standard"  # ou arcia/expert, arcia/reasoning
+export OPENAI_MODEL_NAME="arcia/auto"  # ou arcia/expert, arcia/free
 ```
 
 ### 3.2 Émission du Jeton Personnel (PAT)

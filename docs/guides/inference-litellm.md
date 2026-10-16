@@ -12,9 +12,9 @@ LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises pa
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
    - Route les demandes vers les moteurs configurés par l'organisation (fournisseurs Cloud avec ZDR forcée ou backends locaux souverains).
 2. **Catalogue Épuré à 3 Paliers Canoniques** :
-   - **`arcia/standard`** *(Défaut)* : Modèle polyvalent, rapide et économique pour tous collaborateurs (N1, N2, N3).
-   - **`arcia/expert`** : Modèle agentique de pointe pour l'expertise métier, l'architecture logicielle et le code complexe.
-   - **`arcia/reasoning`** : Modèle de réflexion profonde pour l'analyse critique, la planification et la logique formelle.
+   - **`arcia/free`** : Découverte et qualification sans coût via OpenRouter Free (`openrouter/openrouter/free`).
+   - **`arcia/auto`** *(Défaut)* : Routage automatique intelligent équilibrant performance et coût (`openrouter/auto`).
+   - **`arcia/expert`** : Modèle de pointe pour l'expertise métier, l'architecture logicielle et les requêtes dynamiques (`openrouter/*`).
    > **Note d'agnosticisme & Souscriptions :** ArcIA est un harness d'entreprise agnostique. Sans souscription API ni moteur d'inférence local configuré sur l'instance, aucun modèle n'est actif. Les 3 paliers ci-dessus constituent un contrat d'interface virtuel que chaque instance mappe vers ses propres fournisseurs (Azure OpenAI, AWS Bedrock, Mistral AI, OpenRouter) ou ses propres serveurs GPU on-premise (vLLM, Ollama).
 3. **Persistance Relationnelle & Base Comptable (`litellm-db`)** :
    - Base de données PostgreSQL 16 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
@@ -35,44 +35,60 @@ Le service est déployé via :
 
 ## 3. Configuration du Routage v0.3
 
-Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice initiale de modèles de l'instance (exemple d'illustration avec routage Cloud ZDR) :
+Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice initiale de modèles de l'instance :
 
 ```yaml
 model_list:
-  - model_name: "arcia/standard"
+  # 1. Palier Gratuit : Découverte et qualification sans coût
+  - model_name: "arcia/free"
     litellm_params:
-      model: openrouter/anthropic/claude-3-5-haiku
+      model: openrouter/openrouter/free
       api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          zdr: true
 
+  # 2. Palier Auto (Défaut) : Routage automatique intelligent
+  - model_name: "arcia/auto"
+    litellm_params:
+      model: openrouter/auto
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # 3. Palier Expert : Choix dynamique de modèle ou auto
   - model_name: "arcia/expert"
     litellm_params:
-      model: openrouter/anthropic/claude-3.7-sonnet
+      model: openrouter/auto
       api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          zdr: true
 
-  - model_name: "arcia/reasoning"
+  # 4. Modèles dynamiques OpenRouter (pour sélection libre par l'expert dans le prompt)
+  - model_name: "openrouter/*"
     litellm_params:
-      model: openrouter/deepseek/deepseek-r1
+      model: "openrouter/*"
       api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          zdr: true
 
 router_settings:
   fallbacks:
-    - "arcia/standard": ["arcia/expert"]
-    - "arcia/expert": ["arcia/standard"]
-    - "arcia/reasoning": ["arcia/expert"]
+    - "arcia/free": ["arcia/auto"]
+    - "arcia/auto": ["arcia/expert"]
+    - "arcia/expert": ["arcia/auto"]
   model_group_alias:
-    "ArcIA-Agentic (auto)": "arcia/standard"
-    "ArcIA-Agentic (expert)": "arcia/expert"
-    "auto": "arcia/standard"
-    "hermes-agent": "arcia/standard"
+    "arcia/standard":
+      model: "arcia/auto"
+      hidden: true
+    "arcia/reasoning":
+      model: "arcia/expert"
+      hidden: true
+    "auto":
+      model: "arcia/auto"
+      hidden: true
+    "hermes-agent":
+      model: "arcia/auto"
+      hidden: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+
+litellm_settings:
+  drop_params: true
 ```
 
 ---
@@ -104,9 +120,9 @@ La connexion requiert la **Master Key** cryptographique générée au déploieme
 Grâce à `store_model_in_db: true`, les modèles peuvent être réassignés en direct dans la base de données sans modifier de fichier YAML ni redémarrer de Pod :
 
 1. Accédez à **Models + Endpoints** > **+ Add Model**.
-2. Renseignez l'alias d'entreprise dans **Model Name** (ex: `arcia/standard`).
+2. Renseignez l'alias d'entreprise dans **Model Name** (ex: `arcia/auto` ou `arcia/vision`).
 3. Spécifiez le modèle amont dans **LiteLLM Model Name** (ex: `openrouter/auto`, `azure/gpt-4o`, ou endpoint souverain local `openai/vllm-model`).
-4. Forcez le Zéro Data Retention dans **Extra Body** :
+4. Forcez le Zéro Data Retention dans **Extra Body** (si fournisseur cloud) :
    ```json
    {
      "provider": {
@@ -114,8 +130,9 @@ Grâce à `store_model_in_db: true`, les modèles peuvent être réassignés en 
      }
    }
    ```
-5. Définissez la chaîne de repli dans **Fallback Models** (ex: `["arcia/expert"]`).
-6. Cliquez sur **Save** : le modèle porte le badge *Database* et devient immédiatement actif pour Open-WebUI, Hermes Agent et Teams.
+5. Définissez la chaîne de repli dans **Fallback Models** (ex: `["arcia/auto"]`).
+6. Cliquez sur **Save** : le modèle porte le badge *Database* et devient immédiatement actif pour LiteLLM, Hermes Agent et Teams.
+7. **Exposition dans Open-WebUI (Zéro Bypass Hermes)** : Rappelez-vous qu'Open-WebUI ne dialogue jamais en direct avec LiteLLM. Pour rendre ce nouveau modèle disponible dans la liste déroulante des utilisateurs Open-WebUI, ajoutez son alias dans `platforms.api_server.model_routes` de Hermes Agent ([06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml)) et rechargez l'agent. Voir la [Chaîne de Routage](chaine-de-routage.md#5-comment-modifier-ou-ajouter-des-modèles-sans-contourner-hermes).
 
 ---
 

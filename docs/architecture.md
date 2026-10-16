@@ -10,18 +10,17 @@ ArcIA est la plateforme d'IA agentique souveraine d'entreprise conçue pour conc
 
 1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
 2. **Niveaux d'Autonomie Explicites (N1, N2, N3)** :
-   - **N1 — Collaborateur** : Open-WebUI et Microsoft Teams, modèle `arcia/standard`, budget d'équipe partagé.
-   - **N2 — Expert** : Open-WebUI avec modèles `standard` et `expert`, RAG d'entreprise et outils validés.
+   - **N1 — Collaborateur & N2 — Expert (Open-WebUI)** : Open-WebUI est strictement le frontal conversationnel. Tous les chats sont acheminés exclusivement vers **Hermes Agent** (`:8642`). Les collaborateurs disposent des 3 paliers génériques (`arcia/free`, `arcia/auto` par défaut, `arcia/expert` avec sélection dynamique par `/model`), exécutés avec toute la puissance outillée (skills, AST, web, bash, RAG).
    - **N3 — Power User** : Accès direct à la passerelle `/v1` via clé virtuelle LiteLLM nominative (PAT), budgets individuels, et moteur d'agents Hermes Agent.
 3. **Bouclier DLP Presidio Fail-Closed** : Aucun prompt ne sort vers un modèle cloud externe sans caviardage strict des adresses IP, secrets techniques, téléphones, IBAN et PII. En cas d'indisponibilité du module DLP, la requête est rejetée net.
 4. **Passerelle d'Inférence Unique & Base Comptable (`litellm-db`)** :
-   - Catalogue à 3 paliers fixes : `arcia/standard` (défaut économique), `arcia/expert` (agents et raisonnement approfondi), `arcia/reasoning` (résolution critique).
-   - Zéro Rétention de Données (ZDR) forcée sur OpenRouter.
+   - Catalogue virtuel d'entreprise : `arcia/free` (OpenRouter Free), `arcia/auto` (OpenRouter Auto intelligent), `arcia/expert` (modèles avancés et sélection dynamique `openrouter/*`).
+   - Zéro Rétention de Données (ZDR) et `drop_params: true` pour harmonisation universelle des paramètres.
    - Persistance PostgreSQL des clés virtuelles, budgets et équipes.
-5. **Intégration Microsoft Teams Native** : Bot applicatif certifié Bot Framework connecté sur le palier `arcia/standard` pour les conversations 1:1 et canaux d'équipe.
-6. **Suppression des Fuites BYOK** : Les connexions directes navigateur-fournisseur sont désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), garantissant la couverture DLP et budgétaire sur 100 % des flux.
+5. **Intégration Microsoft Teams Native** : Bot applicatif certifié Bot Framework connecté sur la passerelle pour les conversations 1:1 et canaux d'équipe.
+6. **Suppression des Fuites BYOK & Zéro Bypass Hermes** : Les connexions directes navigateur-fournisseur sont désactivées (`ENABLE_DIRECT_CONNECTIONS=false`). Open-WebUI n'a aucune permission réseau directe vers LiteLLM.
 7. **Verrouillage Strict du Portail Open-WebUI** : Inscription publique désactivée (`ENABLE_SIGNUP=false`), rôle par défaut fixé en utilisateur standard (`DEFAULT_USER_ROLE=user`), contrôle des modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`), et authentification obligatoire (`WEBUI_AUTH=true`). Seuls les utilisateurs authentifiés via Microsoft 365 / Entra ID SSO ou des comptes administrateurs créés manuellement peuvent accéder au portail.
-8. **Isolation Réseau & Bouclier Inter-Pods (NetworkPolicies)** : Politique `DenyAll` par défaut limitant strictement les communications intra-namespace aux flux autorisés (WebUI/Teams/Hermes vers LiteLLM, LiteLLM vers Presidio et PostgreSQL, et egress HTTPS vers OpenRouter / Entra ID).
+8. **Isolation Réseau & Bouclier Inter-Pods (NetworkPolicies)** : Politique `DenyAll` par défaut limitant strictement les communications intra-namespace aux flux autorisés (WebUI vers Hermes :8642 uniquement, Hermes vers LiteLLM :4000 et egress HTTPS :443, LiteLLM vers Presidio et PostgreSQL).
 9. **Protection Ingress & Limitation de Débit** : Séparation de la route `/v1` d'inférence protégée par un middleware Traefik de RateLimiting pour éviter tout déni de service ou surconsommation budgétaire.
 
 ---
@@ -44,16 +43,16 @@ flowchart TD
     end
 
     subgraph ArcIANamespace ["☸️ Cluster K3s — Namespace: arcia"]
-        WebUI["Open-WebUI<br/>(Port 8080 / PVC 20Gi)"]
+        WebUI["Open-WebUI<br/>(Port 8080 / PVC 50Gi)<br/>• Catalogue 3 modèles filtré<br/>• Connexion exclusive Hermes"]
         TeamsBot["Teams Bot Adapter<br/>(Port 3978)"]
-        HermesCore["Hermes Agent Runtime<br/>Studio (9119) & Gateway (8642)<br/>(PVC 20Gi)"]
+        HermesCore["Hermes Agent Runtime<br/>Studio (9119) & Gateway (8642)<br/>(PVC 20Gi / SQLite state.db)"]
         Presidio["Presidio DLP (Fail-Closed)<br/>(Port 8080 - Caviardage Secrets, IP, PII)"]
-        LiteLLM["LiteLLM Proxy<br/>(Port 4000 - 3 Paliers & Quotas)"]
+        LiteLLM["LiteLLM Proxy<br/>(Port 4000 - Inférence, Quotas & DropParams)"]
         LiteLLMDB[("LiteLLM DB PostgreSQL<br/>(Port 5432 - Clés virtuelles & Budgets)")]
     end
 
     subgraph CloudLayer ["☁️ Services Externes Sécurisés"]
-        OpenRouter["OpenRouter API<br/>(Standard, Expert, Reasoning - ZDR forcé)"]
+        OpenRouter["OpenRouter API<br/>(Free, Auto, Expert / Wildcard)"]
         EntraID["Microsoft Entra ID<br/>(SSO & MFA)"]
         AzureBot["Azure Bot Framework<br/>(DirectLine / Graph)"]
     end
@@ -74,14 +73,15 @@ flowchart TD
     Traefik -->|Accès Portail /| WebUI
     Traefik -->|Bypass Auth Webhook| TeamsBot
 
-    WebUI -->|Requête Inférence| LiteLLM
+    WebUI -->|Sessions & Prompts Agentiques :8642 (Zéro Bypass)| HermesCore
     TeamsBot -->|Requête Inférence| LiteLLM
-    HermesCore -->|Requête Inférence| LiteLLM
+    HermesCore -->|Inférence LLM :4000| LiteLLM
+    HermesCore -->|Outils Web HTTPS :443 (API Gouv, Search...)| CloudLayer
 
     LiteLLM <--> LiteLLMDB
     LiteLLM -->|Filtrage Pré-Inférence Fail-Closed| Presidio
     Presidio -->|Prompt Caviardé| LiteLLM
-    LiteLLM -->|Prompt Caviardé ZDR| OpenRouter
+    LiteLLM -->|Inférence Cloud Sécurisée| OpenRouter
 ```
 
 ---
@@ -91,10 +91,10 @@ flowchart TD
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
 |---|---|---|---|---|---|
-| **Open-WebUI** | `ghcr.io/open-webui/open-webui:main` | `8080` | `/` (SSO O365 / Admin local) | PVC 20Gi (`open-webui-pvc`) | Interface web conversationnelle verrouillée (signup désactivé, rôle user par défaut pour les profils autorisés, sans contournement direct) |
+| **Open-WebUI** | `ghcr.io/open-webui/open-webui:main` | `8080` | `/` (SSO O365 / Admin local) | PVC 50Gi (`open-webui-pvc`) | Interface web conversationnelle connectée exclusivement à Hermes Agent (:8642) |
 | **Hermes Studio** | `nousresearch/hermes-agent:latest` | `9119` | `/studio` (Protégé SSO) | PVC 20Gi (`hermes-user-pvc`) | Observabilité Kanban, sessions, multi-agents |
-| **Hermes Gateway** | `nousresearch/hermes-agent:latest` | `8642` | `/gateway` (Protégé PAT) | - | WebSocket & API pour Hermes Desktop |
-| **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle interactive Microsoft Teams connectée sur `arcia/standard` |
+| **Hermes Gateway** | `nousresearch/hermes-agent:latest` | `8642` | `/gateway` (Protégé PAT) | Partagé PVC 20Gi (`state.db`) | Passerelle API :8642 /v1 (Backend exclusif Open-WebUI) & WebSocket Desktop |
+| **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle interactive Microsoft Teams connectée sur `arcia/auto` |
 | **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.61.16` | `4000` | `/v1` (Public PAT + RateLimit) | Stateless | Passerelle LLM, routage 3 paliers, fallbacks et gestion des clés virtuelles |
 | **LiteLLM DB** | `postgres:16-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
 | **Presidio DLP** | `python:3.11-slim` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII |

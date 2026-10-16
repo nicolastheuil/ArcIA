@@ -18,17 +18,23 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
   - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès strict par rôle et niveau d'autonomie (N1 Collaborateur, N2 Expert, N3 Power User).
   - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` : Fusion transparente et automatique des comptes SSO Microsoft Entra ID avec les comptes existants partageant la même adresse email vérifiée au sein du tenant d'organisation.
 
-- **Raccordement Exclusif sur LiteLLM Proxy** :
-  - `http://litellm-proxy.arcia.svc:4000/v1` : Authentifié via le secret d'infrastructure `litellm-secret:master-key`. Fournit les 3 paliers d'entreprise (`arcia/standard`, `arcia/expert`, `arcia/reasoning`) avec bascule et caviardage DLP Presidio fail-closed.
+- **Raccordement Exclusif sur Hermes Agent (Zéro Bypass)** :
+  - `http://hermes-studio.arcia.svc:8642/v1` : Authentifié via le secret d'infrastructure `hermes-gateway-secret:api-server-key`.
+  - **1 conversation = 1 session agentique autonome** : Chaque chat Open-WebUI est pris en charge par le runtime Hermes Agent (stockage persistant dans `state.db`, mémoire à long terme, exécution d'outils, skills d'entreprise).
+  - **Catalogue filtré à 3 modèles uniques** :
+    1. **`arcia/free`** : Découverte et qualification sans coût via OpenRouter Free.
+    2. **`arcia/auto`** *(Défaut)* : Routage intelligent équilibré performance/coût.
+    3. **`arcia/expert`** : Tâches complexes et raisonnement approfondi, avec choix dynamique de modèle dans le prompt via `/model <fournisseur/modèle>`.
+  - **Isolation réseau stricte** : Par politique `NetworkPolicy`, Open-WebUI n'a aucun flux direct vers la passerelle d'inférence LiteLLM.
 - **Suppression des Connexions Directes (Sécurité & Gouvernance)** :
   - `ENABLE_DIRECT_CONNECTIONS=false` : empêche le navigateur d'émettre des requêtes directes vers des tiers non gouvernés et protège les secrets personnels de toute persistance en clair.
 - **Propagation de l'Identité Utilisateur** :
-  - `ENABLE_FORWARD_USER_INFO_HEADERS=true` : transmet l'adresse email de la session collaborateur (`X-OpenWebUI-User-Email`) à LiteLLM pour imputer la consommation budgétaire à l'équipe.
+  - `ENABLE_FORWARD_USER_INFO_HEADERS=true` : transmet l'adresse email de la session collaborateur (`X-OpenWebUI-User-Email`) pour imputer la consommation budgétaire à l'équipe.
 - **Sous-agents & Exécution Multi-Agents** :
   - `ENABLE_SUBAGENTS=true` : active la délégation de tâches à des sous-agents spécialisés.
-- **Persistance Dédiée (PVC 20Gi)** :
+- **Persistance Dédiée (PVC 50Gi)** :
   - Monté sous `/app/backend/data`.
-  - Conserve la base de données interne des profils, favoris, réglages et conversations.
+  - Conserve la base de données interne des profils, favoris, réglages, conversations ainsi que la clé de chiffrement des sessions (`WEBUI_SECRET_KEY_FILE: /app/backend/data/.webui_secret_key`).
 
 ---
 
@@ -37,7 +43,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 - **Manifeste** : [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml).
 - **Service** : `open-webui.arcia.svc:8080`.
 - **Exposition Ingress** : Racine du domaine public `https://assistant.example.org/`.
-- **Modèle par Défaut** : `arcia/standard`.
+- **Modèle par Défaut** : `arcia/auto`.
 
 ---
 

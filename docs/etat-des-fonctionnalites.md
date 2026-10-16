@@ -42,9 +42,9 @@ La documentation d'ArcIA respecte désormais une stricte transparence entre l'ex
 
 | Niveau | Profil | Canaux Autorisés | Modèles | Quota / Budget | Contrôle DLP |
 |---|---|---|---|---|---|
-| **N1** | Collaborateur | Open-WebUI, Microsoft Teams | `arcia/standard` | Budget d'équipe partagé | Caviardage universel obligatoire |
-| **N2** | Expert Métier | Open-WebUI (+ Outils & RAG) | `arcia/standard`, `arcia/expert` | Budget d'équipe avec alerte | Caviardage universel obligatoire |
-| **N3** | Power User / Dev | IDE, Hermes local, `/v1` | Tous les paliers (`standard`, `expert`, `reasoning`) | Budget individuel nominatif | Caviardage universel obligatoire (via `/v1`) |
+| **N1** | Collaborateur | Open-WebUI, Microsoft Teams | `arcia/free`, `arcia/auto` | Budget d'équipe partagé | Caviardage universel obligatoire |
+| **N2** | Expert Métier | Open-WebUI (+ Outils & RAG) | `arcia/free`, `arcia/auto`, `arcia/expert` | Budget d'équipe avec alerte | Caviardage universel obligatoire |
+| **N3** | Power User / Dev | IDE, Hermes local, `/v1` | Tous les paliers (`free`, `auto`, `expert` + `/v1`) | Budget individuel nominatif | Caviardage universel obligatoire (via `/v1`) |
 
 ---
 

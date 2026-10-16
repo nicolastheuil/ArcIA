@@ -11,7 +11,7 @@ data:
     model:
       provider: custom
       base_url: http://litellm-proxy.arcia.svc:4000/v1
-      default: arcia/standard
+      default: arcia/auto
       key_env: OPENAI_API_KEY
     approvals:
       mode: smart
@@ -21,12 +21,12 @@ data:
     platforms:
       api_server:
         direct_model_requests: true
-        model_name: "hermes-agent"
+        model_name: "arcia/auto"
         model_routes:
-          arcia/standard:
-            model: "arcia/standard"
           arcia/free:
             model: "arcia/free"
+          arcia/auto:
+            model: "arcia/auto"
           arcia/expert:
             model: "arcia/expert"
 ---

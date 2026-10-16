@@ -128,10 +128,10 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Modèles d'Entreprise Disponibles
 
-Dès le premier déploiement, le catalogue managé d'entreprise est strictement aligné sur les **trois tiers canoniques ArcIA** :
-- **`arcia/standard`** : Profil généraliste d'entreprise par défaut (ex: Claude 3.5 Sonnet / GPT-4o). Conçu pour le travail quotidien, l'assistance et les interactions courantes.
-- **`arcia/expert`** : Profil d'élite de haute précision (ex: Claude 3.7 Sonnet / OpenAI o3-mini). Recommandé pour l'architecture, la revue de code et les analyses complexes.
-- **`arcia/reasoning`** : Profil de raisonnement profond (ex: DeepSeek-R1 / OpenAI o1). Idéal pour les raisonnements mathématiques, logiques et l'investigation approfondie.
+Dès le premier déploiement, le catalogue managé d'entreprise est strictement aligné sur les **trois tiers canoniques ArcIA** servis par Hermes Agent à Open-WebUI :
+- **`arcia/free`** : Découverte et qualification sans coût via OpenRouter Free (`openrouter/openrouter/free`).
+- **`arcia/auto`** *(Défaut)* : Profil généraliste intelligent équilibrant performance et coût (`openrouter/auto`). Conçu pour le travail quotidien, l'assistance et les interactions courantes.
+- **`arcia/expert`** : Profil d'élite de haute précision pour l'architecture, la revue de code et les missions agentiques complexes. Permet également la sélection dynamique de modèle dans le prompt (`/model <fournisseur/modèle>`).
 
 Toutes les requêtes sortant vers des modèles cloud bénéficient de :
 1. **Zero Data Retention (ZDR)** : Forcé au niveau de LiteLLM via `extra_body: {provider: {zdr: true}}` pour interdire l'entraînement des fournisseurs sur vos données.
@@ -170,7 +170,7 @@ Pour les développeurs, scripts CI/CD ou IDEs (Cursor, VS Code, continue.dev) n�
 2. Le développeur configure son IDE avec le endpoint d'entreprise :
    - **Base URL** : `https://<public_fqdn>/v1`
    - **API Key** : `sk-arcia-xxxxxxxx` (la clé virtuelle générée)
-   - **Modèle** : `arcia/standard` ou `arcia/expert`
+   - **Modèle** : `arcia/auto` ou `arcia/expert`
 3. Les requêtes passent par l'Ingress Traefik (middleware RateLimit), Presidio DLP et LiteLLM avec décompte automatique sur le budget alloué.
 
 ---

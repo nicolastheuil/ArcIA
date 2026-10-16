@@ -40,8 +40,10 @@ class TestKubernetesManifests(unittest.TestCase):
         with open(litellm_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        self.assertIn("arcia/standard", content)
+        self.assertIn("arcia/free", content)
+        self.assertIn("arcia/auto", content)
         self.assertIn("arcia/expert", content)
+        self.assertIn("arcia/standard", content)
         self.assertIn("arcia/reasoning", content)
         # Modèle déprécié retiré
         self.assertNotIn("openrouter/anthropic/claude-3.5-sonnet\n", content)
@@ -64,7 +66,7 @@ class TestKubernetesManifests(unittest.TestCase):
 
         self.assertIn('name: ENABLE_DIRECT_CONNECTIONS\n          value: "false"', content)
         self.assertIn('name: ENABLE_FORWARD_USER_INFO_HEADERS\n          value: "true"', content)
-        self.assertIn('name: DEFAULT_MODELS\n          value: "arcia/standard"', content)
+        self.assertIn('name: DEFAULT_MODELS\n          value: "arcia/auto"', content)
         self.assertIn('name: ENABLE_SIGNUP\n          value: "false"', content)
         self.assertIn('name: DEFAULT_USER_ROLE\n          value: "user"', content)
         self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
@@ -111,7 +113,9 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("path: /api/health", content)
         self.assertIn("direct_model_requests: true", content)
         self.assertIn("model_routes:", content)
-        self.assertIn("arcia/standard:", content)
+        self.assertIn("arcia/auto:", content)
+        self.assertIn("arcia/free:", content)
+        self.assertIn("arcia/expert:", content)
         self.assertNotIn("OPENAI_API_BASE", content)
         self.assertNotIn("OPENAI_MODEL_NAME", content)
         self.assertNotIn("arcia_tokenmaxing.py", content)

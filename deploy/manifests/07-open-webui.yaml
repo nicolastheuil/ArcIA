@@ -74,9 +74,9 @@ spec:
         - name: ENABLE_OPENAI_API
           value: "true"
         - name: DEFAULT_MODELS
-          value: "arcia/standard"
+          value: "arcia/auto"
         - name: TASK_MODEL
-          value: "arcia/standard"
+          value: "arcia/auto"
         - name: ENABLE_SUBAGENTS
           value: "true"
         - name: ENABLE_DIRECT_CONNECTIONS
