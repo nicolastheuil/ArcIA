@@ -19,6 +19,7 @@ arcia.env
 private/
 secrets/*
 !secrets/*.template
+!secrets/README.md
 *.arciap
 *.arciap.previous
 *.part
