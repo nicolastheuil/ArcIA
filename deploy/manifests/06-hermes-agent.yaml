@@ -106,11 +106,13 @@ spec:
         - -c
         - |
           chown -R 10000:10000 /opt/data
-          mkdir -p /opt/shared-skills/arcia/ponytail /opt/shared-skills/arcia/graphify /opt/shared-skills/arcia/public-apis
+          mkdir -p /opt/shared-skills/arcia/ponytail /opt/shared-skills/arcia/graphify /opt/shared-skills/arcia/public-apis/scripts
           if [ -d /opt/native-skills-cm ]; then
             [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/shared-skills/arcia/ponytail/SKILL.md
             [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/shared-skills/arcia/graphify/SKILL.md
             [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/shared-skills/arcia/public-apis/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-script.py ] && cp /opt/native-skills-cm/public-apis-script.py /opt/shared-skills/arcia/public-apis/scripts/public_apis.py && chmod +x /opt/shared-skills/arcia/public-apis/scripts/public_apis.py
+            [ -f /opt/native-skills-cm/public-apis-catalog.json ] && cp /opt/native-skills-cm/public-apis-catalog.json /opt/shared-skills/arcia/public-apis/catalog.json
           fi
           chown -R 10000:10000 /opt/shared-skills
         securityContext:

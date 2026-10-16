@@ -381,6 +381,29 @@ def sync_native_skills(runner: K8sRunner, namespace: str, root_dir: str) -> None
             except Exception as e:
                 log_warn(f"Impossible de lire la compétence {skill_name}: {e}")
 
+    # Synchronisation des ressources additionnelles de public-apis (script et catalogue)
+    pa_script = os.path.join(skills_dir, "public-apis", "scripts", "public_apis.py")
+    pa_script_content = ""
+    if os.path.isfile(pa_script):
+        try:
+            with open(pa_script, "r", encoding="utf-8") as f:
+                pa_script_content = f.read()
+            indented = "\n".join("    " + line for line in pa_script_content.splitlines())
+            cm_data.append(f"  public-apis-script.py: |\n{indented}")
+        except Exception:
+            pass
+
+    pa_cat = os.path.join(skills_dir, "public-apis", "catalog.json")
+    pa_cat_content = ""
+    if os.path.isfile(pa_cat):
+        try:
+            with open(pa_cat, "r", encoding="utf-8") as f:
+                pa_cat_content = f.read()
+            indented = "\n".join("    " + line for line in pa_cat_content.splitlines())
+            cm_data.append(f"  public-apis-catalog.json: |\n{indented}")
+        except Exception:
+            pass
+
     if cm_data:
         cm_yaml = f"""apiVersion: v1
 kind: ConfigMap
@@ -407,22 +430,30 @@ data:
                             nodes_to_sync.append(m.group(1))
 
             for target_ip in nodes_to_sync:
+                ssh_base = ["ssh", "-o", "BatchMode=yes"]
+                if runner.known_hosts:
+                    ssh_base.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
+                else:
+                    ssh_base.extend(["-o", "StrictHostKeyChecking=accept-new"])
+                if runner.ident_key:
+                    ssh_base.extend(["-i", runner.ident_key])
+                ssh_base.extend(["-p", str(runner.ssh_port), f"{runner.ssh_user}@{target_ip}"])
+
                 for skill_name, content in skills_files.items():
                     remote_dir = f"/var/data/arcia/shared-skills/arcia/{skill_name}"
                     tee_cmd = f"sudo mkdir -p {remote_dir} && sudo tee {remote_dir}/SKILL.md >/dev/null"
-                    ssh_tee = ["ssh", "-o", "BatchMode=yes"]
-                    if runner.known_hosts:
-                        ssh_tee.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
-                    else:
-                        ssh_tee.extend(["-o", "StrictHostKeyChecking=accept-new"])
-                    if runner.ident_key:
-                        ssh_tee.extend(["-i", runner.ident_key])
-                    ssh_tee.extend([
-                        "-p", str(runner.ssh_port),
-                        f"{runner.ssh_user}@{target_ip}",
-                        tee_cmd
-                    ])
-                    subprocess.run(ssh_tee, input=content.encode("utf-8"), capture_output=True)
+                    subprocess.run(ssh_base + [tee_cmd], input=content.encode("utf-8"), capture_output=True)
+
+                if pa_script_content:
+                    pa_dir = "/var/data/arcia/shared-skills/arcia/public-apis/scripts"
+                    tee_script = f"sudo mkdir -p {pa_dir} && sudo tee {pa_dir}/public_apis.py >/dev/null && sudo chmod +x {pa_dir}/public_apis.py"
+                    subprocess.run(ssh_base + [tee_script], input=pa_script_content.encode("utf-8"), capture_output=True)
+
+                if pa_cat_content:
+                    pa_cat_dir = "/var/data/arcia/shared-skills/arcia/public-apis"
+                    tee_cat = f"sudo mkdir -p {pa_cat_dir} && sudo tee {pa_cat_dir}/catalog.json >/dev/null"
+                    subprocess.run(ssh_base + [tee_cat], input=pa_cat_content.encode("utf-8"), capture_output=True)
+
             log_ok(f"Compétences natives (Ponytail, Graphify, Public-APIs) synchronisées sur {len(nodes_to_sync)} nœud(s).")
         except Exception as e:
             log_warn(f"Avertissement synchronisation distante des compétences : {e}")

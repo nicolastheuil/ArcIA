@@ -1,0 +1,64 @@
+{
+  "version": "1.0.0",
+  "name": "ArcIA Sovereign & Open Public APIs Catalog",
+  "updated_at": "2026-10-16",
+  "description": "Référentiel des APIs publiques souveraines et ouvertes utilisables sans frais ni clé d'authentification par les agents ArcIA.",
+  "apis": [
+    {
+      "id": "recherche-entreprises",
+      "name": "API Recherche d'Entreprises (INSEE / SIRENE / RNE)",
+      "domain": "Economie & Entreprises",
+      "provider": "Direction Interministérielle du Numérique (DINUM)",
+      "base_url": "https://recherche-entreprises.api.gouv.fr/search",
+      "auth_required": false,
+      "pricing": "100% Gratuit / Open Data",
+      "description": "Recherche et vérification d'entreprises françaises par nom, SIREN ou SIRET. Restitue le statut juridique, état administratif, code NAF, dirigeants, adresse du siège et données d'immatriculation.",
+      "parameters": {
+        "q": "Terme de recherche (nom de société, SIREN 9 chiffres ou SIRET 14 chiffres)",
+        "limite": "Nombre de résultats (défaut: 1, max: 25)"
+      }
+    },
+    {
+      "id": "base-adresse-nationale",
+      "name": "API Base Adresse Nationale (BAN)",
+      "domain": "Géographie & Localisation",
+      "provider": "IGN / ANCT / DINUM",
+      "base_url": "https://api-adresse.data.gouv.fr/search",
+      "auth_required": false,
+      "pricing": "100% Gratuit / Open Data",
+      "description": "Géocodage, validation et normalisation des adresses postales françaises. Restitue coordonnées GPS, code postal, ville, département et score de pertinence.",
+      "parameters": {
+        "q": "Adresse textuelle complète ou partielle",
+        "limit": "Nombre de résultats (défaut: 1)"
+      }
+    },
+    {
+      "id": "open-meteo-france",
+      "name": "API Météo Ouverte (Open-Meteo & Météo-France)",
+      "domain": "Météorologie & Climat",
+      "provider": "Open-Meteo / Météo-France Open Data",
+      "base_url": "https://api.open-meteo.com/v1/forecast",
+      "auth_required": false,
+      "pricing": "100% Gratuit / Open Data",
+      "description": "Prévisions météo et conditions courantes par coordonnées géographiques (température, vitesse du vent, code météo, précipitations).",
+      "parameters": {
+        "latitude": "Latitude décimale",
+        "longitude": "Longitude décimale",
+        "current_weather": "true"
+      }
+    },
+    {
+      "id": "cadastre-ign",
+      "name": "API Cartographique du Cadastre (IGN)",
+      "domain": "Foncier & Urbanisme",
+      "provider": "Institut National de l'Information Géographique et Forestière (IGN)",
+      "base_url": "https://apicarto.ign.fr/api/cadastre/commune",
+      "auth_required": false,
+      "pricing": "100% Gratuit / Open Data",
+      "description": "Consultation des données cadastrales ouvertes et des découpages de communes.",
+      "parameters": {
+        "code_insee": "Code INSEE de la commune (5 caractères)"
+      }
+    }
+  ]
+}
