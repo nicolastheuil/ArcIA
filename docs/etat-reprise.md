@@ -7,7 +7,7 @@ La cible d'exécution actuelle est le socle unifié et épuré **ArcIA v0.2**, d
 
 ## 1. Synthèse de la Transformation ArcIA v0.2
 
-Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
+Conformément au plan initial de transformation v0.2 :
 1. **Purge intégrale de la dette technique v0.1** :
    - Suppression des 43 anciens namespaces (`arcia-access`, `arcia-data`, `arcia-hermes`, `arcia-routing`, `arcia-user-p01..p32`, etc.).
    - Suppression des 116 scripts obsolètes, des briques OmniRoute, Keycloak, Kilo, CNPG non qualifiées.
@@ -194,5 +194,18 @@ Conformément à l'exigence de fluidification intégrale du parcours d'installat
 4. **Vérification Complète** :
    - 31 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_privacy.py`, `tests/test_deploy.py`, etc.).
    - Validation documentaire stricte à 100% (`scripts/validate_docs.py`).
+
+---
+
+## 7. Nettoyage et Épure du Socle (16 octobre 2026)
+
+Conformément à l'exigence de clarté, lisibilité et stricte application de la règle *« Une information, une référence »* :
+1. **Suppression du Blueprint Initial** :
+   - Suppression définitive de `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` à la racine du dépôt.
+   - Les manifestes, scripts d'automatisation, guides d'architecture et runbooks d'exploitation sont consolidés dans leurs répertoires respectifs (`deploy/manifests/`, `scripts/`, `docs/`).
+2. **Validation Globale** :
+   - 32 fichiers documentaires et 159 liens relatifs vérifiés sans anomalie (`scripts/validate_docs.py`).
+   - 31 tests unitaires exécutés et validés avec succès (`python -m unittest discover tests`).
+
 
 
