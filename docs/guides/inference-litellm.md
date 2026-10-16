@@ -98,3 +98,11 @@ Si l'organisation dispose de souscriptions directes auprès d'éditeurs Cloud sa
      ```
 2. Injecter la variable correspondante dans le secret Kubernetes via `secrets/arcia.env` et `05-litellm.yaml`.
 3. Presidio DLP continue d'intercepter tout prompt avant envoi pour caviarder PII et secrets.
+
+---
+
+Voir également :
+- [Chaîne de Routage Complète & Cycle de Vie d'une Requête](chaine-de-routage.md)
+- [Gouvernance & Confidentialité Presidio DLP](confidentialite-presidio.md)
+- [Routeur Complémentaire OmniRoute](omniroute.md)
+- [Quickstart & Configuration Pratique](../runbooks/quickstart.md)

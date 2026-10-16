@@ -88,6 +88,7 @@ flowchart TD
 
 Pour approfondir chaque brique :
 - [Moteur d'Agents Hermes & Studio](guides/hermes-agent.md)
+- [Chaîne de Routage IA & Cycle de Vie d'une Requête](guides/chaine-de-routage.md)
 - [Passerelle d'Inférence d'Entreprise LiteLLM](guides/inference-litellm.md)
 - [Routeur Multi-Fournisseurs OmniRoute](guides/omniroute.md)
 - [Gouvernance & Confidentialité Presidio DLP](guides/confidentialite-presidio.md)

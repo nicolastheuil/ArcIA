@@ -20,6 +20,7 @@ références complètes, regroupées par fonction.
 | Infrastructure, stockage CSI, Traefik et Cert-Manager | [Infrastructure K3s](guides/infrastructure-k3s.md) |
 | Portail conversationnel, SSO Entra ID, BYOK & OAuth | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
 | Moteur d'agents, Studio Kanban et Gateway Desktop | [Hermes Agent](guides/hermes-agent.md) |
+| Chaîne de routage IA, modèles et cycle de vie d'un prompt | [Chaîne de Routage IA](guides/chaine-de-routage.md) |
 | Passerelle LLM, routage auto et fallbacks | [Inférence LiteLLM](guides/inference-litellm.md) |
 | Caviardage automatique des secrets et des PII | [Confidentialité Presidio DLP](guides/confidentialite-presidio.md) |
 | Bot conversationnel Microsoft Teams | [Intégration Teams](guides/integration-teams.md) |

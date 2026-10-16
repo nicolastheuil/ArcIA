@@ -232,6 +232,8 @@ Le moteur d'agents Hermes s'intègre harmonieusement dans cette matrice :
 | **Agent Autonome Hermes** | Hermes Studio / Gateway | `ArcIA-Agentic (auto)` | `litellm-proxy:4000` | ✅ Presidio DLP + Tokenmaxing | Compte d'entreprise managé |
 | **Routage Multi-Fournisseurs LAN** | API OmniRoute / Admin LAN | Combos personnalisés | `omniroute:20128` (Upstream LiteLLM) | ✅ Préservée si en amont LiteLLM | Pools de clés et abonnements configurés dans OmniRoute |
 
+> 📖 **Guide Détaillé & Diagrammes de Séquence** : Pour une analyse exhaustive du parcours d'une requête, des règles de caviardage et des scénarios pas-à-pas, consultez le guide d'architecture dédié : [Chaîne de Routage IA & Cycle de Vie d'une Requête](docs/guides/chaine-de-routage.md).
+
 ---
 
 ## 📦 Organisation du Répertoire
