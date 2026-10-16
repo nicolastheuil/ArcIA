@@ -301,5 +301,10 @@ spec:
       port: 4000
   - ports:
     - protocol: TCP
+      port: 80
+    - protocol: TCP
       port: 443
+    - protocol: UDP
+      port: 443
+
 

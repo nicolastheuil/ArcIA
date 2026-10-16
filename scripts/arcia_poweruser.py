@@ -43,6 +43,9 @@ def load_arcia_config() -> Dict[str, Any]:
         ns = re.search(r'namespace:\s*"([^"]+)"', content)
         if ns:
             cfg.setdefault("kubernetes", {})["namespace"] = ns.group(1)
+        vpn = re.search(r'enable_vpn:\s*(true|false)', content, re.IGNORECASE)
+        if vpn:
+            cfg.setdefault("powerusers", {})["enable_vpn"] = (vpn.group(1).lower() == "true")
         return cfg
 
 
@@ -94,7 +97,8 @@ def render_manifest(user_email: str,
                     public_fqdn: Optional[str] = None,
                     namespace: str = "arcia",
                     litellm_pat: Optional[str] = None,
-                    studio_password: Optional[str] = None) -> str:
+                    studio_password: Optional[str] = None,
+                    enable_vpn: Optional[bool] = None) -> str:
     """Génère le manifeste complet Kubernetes pour le Power User."""
     slug = email_to_slug(user_email)
     cfg = load_arcia_config()
@@ -102,6 +106,10 @@ def render_manifest(user_email: str,
     ns = namespace or cfg.get("kubernetes", {}).get("namespace", "arcia")
     pat = litellm_pat or generate_litellm_pat(user_email, team=team)
     pwd = studio_password or secrets.token_urlsafe(16)
+
+    # Résolution du paramètre VPN (soit argument explicite, soit configuration d'instance arcia.config.yaml)
+    if enable_vpn is None:
+        enable_vpn = bool(cfg.get("powerusers", {}).get("enable_vpn", False))
 
     # 1. SOUL par défaut
     if not custom_soul:
@@ -146,6 +154,28 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
     rendered = rendered.replace("{{STUDIO_PASSWORD}}", pwd)
     rendered = rendered.replace("{{SOUL_CONTENT_INDENTED}}", indent_lines(soul_text, 4))
     rendered = rendered.replace("{{USER_CONTENT_INDENTED}}", indent_lines(user_text, 4))
+
+    if enable_vpn:
+        vpn_sec_ctx = """        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN"""
+        vpn_init_install = """          which openconnect >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq openconnect iproute2 iptables 2>/dev/null || true)"""
+        vpn_vol_mounts = """        - name: dev-net-tun
+          mountPath: /dev/net/tun"""
+        vpn_volumes = """      - name: dev-net-tun
+        hostPath:
+          path: /dev/net/tun"""
+    else:
+        vpn_sec_ctx = ""
+        vpn_init_install = ""
+        vpn_vol_mounts = ""
+        vpn_volumes = ""
+
+    rendered = rendered.replace("{{VPN_CONTAINER_SECURITY_CONTEXT}}", vpn_sec_ctx)
+    rendered = rendered.replace("{{VPN_INIT_INSTALL}}", vpn_init_install)
+    rendered = rendered.replace("{{VPN_CONTAINER_VOLUME_MOUNTS}}", vpn_vol_mounts)
+    rendered = rendered.replace("{{VPN_POD_VOLUMES}}", vpn_volumes)
 
     return rendered
 
@@ -245,7 +275,8 @@ def cmd_spawn(args):
         public_fqdn=fqdn,
         namespace=ns,
         litellm_pat=pat,
-        studio_password=pwd
+        studio_password=pwd,
+        enable_vpn=getattr(args, "vpn", None)
     )
 
     if args.dry_run:
@@ -380,6 +411,8 @@ def main():
     p_spawn.add_argument("--storage", default="10Gi", help="Taille du volume PVC (défaut: 10Gi)")
     p_spawn.add_argument("--pat", default=None, help="Clé virtuelle LiteLLM (générée auto si omise)")
     p_spawn.add_argument("--password", default=None, help="Mot de passe Studio (généré auto si omis)")
+    p_spawn.add_argument("--vpn", dest="vpn", action="store_true", default=None, help="Activer le support VPN (NET_ADMIN et /dev/net/tun)")
+    p_spawn.add_argument("--no-vpn", dest="vpn", action="store_false", help="Désactiver le support VPN")
     p_spawn.add_argument("--dry-run", action="store_true", help="Afficher le YAML sans l'appliquer")
     p_spawn.set_defaults(func=cmd_spawn)
 

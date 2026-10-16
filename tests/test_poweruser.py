@@ -82,6 +82,23 @@ Ne fais aucune concession sur la latence.
         self.assertIn("trading algorithmique haute fréquence", rendered)
         self.assertIn("Ne fais aucune concession sur la latence", rendered)
 
+    def test_render_manifest_vpn_disabled_by_default(self):
+        rendered = render_manifest(
+            user_email="standard.user@company.com",
+            enable_vpn=False
+        )
+        self.assertNotIn("NET_ADMIN", rendered)
+        self.assertNotIn("dev-net-tun", rendered)
+
+    def test_render_manifest_vpn_enabled(self):
+        rendered = render_manifest(
+            user_email="network.admin@company.com",
+            enable_vpn=True
+        )
+        self.assertIn("NET_ADMIN", rendered)
+        self.assertIn("dev-net-tun", rendered)
+        self.assertIn("openconnect", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

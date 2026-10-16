@@ -125,6 +125,7 @@ spec:
       - name: hermes
         image: nousresearch/hermes-agent:latest
         imagePullPolicy: IfNotPresent
+{{VPN_CONTAINER_SECURITY_CONTEXT}}
         command:
         - /bin/sh
         - -c
@@ -134,6 +135,7 @@ spec:
           [ -f /opt/data/SOUL.md ] && cp /opt/data/SOUL.md $HOME/.hermes/SOUL.md 2>/dev/null || true
           # Patch endpoint health sur api_server
           python3 -c 'p="/opt/hermes/gateway/platforms/api_server.py"; s=open(p).read(); s=s.replace("(\"GET\", \"/health\", self._handle_health),", "(\"GET\", \"/health\", self._handle_health),\n            (\"GET\", \"/\", self._handle_health),"); open(p,"w").write(s)' 2>/dev/null || true
+{{VPN_INIT_INSTALL}}
           hermes gateway &
           exec hermes dashboard --host 0.0.0.0 --port 9119 --skip-build --no-open
         ports:
@@ -193,6 +195,7 @@ spec:
         volumeMounts:
         - name: user-data
           mountPath: /opt/data
+{{VPN_CONTAINER_VOLUME_MOUNTS}}
       volumes:
       - name: user-data
         persistentVolumeClaim:
@@ -200,6 +203,7 @@ spec:
       - name: init-config
         configMap:
           name: hermes-user-{{USER_SLUG}}-config
+{{VPN_POD_VOLUMES}}
 ---
 apiVersion: v1
 kind: Service
