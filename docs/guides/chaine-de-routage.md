@@ -54,28 +54,27 @@ flowchart TD
 
 ---
 
-## 2. Le Catalogue de Modèles Canoniques v0.3
+## 2. Le Catalogue des 5 Modèles Open-WebUI v0.3
 
-Dans Open-WebUI ([deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml)) et sur l'API `/v1/models` servie par Hermes Agent, le catalogue d'entreprise est strictement articulé autour de **trois modèles uniques** :
+Open-WebUI ([deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml)) est configuré avec un **double raccordement d'infrastructure** (`OPENAI_API_BASE_URLS`) lui permettant d'offrir à la fois des flux directs légers (LiteLLM) et des flux agentiques outillés (Hermes Agent) :
 
-| Palier Canonique | Cible Amont | Fallback Déclaré | Public Cible | Usage & Rationale |
-|---|---|---|---|---|
-| **`arcia/free`** | `openrouter/openrouter/free` | `arcia/auto` | Découverte, tests, qualification | Modèles gratuits OpenRouter pour expérimentation sans consommation de quota. |
-| **`arcia/auto`** *(Défaut)* | `openrouter/auto` | `arcia/expert` | Tous collaborateurs (N1, N2, N3) | Routage intelligent et dynamique optimisant automatiquement performance et coût. |
-| **`arcia/expert`** | `openrouter/auto` *(défaut)* ou sélection dynamique | `arcia/auto` | Experts métier, analystes et développeurs | Tâches de haut niveau. Permet à l'utilisateur de spécifier un modèle amont dans son prompt. |
+| Modèle dans Open-WebUI | Moteur Réel | Cible Amont | Usage & Caractéristiques |
+|---|---|---|---|
+| **`simple/free`** | **LiteLLM Direct** | `openrouter/openrouter/free` | Chat instantané sans boucle agentique. Zéro consommation de quota. |
+| **`simple/auto`** *(Défaut)* | **LiteLLM Direct** | `openrouter/auto` | Chat réactif direct avec routage intelligent LiteLLM. Idéal pour 80 % des demandes textuelles (rédaction, résumé, traduction). |
+| **`agentic/free`** | **Hermes Agent** | `openrouter/openrouter/free` | Session agentique complète avec exécution d'outils, web search, compétences et persistance sur palier gratuit. |
+| **`agentic/auto`** | **Hermes Agent** | `openrouter/auto` | Agent autonome complet avec auto-correction, calculs Python, recherche web et skills d'entreprise. |
+| **`agentic/deepseek-v4.1-flash`** | **Hermes Agent** | `openrouter/deepseek/deepseek-v4.1-flash` | Agent autonome haute performance adossé au modèle ultra-rapide DeepSeek V4.1 Flash (contexte 1M tokens). |
 
-### Sélection Dynamique de Modèle dans `arcia/expert`
-Dans le palier `arcia/expert`, grâce à la directive `direct_model_requests: true` de Hermes Agent et au joker `openrouter/*` configuré dans LiteLLM, l'utilisateur peut instruire l'agent d'utiliser un modèle spécifique pour sa session :
-- Soit via la commande de session : `/model openrouter/anthropic/claude-3.7-sonnet`
-- Soit par directive explicite dans la requête de prompt.
-
-### Rétro-compatibilité des Alias
+### Rétro-compatibilité des Alias LiteLLM
 Pour assurer la continuité des scripts et des configurations historiques, les alias suivants sont maintenus dans `router_settings.model_group_alias` de LiteLLM :
-- `arcia/standard` → `arcia/auto`
-- `arcia/reasoning` → `arcia/expert`
-- `ArcIA-Agentic (auto)` → `arcia/auto`
-- `auto` → `arcia/auto`
-- `hermes-agent` → `arcia/auto`
+- `arcia/free` → `simple/free`
+- `arcia/auto` → `simple/auto`
+- `arcia/expert` → `openrouter/deepseek/deepseek-v4.1-flash`
+- `arcia/standard` → `simple/auto`
+- `arcia/reasoning` → `openrouter/deepseek/deepseek-v4.1-flash`
+- `auto` → `simple/auto`
+- `hermes-agent` → `simple/auto`
 
 ---
 

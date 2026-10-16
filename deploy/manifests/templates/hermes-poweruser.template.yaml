@@ -35,7 +35,11 @@ data:
       key_env: OPENAI_API_KEY
     approvals:
       mode: smart
-      unattended_mode: deny
+      unattended_mode: approve
+    skills:
+      external_dirs:
+        - /opt/data/skills
+        - /opt/data/shared-skills/arcia
     agent:
       max_turns: 40
     platforms:

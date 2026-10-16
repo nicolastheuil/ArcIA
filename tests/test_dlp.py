@@ -70,6 +70,14 @@ class TestArcIADLP(unittest.TestCase):
         self.assertEqual(res["sanitized_text"], clean_prompt)
         self.assertEqual(len(res["entities_detected"]), 0)
 
+    def test_company_and_location_preserved(self):
+        """Vérifie que les noms d'entreprises et lieux publics (ex: Arcitek, Paris) ne sont PAS caviardés."""
+        prompt = "Donne-moi le SIRET de la société Arcitek à Boulogne-Billancourt ou à Paris."
+        res = sanitize(SanitizeRequest(text=prompt, language="fr"))
+        self.assertIn("Arcitek", res["sanitized_text"])
+        self.assertNotIn("[ARCIA_LOCATION]", res["sanitized_text"])
+        self.assertNotIn("[ARCIA_ORGANIZATION]", res["sanitized_text"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -54,7 +54,7 @@ L'agent exécute le script en ligne de commande via l'interpréteur Python :
 
 ```bash
 # Chemin standard dans le pod Hermes Agent :
-PYTHON_SCRIPT="/opt/shared-skills/arcia/public-apis/scripts/public_apis.py"
+PYTHON_SCRIPT="/opt/data/skills/public-apis/scripts/public_apis.py"
 
 # En environnement local de développement :
 # python skills/public-apis/scripts/public_apis.py ...
@@ -62,9 +62,9 @@ PYTHON_SCRIPT="/opt/shared-skills/arcia/public-apis/scripts/public_apis.py"
 
 ### A. Recherche & Vérification d'Entreprise
 ```bash
-python $PYTHON_SCRIPT company "<nom_ou_siren_ou_siret>"
+python3 $PYTHON_SCRIPT company "<nom_ou_siren_ou_siret>"
 ```
-*Exemple :* `python $PYTHON_SCRIPT company "789315306"`
+*Exemple :* `python3 $PYTHON_SCRIPT company "Arcitek"` ou `python3 $PYTHON_SCRIPT company "789315306"`
 
 ### B. Validation & Géocodage d'Adresse (BAN)
 ```bash

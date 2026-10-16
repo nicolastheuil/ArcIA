@@ -176,6 +176,13 @@ spec:
     ports:
     - protocol: TCP
       port: 8642
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
   - ports:
     - protocol: TCP
       port: 443

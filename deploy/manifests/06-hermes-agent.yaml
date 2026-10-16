@@ -11,24 +11,34 @@ data:
     model:
       provider: custom
       base_url: http://litellm-proxy.arcia.svc:4000/v1
-      default: arcia/auto
+      default: simple/auto
       key_env: OPENAI_API_KEY
     approvals:
       mode: smart
-      unattended_mode: deny
+      unattended_mode: approve
+    skills:
+      external_dirs:
+        - /opt/data/skills
+        - /opt/data/shared-skills/arcia
     agent:
       max_turns: 30
     platforms:
       api_server:
         direct_model_requests: true
-        model_name: "arcia/auto"
+        model_name: "agentic/auto"
         model_routes:
+          agentic/free:
+            model: "simple/free"
+          agentic/auto:
+            model: "simple/auto"
+          agentic/deepseek-v4.1-flash:
+            model: "openrouter/deepseek/deepseek-v4.1-flash"
           arcia/free:
-            model: "arcia/free"
+            model: "simple/free"
           arcia/auto:
-            model: "arcia/auto"
+            model: "simple/auto"
           arcia/expert:
-            model: "arcia/expert"
+            model: "openrouter/deepseek/deepseek-v4.1-flash"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -68,15 +78,15 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data/.hermes /opt/data/shared-skills/arcia/ponytail /opt/data/shared-skills/arcia/graphify /opt/data/shared-skills/arcia/public-apis/scripts
+          mkdir -p /opt/data/.hermes /opt/data/skills/public-apis/scripts /opt/data/skills/ponytail /opt/data/skills/graphify /opt/data/shared-skills/arcia/ponytail /opt/data/shared-skills/arcia/graphify /opt/data/shared-skills/arcia/public-apis/scripts
           cp /etc/hermes/config.yaml /opt/data/config.yaml
           cp /etc/hermes/config.yaml /opt/data/.hermes/config.yaml
           if [ -d /opt/native-skills-cm ]; then
-            [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/shared-skills/arcia/ponytail/SKILL.md
-            [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/data/shared-skills/arcia/graphify/SKILL.md
-            [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/data/shared-skills/arcia/public-apis/SKILL.md
-            [ -f /opt/native-skills-cm/public-apis-script.py ] && cp /opt/native-skills-cm/public-apis-script.py /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py && chmod +x /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py
-            [ -f /opt/native-skills-cm/public-apis-catalog.json ] && cp /opt/native-skills-cm/public-apis-catalog.json /opt/data/shared-skills/arcia/public-apis/catalog.json
+            [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/skills/ponytail/SKILL.md && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/shared-skills/arcia/ponytail/SKILL.md
+            [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/data/skills/graphify/SKILL.md && cp /opt/native-skills-cm/graphify-skill.md /opt/data/shared-skills/arcia/graphify/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/data/skills/public-apis/SKILL.md && cp /opt/native-skills-cm/public-apis-skill.md /opt/data/shared-skills/arcia/public-apis/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-script.py ] && cp /opt/native-skills-cm/public-apis-script.py /opt/data/skills/public-apis/scripts/public_apis.py && cp /opt/native-skills-cm/public-apis-script.py /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py && chmod +x /opt/data/skills/public-apis/scripts/public_apis.py /opt/data/shared-skills/arcia/public-apis/scripts/public_apis.py
+            [ -f /opt/native-skills-cm/public-apis-catalog.json ] && cp /opt/native-skills-cm/public-apis-catalog.json /opt/data/skills/public-apis/catalog.json && cp /opt/native-skills-cm/public-apis-catalog.json /opt/data/shared-skills/arcia/public-apis/catalog.json
           fi
           chown -R 10000:10000 /opt/data
         securityContext:
@@ -96,8 +106,12 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data/.hermes $HOME/.hermes
+          mkdir -p /opt/data/.hermes $HOME/.hermes /opt/data/skills
           cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
+          mkdir -p /opt/shared-skills/arcia 2>/dev/null || true
+          ln -sfn /opt/data/skills/public-apis /opt/shared-skills/arcia/public-apis 2>/dev/null || true
+          ln -sfn /opt/data/skills/ponytail /opt/shared-skills/arcia/ponytail 2>/dev/null || true
+          ln -sfn /opt/data/skills/graphify /opt/shared-skills/arcia/graphify 2>/dev/null || true
           python3 -c 'p="/opt/hermes/gateway/platforms/api_server.py"; s=open(p).read(); s=s.replace("(\"GET\", \"/health\", self._handle_health),", "(\"GET\", \"/health\", self._handle_health),\n            (\"GET\", \"/\", self._handle_health),"); open(p,"w").write(s)' 2>/dev/null || true
           hermes gateway &
           exec hermes dashboard --host 0.0.0.0 --port 9119 --skip-build --no-open
