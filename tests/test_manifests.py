@@ -53,7 +53,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("DATABASE_URL", content)
 
     def test_open_webui_v03_security(self):
-        """Vérifie le verrouillage strict d'Open-WebUI (pas d'inscription publique, rôle pending, contrôle d'accès)."""
+        """Vérifie le verrouillage strict d'Open-WebUI (pas d'inscription publique, rôle user standard, contrôle d'accès)."""
         webui_path = os.path.join(self.manifests_dir, "07-open-webui.yaml")
         with open(webui_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -62,7 +62,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: ENABLE_FORWARD_USER_INFO_HEADERS\n          value: "true"', content)
         self.assertIn('name: DEFAULT_MODELS\n          value: "arcia/standard"', content)
         self.assertIn('name: ENABLE_SIGNUP\n          value: "false"', content)
-        self.assertIn('name: DEFAULT_USER_ROLE\n          value: "pending"', content)
+        self.assertIn('name: DEFAULT_USER_ROLE\n          value: "user"', content)
         self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
         self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "false"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)

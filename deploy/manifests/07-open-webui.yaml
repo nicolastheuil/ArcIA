@@ -95,7 +95,7 @@ spec:
         - name: ENABLE_SIGNUP
           value: "false"
         - name: DEFAULT_USER_ROLE
-          value: "pending"
+          value: "user"
         - name: BYPASS_MODEL_ACCESS_CONTROL
           value: "false"
         - name: ENABLE_PERSISTENT_CONFIG

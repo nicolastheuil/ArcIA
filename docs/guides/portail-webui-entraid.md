@@ -14,7 +14,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
   - **Modes d'accès autorisés exclusivement** :
     1. **Authentification SSO Microsoft 365 / Entra ID** (`ENABLE_OAUTH_SIGNUP=true`) pour les collaborateurs du tenant d'entreprise.
     2. **Comptes locaux créés manuellement par l'administrateur** via le panneau de gestion des utilisateurs.
-  - `DEFAULT_USER_ROLE=pending` : Tout nouveau compte provisionné arrive en rôle `pending` (verrouillé sans accès) jusqu'à activation explicite ou assignation de droits par l'administrateur.
+  - `DEFAULT_USER_ROLE=user` : Rôle par défaut fixé en utilisateur standard (`user`). Tout collaborateur authentifié via Microsoft 365 / Entra ID ou compte local créé par l'admin accède directement aux fonctionnalités collaborateur N1/N2 autorisées.
   - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès strict par rôle et niveau d'autonomie (N1 Collaborateur, N2 Expert, N3 Power User).
   - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=false` : Interdiction de fusion arbitraire par simple adresse email pour prévenir tout risque de détournement de compte (*account takeover*).
 
