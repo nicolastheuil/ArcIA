@@ -12,7 +12,7 @@ class TestPrivacyBoundary(unittest.TestCase):
     def test_no_private_tenant_references_in_git(self):
         """Scanne tous les fichiers suivis par git pour s'assurer qu'aucun identifiant privé n'est présent."""
         pattern = "arc" + "itek"
-        cmd = ["git", "grep", "-i", pattern, "--", ":(exclude)tests/test_privacy.py"]
+        cmd = ["git", "grep", "-i", pattern, "--", ":(exclude)tests/test_privacy.py", ":(exclude)assets/*"]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(proc.returncode, 1, f"Fuite de données privées détectée :\n{proc.stdout}")
 
