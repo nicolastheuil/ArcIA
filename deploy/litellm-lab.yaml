@@ -1,22 +1,26 @@
 # Configuration LiteLLM Proxy pour ArcIA (Mode Lab / Docker Local)
 model_list:
-  - model_name: auto
+  # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
+  - model_name: "ArcIA-Agentic (auto)"
     litellm_params:
       model: openrouter/auto
       api_key: os.environ/OPENROUTER_API_KEY
-  - model_name: claude-3.5-sonnet
+      fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
+
+  # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
+  - model_name: "ArcIA-Agentic (expert)"
     litellm_params:
       model: openrouter/anthropic/claude-3.5-sonnet
       api_key: os.environ/OPENROUTER_API_KEY
-  - model_name: gpt-4o
-    litellm_params:
-      model: openrouter/openai/gpt-4o
-      api_key: os.environ/OPENROUTER_API_KEY
-  - model_name: deepseek-chat
-    litellm_params:
-      model: openrouter/deepseek/deepseek-chat
-      api_key: os.environ/OPENROUTER_API_KEY
+      fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
+
+router_settings:
+  model_group_alias:
+    "auto": "ArcIA-Agentic (auto)"
+    "ArcIA-Agentic": "ArcIA-Agentic (auto)"
+    "hermes-agent": "ArcIA-Agentic (auto)"
 
 litellm_settings:
   drop_params: true
   set_verbose: false
+

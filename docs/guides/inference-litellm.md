@@ -9,9 +9,11 @@ LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises pa
 1. **Abstraction Complète des Fournisseurs** :
    - Expose une API compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
    - Route les demandes vers les meilleurs modèles d'OpenRouter (Anthropic Claude 3.5 Sonnet, DeepSeek Chat/Coder, OpenAI GPT-4o).
-2. **Modèle Virtuel `auto`** :
-   - Les clients appellent simplement `model: "auto"`.
-   - LiteLLM résout automatiquement vers le modèle d'entreprise par défaut tout en gérant le failover transparent si le fournisseur primaire subit une coupure ou un rate-limit.
+2. **Catalogue Épuré & Modèles Managés Souverains** :
+   - Expose deux profils d'entreprise dans le catalogue utilisateur :
+     - **`ArcIA-Agentic (auto)`** : Routage automatique dynamique du meilleur modèle disponible (OpenRouter / OmniRoute) avec bascule résiliente et caviardage DLP Presidio.
+     - **`ArcIA-Agentic (expert)`** : Modèle de raisonnement frontière haute fidélité, dont le comportement ou moteur sous-jacent peut être orienté par consigne directement dans le prompt.
+   - Les collaborateurs disposant de clés personnelles utilisent le canal **BYOK** d'Open-WebUI sans polluer le catalogue managé de l'entreprise.
 3. **Maîtrise des Budgets & Observabilité** :
    - Centralisation des métriques d'utilisation des tokens par service et utilisateur.
    - Prévention des dépassements de coûts.
@@ -33,28 +35,25 @@ Le ConfigMap `litellm-config` définit la matrice de modèles :
 
 ```yaml
 model_list:
-  # Modèle 'auto' d'entreprise avec bascule résiliente
-  - model_name: auto
+  # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
+  - model_name: "ArcIA-Agentic (auto)"
     litellm_params:
       model: openrouter/auto
       api_key: os.environ/OPENROUTER_API_KEY
       fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
 
-  # Modèles Cloud individuels exposés aux collaborateurs
-  - model_name: claude-3.5-sonnet
+  # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
+  - model_name: "ArcIA-Agentic (expert)"
     litellm_params:
       model: openrouter/anthropic/claude-3.5-sonnet
       api_key: os.environ/OPENROUTER_API_KEY
+      fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
 
-  - model_name: gpt-4o
-    litellm_params:
-      model: openrouter/openai/gpt-4o
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: deepseek-chat
-    litellm_params:
-      model: openrouter/deepseek/deepseek-chat
-      api_key: os.environ/OPENROUTER_API_KEY
+router_settings:
+  model_group_alias:
+    "auto": "ArcIA-Agentic (auto)"
+    "ArcIA-Agentic": "ArcIA-Agentic (auto)"
+    "hermes-agent": "ArcIA-Agentic (auto)"
 ```
 
 ---

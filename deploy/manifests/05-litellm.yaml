@@ -6,45 +6,25 @@ metadata:
 data:
   config.yaml: |
     model_list:
-      # Modèle 'auto' d'entreprise routé sur OpenRouter avec failover
-      - model_name: auto
+      # Modèle principal souverain ArcIA : sélection automatique intelligente du meilleur modèle disponible
+      - model_name: "ArcIA-Agentic (auto)"
         litellm_params:
           model: openrouter/auto
           api_key: os.environ/OPENROUTER_API_KEY
           fallbacks: ["openrouter/anthropic/claude-3.5-sonnet", "openrouter/openai/gpt-4o"]
-      
-      # Modèles Cloud d'Entreprise exposés nativement
-      - model_name: claude-3.5-sonnet
+
+      # Modèle d'expertise avancée ArcIA : raisonnement poussé, pilotable par consigne de modèle dans le prompt
+      - model_name: "ArcIA-Agentic (expert)"
         litellm_params:
           model: openrouter/anthropic/claude-3.5-sonnet
           api_key: os.environ/OPENROUTER_API_KEY
+          fallbacks: ["openrouter/openai/gpt-4o", "openrouter/auto"]
 
-      - model_name: gpt-4o
-        litellm_params:
-          model: openrouter/openai/gpt-4o
-          api_key: os.environ/OPENROUTER_API_KEY
-
-      - model_name: deepseek-chat
-        litellm_params:
-          model: openrouter/deepseek/deepseek-chat
-          api_key: os.environ/OPENROUTER_API_KEY
-
-      - model_name: ArcIA-Agentic
-        litellm_params:
-          model: openrouter/anthropic/claude-3.5-sonnet
-          api_key: os.environ/OPENROUTER_API_KEY
-
-      - model_name: hermes-agent
-        litellm_params:
-          model: openrouter/anthropic/claude-3.5-sonnet
-          api_key: os.environ/OPENROUTER_API_KEY
-
-      # Modèle interne d'entreprise souverain (vLLM local)
-      - model_name: local-internal
-        litellm_params:
-          model: openai/hermes-3-70b
-          api_base: http://vllm-internal.corp.local:8000/v1
-          api_key: "none"
+    router_settings:
+      model_group_alias:
+        "auto": "ArcIA-Agentic (auto)"
+        "ArcIA-Agentic": "ArcIA-Agentic (auto)"
+        "hermes-agent": "ArcIA-Agentic (auto)"
 
     guardrails:
       # Anonymisation universelle obligatoire vers le Cloud

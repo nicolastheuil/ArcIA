@@ -84,9 +84,10 @@ llm_gateway:
   # Obtenez votre clé sur : https://openrouter.ai/
   openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-  # Modèle par défaut servi aux utilisateurs et aux agents
-  # Exemples : "openrouter/auto", "openrouter/anthropic/claude-3.5-sonnet", "openrouter/deepseek/deepseek-chat"
-  default_model: "openrouter/auto"
+  # Modèle d'entreprise par défaut (présenté dans Open-WebUI sous "ArcIA-Agentic (auto)")
+  # Le catalogue managé propose uniquement "ArcIA-Agentic (auto)" et "ArcIA-Agentic (expert)".
+  # Les modèles personnels sont configurables par les collaborateurs via BYOK dans Open-WebUI.
+  default_model: "ArcIA-Agentic (auto)"
 
   # [OPTIONNEL] Serveur d'inférence LLM local souverain (ex: vLLM on-premise sur GPU interne)
   # Laisser vide ("") ou null si vous n'utilisez pas de serveur LLM local.

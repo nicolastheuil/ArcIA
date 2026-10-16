@@ -904,7 +904,7 @@ def get_default_config_dict() -> Dict[str, Any]:
         },
         "llm_gateway": {
             "openrouter_api_key": "",
-            "default_model": "openrouter/auto",
+            "default_model": "ArcIA-Agentic (auto)",
             "local_vllm_endpoint": ""
         },
         "hermes": {
@@ -1024,7 +1024,7 @@ network:
 # 3. Passerelle IA & Fournisseurs LLM
 llm_gateway:
   openrouter_api_key: {qstr(llm.get('openrouter_api_key', ''))}
-  default_model: {qstr(llm.get('default_model', 'openrouter/auto'))}
+  default_model: {qstr(llm.get('default_model', 'ArcIA-Agentic (auto)'))}
   local_vllm_endpoint: {qstr(llm.get('local_vllm_endpoint', ''))}
 
 # 4. Moteur d'Agents Hermes & Studio Kanban
@@ -2222,18 +2222,16 @@ def get_wizard_html_page() -> str:
 
         <div class="form-group">
           <label class="form-label">Clé d'API OpenRouter d'entreprise <span style="color:var(--accent-cyan);">*</span></label>
-          <div class="form-sublabel">Accès unifié à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3. <a href="https://openrouter.ai/keys" target="_blank" class="doc-link">Obtenir une clé sur OpenRouter.ai ↗</a></div>
+          <div class="form-sublabel">Accès unifié aux modèles mondiaux avec protection Presidio DLP. <a href="https://openrouter.ai/keys" target="_blank" class="doc-link">Obtenir une clé sur OpenRouter.ai ↗</a></div>
           <input type="password" id="llm_key" class="form-control" placeholder="sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx" required>
         </div>
 
         <div class="input-row">
           <div class="form-group" style="flex:1;">
-            <label class="form-label">Modèle par défaut</label>
+            <label class="form-label">Modèle managé d'entreprise</label>
             <select id="llm_model" class="form-control">
-              <option value="openrouter/auto">openrouter/auto (Routage automatique équilibré)</option>
-              <option value="openrouter/anthropic/claude-3.5-sonnet">openrouter/anthropic/claude-3.5-sonnet (Raisonnement avancé)</option>
-              <option value="openrouter/openai/gpt-4o">openrouter/openai/gpt-4o (Multimodal rapide)</option>
-              <option value="openrouter/deepseek/deepseek-chat">openrouter/deepseek/deepseek-chat (Économique)</option>
+              <option value="ArcIA-Agentic (auto)">ArcIA-Agentic (auto) — Routage intelligent automatique (Recommandé)</option>
+              <option value="ArcIA-Agentic (expert)">ArcIA-Agentic (expert) — Modèle d'expertise et raisonnement frontière</option>
             </select>
           </div>
           <div class="form-group" style="flex:1;">
@@ -2623,7 +2621,7 @@ def get_wizard_html_page() -> str:
       toggleTlsMode();
 
       document.getElementById("llm_key").value = llm.openrouter_api_key || "";
-      document.getElementById("llm_model").value = llm.default_model || "openrouter/auto";
+      document.getElementById("llm_model").value = llm.default_model || "ArcIA-Agentic (auto)";
       document.getElementById("llm_vllm").value = llm.local_vllm_endpoint || "";
 
       document.getElementById("hermes_password").value = hermes.admin_password || "admin";

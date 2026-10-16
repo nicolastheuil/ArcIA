@@ -165,7 +165,7 @@ spec:
         - name: OPENAI_API_BASE
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_MODEL_NAME
-          value: "auto"
+          value: "ArcIA-Agentic (auto)"
         volumeMounts:
         - name: user-state
           mountPath: /opt/data

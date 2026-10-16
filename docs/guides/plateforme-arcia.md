@@ -9,7 +9,7 @@ ArcIA est une plateforme d’IA agentique d’entreprise. Hermes est son moteur 
 Les agents utilisent des outils autorisés, consultent une base de compétences et de connecteurs, délèguent des tâches bornées et produisent des réponses ou fichiers vérifiables :
 - **Portail Collaborateur (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes, intégrée au SSO Microsoft Entra ID.
 - **Studio Kanban & Gateway (Hermes Agent)** : Pilotage visuel des missions longues, multi-agents, et connexion native pour l'application de bureau Hermes Desktop.
-- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des modèles (`auto`, `claude-3.5-sonnet`, `gpt-4o`, `deepseek-chat`), résilience et suivi des quotas.
+- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des modèles souverains managés (`ArcIA-Agentic (auto)`, `ArcIA-Agentic (expert)`), résilience et suivi des quotas.
 - **Gouvernance & Confidentialité (Presidio DLP)** : Caviardage automatique des PII et des secrets d'entreprise avant tout appel vers un LLM externe.
 - **Canal Microsoft Teams** : Bot interactif pour les échanges directs et le travail en équipe.
 

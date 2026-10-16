@@ -128,15 +128,11 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Modèles d'Entreprise Disponibles
 
-Dès le premier déploiement, LiteLLM expose les 6 modèles suivants dans le portail (visibles immédiatement par tous les comptes grâce à `BYPASS_MODEL_ACCESS_CONTROL=true`) :
-- `auto` : Routage intelligent par défaut (sélection automatique équilibrée avec fallback).
-- `claude-3.5-sonnet` : Modèle de pointe pour le raisonnement, le code et l'architecture.
-- `gpt-4o` : Modèle multimodal rapide et polyvalent.
-- `deepseek-chat` : Modèle hautement économique pour les requêtes volumineuses.
-- `hermes-agent` : Profil dédié aux tâches agentiques Hermes.
-- `local-internal` : Route interne souveraine sans sortie cloud (Ollama/vLLM).
+Dès le premier déploiement, le catalogue managé d'entreprise est strictement épuré aux deux profils d'élite ArcIA (visibles immédiatement par tous les collaborateurs grâce à `BYPASS_MODEL_ACCESS_CONTROL=true`) :
+- **`ArcIA-Agentic (auto)`** : Routage automatique intelligent par défaut. LiteLLM / OmniRoute / OpenRouter sélectionne dynamiquement le meilleur modèle disponible selon la complexité de la requête tout en optimisant la latence et les coûts, avec bascule résiliente sans coupure.
+- **`ArcIA-Agentic (expert)`** : Modèle de raisonnement frontière de haute précision (code d'architecture, analyse complexe). L'utilisateur peut orienter le comportement ou demander un type précis de modèle directement depuis son prompt.
 
-Toutes les requêtes sortant vers des modèles cloud sont **automatiquement caviardées par Presidio DLP** (`presidio-dlp.arcia.svc:8080`, endpoints `/analyze` et `/anonymize`) avant transmission au fournisseur.
+Toutes les requêtes sortant vers des modèles cloud sont **automatiquement caviardées par Presidio DLP** (`presidio-dlp.arcia.svc:8080`, endpoints `/analyze` et `/anonymize`) avant transmission au fournisseur. Les clés API et modèles personnels s'ajoutent quant à eux en toute autonomie via la fonctionnalité BYOK ci-dessous.
 
 ---
 
