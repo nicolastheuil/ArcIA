@@ -985,7 +985,67 @@ spec:
             port:
               number: 8642
 ---
-# 5. Middlewares Traefik (RateLimit, Studio Prefix/StripPrefix, Gateway StripPrefix)
+# 5. Ingress LiteLLM Admin UI (Gestion graphique des modèles, fallbacks et quotas)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-litellm-ui-ingress
+  namespace: {namespace}
+  annotations:
+{ingress_annotations}
+spec:
+  tls:
+  - hosts:
+    - {public_fqdn}
+    secretName: {tls_secret_name}
+  rules:
+  - host: {public_fqdn}
+    http:
+      paths:
+      - path: /ui
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+      - path: /model
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+      - path: /models
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+      - path: /key
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+      - path: /fallback
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+      - path: /spend
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+---
+# 6. Middlewares Traefik (RateLimit, Studio Prefix/StripPrefix, Gateway StripPrefix)
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
