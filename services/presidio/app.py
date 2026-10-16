@@ -142,8 +142,8 @@ def sanitize(req: SanitizeRequest):
             entities.append("CREDIT_CARD")
             text = text.replace(cc, f"[ARCIA_CREDIT_CARD_{idx+1}]")
 
-        # 7. Analyse PII avancée Presidio (Exclusion stricte des entités sémantiques: noms de compétences, personnes publiques, lieux, entreprises)
-        NON_PII_ENTITIES = {"LOCATION", "ORGANIZATION", "DATE_TIME", "NRP", "MISC", "PERSON", "EMAIL_ADDRESS", "IBAN_CODE", "IP_ADDRESS", "PHONE_NUMBER"}
+        # 7. Analyse PII avancée Presidio (Exclusion stricte des entités sémantiques: noms de compétences, personnes publiques, lieux, entreprises, URLs et scripts)
+        NON_PII_ENTITIES = {"LOCATION", "ORGANIZATION", "DATE_TIME", "NRP", "MISC", "PERSON", "EMAIL_ADDRESS", "IBAN_CODE", "IP_ADDRESS", "PHONE_NUMBER", "URL"}
         analyzer = get_analyzer()
         if analyzer and len(text) > 0:
             lang = req.language if req.language in ["fr", "en"] else "fr"
@@ -181,7 +181,7 @@ def analyze(req: AnalyzeRequest):
             lang = req.language if req.language in ["fr", "en"] else "fr"
             results = analyzer.analyze(text=req.text, language=lang, entities=req.entities)
             for r in results:
-                if r.entity_type in {"LOCATION", "ORGANIZATION", "DATE_TIME", "NRP", "MISC", "PERSON"}:
+                if r.entity_type in {"LOCATION", "ORGANIZATION", "DATE_TIME", "NRP", "MISC", "PERSON", "URL"}:
                     continue
                 items.append({
                     "entity_type": r.entity_type,

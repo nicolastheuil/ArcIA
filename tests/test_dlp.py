@@ -78,6 +78,37 @@ class TestArcIADLP(unittest.TestCase):
         self.assertNotIn("[ARCIA_LOCATION]", res["sanitized_text"])
         self.assertNotIn("[ARCIA_ORGANIZATION]", res["sanitized_text"])
 
+    def test_urls_and_python_scripts_preserved(self):
+        """Vérifie que les URLs et scripts Python (ex: public_apis.py) ne sont jamais caviardés en [ARCIA_URL]."""
+        prompt = "Exécute le script /opt/data/skills/public-apis/scripts/public_apis.py pour interroger https://recherche-entreprises.api.gouv.fr."
+        res = sanitize(SanitizeRequest(text=prompt, language="fr"))
+        self.assertIn("public_apis.py", res["sanitized_text"])
+        self.assertIn("https://recherche-entreprises.api.gouv.fr", res["sanitized_text"])
+        self.assertNotIn("[ARCIA_URL]", res["sanitized_text"])
+
+    def test_presidio_mocked_url_entity_ignored(self):
+        """Vérifie que si Presidio Analyzer détecte une entité URL (ex: apis.py car .py est TLD), elle est ignorée."""
+        from unittest.mock import patch, MagicMock
+        class FakeRecognizerResult:
+            def __init__(self, entity_type, start, end, score=0.9):
+                self.entity_type = entity_type
+                self.start = start
+                self.end = end
+                self.score = score
+
+        mock_analyzer = MagicMock()
+        text = "python /opt/data/skills/public-apis/scripts/public_apis.py company"
+        # apis.py starts at index 44 and ends at 51
+        mock_analyzer.analyze.return_value = [
+            FakeRecognizerResult(entity_type="URL", start=44, end=51)
+        ]
+
+        with patch("app.get_analyzer", return_value=mock_analyzer):
+            res = sanitize(SanitizeRequest(text=text, language="fr"))
+            self.assertNotIn("[ARCIA_URL]", res["sanitized_text"])
+            self.assertIn("public_apis.py", res["sanitized_text"])
+            self.assertNotIn("URL", res["entities_detected"])
+
 
 if __name__ == "__main__":
     unittest.main()
