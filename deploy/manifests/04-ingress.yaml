@@ -65,7 +65,7 @@ spec:
             port:
               number: 4000
 ---
-# 3. Ingress Studio & Gateway (Hermes Studio & Hermes Desktop Gateway - Sécurisé par Entra ID)
+# 3. Ingress Studio (Hermes Studio Dashboard — Authentification native admin/password)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -74,8 +74,7 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
     traefik.ingress.kubernetes.io/router.tls: "true"
-    # Authentification obligatoire via MS365 Entra ID
-    traefik.ingress.kubernetes.io/router.middlewares: arcia-entra-id-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: arcia-studio-prefix@kubernetescrd,arcia-studio-stripprefix@kubernetescrd
 spec:
   tls:
   - hosts:
@@ -92,6 +91,26 @@ spec:
             name: hermes-studio
             port:
               number: 9119
+---
+# 4. Ingress Gateway Desktop (Hermes Gateway API & WebSocket — Protégé par PAT)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-gateway-ingress
+  namespace: arcia
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: arcia-gateway-stripprefix@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - assistant.example.org
+    secretName: arcia-tls-cert
+  rules:
+  - host: assistant.example.org
+    http:
+      paths:
       - path: /gateway
         pathType: Prefix
         backend:
@@ -100,7 +119,7 @@ spec:
             port:
               number: 8642
 ---
-# 4. Middleware Rate Limiting pour l'endpoint public /v1
+# 5. Middlewares Traefik (Rate Limiting, Prefix et StripPrefix)
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -110,3 +129,33 @@ spec:
   rateLimit:
     average: 100
     burst: 50
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: studio-prefix
+  namespace: arcia
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Prefix: "/studio"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: studio-stripprefix
+  namespace: arcia
+spec:
+  stripPrefix:
+    prefixes:
+      - /studio
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: gateway-stripprefix
+  namespace: arcia
+spec:
+  stripPrefix:
+    prefixes:
+      - /gateway

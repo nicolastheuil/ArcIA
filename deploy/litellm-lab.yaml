@@ -5,7 +5,7 @@ model_list:
   # 1. Palier Standard (Défaut) : Économique, rapide, souverain
   - model_name: "arcia/standard"
     litellm_params:
-      model: openrouter/anthropic/claude-3-5-haiku
+      model: openrouter/anthropic/claude-haiku-5.5
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
@@ -14,7 +14,7 @@ model_list:
   # 2. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
   - model_name: "arcia/expert"
     litellm_params:
-      model: openrouter/anthropic/claude-3.7-sonnet
+      model: openrouter/anthropic/claude-sonnet-5.5
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
@@ -23,7 +23,7 @@ model_list:
   # 3. Palier Raisonnement : Analyse architecturale et résolution critique
   - model_name: "arcia/reasoning"
     litellm_params:
-      model: openrouter/deepseek/deepseek-r1
+      model: openrouter/deepseek/deepseek-v4.1-flash
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
@@ -35,10 +35,18 @@ router_settings:
     - "arcia/expert": ["arcia/standard"]
     - "arcia/reasoning": ["arcia/expert"]
   model_group_alias:
-    "ArcIA-Agentic (auto)": "arcia/standard"
-    "ArcIA-Agentic (expert)": "arcia/expert"
-    "auto": "arcia/standard"
-    "hermes-agent": "arcia/standard"
+    "ArcIA-Agentic (auto)":
+      model: "arcia/standard"
+      hidden: true
+    "ArcIA-Agentic (expert)":
+      model: "arcia/expert"
+      hidden: true
+    "auto":
+      model: "arcia/standard"
+      hidden: true
+    "hermes-agent":
+      model: "arcia/standard"
+      hidden: true
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

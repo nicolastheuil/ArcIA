@@ -13,7 +13,7 @@ import urllib.request
 import urllib.error
 
 DEFAULT_LITELLM_URL = os.environ.get("LITELLM_URL", "http://localhost:4000")
-DEFAULT_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "sk-arcia-master-key-v03")
+DEFAULT_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
 
 AUTONOMY_LEVELS = {
     "N1": {
@@ -35,6 +35,10 @@ AUTONOMY_LEVELS = {
 
 
 def _make_request(url: str, master_key: str, method: str = "GET", data: dict = None) -> dict:
+    if not master_key:
+        print("[ERREUR] Master Key LiteLLM non fournie. Définissez la variable LITELLM_MASTER_KEY ou le paramètre --master-key.", file=sys.stderr)
+        sys.exit(1)
+
     headers = {
         "Authorization": f"Bearer {master_key}",
         "Content-Type": "application/json"
@@ -64,6 +68,7 @@ def create_key(user_email: str, autonomy_level: str, team: str = "engineering",
         "team_id": team,
         "models": level_info["models"],
         "max_budget": level_info["max_budget"],
+        "budget_duration": "30d",
         "duration": duration,
         "metadata": {
             "autonomy_level": autonomy_level,
@@ -71,14 +76,14 @@ def create_key(user_email: str, autonomy_level: str, team: str = "engineering",
             "user_email": user_email
         }
     }
-    print(f"[*] Génération de la clé virtuelle pour {user_email} (Niveau: {autonomy_level}, Budget: {level_info['max_budget']} €)...")
+    print(f"[*] Génération de la clé virtuelle pour {user_email} (Niveau: {autonomy_level}, Budget: {level_info['max_budget']} $ / 30j)...")
     res = _make_request(f"{base_url}/key/generate", master_key, method="POST", data=payload)
     key = res.get("key", "")
     print(f"\n[+] Clé nominative générée avec succès :")
     print(f"    Utilisateur : {user_email}")
     print(f"    Niveau      : {autonomy_level} ({level_info['description']})")
     print(f"    Modèles     : {', '.join(level_info['models'])}")
-    print(f"    Budget Max  : {level_info['max_budget']} € / mois")
+    print(f"    Budget Max  : {level_info['max_budget']} $ / 30 jours (LiteLLM USD)")
     print(f"    Clé d'API   : {key}\n")
     print(f"Conservez cette clé précieusement, elle ne sera plus affichée.")
     return key
@@ -87,18 +92,26 @@ def create_key(user_email: str, autonomy_level: str, team: str = "engineering",
 def list_keys(base_url: str = DEFAULT_LITELLM_URL, master_key: str = DEFAULT_MASTER_KEY):
     """Liste les clés virtuelles actives sur la passerelle."""
     print(f"[*] Récupération des clés actives sur {base_url}...")
-    res = _make_request(f"{base_url}/key/list", master_key, method="GET")
+    res = _make_request(f"{base_url}/key/list?return_full_object=true", master_key, method="GET")
     keys = res.get("keys", [])
     print(f"[+] {len(keys)} clés enregistrées :")
     for k in keys:
-        print(f"  - Key: {k.get('key_alias') or k.get('key_name') or 'N/A'} | User: {k.get('user_id')} | Spend: {k.get('spend', 0)} € / {k.get('max_budget', 'illimité')} €")
+        if isinstance(k, dict):
+            alias = k.get("key_alias") or k.get("key_name") or k.get("token") or "N/A"
+            user = k.get("user_id", "N/A")
+            spend = k.get("spend", 0)
+            budget = k.get("max_budget", "illimité")
+            duration = k.get("budget_duration", "30d")
+            print(f"  - Key: {alias} | User: {user} | Spend: {spend} $ / {budget} $ ({duration})")
+        else:
+            print(f"  - Key: {k}")
     return keys
 
 
 def delete_key(key_alias: str, base_url: str = DEFAULT_LITELLM_URL, master_key: str = DEFAULT_MASTER_KEY):
     """Révoque une clé d'API nominative."""
     print(f"[*] Révocation de la clé '{key_alias}'...")
-    payload = {"keys": [key_alias]}
+    payload = {"keys": [key_alias], "key_aliases": [key_alias]}
     res = _make_request(f"{base_url}/key/delete", master_key, method="POST", data=payload)
     print(f"[+] Clé révoquée avec succès : {res}")
 

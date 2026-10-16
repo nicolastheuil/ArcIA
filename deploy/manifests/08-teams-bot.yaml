@@ -114,8 +114,18 @@ data:
     async def health(request: web.Request) -> web.Response:
         return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.3.0"})
 
+    async def messages_info(request: web.Request) -> web.Response:
+        """Informational endpoint for GET requests on the webhook URL (e.g. browser navigation or health probes)."""
+        return web.json_response({
+            "status": "active",
+            "service": "arcia-teams-bot-adapter",
+            "endpoint": "/api/teams/messages",
+            "message": "Microsoft Teams Bot Framework Webhook Endpoint. Send HTTP POST with Bot Framework Activity payload."
+        })
+
     app = web.Application()
     app.router.add_post("/api/teams/messages", messages)
+    app.router.add_get("/api/teams/messages", messages_info)
     app.router.add_get("/", health)
     app.router.add_get("/health", health)
     app.router.add_get("/healthz", health)

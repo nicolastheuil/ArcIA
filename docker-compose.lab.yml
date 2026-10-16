@@ -43,7 +43,7 @@ services:
 
   # 2. Passerelle d'Inférence IA LiteLLM Proxy
   litellm-proxy:
-    image: ghcr.io/berriai/litellm:main-v1.61.16
+    image: ghcr.io/berriai/litellm:main-v1.72.6-stable
     container_name: arcia-litellm-lab
     restart: unless-stopped
     ports:

@@ -79,6 +79,16 @@ class TestArcIADeploy(unittest.TestCase):
         with self.assertRaises(SystemExit):
             deploy.validate_config(cfg)
 
+    def test_validation_allows_empty_openrouter_key(self):
+        """Vérifie que la validation autorise une clé openrouter vide pour déploiement générique sans souscription."""
+        cfg = deploy.parse_yaml_or_env(self.config_example_path)
+        cfg["llm_gateway"]["openrouter_api_key"] = ""
+        cfg["network"]["public_fqdn"] = "assistant.corp.internal"
+        try:
+            deploy.validate_config(cfg)
+        except SystemExit:
+            self.fail("validate_config a échoué avec openrouter_api_key='' !")
+
     def test_validation_fails_on_sso_missing_fields(self):
         """Vérifie que si SSO Entra ID est activé, tous les champs sont requis."""
         cfg = deploy.parse_yaml_or_env(self.config_example_path)

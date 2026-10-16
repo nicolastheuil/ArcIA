@@ -555,8 +555,70 @@ VMWARE_SIZING_TIERS = {
     }
 }
 
+def discover_vsphere_resources(host: str, port: int, session_id: str, ssl_ctx: Any) -> Dict[str, List[Dict[str, str]]]:
+    """Interroge les API REST vSphere pour découvrir dynamiquement Datacenters, Clusters/RP, Datastores et Réseaux."""
+    resources: Dict[str, List[Dict[str, str]]] = {
+        "datacenters": [],
+        "clusters": [],
+        "datastores": [],
+        "networks": []
+    }
+    if not session_id:
+        return resources
+
+    headers = {
+        "vmware-api-session-id": session_id,
+        "Accept": "application/json"
+    }
+
+    def _fetch_list(endpoint_rest: str, endpoint_api: str, key_name: str = "name") -> List[Dict[str, str]]:
+        items = []
+        for endpoint in [endpoint_rest, endpoint_api]:
+            url = f"https://{host}:{port}{endpoint}"
+            try:
+                req = urllib.request.Request(url, headers=headers, method="GET")
+                with urllib.request.urlopen(req, timeout=8, context=ssl_ctx) as resp:
+                    if resp.status == 200:
+                        raw = json.loads(resp.read().decode("utf-8"))
+                        data_list = raw.get("value", raw if isinstance(raw, list) else [])
+                        for entry in data_list:
+                            if isinstance(entry, dict) and key_name in entry:
+                                name = entry[key_name]
+                                extra = ""
+                                if "free_space" in entry:
+                                    free_gb = round(entry["free_space"] / (1024**3), 1)
+                                    cap_gb = round(entry.get("capacity", 0) / (1024**3), 1)
+                                    extra = f" ({free_gb} Go libres / {cap_gb} Go)"
+                                elif "type" in entry:
+                                    extra = f" ({entry['type']})"
+                                items.append({"name": name, "label": f"{name}{extra}"})
+                        if items:
+                            break
+            except Exception:
+                continue
+        return items
+
+    # 1. Datacenters
+    resources["datacenters"] = _fetch_list("/rest/vcenter/datacenter", "/api/vcenter/datacenter")
+
+    # 2. Clusters & Resource Pools
+    clusters = _fetch_list("/rest/vcenter/cluster", "/api/vcenter/cluster")
+    rps = _fetch_list("/rest/vcenter/resource-pool", "/api/vcenter/resource-pool")
+    for r in rps:
+        if not any(c["name"] == r["name"] for c in clusters):
+            clusters.append({"name": r["name"], "label": f"{r['name']} (Resource Pool)"})
+    resources["clusters"] = clusters
+
+    # 3. Datastores
+    resources["datastores"] = _fetch_list("/rest/vcenter/datastore", "/api/vcenter/datastore")
+
+    # 4. Réseaux / Portgroups
+    resources["networks"] = _fetch_list("/rest/vcenter/network", "/api/vcenter/network")
+
+    return resources
+
 def test_vmware_connection(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Valide la connectivité réseau et les identifiants vCenter / ESXi de manière sécurisée."""
+    """Valide la connectivité réseau et les identifiants vCenter / ESXi, et découvre les ressources d'infrastructure."""
     host = data.get("host", "").strip()
     port = int(data.get("port", 443))
     user = data.get("username", "").strip()
@@ -597,37 +659,48 @@ def test_vmware_connection(data: Dict[str, Any]) -> Dict[str, Any]:
             "error": f"Erreur lors de la négociation TLS vers {host}:{port} : {str(te)}"
         }
 
-    # 3. Test authentification session vSphere si identifiants fournis
+    # 3. Test authentification session vSphere et découverte de ressources si identifiants fournis
     auth_status = "Non authentifié (connectivité réseau et TLS confirmées)"
     session_id = None
-    detected_version = f"VMware vSphere ({target_type})"
+    detected_version = "VMware vCenter Server" if "vcenter" in target_type.lower() else "Hôte VMware ESXi"
+    discovered_resources: Dict[str, List[Dict[str, str]]] = {
+        "datacenters": [],
+        "clusters": [],
+        "datastores": [],
+        "networks": []
+    }
 
     if user and password:
+        ssl_ctx = ssl.create_default_context()
+        if insecure:
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+
         try:
-            auth_url = f"https://{host}:{port}/rest/com/vmware/cis/session"
             creds = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("utf-8")
             headers = {"Authorization": f"Basic {creds}", "Content-Type": "application/json"}
 
-            req = urllib.request.Request(auth_url, data=b"{}", headers=headers, method="POST")
-            ssl_ctx = ssl.create_default_context()
-            if insecure:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = ssl.CERT_NONE
+            # Tentative session REST classique CIS puis API moderne
+            for session_endpoint in ["/rest/com/vmware/cis/session", "/api/session"]:
+                try:
+                    auth_url = f"https://{host}:{port}{session_endpoint}"
+                    req = urllib.request.Request(auth_url, data=b"{}", headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=8, context=ssl_ctx) as resp:
+                        if resp.status == 200:
+                            content = resp.read().decode("utf-8")
+                            body = json.loads(content)
+                            session_id = body.get("value", body if isinstance(body, str) else None)
+                            auth_status = "Authentification REST vSphere réussie"
+                            break
+                except urllib.error.HTTPError as he:
+                    if he.code == 401:
+                        return {"success": False, "error": "Échec d'authentification vSphere : nom d'utilisateur ou mot de passe incorrect."}
+                except Exception:
+                    pass
 
-            try:
-                with urllib.request.urlopen(req, timeout=8, context=ssl_ctx) as resp:
-                    if resp.status == 200:
-                        body = json.loads(resp.read().decode("utf-8"))
-                        session_id = body.get("value")
-                        auth_status = "Authentification REST vSphere réussie"
-                        detected_version = "VMware vCenter 7.0 / 8.0"
-            except urllib.error.HTTPError as he:
-                if he.code == 401:
-                    return {"success": False, "error": "Échec d'authentification vSphere : nom d'utilisateur ou mot de passe incorrect."}
-                elif he.code == 404:
-                    auth_status = "Endpoint vSphere actif, session SOAP accessible"
-            except Exception:
-                pass
+            if session_id:
+                # Découverte dynamique des ressources d'infrastructure (Datacenters, Clusters, Datastores, Réseaux)
+                discovered_resources = discover_vsphere_resources(host, port, session_id, ssl_ctx)
         except Exception as ae:
             auth_status = f"Vérification réseau OK (auth : {str(ae)})"
 
@@ -641,7 +714,8 @@ def test_vmware_connection(data: Dict[str, Any]) -> Dict[str, Any]:
             "detected_version": detected_version,
             "auth_status": auth_status,
             "tls_verified": not insecure
-        }
+        },
+        "resources": discovered_resources
     }
 
 def audit_kubernetes_environment_full(runner: Any) -> Dict[str, Any]:
@@ -1219,14 +1293,17 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
 
     with deployment_lock:
         deployment_state["status"] = "running"
-        deployment_state["logs"] = []
+        deployment_state["logs"] = [
+            f"[INFO] Initialisation du déploiement universel ArcIA (Cible : {infra_target})...",
+            f"[INFO] Mode d'exécution : {'Simulation (dry-run)' if dry_run else 'Déploiement réel'}"
+        ]
         deployment_state["start_time"] = time.time()
         deployment_state["exit_code"] = None
 
     if infra_target == "docker_lab":
         try:
             with deployment_lock:
-                deployment_state["logs"].append("[INFO] Initialisation du déploiement en Mode Lab (Docker Local)...")
+                deployment_state["logs"].append("[INFO] Démarrage de l'environnement Lab Local (Docker Desktop)...")
 
             doc_st = get_docker_status()
             if not doc_st.get("installed"):
@@ -1254,12 +1331,14 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                 deployment_state["logs"].append(f"[INFO] Démarrage des conteneurs via Docker Compose (Portail: http://localhost:{webui_port})...")
 
             env_vars = os.environ.copy()
+            env_vars["PYTHONUNBUFFERED"] = "1"
+            env_vars["PYTHONIOENCODING"] = "utf-8"
             env_vars["OPENROUTER_API_KEY"] = openrouter_key
             env_vars["WEBUI_PORT"] = str(webui_port)
             env_vars["LITELLM_PORT"] = str(litellm_port)
             env_vars["ADMIN_PASSWORD"] = admin_pass
 
-            cmd = ["docker", "compose", "-f", compose_file, "up", "-d"]
+            cmd = ["docker", "compose", "-f", compose_file, "up", "-d", "--progress", "plain"]
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -1290,7 +1369,6 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                         "studio_url": f"http://localhost:{webui_port}/studio",
                         "gateway_url": f"http://localhost:{litellm_port}/v1",
                         "teams_webhook": None,
-                        "omniroute_admin": None,
                         "hermes_admin_user": "admin@arcia.local",
                         "hermes_admin_pass": admin_pass,
                         "hermes_pat": cfg.get("hermes", {}).get("api_token", ""),
@@ -1308,10 +1386,36 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             return
 
     # Mode Kubernetes Existant ou VMware vSphere
+    if infra_target == "vmware_k3s":
+        vm_cfg = (infra_config or {}).get("vmware", {})
+        res_ov = vm_cfg.get("resources_override", {})
+        storage_acc = vm_cfg.get("storage_account", {})
+        nodes = res_ov.get("nodes", 3)
+        vcpu = res_ov.get("vcpu_per_node", 4)
+        ram = res_ov.get("ram_per_node_gb", 16)
+        disk = res_ov.get("disk_per_node_gb", 150)
+        rag_pvc = res_ov.get("rag_storage_pvc", "200Gi")
+        host = vm_cfg.get("host", "vcenter")
+        dc = vm_cfg.get("datacenter", "")
+        cl = vm_cfg.get("cluster", "")
+        ds = vm_cfg.get("datastore", "")
+        with deployment_lock:
+            deployment_state["logs"].append(f"[INFO] Cible d'infrastructure VMware vSphere : {host} (Datacenter: {dc or 'auto'}, Cluster/RP: {cl or 'auto'}, Datastore: {ds or 'auto'})")
+            deployment_state["logs"].append(f"[INFO] Dimensionnement : {nodes} VM(s) x ({vcpu} vCPU, {ram} Go RAM, {disk} Go SSD), Stockage RAG : {rag_pvc}")
+            if storage_acc.get("separate"):
+                deployment_state["logs"].append(f"[INFO] Compte de stockage dissocié : type={storage_acc.get('provider_type')}, user={storage_acc.get('username')}, endpoint={storage_acc.get('endpoint') or 'local'}")
+
     deploy_script = os.path.join(SCRIPT_DIR, "deploy.py")
-    cmd = [sys.executable, deploy_script, "--config", DEFAULT_CONFIG_PATH]
+    cmd = [sys.executable, "-u", deploy_script, "--config", DEFAULT_CONFIG_PATH]
     if dry_run:
         cmd.append("--dry-run")
+
+    env_vars = os.environ.copy()
+    env_vars["PYTHONUNBUFFERED"] = "1"
+    env_vars["PYTHONIOENCODING"] = "utf-8"
+
+    with deployment_lock:
+        deployment_state["logs"].append(f"[INFO] Exécution du déploiement : python -u scripts/deploy.py {'--dry-run' if dry_run else ''}")
 
     try:
         proc = subprocess.Popen(
@@ -1320,7 +1424,8 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            cwd=ROOT_DIR
+            cwd=ROOT_DIR,
+            env=env_vars
         )
 
         for line in iter(proc.stdout.readline, ''):
@@ -1340,7 +1445,6 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                 hermes_pass = cfg.get("hermes", {}).get("admin_password", "admin")
                 hermes_pat = cfg.get("hermes", {}).get("api_token", "")
                 teams_enabled = cfg.get("teams_bot", {}).get("enabled", False)
-                omni_enabled = cfg.get("omniroute", {}).get("enabled", False)
 
                 instance_repo_url = None
                 if instance_git_info and instance_git_info.get("enabled") and not dry_run:
@@ -1382,7 +1486,6 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                     "studio_url": f"https://{fqdn}/studio",
                     "gateway_url": f"https://{fqdn}/gateway",
                     "teams_webhook": f"https://{fqdn}/api/teams/messages" if teams_enabled else None,
-                    "omniroute_admin": "http://omniroute.arcia.svc.cluster.local:20129" if omni_enabled else None,
                     "hermes_admin_user": "admin",
                     "hermes_admin_pass": hermes_pass,
                     "hermes_pat": hermes_pat,
@@ -1647,6 +1750,42 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             except Exception as de:
                 self.send_json(500, {"success": False, "error": f"Erreur lors de la configuration ou du démarrage du déploiement : {str(de)}"})
 
+        elif path == "/api/config/upload-yaml":
+            try:
+                yaml_content = req_data.get("yaml_content") or req_data.get("content") or ""
+                filename = req_data.get("filename", "arcia.config.yaml")
+                if not yaml_content.strip():
+                    self.send_json(400, {"success": False, "error": "Le contenu du fichier YAML est vide."})
+                    return
+
+                sys.path.insert(0, SCRIPT_DIR)
+                import deploy
+                if filename.endswith(".env") or "ARCIA_PUBLIC_FQDN=" in yaml_content:
+                    parsed_cfg = deploy.parse_env_format(yaml_content)
+                else:
+                    parsed_cfg = None
+                    try:
+                        import yaml
+                        parsed_cfg = yaml.safe_load(yaml_content)
+                    except Exception:
+                        pass
+                    if not isinstance(parsed_cfg, dict):
+                        parsed_cfg = deploy.parse_simple_yaml(yaml_content)
+
+                if not isinstance(parsed_cfg, dict):
+                    self.send_json(400, {"success": False, "error": "Structure YAML invalide ou impossible à analyser."})
+                    return
+
+                cfg = ensure_config_defaults(parsed_cfg)
+                self.send_json(200, {
+                    "success": True,
+                    "config": cfg,
+                    "filename": filename,
+                    "message": f"Configuration chargée avec succès depuis '{filename}'."
+                })
+            except Exception as ye:
+                self.send_json(500, {"success": False, "error": f"Erreur lors de l'analyse du fichier YAML : {str(ye)}"})
+
         else:
             self.send_error(404, "Endpoint non trouvé")
 
@@ -1724,7 +1863,7 @@ def get_wizard_html_page() -> str:
     .screen-desc { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
 
     /* Cards de Choix Mode d'Installation */
-    .mode-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+    .mode-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 24px 0; }
     .mode-card { border: 2px solid var(--border-color); border-radius: var(--radius); padding: 24px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
     .mode-card:hover { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.04); transform: translateY(-2px); }
     .mode-card.selected { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.08); box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
@@ -1831,6 +1970,8 @@ def get_wizard_html_page() -> str:
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
       <span id="instanceModeBadge" class="header-badge">Chargement...</span>
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="triggerYamlUpload()">📂 Importer YAML</button>
+      <input type="file" id="yamlFileInput" accept=".yaml,.yml,.env" style="display:none;" onchange="handleYamlFileSelect(event)">
       <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="saveConfigOnly()">💾 Enregistrer localement</button>
     </div>
   </header>
@@ -1882,16 +2023,11 @@ def get_wizard_html_page() -> str:
       </div>
       <div class="step-item" onclick="goToStep(9)">
         <div class="step-icon">9</div>
-        <div class="step-label">🔀 Routeur OmniRoute</div>
-        <div class="step-tag optional">Option</div>
-      </div>
-      <div class="step-item" onclick="goToStep(10)">
-        <div class="step-icon">10</div>
         <div class="step-label">⚡ Déploiement & Sauvegarde</div>
         <div class="step-tag required">Action</div>
       </div>
-      <div class="step-item" onclick="goToStep(11)">
-        <div class="step-icon">11</div>
+      <div class="step-item" onclick="goToStep(10)">
+        <div class="step-icon">10</div>
         <div class="step-label">🎉 Accès & Récapitulatif</div>
         <div class="step-tag required">Prêt</div>
       </div>
@@ -1900,11 +2036,11 @@ def get_wizard_html_page() -> str:
     <!-- Main Content Area -->
     <main class="content-area">
       
-      <!-- SCREEN 1: Choix de Mode (Nouvelle Instance vs Restaurer) -->
+      <!-- SCREEN 1: Choix de Mode (Nouvelle Instance vs Restaurer vs Importer YAML) -->
       <section id="step1" class="screen active card">
         <div class="screen-header">
           <h2 class="screen-title">Bienvenue dans l'assistant ArcIA</h2>
-          <p class="screen-desc">Choisissez votre parcours : installez une nouvelle instance avec sauvegarde Git chiffrée, ou restaurez une instance existante.</p>
+          <p class="screen-desc">Choisissez votre parcours : installez une nouvelle instance avec sauvegarde Git chiffrée, restaurez une instance existante, ou préremplissez la configuration depuis un fichier YAML.</p>
         </div>
 
         <div class="mode-cards-grid">
@@ -1928,6 +2064,17 @@ def get_wizard_html_page() -> str:
               Récupère la configuration et les secrets depuis un dépôt Git d'instance privé, déchiffre les données avec votre mot de passe et déploie le cluster.
             </div>
             <button class="btn btn-secondary" onclick="selectSetupMode('restore')">Ouvrir l'outil de restauration ↓</button>
+          </div>
+
+          <!-- Option C : Préremplir depuis Fichier YAML -->
+          <div id="cardUploadYaml" class="mode-card" onclick="triggerYamlUpload()">
+            <span class="mode-card-badge" style="background:rgba(255,184,0,0.2); color:var(--accent-yellow);">Fichier Local</span>
+            <div class="mode-card-icon">📂</div>
+            <div class="mode-card-title">Préremplir depuis un fichier YAML</div>
+            <div class="mode-card-desc">
+              Chargez votre fichier <code>arcia.config.yaml</code> ou <code>arcia.env</code> existant pour renseigner automatiquement toutes les étapes du Wizard.
+            </div>
+            <button class="btn btn-secondary" onclick="event.stopPropagation(); triggerYamlUpload();">Sélectionner un fichier YAML...</button>
           </div>
         </div>
 
@@ -1964,7 +2111,7 @@ def get_wizard_html_page() -> str:
           <div id="restoreSuccessPanel" style="display:none; margin-top:20px; background:rgba(16,185,129,0.1); border:1px solid var(--success); border-radius:8px; padding:16px;">
             <div style="font-size:16px; font-weight:700; color:var(--success); margin-bottom:8px;">✅ Instance Déchiffrée avec Succès !</div>
             <div id="restoreSummaryDetails" style="font-size:13px; color:#e2e8f0; line-height:1.6; margin-bottom:16px;"></div>
-            <button class="btn btn-primary" style="background:var(--success); border-color:var(--success);" onclick="goToStep(10)">
+            <button class="btn btn-primary" style="background:var(--success); border-color:var(--success);" onclick="goToStep(9)">
               🚀 Lancer directement le Déploiement sur le Cluster Kubernetes →
             </button>
           </div>
@@ -2123,8 +2270,40 @@ def get_wizard_html_page() -> str:
             </div>
           </div>
 
-          <div id="vmware_tier_summary" class="alert-box alert-info" style="margin-bottom:20px;">
+          <div id="vmware_tier_summary" class="alert-box alert-info" style="margin-bottom:16px;">
             <!-- Rempli dynamiquement par JS -->
+          </div>
+
+          <!-- 1.bis. Override personnalisé des ressources matérielles -->
+          <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:14px; margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span style="font-weight:700; font-size:13px; color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
+                <span>⚡</span> Personnalisation & Override des Ressources Matérielles
+              </span>
+              <span style="font-size:11px; color:var(--text-muted);">Pré-rempli selon le palier — modifiable librement</span>
+            </div>
+            <div class="input-row">
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Nombre de Nœuds (VMs)</label>
+                <input type="number" id="vmware_custom_nodes" class="form-control" min="1" max="50" value="3" oninput="updateVmwareCustomTotals()">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">vCPU par Nœud</label>
+                <input type="number" id="vmware_custom_vcpu" class="form-control" min="1" max="128" value="4" oninput="updateVmwareCustomTotals()">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">RAM par Nœud (Go)</label>
+                <input type="number" id="vmware_custom_ram" class="form-control" min="2" max="1024" value="16" oninput="updateVmwareCustomTotals()">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Disque Système par Nœud (Go)</label>
+                <input type="number" id="vmware_custom_disk" class="form-control" min="20" max="4000" value="150" oninput="updateVmwareCustomTotals()">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Stockage RAG / WebUI (PVC)</label>
+                <input type="text" id="vmware_custom_rag" class="form-control" value="200Gi" oninput="updateVmwareCustomTotals()">
+              </div>
+            </div>
           </div>
 
           <h3 style="font-size:16px; font-weight:700; color:var(--accent-cyan); margin-bottom:12px;">
@@ -2135,7 +2314,7 @@ def get_wizard_html_page() -> str:
             <div class="form-group" style="flex:2;">
               <label class="form-label">Type d'environnement vSphere</label>
               <select id="vmware_type" class="form-control">
-                <option value="vCenter Server">vCenter Server (vSphere 7.0 / 8.0)</option>
+                <option value="vCenter Server">vCenter Server</option>
                 <option value="ESXi Host">Hôte ESXi Autonome</option>
               </select>
             </div>
@@ -2151,12 +2330,48 @@ def get_wizard_html_page() -> str:
 
           <div class="input-row">
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Nom d'utilisateur vSphere <span style="color:var(--accent-cyan);">*</span></label>
+              <label class="form-label">Nom d'utilisateur vSphere (Calcul / Compute) <span style="color:var(--accent-cyan);">*</span></label>
               <input type="text" id="vmware_user" class="form-control" placeholder="ex: administrator@vsphere.local ou compte de service">
             </div>
             <div class="form-group" style="flex:1;">
               <label class="form-label">Mot de passe vSphere <span style="color:var(--accent-cyan);">*</span></label>
               <input type="password" id="vmware_pass" class="form-control" placeholder="Mot de passe">
+            </div>
+          </div>
+
+          <!-- Dissociation du compte de stockage -->
+          <div style="margin-bottom:16px; padding:12px 14px; background:rgba(0, 210, 255, 0.03); border:1px solid rgba(0, 210, 255, 0.15); border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:#e2e8f0; cursor:pointer; font-weight:600;">
+                <input type="checkbox" id="vmware_storage_separate" onchange="toggleStorageAccount()">
+                <span>💾 Dissocier le compte de stockage du compte vSphere (Compte Storage / Datastore dédié)</span>
+              </label>
+              <span style="font-size:11px; color:var(--text-muted);">Politique de moindre privilège & CSI / NAS dédié</span>
+            </div>
+            <div id="vmware_storage_account_fields" style="display:none; margin-top:12px;">
+              <div class="input-row">
+                <div class="form-group" style="flex:1;">
+                  <label class="form-label">Type / Fournisseur de stockage</label>
+                  <select id="vmware_storage_type" class="form-control">
+                    <option value="vsphere-csi">vSphere CSI / Datastore dédié</option>
+                    <option value="nfs-nas">Serveur NAS / Partage NFS d'entreprise</option>
+                    <option value="iscsi-san">Baie SAN / LUN iSCSI</option>
+                    <option value="custom-csi">Pilote CSI externe (NetApp, PureStorage, Synology...)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label class="form-label">Compte / Utilisateur Stockage dédié</label>
+                  <input type="text" id="vmware_storage_user" class="form-control" placeholder="ex: svc-storage-csi ou compte NAS">
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label class="form-label">Mot de passe / Secret Stockage</label>
+                  <input type="password" id="vmware_storage_pass" class="form-control" placeholder="Mot de passe du compte de stockage">
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label class="form-label">Serveur / Endpoint Stockage (si externe)</label>
+                  <input type="text" id="vmware_storage_endpoint" class="form-control" placeholder="ex: nas.corp.local (optionnel)">
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2167,28 +2382,40 @@ def get_wizard_html_page() -> str:
             </label>
           </div>
 
+          <div style="margin: 16px 0; display:flex; align-items:center; gap:14px;">
+            <button type="button" class="btn btn-test" onclick="testVmwareConnection()">🔍 Tester la connexion vCenter / ESXi & Découvrir les ressources</button>
+            <span id="vmware_test_status" style="font-size: 13px;"></span>
+          </div>
+
           <div class="input-row">
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Datacenter vSphere</label>
+              <label class="form-label">Datacenter vSphere <span id="vmware_dc_badge" style="font-size:11px; color:var(--accent-cyan); font-weight:normal;"></span></label>
+              <select id="vmware_dc_select" class="form-control" style="display:none; margin-bottom:6px;" onchange="onResourceSelect('vmware_dc', this)">
+                <option value="">-- Datacenters détectés --</option>
+              </select>
               <input type="text" id="vmware_dc" class="form-control" placeholder="ex: Datacenter-Prod">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Cluster ou Ressource Pool</label>
+              <label class="form-label">Cluster ou Ressource Pool <span id="vmware_cluster_badge" style="font-size:11px; color:var(--accent-cyan); font-weight:normal;"></span></label>
+              <select id="vmware_cluster_select" class="form-control" style="display:none; margin-bottom:6px;" onchange="onResourceSelect('vmware_cluster', this)">
+                <option value="">-- Clusters / RP détectés --</option>
+              </select>
               <input type="text" id="vmware_cluster" class="form-control" placeholder="ex: Cluster-HA">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Datastore de stockage</label>
+              <label class="form-label">Datastore de stockage <span id="vmware_ds_badge" style="font-size:11px; color:var(--accent-cyan); font-weight:normal;"></span></label>
+              <select id="vmware_ds_select" class="form-control" style="display:none; margin-bottom:6px;" onchange="onResourceSelect('vmware_ds', this)">
+                <option value="">-- Datastores détectés --</option>
+              </select>
               <input type="text" id="vmware_ds" class="form-control" placeholder="ex: vsanDatastore">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Réseau / PortGroup</label>
+              <label class="form-label">Réseau / PortGroup <span id="vmware_pg_badge" style="font-size:11px; color:var(--accent-cyan); font-weight:normal;"></span></label>
+              <select id="vmware_pg_select" class="form-control" style="display:none; margin-bottom:6px;" onchange="onResourceSelect('vmware_pg', this)">
+                <option value="">-- PortGroups détectés --</option>
+              </select>
               <input type="text" id="vmware_pg" class="form-control" placeholder="ex: VM Network">
             </div>
-          </div>
-
-          <div style="margin: 16px 0; display:flex; align-items:center; gap:14px;">
-            <button class="btn btn-test" onclick="testVmwareConnection()">🔍 Tester la connexion vCenter / ESXi</button>
-            <span id="vmware_test_status" style="font-size: 13px;"></span>
           </div>
 
           <h3 style="font-size:16px; font-weight:700; color:var(--accent-cyan); margin:18px 0 12px 0;">
@@ -2574,38 +2801,14 @@ def get_wizard_html_page() -> str:
 
         <div class="actions-bar">
           <button class="btn btn-secondary" onclick="goToStep(7)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(9)">Suivant : OmniRoute (Optionnel) →</button>
+          <button class="btn btn-primary" onclick="goToStep(9)">Suivant : Validation & Déploiement →</button>
         </div>
       </section>
 
-      <!-- SCREEN 9: OmniRoute -->
+      <!-- SCREEN 9: Déploiement & Sauvegarde Git Chiffrée -->
       <section id="step9" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 9 : Routeur Multi-Fournisseurs OmniRoute</h2>
-          <p class="screen-desc">Optionnel : Activez OmniRoute v3.8.51 pour disposer d'un portail LAN multi-fournisseurs.</p>
-        </div>
-
-        <div class="toggle-wrapper">
-          <div class="toggle-info">
-            <h4>Activer OmniRoute v3.8.51</h4>
-            <p>Déploie OmniRoute avec point d'accès API (:20128) et portail Web LAN (:20129).</p>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="omni_enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="actions-bar">
-          <button class="btn btn-secondary" onclick="goToStep(8)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(10)">Suivant : Validation & Déploiement →</button>
-        </div>
-      </section>
-
-      <!-- SCREEN 10: Déploiement & Sauvegarde Git Chiffrée -->
-      <section id="step10" class="screen card">
-        <div class="screen-header">
-          <h2 class="screen-title">Étape 10 : Validation & Déploiement Automatisé</h2>
+          <h2 class="screen-title">Étape 9 : Validation & Déploiement Automatisé</h2>
           <p class="screen-desc">Vérifiez les paramètres. L'installation déploie le cluster et sauvegarde l'instance chiffrée sur Git.</p>
         </div>
 
@@ -2635,13 +2838,13 @@ def get_wizard_html_page() -> str:
         </div>
 
         <div class="actions-bar" style="margin-top:20px;">
-          <button class="btn btn-secondary" onclick="goToStep(9)">← Précédent</button>
-          <button id="btnGoFinal" class="btn btn-primary" style="display:none;" onclick="goToStep(11)">Voir le récapitulatif final et les URLs d'accès →</button>
+          <button class="btn btn-secondary" onclick="goToStep(8)">← Précédent</button>
+          <button id="btnGoFinal" class="btn btn-primary" style="display:none;" onclick="goToStep(10)">Voir le récapitulatif final et les URLs d'accès →</button>
         </div>
       </section>
 
-      <!-- SCREEN 11: Récapitulatif Final & Accès -->
-      <section id="step11" class="screen card">
+      <!-- SCREEN 10: Récapitulatif Final & Accès -->
+      <section id="step10" class="screen card">
         <div class="screen-header">
           <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
           <h2 class="screen-title" style="color: var(--success);">ArcIA est 100% Opérationnel !</h2>
@@ -2773,6 +2976,46 @@ def get_wizard_html_page() -> str:
       }
     }
 
+    function triggerYamlUpload() {
+      const input = document.getElementById("yamlFileInput");
+      if (input) {
+        input.value = "";
+        input.click();
+      }
+    }
+
+    async function handleYamlFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target.result;
+        try {
+          const res = await fetch("/api/config/upload-yaml", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              yaml_content: content,
+              filename: file.name
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.config) {
+            configData = data.config;
+            populateFormFields(data.config);
+            alert(`✅ Configuration chargée avec succès depuis "${file.name}" !\nTous les champs du Wizard ont été préremplis.`);
+            goToStep(2);
+          } else {
+            alert(`❌ Erreur lors de l'analyse du fichier YAML : ${data.error || 'Format invalide'}`);
+          }
+        } catch (err) {
+          alert(`❌ Erreur de communication lors de l'upload : ${err.message}`);
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    }
+
     function populateFormFields(cfg) {
       const k8s = cfg.kubernetes || {};
       const net = cfg.network || {};
@@ -2780,7 +3023,6 @@ def get_wizard_html_page() -> str:
       const hermes = cfg.hermes || {};
       const sso = cfg.entra_id_sso || {};
       const teams = cfg.teams_bot || {};
-      const omni = cfg.omniroute || {};
 
       document.getElementById("k8s_mode").value = k8s.mode || "local";
       document.getElementById("k8s_context").value = k8s.context || "";
@@ -2823,11 +3065,16 @@ def get_wizard_html_page() -> str:
       }
       toggleTeamsFields();
 
-      document.getElementById("omni_enabled").checked = !!omni.enabled;
-
       updateGuideFqdn();
       updateInstanceRepoSuggestion();
-      renderVmwareTierSummary();
+      selectVmwareTier(currentVmwareTier);
+      if (cfg.open_webui && cfg.open_webui.storage_size) {
+        const inRag = document.getElementById("vmware_custom_rag");
+        if (inRag) {
+          inRag.value = cfg.open_webui.storage_size;
+          updateVmwareCustomTotals();
+        }
+      }
     }
 
     function collectFormData() {
@@ -2868,7 +3115,7 @@ def get_wizard_html_page() -> str:
         },
         open_webui: {
           enabled: true,
-          storage_size: (vmwareTiersData[currentVmwareTier] ? vmwareTiersData[currentVmwareTier].pvc : "50Gi")
+          storage_size: (document.getElementById("vmware_custom_rag") ? document.getElementById("vmware_custom_rag").value.trim() : (vmwareTiersData[currentVmwareTier] ? vmwareTiersData[currentVmwareTier].pvc : "50Gi")) || "50Gi"
         },
         entra_id_sso: {
           enabled: document.getElementById("sso_enabled").checked,
@@ -2888,7 +3135,7 @@ def get_wizard_html_page() -> str:
           config_file: "instance/microsoft365.yaml"
         },
         omniroute: {
-          enabled: document.getElementById("omni_enabled").checked,
+          enabled: false,
           storage_size: "5Gi"
         }
       };
@@ -2923,7 +3170,7 @@ def get_wizard_html_page() -> str:
     }
 
     function goToStep(stepNumber) {
-      if (stepNumber < 1 || stepNumber > 11) return;
+      if (stepNumber < 1 || stepNumber > 10) return;
       if (stepNumber > currentStep && !validateStep(currentStep)) return;
 
       currentStep = stepNumber;
@@ -2941,8 +3188,8 @@ def get_wizard_html_page() -> str:
         else item.classList.remove("completed");
       });
 
-      if (stepNumber === 10) updateDeploySummary();
-      if (stepNumber === 11) buildRecapCards();
+      if (stepNumber === 9) updateDeploySummary();
+      if (stepNumber === 10) buildRecapCards();
 
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -3039,6 +3286,9 @@ def get_wizard_html_page() -> str:
         vcpu: 4,
         ram: 8,
         disk: 100,
+        nodeVcpu: 4,
+        nodeRam: 8,
+        nodeDisk: 100,
         ragGb: 50,
         pvc: "50Gi",
         ragLabel: "50 Go dédiés RAG (~10 000 pages, documents bruts + base vectorielle ChromaDB)",
@@ -3051,6 +3301,9 @@ def get_wizard_html_page() -> str:
         vcpu: 12,
         ram: 48,
         disk: 450,
+        nodeVcpu: 4,
+        nodeRam: 16,
+        nodeDisk: 150,
         ragGb: 200,
         pvc: "200Gi",
         ragLabel: "200 Go dédiés RAG (~100 000 pages, base vectorielle ChromaDB HNSW, collections inter-services)",
@@ -3063,6 +3316,9 @@ def get_wizard_html_page() -> str:
         vcpu: 28,
         ram: 112,
         disk: 1250,
+        nodeVcpu: 6,
+        nodeRam: 24,
+        nodeDisk: 250,
         ragGb: 600,
         pvc: "600Gi",
         ragLabel: "600 Go dédiés RAG (~500 000 pages, bases multi-départements, embeddings denses)",
@@ -3075,6 +3331,9 @@ def get_wizard_html_page() -> str:
         vcpu: 88,
         ram: 352,
         disk: 3500,
+        nodeVcpu: 12,
+        nodeRam: 48,
+        nodeDisk: 500,
         ragGb: 2000,
         pvc: "2Ti",
         ragLabel: "2 To à 5 To dédiés RAG (Millions de documents, index distribué, modèles locaux)",
@@ -3118,23 +3377,136 @@ def get_wizard_html_page() -> str:
         const el = document.getElementById(`tier_card_${k}`);
         if (el) el.classList.toggle("active", k === tierKey);
       });
-      renderVmwareTierSummary(tierKey);
+      const t = vmwareTiersData[tierKey] || vmwareTiersData["100"];
+      const inNodes = document.getElementById("vmware_custom_nodes");
+      const inVcpu = document.getElementById("vmware_custom_vcpu");
+      const inRam = document.getElementById("vmware_custom_ram");
+      const inDisk = document.getElementById("vmware_custom_disk");
+      const inRag = document.getElementById("vmware_custom_rag");
+      if (inNodes) inNodes.value = t.nodes;
+      if (inVcpu) inVcpu.value = t.nodeVcpu || Math.round(t.vcpu / t.nodes);
+      if (inRam) inRam.value = t.nodeRam || Math.round(t.ram / t.nodes);
+      if (inDisk) inDisk.value = t.nodeDisk || Math.round(t.disk / t.nodes);
+      if (inRag) inRag.value = t.pvc;
+
+      updateVmwareCustomTotals();
     }
 
-    function renderVmwareTierSummary(tierKey = currentVmwareTier) {
-      const t = vmwareTiersData[tierKey] || vmwareTiersData["100"];
+    function updateVmwareCustomTotals() {
+      const inNodes = document.getElementById("vmware_custom_nodes");
+      const inVcpu = document.getElementById("vmware_custom_vcpu");
+      const inRam = document.getElementById("vmware_custom_ram");
+      const inDisk = document.getElementById("vmware_custom_disk");
+      const inRag = document.getElementById("vmware_custom_rag");
+      if (!inNodes) return;
+
+      const nodes = parseInt(inNodes.value, 10) || 1;
+      const vcpuPerNode = parseInt(inVcpu.value, 10) || 4;
+      const ramPerNode = parseInt(inRam.value, 10) || 16;
+      const diskPerNode = parseInt(inDisk.value, 10) || 150;
+      const ragPvc = inRag.value.trim() || "200Gi";
+
+      const totalVcpu = nodes * vcpuPerNode;
+      const totalRam = nodes * ramPerNode;
+      const totalDisk = nodes * diskPerNode;
+
       const box = document.getElementById("vmware_tier_summary");
       if (!box) return;
+      const isHA = nodes >= 3;
       box.innerHTML = `
         <span style="font-size:20px;">🖥️</span>
         <div>
-          <strong>Dimensionnement calculé : ${t.title}</strong><br>
-          • Topologie : <strong>${t.topo}</strong><br>
-          • Ressources totales requises : <strong>${t.vcpu} vCPU</strong>, <strong>${t.ram} Go RAM</strong>, <strong>${t.disk} Go SSD</strong><br>
-          • 📚 <strong>Espace RAG & Base Vectorielle inclus</strong> : <strong>${t.ragLabel}</strong> (PVC automatique <code>${t.pvc}</code>)<br>
-          • Recommandation : ${t.desc}
+          <strong>Dimensionnement actif : ${nodes} Nœud(s) VM (${isHA ? 'Haute Disponibilité HA K3s etcd' : (nodes > 1 ? 'Multi-nœuds' : 'All-in-One')})</strong><br>
+          • Configuration par VM : <strong>${vcpuPerNode} vCPU</strong>, <strong>${ramPerNode} Go RAM</strong>, <strong>${diskPerNode} Go SSD</strong><br>
+          • Ressources totales requises : <strong>${totalVcpu} vCPU</strong>, <strong>${totalRam} Go RAM</strong>, <strong>${totalDisk} Go SSD</strong><br>
+          • 📚 <strong>Espace RAG & Base Vectorielle inclus</strong> : PVC <strong>${ragPvc}</strong> (ChromaDB + Open-WebUI)<br>
+          • Résilience : <em>${isHA ? '✅ Tolérance aux pannes active (quorum etcd multi-maîtres)' : '⚠️ Mode PoC/Test sans haute disponibilité'}</em>
         </div>
       `;
+    }
+
+    function renderVmwareTierSummary(tierKey = currentVmwareTier) {
+      updateVmwareCustomTotals();
+    }
+
+    function toggleStorageAccount() {
+      const sep = document.getElementById("vmware_storage_separate");
+      const box = document.getElementById("vmware_storage_account_fields");
+      if (sep && box) {
+        box.style.display = sep.checked ? "block" : "none";
+      }
+    }
+
+    function populateResourceDropdown(selectId, inputId, badgeId, items, placeholder) {
+      const select = document.getElementById(selectId);
+      const input = document.getElementById(inputId);
+      const badge = document.getElementById(badgeId);
+      if (!select || !input) return;
+
+      if (!items || items.length === 0) {
+        select.style.display = "none";
+        input.style.display = "block";
+        if (badge) badge.textContent = "";
+        return;
+      }
+
+      select.innerHTML = "";
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = `-- ${placeholder} (${items.length} détecté${items.length > 1 ? 's' : ''}) --`;
+      select.appendChild(defaultOpt);
+
+      items.forEach(it => {
+        const name = (typeof it === "string") ? it : (it.name || it.id || "");
+        const label = (typeof it === "string") ? it : (it.label || it.name || it.id || "");
+        if (name) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = label;
+          select.appendChild(opt);
+        }
+      });
+
+      const manualOpt = document.createElement("option");
+      manualOpt.value = "__manual__";
+      manualOpt.textContent = "✏️ Saisie manuelle...";
+      select.appendChild(manualOpt);
+
+      select.style.display = "block";
+      if (badge) badge.textContent = `(${items.length} détecté${items.length > 1 ? 's' : ''})`;
+
+      const currVal = input.value.trim();
+      const hasMatch = items.some(it => (typeof it === "string" ? it : it.name) === currVal);
+      if (currVal && hasMatch) {
+        select.value = currVal;
+        input.style.display = "none";
+      } else if (!currVal && items.length === 1) {
+        const singleName = typeof items[0] === "string" ? items[0] : items[0].name;
+        select.value = singleName;
+        input.value = singleName;
+        input.style.display = "none";
+      } else if (currVal) {
+        select.value = "__manual__";
+        input.style.display = "block";
+      } else {
+        select.value = "";
+        input.style.display = "block";
+      }
+    }
+
+    function onResourceSelect(inputId, selectEl) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (selectEl.value === "__manual__") {
+        input.style.display = "block";
+        input.value = "";
+        input.focus();
+      } else if (selectEl.value) {
+        input.value = selectEl.value;
+        input.style.display = "none";
+      } else {
+        input.style.display = "block";
+      }
     }
 
     async function testVmwareConnection() {
@@ -3158,7 +3530,14 @@ def get_wizard_html_page() -> str:
         });
         const data = await res.json();
         if (data.success) {
-          status.innerHTML = `<span style="color:var(--success); font-weight:700;">✅ ${data.message} (${data.details.detected_version})</span>`;
+          const det = data.details || {};
+          status.innerHTML = `<span style="color:var(--success); font-weight:700;">✅ ${data.message} (${det.detected_version || 'vSphere'})</span>`;
+          if (data.resources) {
+            populateResourceDropdown("vmware_dc_select", "vmware_dc", "vmware_dc_badge", data.resources.datacenters, "Sélectionner un Datacenter");
+            populateResourceDropdown("vmware_cluster_select", "vmware_cluster", "vmware_cluster_badge", data.resources.clusters, "Sélectionner un Cluster / RP");
+            populateResourceDropdown("vmware_ds_select", "vmware_ds", "vmware_ds_badge", data.resources.datastores, "Sélectionner un Datastore");
+            populateResourceDropdown("vmware_pg_select", "vmware_pg", "vmware_pg_badge", data.resources.networks, "Sélectionner un PortGroup / Réseau");
+          }
         } else {
           status.innerHTML = `<span style="color:var(--danger); font-weight:700;">❌ ${data.error}</span>`;
         }
@@ -3390,7 +3769,6 @@ def get_wizard_html_page() -> str:
 
       const sso = cfg.entra_id_sso.enabled ? "Activé" : "Désactivé";
       const teams = cfg.teams_bot.enabled ? "Activé" : "Désactivé";
-      const omni = cfg.omniroute.enabled ? "Activé" : "Désactivé";
       const gitInfo = collectInstanceGitInfo();
       const gitMsg = gitInfo.enabled ? `Oui (${gitInfo.repo_name} sur ${gitInfo.provider})` : "Non (stockage local)";
 
@@ -3399,7 +3777,7 @@ def get_wizard_html_page() -> str:
         • Cible d'infrastructure : <strong>${targetLabel}</strong><br>
         • Point d'accès : <strong>${currentInfraTarget === "docker_lab" ? "http://localhost:3000/" : "https://" + fqdn + "/"}</strong><br>
         • Dépôt d'instance privé chiffré : <strong>${gitMsg}</strong><br>
-        • Modules optionnels : SSO Entra ID (<strong>${sso}</strong>) | Bot Teams (<strong>${teams}</strong>) | OmniRoute (<strong>${omni}</strong>)<br>
+        • Modules optionnels : SSO Entra ID (<strong>${sso}</strong>) | Bot Teams (<strong>${teams}</strong>)<br>
         • Briques internes automatiques : Presidio DLP, Open-WebUI, Hermes Studio, LiteLLM Proxy, Skills natifs (Ponytail, Graphify, Public-APIs).
       `;
     }
@@ -3475,7 +3853,21 @@ def get_wizard_html_page() -> str:
             cluster: document.getElementById("vmware_cluster").value.trim(),
             datastore: document.getElementById("vmware_ds").value.trim(),
             portgroup: document.getElementById("vmware_pg").value.trim(),
-            user_tier: currentVmwareTier
+            user_tier: currentVmwareTier,
+            resources_override: {
+              nodes: parseInt(document.getElementById("vmware_custom_nodes")?.value, 10) || 3,
+              vcpu_per_node: parseInt(document.getElementById("vmware_custom_vcpu")?.value, 10) || 4,
+              ram_per_node_gb: parseInt(document.getElementById("vmware_custom_ram")?.value, 10) || 16,
+              disk_per_node_gb: parseInt(document.getElementById("vmware_custom_disk")?.value, 10) || 150,
+              rag_storage_pvc: document.getElementById("vmware_custom_rag")?.value.trim() || "200Gi"
+            },
+            storage_account: {
+              separate: document.getElementById("vmware_storage_separate")?.checked || false,
+              provider_type: document.getElementById("vmware_storage_type")?.value || "vsphere-csi",
+              username: document.getElementById("vmware_storage_user")?.value.trim() || "",
+              password: document.getElementById("vmware_storage_pass")?.value || "",
+              endpoint: document.getElementById("vmware_storage_endpoint")?.value.trim() || ""
+            }
           },
           docker: {
             webui_port: parseInt(document.getElementById("docker_webui_port").value, 10) || 3000,
@@ -3532,8 +3924,10 @@ def get_wizard_html_page() -> str:
           const res = await fetch("/api/deploy/status");
           const state = await res.json();
 
-          terminal.innerHTML = state.logs.map(l => formatAnsiLine(l)).join("");
-          terminal.scrollTop = terminal.scrollHeight;
+          if (state.logs && state.logs.length > 0) {
+            terminal.innerHTML = state.logs.map(l => formatAnsiLine(l)).join("");
+            terminal.scrollTop = terminal.scrollHeight;
+          }
 
           if (state.status === "success") {
             clearInterval(logPollingInterval);
@@ -3545,7 +3939,7 @@ def get_wizard_html_page() -> str:
             btnGoFinal.style.display = "inline-flex";
 
             if (!dryRun) {
-              setTimeout(() => { goToStep(11); }, 1500);
+              setTimeout(() => { goToStep(10); }, 1500);
             }
           } else if (state.status === "error") {
             clearInterval(logPollingInterval);
@@ -3564,11 +3958,11 @@ def get_wizard_html_page() -> str:
     function formatAnsiLine(line) {
       let cls = "log-line";
       if (line.includes("[INFO]")) cls += " log-cyan";
-      else if (line.includes("[OK]") || line.includes("EFFECTUE AVEC SUCCES")) cls += " log-green";
+      else if (line.includes("[OK]") || line.includes("EFFECTUE AVEC SUCCES") || line.includes("terminé avec succès")) cls += " log-green";
       else if (line.includes("[WARN]")) cls += " log-yellow";
-      else if (line.includes("[ERROR]") || line.includes("Échec")) cls += " log-red";
+      else if (line.includes("[ERROR]") || line.includes("Échec") || line.includes("[FATAL")) cls += " log-red";
 
-      const clean = line.replace(/\\x1b\\[[0-9;]*m/g, "");
+      const clean = line.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
       return `<div class="${cls}">${escapeHtml(clean)}</div>`;
     }
 
@@ -3658,15 +4052,6 @@ def get_wizard_html_page() -> str:
           url: `https://${fqdn}/api/teams/messages`,
           desc: "Point de terminaison de messagerie configuré dans votre Azure Bot Service.",
           actionText: "Copier l'URL"
-        });
-      }
-
-      if (cfg.omniroute.enabled) {
-        cards.push({
-          title: "🔀 Portail Administration OmniRoute",
-          url: `http://omniroute.arcia.svc.cluster.local:20129`,
-          desc: "Tableau de bord local de gestion multi-fournisseurs accessible sur le réseau LAN.",
-          actionText: "Ouvrir"
         });
       }
 

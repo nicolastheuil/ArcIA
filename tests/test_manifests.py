@@ -95,9 +95,11 @@ class TestKubernetesManifests(unittest.TestCase):
 
         self.assertIn("provider: custom", content)
         self.assertIn("base_url: http://litellm-proxy.arcia.svc:4000/v1", content)
-        self.assertIn("auto_approve_safe_commands: false", content)
+        self.assertIn("mode: smart", content)
+        self.assertIn("unattended_mode: deny", content)
         self.assertIn("hermes gateway &", content)
         self.assertIn("OPENAI_API_KEY", content)
+        self.assertIn("path: /api/health", content)
         self.assertNotIn("OPENAI_API_BASE", content)
         self.assertNotIn("OPENAI_MODEL_NAME", content)
         self.assertNotIn("arcia_tokenmaxing.py", content)

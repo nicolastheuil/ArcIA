@@ -56,9 +56,10 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 
 ### ⚡ 3. Passerelle d'Inférence & Catalogue à 3 Paliers
 * **Catalogue de Modèles Managés Standardisé (v0.3)** :
-  * `arcia/standard` *(Par défaut)* : Modèle rapide, économique et souverain avec Zéro Rétention de Données (ZDR) forcée.
-  * `arcia/expert` : Modèle de raisonnement frontière de haute fidélité pour le code complexe et l'architecture (Claude 3.7 Sonnet).
-  * `arcia/reasoning` : Modèle de réflexion profonde pour la résolution analytique complexe (DeepSeek-R1).
+  * `arcia/standard` *(Par défaut)* : Modèle polyvalent, rapide et économique pour les usages quotidiens, l'assistance et la rédaction courante.
+  * `arcia/expert` : Modèle de pointe à haute fidélité pour le code complexe, l'architecture logicielle et l'expertise métier avancée.
+  * `arcia/reasoning` : Modèle de réflexion profonde (Chain-of-Thought étendu) pour la résolution analytique et la logique formelle.
+  > *Agnosticisme & Souscriptions :* ArcIA est un harness générique. Ces trois paliers virtuels sont des contrats d'interface routés par LiteLLM vers les moteurs souscrits ou hébergés par l'organisation (fournisseurs Cloud avec Zéro Rétention de Données comme OpenRouter/Azure/Bedrock, ou serveurs d'inférence locaux souverains vLLM/Ollama). Sans souscription ou modèle local configuré dans l'instance, aucun flux n'est émis.
 * **LiteLLM Proxy (port 4000) & Base Comptable (`litellm-db`)** : Équilibrage de charge, quotas par équipe, suivi unifié des coûts et compatibilité API OpenAI native.  
   👉 *Détail complet :* [Guide Inférence LiteLLM](docs/guides/inference-litellm.md) · [Guide Chaîne de Routage](docs/guides/chaine-de-routage.md)
 

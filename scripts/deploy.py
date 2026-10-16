@@ -33,11 +33,11 @@ def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str])
         lines.append(f'  {k}: "{escaped_v}"')
     return "\n".join(lines) + "\n"
 
-# Support UTF-8 sur Windows PowerShell / CMD
+# Support UTF-8 et streaming non-bufferisé sur Windows PowerShell / CMD
 if hasattr(sys.stdout, "reconfigure"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
     except Exception:
         pass
 
@@ -51,19 +51,19 @@ C_CYAN = "\033[96m"
 C_GRAY = "\033[90m"
 
 def log_info(msg: str):
-    print(f"{C_CYAN}[INFO]{C_RESET} {msg}")
+    print(f"{C_CYAN}[INFO]{C_RESET} {msg}", flush=True)
 
 def log_ok(msg: str):
-    print(f"{C_GREEN}[OK]{C_RESET} {msg}")
+    print(f"{C_GREEN}[OK]{C_RESET} {msg}", flush=True)
 
 def log_warn(msg: str):
-    print(f"{C_YELLOW}[WARN]{C_RESET} {msg}")
+    print(f"{C_YELLOW}[WARN]{C_RESET} {msg}", flush=True)
 
 def log_err(msg: str):
-    print(f"{C_RED}[ERROR]{C_RESET} {msg}")
+    print(f"{C_RED}[ERROR]{C_RESET} {msg}", flush=True)
 
 def log_step(step: int, total: int, msg: str):
-    print(f"\n{C_BOLD}{C_CYAN}[{step}/{total}]{C_RESET} {C_BOLD}{msg}{C_RESET}")
+    print(f"\n{C_BOLD}{C_CYAN}[{step}/{total}]{C_RESET} {C_BOLD}{msg}{C_RESET}", flush=True)
 
 # -----------------------------------------------------------------------------
 # Parser YAML Léger & Autonome (Standard Library Only)
@@ -360,8 +360,10 @@ def validate_config(cfg: Dict[str, Any]) -> None:
 
     llm = cfg.get("llm_gateway", {})
     openrouter_key = llm.get("openrouter_api_key", "").strip()
-    if not openrouter_key or openrouter_key.startswith("sk-or-v1-xxxx"):
-        errors.append("llm_gateway.openrouter_api_key est OBLIGATOIRE pour contacter les modèles Cloud.")
+    if openrouter_key.startswith("sk-or-v1-xxxx"):
+        errors.append("llm_gateway.openrouter_api_key contient la valeur d'exemple 'sk-or-v1-xxxx'. Renseignez votre clé réelle, ou laissez vide (\"\") si aucune souscription Cloud n'est encore connectée.")
+    elif not openrouter_key:
+        log_warn("llm_gateway.openrouter_api_key n'est pas renseigné : aucun fournisseur Cloud n'est connecté à ce stade. La plateforme démarrera avec les modèles génériques de la passerelle LiteLLM configurables selon l'instance.")
 
     hermes = cfg.get("hermes", {})
     if not hermes.get("admin_password"):
@@ -724,6 +726,7 @@ metadata:
 
     hermes_storage = hermes_cfg.get("storage_size", "20Gi")
     hermes_yaml = re.sub(r'storage:\s*20Gi', f'storage: {hermes_storage}', hermes_yaml, count=1)
+    hermes_yaml = hermes_yaml.replace("https://assistant.example.org/studio", f"https://{public_fqdn}/studio")
     if storage_class:
         hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
     runner.apply_manifest(adapt_manifest_namespace(hermes_yaml, namespace))
@@ -856,10 +859,6 @@ spec:
     if tls_mode.startswith("letsencrypt"):
         ingress_annotations += f'\n    cert-manager.io/cluster-issuer: "{tls_mode}"'
 
-    studio_middleware_line = ""
-    if sso_cfg.get("enabled"):
-        studio_middleware_line = f"    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-entra-id-auth@kubernetescrd"
-
     # Construction dynamique des routes Ingress
     teams_path_block = ""
     if teams_cfg.get("enabled"):
@@ -934,7 +933,7 @@ spec:
             port:
               number: 4000
 ---
-# 3. Ingress Studio & Gateway Desktop (Protégé par Entra ID SSO)
+# 3. Ingress Studio (Hermes Studio Dashboard — Authentification native admin/password)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -942,7 +941,7 @@ metadata:
   namespace: {namespace}
   annotations:
 {ingress_annotations}
-{studio_middleware_line}
+    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-studio-prefix@kubernetescrd,{namespace}-studio-stripprefix@kubernetescrd
 spec:
   tls:
   - hosts:
@@ -959,6 +958,25 @@ spec:
             name: hermes-studio
             port:
               number: 9119
+---
+# 4. Ingress Gateway Desktop (Hermes Gateway API & WebSocket — Protégé par PAT)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-gateway-ingress
+  namespace: {namespace}
+  annotations:
+{ingress_annotations}
+    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-gateway-stripprefix@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - {public_fqdn}
+    secretName: {tls_secret_name}
+  rules:
+  - host: {public_fqdn}
+    http:
+      paths:
       - path: /gateway
         pathType: Prefix
         backend:
@@ -967,7 +985,7 @@ spec:
             port:
               number: 8642
 ---
-# 4. Middleware Rate Limiting pour /v1
+# 5. Middlewares Traefik (RateLimit, Studio Prefix/StripPrefix, Gateway StripPrefix)
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -977,6 +995,36 @@ spec:
   rateLimit:
     average: 100
     burst: 50
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: studio-prefix
+  namespace: {namespace}
+spec:
+  headers:
+    customRequestHeaders:
+      X-Forwarded-Prefix: "/studio"
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: studio-stripprefix
+  namespace: {namespace}
+spec:
+  stripPrefix:
+    prefixes:
+      - /studio
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: gateway-stripprefix
+  namespace: {namespace}
+spec:
+  stripPrefix:
+    prefixes:
+      - /gateway
 """
     runner.apply_manifest(rendered_ingress)
     log_ok(f"Ingress configuré pour l'hôte public : https://{public_fqdn}/")

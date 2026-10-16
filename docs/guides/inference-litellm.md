@@ -10,11 +10,12 @@ LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises pa
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
-   - Route les demandes vers les meilleurs modèles d'OpenRouter avec Zéro Rétention de Données (ZDR) forcée.
+   - Route les demandes vers les moteurs configurés par l'organisation (fournisseurs Cloud avec ZDR forcée ou backends locaux souverains).
 2. **Catalogue Épuré à 3 Paliers Canoniques** :
-   - **`arcia/standard`** *(Défaut)* : Modèle rapide et économique pour tous collaborateurs (N1, N2, N3).
-   - **`arcia/expert`** : Modèle agentique de pointe (Claude 3.7 Sonnet) pour l'expertise métier et le code.
-   - **`arcia/reasoning`** : Modèle de réflexion profonde (DeepSeek-R1) pour l'analyse critique et complexe.
+   - **`arcia/standard`** *(Défaut)* : Modèle polyvalent, rapide et économique pour tous collaborateurs (N1, N2, N3).
+   - **`arcia/expert`** : Modèle agentique de pointe pour l'expertise métier, l'architecture logicielle et le code complexe.
+   - **`arcia/reasoning`** : Modèle de réflexion profonde pour l'analyse critique, la planification et la logique formelle.
+   > **Note d'agnosticisme & Souscriptions :** ArcIA est un harness d'entreprise agnostique. Sans souscription API ni moteur d'inférence local configuré sur l'instance, aucun modèle n'est actif. Les 3 paliers ci-dessus constituent un contrat d'interface virtuel que chaque instance mappe vers ses propres fournisseurs (Azure OpenAI, AWS Bedrock, Mistral AI, OpenRouter) ou ses propres serveurs GPU on-premise (vLLM, Ollama).
 3. **Persistance Relationnelle & Base Comptable (`litellm-db`)** :
    - Base de données PostgreSQL 16 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
    - Gestion des budgets d'équipes et des **clés virtuelles nominatives (PAT)** pour les power users N3.
@@ -33,7 +34,7 @@ Le service est déployé via :
 
 ## 3. Configuration du Routage v0.3
 
-Le ConfigMap `litellm-config` définit la matrice de modèles :
+Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles de l'instance (exemple d'illustration avec routage Cloud ZDR) :
 
 ```yaml
 model_list:

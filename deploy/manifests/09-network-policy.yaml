@@ -109,7 +109,7 @@ spec:
     - protocol: TCP
       port: 443
 ---
-# Flux Presidio DLP : Uniquement accessible depuis LiteLLM (Interdit tout accès direct non-autorisé)
+# Flux Presidio DLP : Accessible depuis LiteLLM + Egress HTTPS (443) pour modèles et dépendances
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -121,6 +121,7 @@ spec:
       app: presidio-dlp
   policyTypes:
   - Ingress
+  - Egress
   ingress:
   - from:
     - podSelector:
@@ -129,6 +130,10 @@ spec:
     ports:
     - protocol: TCP
       port: 8080
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 443
 ---
 # Flux LiteLLM PostgreSQL DB : Uniquement accessible depuis LiteLLM
 apiVersion: networking.k8s.io/v1

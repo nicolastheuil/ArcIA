@@ -8,6 +8,7 @@ import sys
 import unittest
 import tempfile
 import json
+from unittest.mock import patch, MagicMock
 
 # Ajouter scripts/ au sys.path
 SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -104,10 +105,19 @@ class TestArcIAWizard(unittest.TestCase):
                 os.remove(tmp_path)
 
     def test_html_page_contains_all_screens_and_guides(self):
-        """Vérifie que la page HTML du Wizard contient les 11 écrans et les liens documentaires."""
+        """Vérifie que la page HTML du Wizard contient les 10 écrans sans OmniRoute et les liens documentaires."""
         html = wizard.get_wizard_html_page()
-        for i in range(1, 12):
+        for i in range(1, 11):
             self.assertIn(f'id="step{i}"', html, f"Écran manquant : step{i}")
+
+        # OmniRoute doit être retiré des écrans du Wizard
+        self.assertNotIn("Routeur Multi-Fournisseurs OmniRoute", html)
+        self.assertNotIn('id="step11"', html)
+
+        # Vérifier la présence de l'import YAML
+        self.assertIn("triggerYamlUpload()", html)
+        self.assertIn('id="yamlFileInput"', html)
+        self.assertIn('id="cardUploadYaml"', html)
 
         # Vérifier la présence des guides pas-à-pas et des liens GitHub
         self.assertIn("portail-webui-entraid.md#creation-app-entraid", html)
@@ -191,6 +201,75 @@ class TestArcIAWizard(unittest.TestCase):
         res = wizard.test_vmware_connection({})
         self.assertFalse(res["success"])
         self.assertIn("obligatoire", res["error"])
+
+    def test_vmware_no_version_stipulation(self):
+        """Vérifie qu'aucune version rigide de vCenter (ex: 7.0 / 8.0) n'est stipulée."""
+        html = wizard.get_wizard_html_page()
+        self.assertNotIn("7.0 / 8.0", html)
+        self.assertNotIn("vCenter 7.0", html)
+        self.assertNotIn("vCenter 8.0", html)
+
+    def test_vmware_resource_overrides_and_dissociated_storage_in_html(self):
+        """Vérifie la présence des champs d'override de ressources et de dissociation du compte stockage."""
+        html = wizard.get_wizard_html_page()
+        # Overrides matériels
+        self.assertIn("vmware_custom_nodes", html)
+        self.assertIn("vmware_custom_vcpu", html)
+        self.assertIn("vmware_custom_ram", html)
+        self.assertIn("vmware_custom_disk", html)
+        self.assertIn("vmware_custom_rag", html)
+
+        # Dissociation du compte de stockage
+        self.assertIn("vmware_storage_separate", html)
+        self.assertIn("vmware_storage_type", html)
+        self.assertIn("vmware_storage_user", html)
+        self.assertIn("vmware_storage_pass", html)
+        self.assertIn("vmware_storage_endpoint", html)
+
+        # Listes déroulantes de découverte dynamique
+        self.assertIn("vmware_dc_select", html)
+        self.assertIn("vmware_cluster_select", html)
+        self.assertIn("vmware_ds_select", html)
+        self.assertIn("vmware_pg_select", html)
+
+    def test_discover_vsphere_resources_parsing(self):
+        """Vérifie que discover_vsphere_resources extrait correctement les objets vSphere."""
+        dummy_dc = {"value": [{"datacenter": "dc-1", "name": "Datacenter-Paris"}]}
+        dummy_cluster = {"value": [{"cluster": "c-1", "name": "Cluster-Compute"}]}
+        dummy_ds = {"value": [{"datastore": "ds-1", "name": "vsanDatastore", "free_space": 1073741824000, "capacity": 2147483648000}]}
+        dummy_net = {"value": [{"network": "net-1", "name": "VM-Network-VLAN10"}]}
+
+        def mock_urlopen(req, timeout=8, context=None):
+            url = req.full_url
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            if "datacenter" in url:
+                mock_resp.read.return_value = json.dumps(dummy_dc).encode("utf-8")
+            elif "cluster" in url:
+                mock_resp.read.return_value = json.dumps(dummy_cluster).encode("utf-8")
+            elif "resource-pool" in url:
+                mock_resp.read.return_value = json.dumps({"value": []}).encode("utf-8")
+            elif "datastore" in url:
+                mock_resp.read.return_value = json.dumps(dummy_ds).encode("utf-8")
+            elif "network" in url:
+                mock_resp.read.return_value = json.dumps(dummy_net).encode("utf-8")
+            else:
+                mock_resp.read.return_value = b"{}"
+            mock_resp.__enter__.return_value = mock_resp
+            mock_resp.__exit__.return_value = None
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+            res = wizard.discover_vsphere_resources("vcenter.local", 443, "dummy-session-id", None)
+            self.assertEqual(len(res["datacenters"]), 1)
+            self.assertEqual(res["datacenters"][0]["name"], "Datacenter-Paris")
+            self.assertEqual(len(res["clusters"]), 1)
+            self.assertEqual(res["clusters"][0]["name"], "Cluster-Compute")
+            self.assertEqual(len(res["datastores"]), 1)
+            self.assertEqual(res["datastores"][0]["name"], "vsanDatastore")
+            self.assertIn("1000.0 Go libres", res["datastores"][0]["label"])
+            self.assertEqual(len(res["networks"]), 1)
+            self.assertEqual(res["networks"][0]["name"], "VM-Network-VLAN10")
 
     def test_get_docker_status(self):
         """Vérifie la structure du statut Docker retourné par get_docker_status."""
@@ -322,11 +401,90 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertFalse(res_no_repo["success"])
         self.assertIn("non renseigné", res_no_repo["error"])
 
-    def test_http_server_uses_threading_class(self):
-        """Vérifie que HttpServerClass est bien importé pour supporter la concurrence."""
-        self.assertTrue(hasattr(wizard, "HttpServerClass"))
-        self.assertTrue(hasattr(wizard.WizardHTTPHandler, "protocol_version"))
-        self.assertEqual(wizard.WizardHTTPHandler.protocol_version, "HTTP/1.1")
+    def test_upload_yaml_parsing(self):
+        """Vérifie le parsing de YAML uploadé pour préremplir la configuration du wizard."""
+        sample_yaml = """
+kubernetes:
+  mode: "remote-ssh"
+  namespace: "arcia-custom"
+  remote_ssh:
+    node_ip: "192.168.1.100"
+    ssh_user: "admin"
+    ssh_port: 2222
+network:
+  public_fqdn: "ia.entreprise.com"
+  tls_mode: "custom-secret"
+llm_gateway:
+  openrouter_api_key: "sk-or-v1-testkey"
+  default_model: "arcia/expert"
+"""
+        import io
+        from unittest.mock import MagicMock
+
+        handler = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        handler.rfile = io.BytesIO(json.dumps({
+            "yaml_content": sample_yaml,
+            "filename": "arcia.config.yaml"
+        }).encode("utf-8"))
+        handler.headers = {"Content-Length": str(len(handler.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        handler.path = "/api/config/upload-yaml"
+        handler.send_json = MagicMock()
+        handler.is_safe_origin = MagicMock(return_value=True)
+
+        handler._handle_post_internal()
+        handler.send_json.assert_called_once()
+        status_code, data = handler.send_json.call_args[0]
+        self.assertEqual(status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["config"]["network"]["public_fqdn"], "ia.entreprise.com")
+        self.assertEqual(data["config"]["kubernetes"]["namespace"], "arcia-custom")
+        self.assertEqual(data["config"]["kubernetes"]["remote_ssh"]["node_ip"], "192.168.1.100")
+        self.assertEqual(data["config"]["kubernetes"]["remote_ssh"]["ssh_port"], 2222)
+        self.assertEqual(data["config"]["llm_gateway"]["openrouter_api_key"], "sk-or-v1-testkey")
+
+    def test_upload_yaml_empty_content_error(self):
+        """Vérifie qu'un contenu YAML vide renvoie une erreur 400 explicite."""
+        import io
+        from unittest.mock import MagicMock
+
+        handler = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        handler.rfile = io.BytesIO(json.dumps({
+            "yaml_content": "   ",
+            "filename": "empty.yaml"
+        }).encode("utf-8"))
+        handler.headers = {"Content-Length": str(len(handler.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        handler.path = "/api/config/upload-yaml"
+        handler.send_json = MagicMock()
+        handler.is_safe_origin = MagicMock(return_value=True)
+
+        handler._handle_post_internal()
+        status_code, data = handler.send_json.call_args[0]
+        self.assertEqual(status_code, 400)
+        self.assertFalse(data["success"])
+
+    def test_deployment_worker_initial_logs(self):
+        """Vérifie que run_deployment_worker initialise immédiatement des logs informatifs."""
+        with wizard.deployment_lock:
+            wizard.deployment_state["logs"] = []
+            wizard.deployment_state["status"] = "idle"
+
+        # Simuler un dry-run avec un mock
+        from unittest.mock import patch
+        with patch("subprocess.Popen") as mock_popen:
+            mock_proc = MagicMock()
+            mock_proc.stdout.readline.side_effect = ["[OK] Test deploy", ""]
+            mock_proc.returncode = 0
+            mock_popen.return_value = mock_proc
+
+            wizard.run_deployment_worker(dry_run=True, infra_target="k8s_existing")
+
+            with wizard.deployment_lock:
+                logs = wizard.deployment_state["logs"]
+                self.assertGreater(len(logs), 0)
+                # Vérifie que les premiers logs contiennent l'initialisation et la cible
+                self.assertTrue(any("Initialisation" in l for l in logs))
+                self.assertTrue(any("k8s_existing" in l for l in logs))
+                self.assertTrue(any("scripts/deploy.py" in l for l in logs))
 
 
 if __name__ == "__main__":

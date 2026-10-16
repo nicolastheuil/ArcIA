@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "id": "dc38b670-e5dc-5b15-b0b2-ff7c02f5a4de",
   "developer": {
-    "name": "arcITek",
-    "websiteUrl": "https://www.arcitek.fr",
-    "privacyUrl": "https://www.arcitek.fr",
-    "termsOfUseUrl": "https://www.arcitek.fr"
+    "name": "ArcIA Enterprise",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
   },
   "icons": {
     "color": "color.png",
@@ -18,8 +18,8 @@
     "full": "ArcIA Enterprise Assistant"
   },
   "description": {
-    "short": "Plateforme IA agentique souveraine d'entreprise par arcITek.",
-    "full": "ArcIA est la plateforme IA agentique souveraine d'entreprise conçue par arcITek, intégrant Hermes Agent, LiteLLM et le filtrage DLP Presidio."
+    "short": "Plateforme IA agentique souveraine d'entreprise.",
+    "full": "ArcIA est la plateforme IA agentique souveraine d'entreprise, intégrant Hermes Agent, LiteLLM et le filtrage DLP Presidio."
   },
   "accentColor": "#0C2762",
   "supportsChannelFeatures": "tier1",
@@ -59,6 +59,6 @@
     "messageTeamMembers"
   ],
   "validDomains": [
-    "www.arcitek.fr"
+    "example.com"
   ]
 }
