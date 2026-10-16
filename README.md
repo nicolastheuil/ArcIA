@@ -1,14 +1,19 @@
-# ArcIA — Plateforme IA Agentique Souveraine d'Entreprise
+<p align="center">
+  <img src="assets/branding/banner-github-dark.svg" alt="ArcIA Enterprise Agentic AI Platform" width="100%">
+</p>
 
-[![ArcIA Version](https://img.shields.io/badge/ArcIA-v0.2-blue.svg)](docs/architecture.md)
-[![Cluster Status](https://img.shields.io/badge/Cluster-K3s%20Debian%20HA-success.svg)](docs/guides/infrastructure-k3s.md)
-[![DLP Engine](https://img.shields.io/badge/DLP-Presidio%20Active-green.svg)](docs/guides/confidentialite-presidio.md)
-[![Agent Runtime](https://img.shields.io/badge/Engine-Hermes%20v0.2-purple.svg)](docs/guides/hermes-agent.md)
-[![Teams Integration](https://img.shields.io/badge/Teams-Bot%20Framework-blue.svg)](docs/guides/integration-teams.md)
+<p align="center">
+  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/ArcIA-v0.2-1659E4.svg?style=flat-square&logo=cube&logoColor=white" alt="ArcIA Version"></a>
+  <a href="docs/guides/infrastructure-k3s.md"><img src="https://img.shields.io/badge/Cluster-K3s%20Debian%20HA-10B981.svg?style=flat-square&logo=kubernetes&logoColor=white" alt="Cluster Status"></a>
+  <a href="docs/guides/confidentialite-presidio.md"><img src="https://img.shields.io/badge/DLP-Presidio%20Active-6BE7DD.svg?style=flat-square&logo=shield&logoColor=050712" alt="DLP Engine"></a>
+  <a href="docs/guides/hermes-agent.md"><img src="https://img.shields.io/badge/Engine-Hermes%20v0.2-1659E4.svg?style=flat-square&logo=openai&logoColor=white" alt="Agent Runtime"></a>
+  <a href="docs/guides/integration-teams.md"><img src="https://img.shields.io/badge/Teams-Bot%20Framework-5B5FC7.svg?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Integration"></a>
+  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/Distribution-Enterprise%20Edition-050712.svg?style=flat-square&logoColor=6BE7DD" alt="Enterprise Edition"></a>
+</p>
 
 **ArcIA** est la plateforme d'intelligence artificielle agentique d'entreprise conçue pour réconcilier **l'autonomie d'agents d'élite**, la **gouvernance stricte des données** et une **expérience utilisateur unifiée**.
 
-Elle offre aux collaborateurs une interface de chat web moderne et un bot Microsoft Teams, tout en mettant à disposition des ingénieurs et power users le moteur agentique **Hermes**, un tableau de bord Kanban multi-agents et une passerelle sécurisée pour l'application **Hermes Desktop**.
+Elle offre aux collaborateurs une interface de chat web moderne (**Open-WebUI**) et un bot **Microsoft Teams**, tout en mettant à disposition des ingénieurs et power users le moteur agentique **Hermes**, un tableau de bord Kanban multi-agents et une passerelle sécurisée pour l'application **Hermes Desktop**.
 
 ---
 
@@ -28,6 +33,7 @@ Elle offre aux collaborateurs une interface de chat web moderne et un bot Micros
 | 📚 **Catalogues de Skills** | Montage partagé multi-agents : ECC (313 skills), Superpowers (15), Vercel & Anthropics | 📖 [docs/guides/skills.md](docs/guides/skills.md) |
 | 🧰 **Outillage Agentique & MCP** | Skills CLI, LintLang, Context7 MCP, outillage interne et gestion des dépendances | 📖 [docs/guides/outillage-builder.md](docs/guides/outillage-builder.md) |
 | ☸️ **Infrastructure & K3s** | Cluster 3 nœuds VMware, StorageClass CSI et certificats Let's Encrypt | 📖 [docs/guides/infrastructure-k3s.md](docs/guides/infrastructure-k3s.md) |
+| 🎨 **Identité Visuelle & DA** | Charte Dark Mode, logos vectoriels aIA, manifest Teams et assets Inno Setup | 📁 [assets/](assets/) & [assets/branding/palette.json](assets/branding/palette.json) |
 | 🛠️ **Runbook d'Exploitation** | Commandes d'administration, consultation des logs et maintenance | 📖 [docs/runbooks/exploitation.md](docs/runbooks/exploitation.md) |
 | 📋 **Suivi & Handoff** | Journal d'exécution, état de qualification et prochaines étapes | 📖 [docs/etat-reprise.md](docs/etat-reprise.md) |
 
