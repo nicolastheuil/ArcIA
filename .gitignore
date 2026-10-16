@@ -38,3 +38,4 @@ artifacts/
 *.log
 graph.json
 GRAPH_REPORT.md
+*.zip

@@ -25,11 +25,11 @@
   "supportsChannelFeatures": "tier1",
   "bots": [
     {
-      "botId": "dc38b670-e5dc-5b15-b0b2-ff7c02f5a4de",
+      "botId": "00000000-0000-0000-0000-000000000000",
       "scopes": [
         "personal",
         "team",
-        "groupchat"
+        "groupChat"
       ],
       "supportsFiles": false,
       "isNotificationOnly": false,
@@ -38,7 +38,7 @@
           "scopes": [
             "personal",
             "team",
-            "groupchat"
+            "groupChat"
           ],
           "commands": [
             {

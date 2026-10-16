@@ -24,6 +24,12 @@ class TestTeamsAppPackage(unittest.TestCase):
         self.color_png = self.assets_dir / "color.png"
         self.outline_png = self.assets_dir / "outline.png"
         self.zip_path = self.assets_dir / "arcia-teams-app.zip"
+        if not self.zip_path.is_file():
+            build_teams_package(
+                manifest_path=self.manifest_path,
+                icons_dir=self.assets_dir,
+                output_zip=self.zip_path,
+            )
 
     def test_official_manifest_structure_and_validity(self):
         """Vérifie que le manifest.json officiel d'ArcIA est valide selon les specs Microsoft Teams v1.25+."""
