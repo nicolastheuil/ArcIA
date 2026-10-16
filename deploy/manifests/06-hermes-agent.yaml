@@ -11,8 +11,18 @@ data:
     model:
       provider: custom
       base_url: http://litellm-proxy.arcia.svc:4000/v1
-      default: simple/auto
+      default: agentic/auto
       key_env: OPENAI_API_KEY
+    providers:
+      custom:
+        name: "ArcIA Agentic"
+        base_url: http://litellm-proxy.arcia.svc:4000/v1
+        key_env: OPENAI_API_KEY
+        discover_models: false
+        models:
+          - agentic/auto
+          - agentic/free
+          - agentic/deepseek-v4.1-flash
     approvals:
       mode: smart
       unattended_mode: approve

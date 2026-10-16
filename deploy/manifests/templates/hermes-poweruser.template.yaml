@@ -33,6 +33,16 @@ data:
       base_url: http://litellm-proxy.arcia.svc:4000/v1
       default: agentic/auto
       key_env: OPENAI_API_KEY
+    providers:
+      custom:
+        name: "ArcIA Agentic"
+        base_url: http://litellm-proxy.arcia.svc:4000/v1
+        key_env: OPENAI_API_KEY
+        discover_models: false
+        models:
+          - agentic/auto
+          - agentic/free
+          - agentic/deepseek-v4.1-flash
     approvals:
       mode: smart
       unattended_mode: approve
@@ -105,9 +115,27 @@ spec:
         - -c
         - |
           mkdir -p /opt/data/.hermes /opt/data/memories
-          # Copie initiale de la configuration si absente du volume persistant
-          [ ! -f /opt/data/config.yaml ] && cp /etc/hermes-init/config.yaml /opt/data/config.yaml
-          [ ! -f /opt/data/.hermes/config.yaml ] && cp /etc/hermes-init/config.yaml /opt/data/.hermes/config.yaml
+          # Synchronisation de la configuration avec préservation des préférences utilisateur
+          if [ ! -f /opt/data/.hermes/config.yaml ]; then
+            cp /etc/hermes-init/config.yaml /opt/data/.hermes/config.yaml
+            cp /etc/hermes-init/config.yaml /opt/data/config.yaml
+          else
+            /opt/hermes/.venv/bin/python -c '
+import sys; sys.path.insert(0, "/opt/hermes"); import hermes_yaml, os
+init_p, data_p = "/etc/hermes-init/config.yaml", "/opt/data/.hermes/config.yaml"
+if os.path.exists(init_p):
+    init_c = hermes_yaml.safe_load(open(init_p)) or {}
+    cur_c = hermes_yaml.safe_load(open(data_p)) if os.path.exists(data_p) else {}
+    if "providers" in init_c:
+        cur_c.setdefault("providers", {})["custom"] = init_c["providers"]["custom"]
+    if "platforms" in init_c:
+        cur_c["platforms"] = init_c["platforms"]
+    if "model" not in cur_c:
+        cur_c["model"] = init_c.get("model", {})
+    with open(data_p, "w") as f: hermes_yaml.safe_dump(cur_c, f)
+    with open("/opt/data/config.yaml", "w") as f: hermes_yaml.safe_dump(cur_c, f)
+' 2>/dev/null || true
+          fi
           # Copie de la SOUL initiale si absente du volume persistant
           [ ! -f /opt/data/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/SOUL.md
           [ ! -f /opt/data/.hermes/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/.hermes/SOUL.md
@@ -131,7 +159,7 @@ spec:
         - -c
         - |
           mkdir -p /opt/data/.hermes $HOME/.hermes
-          cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
+          cp /opt/data/.hermes/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
           [ -f /opt/data/SOUL.md ] && cp /opt/data/SOUL.md $HOME/.hermes/SOUL.md 2>/dev/null || true
           # Patch endpoint health sur api_server
           python3 -c 'p="/opt/hermes/gateway/platforms/api_server.py"; s=open(p).read(); s=s.replace("(\"GET\", \"/health\", self._handle_health),", "(\"GET\", \"/health\", self._handle_health),\n            (\"GET\", \"/\", self._handle_health),"); open(p,"w").write(s)' 2>/dev/null || true

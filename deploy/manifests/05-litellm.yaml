@@ -38,6 +38,15 @@ data:
         - "simple/free": ["simple/auto"]
         - "simple/auto": ["simple/free"]
       model_group_alias:
+        "agentic/free":
+          model: "simple/free"
+          hidden: true
+        "agentic/auto":
+          model: "simple/auto"
+          hidden: true
+        "agentic/deepseek-v4.1-flash":
+          model: "openrouter/deepseek/deepseek-v4.1-flash"
+          hidden: true
         "openrouter/free":
           model: "simple/free"
           hidden: true

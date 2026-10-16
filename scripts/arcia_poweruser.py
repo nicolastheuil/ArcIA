@@ -66,7 +66,7 @@ def run_kubectl(cmd_args: List[str], input_data: Optional[str] = None) -> subpro
         res = subprocess.run(["kubectl", "version", "--client"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if res.returncode == 0:
             full_cmd = ["kubectl"] + cmd_args
-            return subprocess.run(full_cmd, input=input_data, text=True, capture_output=True)
+            return subprocess.run(full_cmd, input=input_data, text=True, capture_output=True, encoding="utf-8", errors="replace")
     except FileNotFoundError:
         pass
 
@@ -75,7 +75,7 @@ def run_kubectl(cmd_args: List[str], input_data: Optional[str] = None) -> subpro
     if os.path.isfile(invoke_k3s) and sys.platform.startswith("win"):
         ps_cmd = " ".join(cmd_args)
         cmd = ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", invoke_k3s, "-Command", ps_cmd]
-        return subprocess.run(cmd, input=input_data, text=True, capture_output=True)
+        return subprocess.run(cmd, input=input_data, text=True, capture_output=True, encoding="utf-8", errors="replace")
 
     raise RuntimeError("Ni kubectl direct ni scripts/Invoke-K3s.ps1 ne sont disponibles pour communiquer avec le cluster.")
 
@@ -203,11 +203,9 @@ try:
 except Exception as e:
     print(f'[WARN] LiteLLM PAT non enregistré: {{e}}')
 """
-    import base64
-    b64 = base64.b64encode(py_code.encode()).decode()
-    cmd = ["exec", "deployment/litellm-proxy", "-n", ns, "--", "python3", "-c", f"import base64; exec(base64.b64decode('{b64}'))"]
+    cmd = ["exec", "-i", "deployment/litellm-proxy", "-n", ns, "--", "python3"]
     try:
-        proc = run_kubectl(cmd)
+        proc = run_kubectl(cmd, input_data=py_code)
         if proc.stdout:
             print(f"    {proc.stdout.strip()}")
     except Exception as e:
@@ -239,11 +237,9 @@ try:
 except Exception:
     pass
 """
-    import base64
-    b64 = base64.b64encode(py_code.encode()).decode()
-    cmd = ["exec", "deployment/litellm-proxy", "-n", ns, "--", "python3", "-c", f"import base64; exec(base64.b64decode('{b64}'))"]
+    cmd = ["exec", "-i", "deployment/litellm-proxy", "-n", ns, "--", "python3"]
     try:
-        run_kubectl(cmd)
+        run_kubectl(cmd, input_data=py_code)
     except Exception:
         pass
 
