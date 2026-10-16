@@ -505,18 +505,29 @@ data:
     log_ok("Toutes les compétences et outils natifs d'ArcIA sont déployés.")
 
 def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
-    """Crée le ConfigMap arcia-webui-branding avec les logos SVG officiels ArcIA."""
+    """Crée le ConfigMap arcia-webui-branding avec les logos SVG, custom.css et loader.js officiels ArcIA."""
     symbol_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-symbol.svg")
     dark_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-dark.svg")
+    css_path = os.path.join(root_dir, "assets", "branding", "custom.css")
+    loader_path = os.path.join(root_dir, "assets", "branding", "loader.js")
 
     symbol_content = ""
     dark_content = ""
+    css_content = ""
+    loader_content = ""
+
     if os.path.isfile(symbol_path):
         with open(symbol_path, "r", encoding="utf-8") as f:
             symbol_content = f.read()
     if os.path.isfile(dark_path):
         with open(dark_path, "r", encoding="utf-8") as f:
             dark_content = f.read()
+    if os.path.isfile(css_path):
+        with open(css_path, "r", encoding="utf-8") as f:
+            css_content = f.read()
+    if os.path.isfile(loader_path):
+        with open(loader_path, "r", encoding="utf-8") as f:
+            loader_content = f.read()
 
     cm_lines = [
         "apiVersion: v1",
@@ -532,9 +543,17 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
     cm_lines.append("  logo.svg: |")
     for line in dark_content.splitlines():
         cm_lines.append(f"    {line}")
+    if css_content:
+        cm_lines.append("  custom.css: |")
+        for line in css_content.splitlines():
+            cm_lines.append(f"    {line}")
+    if loader_content:
+        cm_lines.append("  loader.js: |")
+        for line in loader_content.splitlines():
+            cm_lines.append(f"    {line}")
 
     runner.apply_manifest("\n".join(cm_lines))
-    log_ok("Identité visuelle ArcIA (monogramme squircle et logos SVG) injectée dans le cluster.")
+    log_ok("Identité visuelle ArcIA (monogramme squircle, logos SVG, custom.css et loader.js) injectée dans le cluster.")
 
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes

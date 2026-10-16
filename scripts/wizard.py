@@ -2877,6 +2877,8 @@ def get_wizard_html_page() -> str:
     let logPollingInterval = null;
     let selectedSetupMode = "new"; // "new" ou "restore"
     let createdRepoUrl = "";
+    let currentInfraTarget = "k8s_existing";
+    let currentVmwareTier = "100";
 
     window.addEventListener("DOMContentLoaded", () => {
       fetchConfig();
@@ -2984,6 +2986,63 @@ def get_wizard_html_page() -> str:
       }
     }
 
+    function parseClientYamlFallback(yamlText) {
+      const cfg = {
+        kubernetes: { mode: "local", remote_ssh: {} },
+        network: {},
+        llm_gateway: {},
+        hermes: {},
+        open_webui: {},
+        entra_id_sso: {},
+        teams_bot: {},
+        instance_git: {}
+      };
+      let currentSection = null;
+      let currentSubSection = null;
+
+      const lines = yamlText.split(/\r?\n/);
+      for (let rawLine of lines) {
+        const line = rawLine.replace(/#.*$/, '');
+        if (!line.trim()) continue;
+
+        const indent = rawLine.search(/\S/);
+        const match = line.trim().match(/^([A-Za-z0-9_\-]+)\s*:\s*(.*)$/);
+        if (!match) continue;
+
+        const key = match[1];
+        let val = match[2].trim();
+
+        if (val.startsWith('"') && val.endsWith('"') && val.length >= 2) {
+          val = val.substring(1, val.length - 1).replace(/\\"/g, '"');
+        } else if (val.startsWith("'") && val.endsWith("'") && val.length >= 2) {
+          val = val.substring(1, val.length - 1);
+        } else if (val === "true") {
+          val = true;
+        } else if (val === "false") {
+          val = false;
+        } else if (/^\d+$/.test(val)) {
+          val = parseInt(val, 10);
+        }
+
+        if (indent === 0) {
+          currentSection = key;
+          currentSubSection = null;
+          if (!cfg[currentSection]) cfg[currentSection] = {};
+        } else if (indent === 2 && currentSection) {
+          if (val === "" || val === undefined) {
+            currentSubSection = key;
+            if (!cfg[currentSection][currentSubSection]) cfg[currentSection][currentSubSection] = {};
+          } else {
+            currentSubSection = null;
+            cfg[currentSection][key] = val;
+          }
+        } else if (indent >= 4 && currentSection && currentSubSection) {
+          cfg[currentSection][currentSubSection][key] = val;
+        }
+      }
+      return cfg;
+    }
+
     async function handleYamlFileSelect(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -2991,6 +3050,8 @@ def get_wizard_html_page() -> str:
       const reader = new FileReader();
       reader.onload = async (e) => {
         const content = e.target.result;
+        let loadedConfig = null;
+
         try {
           const res = await fetch("/api/config/upload-yaml", {
             method: "POST",
@@ -3000,70 +3061,126 @@ def get_wizard_html_page() -> str:
               filename: file.name
             })
           });
-          const data = await res.json();
-          if (data.success && data.config) {
-            configData = data.config;
-            populateFormFields(data.config);
-            alert(`✅ Configuration chargée avec succès depuis "${file.name}" !\nTous les champs du Wizard ont été préremplis.`);
-            goToStep(2);
-          } else {
-            alert(`❌ Erreur lors de l'analyse du fichier YAML : ${data.error || 'Format invalide'}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.config) {
+              loadedConfig = data.config;
+            }
           }
-        } catch (err) {
-          alert(`❌ Erreur de communication lors de l'upload : ${err.message}`);
+        } catch (serverErr) {
+          console.warn("Échec du parseur serveur, bascule sur le parseur client:", serverErr);
+        }
+
+        if (!loadedConfig) {
+          try {
+            loadedConfig = parseClientYamlFallback(content);
+          } catch (clientErr) {
+            alert(`❌ Erreur lors de l'analyse du fichier YAML : ${clientErr.message}`);
+            return;
+          }
+        }
+
+        if (loadedConfig) {
+          configData = loadedConfig;
+          populateFormFields(loadedConfig);
+          alert(`✅ Configuration "${file.name}" importée avec succès !\nTous les champs du Wizard ont été renseignés. Vous êtes redirigé vers l'étape Infrastructure.`);
+          goToStep(3);
+        } else {
+          alert(`❌ Impossible de charger la configuration depuis "${file.name}".`);
         }
       };
       reader.readAsText(file, "UTF-8");
     }
 
     function populateFormFields(cfg) {
+      if (!cfg || typeof cfg !== 'object') return;
+
       const k8s = cfg.kubernetes || {};
       const net = cfg.network || {};
       const llm = cfg.llm_gateway || {};
       const hermes = cfg.hermes || {};
       const sso = cfg.entra_id_sso || {};
       const teams = cfg.teams_bot || {};
+      const git = cfg.instance_git || cfg.git_instance || {};
 
-      document.getElementById("k8s_mode").value = k8s.mode || "local";
-      document.getElementById("k8s_context").value = k8s.context || "";
-      document.getElementById("k8s_kubeconfig").value = k8s.kubeconfig || "";
-      document.getElementById("k8s_namespace").value = k8s.namespace || "arcia";
-      document.getElementById("k8s_storage_class").value = k8s.storage_class || "";
+      function setVal(id, v) {
+        const el = document.getElementById(id);
+        if (el && v !== undefined && v !== null) el.value = v;
+      }
+      function setChecked(id, b) {
+        const el = document.getElementById(id);
+        if (el && b !== undefined && b !== null) el.checked = !!b;
+      }
+
+      // 1. Cible d'infrastructure & Kubernetes
+      setVal("k8s_mode", k8s.mode || "local");
+      setVal("k8s_context", k8s.context || "");
+      setVal("k8s_kubeconfig", k8s.kubeconfig || "");
+      setVal("k8s_namespace", k8s.namespace || "arcia");
+      setVal("k8s_storage_class", k8s.storage_class || "");
       const ssh = k8s.remote_ssh || {};
-      document.getElementById("k8s_ssh_ip").value = ssh.node_ip || "";
-      document.getElementById("k8s_ssh_user").value = ssh.ssh_user || "debian";
-      document.getElementById("k8s_ssh_port").value = ssh.ssh_port || 22;
-      document.getElementById("k8s_ssh_key").value = ssh.ssh_key || "";
+      setVal("k8s_ssh_ip", ssh.node_ip || "");
+      setVal("k8s_ssh_user", ssh.ssh_user || "debian");
+      setVal("k8s_ssh_port", ssh.ssh_port || 22);
+      setVal("k8s_ssh_key", ssh.ssh_key || "");
       toggleK8sMode();
 
-      document.getElementById("net_fqdn").value = net.public_fqdn || "";
-      document.getElementById("net_tls_mode").value = net.tls_mode || "letsencrypt-prod";
-      document.getElementById("net_ingress_class").value = net.ingress_class || "traefik";
-      document.getElementById("net_acme_email").value = net.acme_email || "";
+      if (k8s.mode === "remote-ssh" || k8s.mode === "local" || cfg.infra_target === "k8s_existing") {
+        selectInfraTarget("k8s_existing");
+      } else if (cfg.infra_target === "docker_lab") {
+        selectInfraTarget("docker_lab");
+      } else if (cfg.infra_target === "vmware_k3s") {
+        selectInfraTarget("vmware_k3s");
+      }
+
+      // 2. Réseau & TLS
+      setVal("net_fqdn", net.public_fqdn || "");
+      setVal("net_tls_mode", net.tls_mode || "letsencrypt-prod");
+      setVal("net_ingress_class", net.ingress_class || "traefik");
+      setVal("net_acme_email", net.acme_email || "");
       toggleTlsMode();
 
-      document.getElementById("llm_key").value = llm.openrouter_api_key || "";
-      document.getElementById("llm_model").value = llm.default_model || "ArcIA-Agentic (auto)";
-      document.getElementById("llm_vllm").value = llm.local_vllm_endpoint || "";
+      // 3. IA & Passerelle LLM
+      setVal("llm_key", llm.openrouter_api_key || "");
+      setVal("llm_model", llm.default_model || "ArcIA-Agentic (auto)");
+      setVal("llm_vllm", llm.local_vllm_endpoint || "");
 
-      document.getElementById("hermes_password").value = hermes.admin_password || "admin";
-      document.getElementById("hermes_pat").value = hermes.api_token || "";
-      document.getElementById("hermes_storage").value = hermes.storage_size || "20Gi";
+      // 4. Hermes
+      setVal("hermes_password", hermes.admin_password || "admin");
+      setVal("hermes_pat", hermes.api_token || "");
+      setVal("hermes_storage", hermes.storage_size || "20Gi");
 
-      document.getElementById("sso_enabled").checked = !!sso.enabled;
-      document.getElementById("sso_tenant").value = sso.tenant_id || "";
-      document.getElementById("sso_client").value = sso.client_id || "";
-      document.getElementById("sso_secret").value = sso.client_secret || "";
-      document.getElementById("sso_cookie").value = sso.cookie_secret || "";
+      // 5. SSO Entra ID
+      setChecked("sso_enabled", !!sso.enabled);
+      setVal("sso_tenant", sso.tenant_id || "");
+      setVal("sso_client", sso.client_id || "");
+      setVal("sso_secret", sso.client_secret || "");
+      setVal("sso_cookie", sso.cookie_secret || "");
       toggleSsoFields();
 
-      document.getElementById("teams_enabled").checked = !!teams.enabled;
-      document.getElementById("teams_appid").value = teams.app_id || "";
-      document.getElementById("teams_password").value = teams.app_password || "";
+      // 6. Microsoft Teams
+      setChecked("teams_enabled", !!teams.enabled);
+      setVal("teams_appid", teams.app_id || "");
+      setVal("teams_password", teams.app_password || "");
       if (teams.system_prompt) {
-        document.getElementById("teams_prompt").value = teams.system_prompt;
+        setVal("teams_prompt", teams.system_prompt);
       }
       toggleTeamsFields();
+
+      // 7. Dépôt Git d'instance
+      if (git && (git.repo_url || git.repo_name)) {
+        setChecked("git_instance_enabled", true);
+        setVal("git_provider", git.provider || "github");
+        setVal("git_repo_name", git.repo_name || "ArcIA-instance-prod");
+        setVal("git_token", git.git_token || "");
+        if (git.passphrase) {
+          setVal("git_passphrase", git.passphrase);
+          setVal("git_passphrase_confirm", git.passphrase);
+        }
+      } else {
+        setChecked("git_instance_enabled", false);
+      }
+      toggleGitInstanceFields();
 
       updateGuideFqdn();
       updateInstanceRepoSuggestion();
@@ -3074,6 +3191,13 @@ def get_wizard_html_page() -> str:
           inRag.value = cfg.open_webui.storage_size;
           updateVmwareCustomTotals();
         }
+      }
+
+      const badge = document.getElementById("instanceModeBadge");
+      if (badge && net.public_fqdn) {
+        badge.textContent = `Config chargée : ${net.public_fqdn}`;
+        badge.style.color = "var(--success)";
+        badge.style.borderColor = "var(--success)";
       }
     }
 
@@ -3276,9 +3400,7 @@ def get_wizard_html_page() -> str:
       }
     }
 
-    let currentInfraTarget = "k8s_existing";
-    let currentVmwareTier = "100";
-
+    // vmwareTiersData definition
     const vmwareTiersData = {
       "20": {
         title: "Équipe Pilote / PoC (jusqu'à 20 utilisateurs)",

@@ -1,0 +1,116 @@
+/* ==============================================================================
+   ArcIA Enterprise Agentic AI Platform — Charte Graphique Officielle arcITek
+   Palette: Noir (#050712), Deep Navy (#0C2762), Royal Blue (#1659E4), Cyan (#6BE7DD)
+   ============================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  --color-primary: #1659e4 !important;
+  --color-primary-dark: #0c2762 !important;
+  --color-primary-light: #6be7dd !important;
+  --arcia-noir: #050712 !important;
+  --arcia-deep-navy: #0c2762 !important;
+  --arcia-royal-blue: #1659e4 !important;
+  --arcia-cyan: #6be7dd !important;
+  --arcia-coral: #fa7b4e !important;
+  --arcia-gold: #f1c557 !important;
+  --arcia-text-primary: #f8fafc !important;
+}
+
+/* Global Typography & Backgrounds */
+body, html, .dark body, html.dark {
+  font-family: var(--font-family) !important;
+  background-color: #050712 !important;
+  color: #f8fafc !important;
+}
+
+/* Navigation & Sidebar Dark Navy Styling */
+.dark #sidebar, .dark .sidebar, .dark aside {
+  background-color: #0a0f1d !important;
+  border-right: 1px solid #1e293b !important;
+}
+
+.dark .bg-gray-900, .dark .bg-gray-950, .dark .bg-gray-850 {
+  background-color: #0a0f1d !important;
+}
+
+.dark .bg-gray-800, .dark .bg-gray-700 {
+  background-color: #0c2762 !important;
+  border-color: #1e293b !important;
+}
+
+/* Action Buttons & Submits (ArcIA Royal Blue & Cyan Gradient) */
+button[type="submit"], 
+.dark .bg-emerald-600, 
+.dark .bg-emerald-700, 
+.dark .bg-blue-600, 
+.dark .bg-primary-600,
+button[type="submit"].bg-black, 
+button.bg-black {
+  background: linear-gradient(135deg, #1659e4 0%, #5ad8ce 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 600 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+button[type="submit"]:hover, button.bg-black:hover {
+  filter: brightness(1.15) !important;
+  box-shadow: 0 0 16px rgba(107, 231, 221, 0.4) !important;
+}
+
+/* Form Controls & Inputs */
+input, textarea, select {
+  font-family: var(--font-family) !important;
+}
+
+*:focus-visible {
+  outline: 2px solid #6be7dd !important;
+  outline-offset: 1px !important;
+}
+
+/* Splash Screen ArcIA Dark Mode */
+#splash-screen {
+  background: #050712 !important;
+}
+
+/* Logo Replacement (Images pointing to default logos replaced with ArcIA dark vector) */
+img[alt="Open WebUI"], 
+.sidebar-header img, 
+#logo, 
+#logo-her,
+img[src*="splash"],
+img[src*="logo.png"] {
+  content: url("/static/logo.svg") !important;
+  max-height: 48px !important;
+  width: auto !important;
+}
+
+/* Chat Input Styling */
+.dark #chat-input, .dark textarea {
+  background-color: #0d1527 !important;
+  border-color: #1e293b !important;
+}
+
+.dark #chat-input:focus-within {
+  border-color: #1659e4 !important;
+  box-shadow: 0 0 12px rgba(22, 89, 228, 0.25) !important;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050712;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #1659e4;
+}
