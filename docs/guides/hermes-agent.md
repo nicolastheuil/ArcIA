@@ -54,33 +54,45 @@ platforms:
 
 ---
 
-<a id="power-users-agent-local"></a>
-## 3. Mode Power User (N3) : Inférence Locale via `/v1` & PAT
+<a id="power-users-spawn-kubernetes"></a>
+## 3. Mode Power User (N3) : Pods Hermes Dédiés sur Kubernetes
 
-Pour les ingénieurs et power users, certains scénarios avancés (accès VPN client temporaire, intégration directe dans l'IDE VS Code / Cursor, Computer Use) nécessitent d'exécuter les agents en local.
+Dans ArcIA v0.3, les Power Users ne déploient **aucun agent local sur leur PC**. Chaque Power User dispose d'une **instance Hermes complète et dédiée directement dans le cluster Kubernetes**, garantissant une étanchéité absolue de son environnement d'exécution, de son système de fichiers et de sa `SOUL.md`.
 
-### 3.1 Raccordement Local à la Passerelle ArcIA
+### 3.1 Architecture d'un Pod Power User Dédié
+Chaque instance Power User est provisionnée à partir du gabarit [deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml) et comprend :
+1. **Un PVC Isolé (`hermes-user-<slug>-pvc`)** : Volume persistant `ReadWriteOnce` (défaut 10Gi) montant `/opt/data`. Il contient exclusivement le `state.db` SQLite de l'utilisateur, sa mémoire de travail (`USER.md`, `MEMORY.md`) et ses fichiers créés.
+2. **Une `SOUL.md` Personnalisée** : Injectée via ConfigMap et montée dans le profil. L'utilisateur peut calibrer la posture, le ton et les règles de son agent personnel sans impacter les autres.
+3. **Un Deployment & Service Dédiés** : Exécutant `nousresearch/hermes-agent:latest`, avec accès à son propre **Studio Kanban** (`port 9119`) et sa **Gateway API** (`port 8642`).
+4. **Un Ingress Traefik Sécurisé** : Exposé sur `https://<public_fqdn>/poweruser/<slug>/studio` protégé par authentification forte.
+5. **Jeton d'Inférence Nominatif (PAT)** : Raccordé sur la passerelle centrale LiteLLM avec quota budgétaire mensuel contraint et filtrage DLP Presidio fail-closed.
 
-L'agent local ou l'IDE est configuré pour utiliser la passerelle d'entreprise exposée sur l'Ingress :
+### 3.2 Commandes d'Exploitation (`scripts/arcia_poweruser.py`)
+
+Le script d'orchestration [scripts/arcia_poweruser.py](../../scripts/arcia_poweruser.py) (ou son wrapper PowerShell `scripts/Spawn-PowerUser.ps1`) permet de piloter l'ensemble du cycle de vie :
 
 ```bash
-# Variables d'environnement pour Hermes local ou client compatible OpenAI
-export OPENAI_BASE_URL="https://assistant.example.org/v1"
-export OPENAI_API_KEY="<VOTRE_PAT_LITELLM_NOMINATIF>"
-export OPENAI_MODEL_NAME="arcia/auto"  # ou arcia/expert, arcia/free
+# 1. Spawner une nouvelle instance dédiée pour un collaborateur
+python scripts/arcia_poweruser.py spawn claire.dubois@entreprise.com --team finance --job-title "Contrôleuse de Gestion" --manager "Marc Lefèvre"
+
+# 2. Lister les instances Power Users actives dans le cluster
+python scripts/arcia_poweruser.py list
+
+# 3. Mettre en veille un pod inactif (scale=0 pour libérer la RAM tout en conservant le PVC)
+python scripts/arcia_poweruser.py stop claire.dubois@entreprise.com
+
+# 4. Réveiller une instance
+python scripts/arcia_poweruser.py start claire.dubois@entreprise.com
+
+# 5. Supprimer une instance (avec option de conservation du volume)
+python scripts/arcia_poweruser.py destroy claire.dubois@entreprise.com --keep-pvc
 ```
 
-### 3.2 Émission du Jeton Personnel (PAT)
-
-L'émission et la gestion des clés virtuelles nominatives avec budget mensuel contraint s'effectuent via :
-```bash
-python scripts/arcia_keys.py create-user prenom.nom@entreprise.com --level N3 --team engineering
-```
-
-### 3.3 Avantages du Mode Power User v0.3
-1. **DLP Systématique** : Tout prompt émis localement traverse le bouclier **Presidio DLP** sur le cluster central. Secrets et PII sont caviardés avant toute inférence cloud.
-2. **Plafond Budgétaire Garanti** : Le dépassement du budget individuel bloque automatiquement les requêtes avec une erreur explicite.
-3. **Zéro Rétention de Données (ZDR)** : Préservation absolue de la propriété intellectuelle.
+### 3.3 Avantages Clés
+1. **Zéro Empreinte PC** : Les collaborateurs n'ont aucun outil à installer localement ni configuration complexe d'IDE.
+2. **Isolation de Sécurité Totale** : Étanchéité complète des processus et du disque ; l'agent peut exécuter du code (`bash`, shell, python) dans son conteneur sans aucun risque de fuite vers d'autres profils.
+3. **Sobriété des Ressources** : La commande `stop` permet d'éteindre les pods hors des heures de travail (`replicas: 0`) pour restituer 100 % de la mémoire aux 3 nœuds du cluster VMware.
+4. **DLP & Quotas Garantis** : 100 % des flux d'inférence sortants de l'agent passent par Presidio DLP et sont imputés au budget N3 de l'utilisateur.
 
 > **Feuille de Route v0.4** : Les serveurs MCP distants dédiés (`arcia_knowledge` et `arcia_skills`) pour RAG multi-corpus font l'objet d'un lot d'évolution planifié pour la version v0.4. En v0.3, le RAG documentaire collaborateur est porté directement par Open-WebUI.
 

@@ -2,28 +2,28 @@
 # Configuration LiteLLM Proxy pour ArcIA v0.3 (Mode Lab / Docker Local)
 # ==============================================================================
 model_list:
-  # 1. Palier Standard (Défaut) : Économique, rapide, souverain
-  - model_name: "arcia/standard"
+  # 1. Palier Gratuit : Découverte et qualification sans coût
+  - model_name: "arcia/free"
     litellm_params:
-      model: openrouter/anthropic/claude-haiku-5.5
+      model: openrouter/openrouter/free
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
           zdr: true
 
-  # 2. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
+  # 2. Palier Auto (Défaut) : Routage automatique intelligent
+  - model_name: "arcia/auto"
+    litellm_params:
+      model: openrouter/auto
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          zdr: true
+
+  # 3. Palier Expert : Raisonnement approfondi et tâches agentiques complexes
   - model_name: "arcia/expert"
     litellm_params:
-      model: openrouter/anthropic/claude-sonnet-5.5
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          zdr: true
-
-  # 3. Palier Raisonnement : Analyse architecturale et résolution critique
-  - model_name: "arcia/reasoning"
-    litellm_params:
-      model: openrouter/deepseek/deepseek-v4.1-flash
+      model: openrouter/anthropic/claude-3.7-sonnet
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
@@ -31,21 +31,27 @@ model_list:
 
 router_settings:
   fallbacks:
-    - "arcia/standard": ["arcia/expert"]
-    - "arcia/expert": ["arcia/standard"]
-    - "arcia/reasoning": ["arcia/expert"]
+    - "arcia/free": ["arcia/auto"]
+    - "arcia/auto": ["arcia/expert"]
+    - "arcia/expert": ["arcia/auto"]
   model_group_alias:
+    "arcia/standard":
+      model: "arcia/auto"
+      hidden: true
+    "arcia/reasoning":
+      model: "arcia/expert"
+      hidden: true
     "ArcIA-Agentic (auto)":
-      model: "arcia/standard"
+      model: "arcia/auto"
       hidden: true
     "ArcIA-Agentic (expert)":
       model: "arcia/expert"
       hidden: true
     "auto":
-      model: "arcia/standard"
+      model: "arcia/auto"
       hidden: true
     "hermes-agent":
-      model: "arcia/standard"
+      model: "arcia/auto"
       hidden: true
 
 general_settings:

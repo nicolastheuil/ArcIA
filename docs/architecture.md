@@ -11,10 +11,10 @@ ArcIA est la plateforme d'IA agentique souveraine d'entreprise conçue pour conc
 1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
 2. **Niveaux d'Autonomie Explicites (N1, N2, N3)** :
    - **N1 — Collaborateur & N2 — Expert (Open-WebUI)** : Open-WebUI est strictement le frontal conversationnel. Tous les chats sont acheminés exclusivement vers **Hermes Agent** (`:8642`). Les collaborateurs disposent des 3 paliers génériques (`arcia/free`, `arcia/auto` par défaut, `arcia/expert` avec sélection dynamique par `/model`), exécutés avec toute la puissance outillée (skills, AST, web, bash, RAG).
-   - **N3 — Power User** : Accès direct à la passerelle `/v1` via clé virtuelle LiteLLM nominative (PAT), budgets individuels, et moteur d'agents Hermes Agent.
+   - **N3 — Power User** : Instances Hermes complètes et dédiées spawnées à la demande sur Kubernetes (aucun agent local sur PC), avec PVC 10Gi, `SOUL.md` personnalisée, Studio Kanban individuel et jeton nominatif LiteLLM (PAT).
 3. **Bouclier DLP Presidio Fail-Closed** : Aucun prompt ne sort vers un modèle cloud externe sans caviardage strict des adresses IP, secrets techniques, téléphones, IBAN et PII. En cas d'indisponibilité du module DLP, la requête est rejetée net.
 4. **Passerelle d'Inférence Unique & Base Comptable (`litellm-db`)** :
-   - Catalogue virtuel d'entreprise : `arcia/free` (OpenRouter Free), `arcia/auto` (OpenRouter Auto intelligent), `arcia/expert` (modèles avancés et sélection dynamique `openrouter/*`).
+   - Catalogue virtuel d'entreprise strict à 3 paliers : `arcia/free` (gratuit/qualification), `arcia/auto` (défaut intelligent), `arcia/expert` (raisonnement approfondi).
    - Zéro Rétention de Données (ZDR) et `drop_params: true` pour harmonisation universelle des paramètres.
    - Persistance PostgreSQL des clés virtuelles, budgets et équipes.
 5. **Intégration Microsoft Teams Native** : Bot applicatif certifié Bot Framework connecté sur la passerelle pour les conversations 1:1 et canaux d'équipe.
@@ -32,8 +32,8 @@ flowchart TD
     subgraph Utilisateurs ["👥 Utilisateurs & Entrées (Niveaux N1, N2, N3)"]
         Browser["Navigateur Web<br/>(Collaborateur N1 / Expert N2)"]
         TeamsClient["Microsoft Teams<br/>(Canaux & DM N1)"]
-        PowerUser["Power User N3 / IDE<br/>(Hermes local via /v1 + PAT)"]
-        HermesDesk["Hermes Studio<br/>(Kanban :9119 via SSO)"]
+        PowerUser["Power User N3<br/>(Pod Hermes dédié K8s + PVC 10Gi)"]
+        HermesDesk["Hermes Studio Central<br/>(Kanban :9119 via SSO)"]
     end
 
     subgraph IngressLayer ["🌐 Ingress & Sécurité Périmétrique (assistant.example.org)"]

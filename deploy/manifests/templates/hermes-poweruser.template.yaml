@@ -1,0 +1,255 @@
+# ==============================================================================
+# ArcIA v0.3 — Template d'Instance Dédiée Power User (Hermes Agent sur K8s)
+# Spawné à la demande : Zéro agent local sur PC, isolation PVC et SOUL propre
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-user-{{USER_SLUG}}-pvc
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+    arcia.io/role: poweruser
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{STORAGE_SIZE}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-user-{{USER_SLUG}}-config
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+data:
+  config.yaml: |
+    model:
+      provider: custom
+      base_url: http://litellm-proxy.arcia.svc:4000/v1
+      default: arcia/auto
+      key_env: OPENAI_API_KEY
+    approvals:
+      mode: smart
+      unattended_mode: deny
+    agent:
+      max_turns: 40
+    platforms:
+      api_server:
+        direct_model_requests: true
+        model_name: "arcia/auto"
+        model_routes:
+          arcia/free:
+            model: "arcia/free"
+          arcia/auto:
+            model: "arcia/auto"
+          arcia/expert:
+            model: "arcia/expert"
+  SOUL.md: |
+{{SOUL_CONTENT_INDENTED}}
+  USER.md: |
+{{USER_CONTENT_INDENTED}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hermes-user-{{USER_SLUG}}-secret
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+type: Opaque
+stringData:
+  litellm-pat: "{{LITELLM_PAT}}"
+  studio-password: "{{STUDIO_PASSWORD}}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-poweruser-{{USER_SLUG}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+    arcia.io/role: poweruser
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes-poweruser-{{USER_SLUG}}
+  template:
+    metadata:
+      labels:
+        app: hermes-poweruser-{{USER_SLUG}}
+        app.kubernetes.io/name: hermes-poweruser
+        app.kubernetes.io/instance: {{USER_SLUG}}
+    spec:
+      securityContext:
+        fsGroup: 10000
+      initContainers:
+      - name: init-user-state
+        image: nousresearch/hermes-agent:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /opt/data/.hermes /opt/data/memories
+          # Copie initiale de la configuration si absente du volume persistant
+          [ ! -f /opt/data/config.yaml ] && cp /etc/hermes-init/config.yaml /opt/data/config.yaml
+          [ ! -f /opt/data/.hermes/config.yaml ] && cp /etc/hermes-init/config.yaml /opt/data/.hermes/config.yaml
+          # Copie de la SOUL initiale si absente du volume persistant
+          [ ! -f /opt/data/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/SOUL.md
+          [ ! -f /opt/data/.hermes/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/.hermes/SOUL.md
+          # Copie du USER.md initial si absent
+          [ ! -f /opt/data/memories/USER.md ] && cp /etc/hermes-init/USER.md /opt/data/memories/USER.md
+          chown -R 10000:10000 /opt/data
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: user-data
+          mountPath: /opt/data
+        - name: init-config
+          mountPath: /etc/hermes-init
+      containers:
+      - name: hermes
+        image: nousresearch/hermes-agent:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /opt/data/.hermes $HOME/.hermes
+          cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
+          [ -f /opt/data/SOUL.md ] && cp /opt/data/SOUL.md $HOME/.hermes/SOUL.md 2>/dev/null || true
+          # Patch endpoint health sur api_server
+          python3 -c 'p="/opt/hermes/gateway/platforms/api_server.py"; s=open(p).read(); s=s.replace("(\"GET\", \"/health\", self._handle_health),", "(\"GET\", \"/health\", self._handle_health),\n            (\"GET\", \"/\", self._handle_health),"); open(p,"w").write(s)' 2>/dev/null || true
+          hermes gateway &
+          exec hermes dashboard --host 0.0.0.0 --port 9119 --skip-build --no-open
+        ports:
+        - containerPort: 9119
+          name: studio
+        - containerPort: 8642
+          name: gateway
+        env:
+        - name: HERMES_DASHBOARD_PUBLIC_URL
+          value: "https://{{PUBLIC_FQDN}}/poweruser/{{USER_SLUG}}/studio"
+        - name: API_SERVER_ENABLED
+          value: "true"
+        - name: API_SERVER_HOST
+          value: "0.0.0.0"
+        - name: API_SERVER_PORT
+          value: "8642"
+        - name: API_SERVER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hermes-user-{{USER_SLUG}}-secret
+              key: litellm-pat
+        - name: HERMES_HOME
+          value: "/opt/data"
+        - name: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
+          value: "{{USER_SLUG}}"
+        - name: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: hermes-user-{{USER_SLUG}}-secret
+              key: studio-password
+        - name: OPENAI_BASE_URL
+          value: "http://litellm-proxy.arcia.svc:4000/v1"
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hermes-user-{{USER_SLUG}}-secret
+              key: litellm-pat
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1500m
+            memory: 2Gi
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 9119
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 9119
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        volumeMounts:
+        - name: user-data
+          mountPath: /opt/data
+      volumes:
+      - name: user-data
+        persistentVolumeClaim:
+          claimName: hermes-user-{{USER_SLUG}}-pvc
+      - name: init-config
+        configMap:
+          name: hermes-user-{{USER_SLUG}}-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-poweruser-{{USER_SLUG}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+spec:
+  selector:
+    app: hermes-poweruser-{{USER_SLUG}}
+  ports:
+  - port: 9119
+    targetPort: 9119
+    name: studio
+  - port: 8642
+    targetPort: 8642
+    name: gateway
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: hermes-poweruser-{{USER_SLUG}}-stripprefix
+  namespace: {{NAMESPACE}}
+spec:
+  stripPrefix:
+    prefixes:
+    - /poweruser/{{USER_SLUG}}/studio
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hermes-poweruser-{{USER_SLUG}}-ingress
+  namespace: {{NAMESPACE}}
+  labels:
+    app.kubernetes.io/name: hermes-poweruser
+    app.kubernetes.io/instance: {{USER_SLUG}}
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: {{NAMESPACE}}-hermes-poweruser-{{USER_SLUG}}-stripprefix@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - {{PUBLIC_FQDN}}
+    secretName: arcia-tls-cert
+  rules:
+  - host: {{PUBLIC_FQDN}}
+    http:
+      paths:
+      - path: /poweruser/{{USER_SLUG}}/studio
+        pathType: Prefix
+        backend:
+          service:
+            name: hermes-poweruser-{{USER_SLUG}}
+            port:
+              number: 9119
