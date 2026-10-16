@@ -9,7 +9,7 @@ gratuitement les APIs publiques souveraines d'entreprise de l'État français
 en cache locale sur disque (TTL 24h) et calcul automatique de la TVA intracommunautaire.
 
 Usage :
-    python public_apis.py company "arcitek"
+    python public_apis.py company "entreprise"
     python public_apis.py company "789315306"
     python public_apis.py address "696 rue yves kermen boulogne"
     python public_apis.py meteo "Paris"
@@ -34,7 +34,7 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-USER_AGENT = "ArcIA-Sovereign-Agent/0.2 (arcITek; Sovereign Platform)"
+USER_AGENT = "ArcIA-Sovereign-Agent/0.2 (Sovereign Platform)"
 CACHE_DIR = os.path.join(os.getenv("TEMP", os.getenv("TMPDIR", "/tmp")), "arcia_public_apis_cache")
 CACHE_TTL = 86400  # 24 heures
 
