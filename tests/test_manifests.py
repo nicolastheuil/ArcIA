@@ -68,7 +68,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: ENABLE_SIGNUP\n          value: "false"', content)
         self.assertIn('name: DEFAULT_USER_ROLE\n          value: "user"', content)
         self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
-        self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "false"', content)
+        self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "true"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)
 
     def test_ingress_v1_rate_limited(self):

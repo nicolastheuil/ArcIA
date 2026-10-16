@@ -78,7 +78,7 @@ spec:
         - name: ENABLE_OAUTH_SIGNUP
           value: "true"
         - name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL
-          value: "false"
+          value: "true"
         - name: OAUTH_PROVIDER_NAME
           value: "Microsoft Entra ID"
         - name: ENTRA_TENANT_ID

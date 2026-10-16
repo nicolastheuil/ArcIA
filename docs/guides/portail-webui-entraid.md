@@ -16,7 +16,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
     2. **Comptes locaux créés manuellement par l'administrateur** via le panneau de gestion des utilisateurs.
   - `DEFAULT_USER_ROLE=user` : Rôle par défaut fixé en utilisateur standard (`user`). Tout collaborateur authentifié via Microsoft 365 / Entra ID ou compte local créé par l'admin accède directement aux fonctionnalités collaborateur N1/N2 autorisées.
   - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès strict par rôle et niveau d'autonomie (N1 Collaborateur, N2 Expert, N3 Power User).
-  - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=false` : Interdiction de fusion arbitraire par simple adresse email pour prévenir tout risque de détournement de compte (*account takeover*).
+  - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` : Fusion transparente et automatique des comptes SSO Microsoft Entra ID avec les comptes existants partageant la même adresse email vérifiée au sein du tenant d'organisation.
 
 - **Raccordement Exclusif sur LiteLLM Proxy** :
   - `http://litellm-proxy.arcia.svc:4000/v1` : Authentifié via le secret d'infrastructure `litellm-secret:master-key`. Fournit les 3 paliers d'entreprise (`arcia/standard`, `arcia/expert`, `arcia/reasoning`) avec bascule et caviardage DLP Presidio fail-closed.
