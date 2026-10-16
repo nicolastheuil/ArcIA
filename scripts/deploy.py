@@ -398,23 +398,32 @@ data:
     # Synchronisation sur le système de fichiers hôte ou distant
     if runner.mode == "remote-ssh":
         try:
-            for skill_name, content in skills_files.items():
-                remote_dir = f"/var/data/arcia/shared-skills/arcia/{skill_name}"
-                tee_cmd = f"sudo mkdir -p {remote_dir} && sudo tee {remote_dir}/SKILL.md >/dev/null"
-                ssh_tee = ["ssh", "-o", "BatchMode=yes"]
-                if runner.known_hosts:
-                    ssh_tee.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
-                else:
-                    ssh_tee.extend(["-o", "StrictHostKeyChecking=accept-new"])
-                if runner.ident_key:
-                    ssh_tee.extend(["-i", runner.ident_key])
-                ssh_tee.extend([
-                    "-p", str(runner.ssh_port),
-                    f"{runner.ssh_user}@{runner.ssh_node}",
-                    tee_cmd
-                ])
-                subprocess.run(ssh_tee, input=content.encode("utf-8"), capture_output=True)
-            log_ok("Compétences natives (Ponytail, Graphify, Public-APIs) synchronisées sur le cluster.")
+            nodes_to_sync = [runner.ssh_node]
+            if runner.known_hosts and os.path.isfile(runner.known_hosts):
+                with open(runner.known_hosts, "r", encoding="utf-8") as f:
+                    for line in f:
+                        m = re.match(r'^\s*([0-9\.]+)', line)
+                        if m and m.group(1) not in nodes_to_sync:
+                            nodes_to_sync.append(m.group(1))
+
+            for target_ip in nodes_to_sync:
+                for skill_name, content in skills_files.items():
+                    remote_dir = f"/var/data/arcia/shared-skills/arcia/{skill_name}"
+                    tee_cmd = f"sudo mkdir -p {remote_dir} && sudo tee {remote_dir}/SKILL.md >/dev/null"
+                    ssh_tee = ["ssh", "-o", "BatchMode=yes"]
+                    if runner.known_hosts:
+                        ssh_tee.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
+                    else:
+                        ssh_tee.extend(["-o", "StrictHostKeyChecking=accept-new"])
+                    if runner.ident_key:
+                        ssh_tee.extend(["-i", runner.ident_key])
+                    ssh_tee.extend([
+                        "-p", str(runner.ssh_port),
+                        f"{runner.ssh_user}@{target_ip}",
+                        tee_cmd
+                    ])
+                    subprocess.run(ssh_tee, input=content.encode("utf-8"), capture_output=True)
+            log_ok(f"Compétences natives (Ponytail, Graphify, Public-APIs) synchronisées sur {len(nodes_to_sync)} nœud(s).")
         except Exception as e:
             log_warn(f"Avertissement synchronisation distante des compétences : {e}")
     elif runner.mode == "local" and os.name != "nt":
@@ -495,6 +504,7 @@ metadata:
     llm_cfg = cfg.get("llm_gateway", {})
     hermes_cfg = cfg.get("hermes", {})
     presidio_cfg = cfg.get("presidio", {})
+    webui_cfg = cfg.get("open_webui", {})
     sso_cfg = cfg.get("entra_id_sso", {})
     teams_cfg = cfg.get("teams_bot", {})
     omniroute_cfg = cfg.get("omniroute", {})

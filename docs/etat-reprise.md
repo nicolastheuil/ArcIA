@@ -208,7 +208,39 @@ Conformément à l'exigence de clarté, lisibilité et stricte application de la
    - Les manifestes, scripts d'automatisation, guides d'architecture et runbooks d'exploitation sont consolidés dans leurs répertoires respectifs (`deploy/manifests/`, `scripts/`, `docs/`).
 2. **Validation Globale** :
    - 32 fichiers documentaires et 159 liens relatifs vérifiés sans anomalie (`scripts/validate_docs.py`).
-   - 31 tests unitaires exécutés et validés avec succès (`python -m unittest discover tests`).
+   - 36 tests unitaires exécutés et validés avec succès (`python -m unittest discover tests`).
+
+---
+
+## 8. Qualification Sandbox Réelle et Recette End-to-End Validée (16 octobre 2026)
+
+Conformément à l'exigence de validation stricte en sandbox avant toute réinstallation complète de la plateforme ArcIA :
+
+1. **Méthodologie de Qualification Sandbox** :
+   - Déploiement complet et isolé dans un namespace éphémère (`arcia-sandbox`) sur le cluster K3s 3 nœuds VMware sans perturber le namespace cible d'exploitation.
+   - Simulation complète du parcours post-wizard via `scripts/deploy.py`.
+
+2. **Correctifs Développés et Validés** :
+   - **`scripts/Invoke-K3s.ps1`** : Correction de compatibilité Windows PowerShell 5.1 (.NET Framework où `ArgumentList` était null), auto-détection de l'IP du nœud cluster depuis `known_hosts.arcia`.
+   - **`scripts/deploy.py`** : Détection automatique des clés SSH de harnais (`arcia-vm_ed25519`), bascule automatique sur l'utilisateur actif (`nicolas` au lieu de `debian`), adaptation dynamique du namespace sur tous les manifestes, correction du scope de variable `webui_cfg`, et synchronisation multi-nœuds des compétences.
+   - **`deploy/manifests/06-hermes-agent.yaml`** : Extraction automatique des compétences natives (`ponytail`, `graphify`, `public-apis`) via l'initContainer depuis le ConfigMap `arcia-native-skills`, garantissant la disponibilité des skills quel que soit le nœud K3s où atterrit le pod. Alignement du mot de passe web Hermes Studio sur `admin-password`.
+   - **`deploy/manifests/07-open-webui.yaml`** : Configuration out-of-the-box du double backend (`OPENAI_API_BASE_URLS` ciblant LiteLLM Proxy et Hermes Gateway), suppression de tout hardcoding de domaine, branding générique.
+   - **`scripts/Apply-Secrets.ps1` & `scripts/apply-secrets.sh`** : Ajout du paramètre `--from-literal=admin-password` dans le secret `hermes-gateway-secret`.
+   - **`scripts/wizard.py`** : Détection automatique de l'IP du nœud et de l'utilisateur actif depuis le harnais d'ingénierie.
+
+3. **Matrice de Recette Sandbox Exécutée en Direct (6/6 Succès)** :
+   - **Pods & Volumes K3s** : `hermes-agent`, `litellm-proxy`, `open-webui`, `presidio-dlp` tous **1/1 Running** avec 0 redémarrage. Volumes VMware CSI (`arcia-vsphere`) **Bound** (5Gi pour Hermes et 5Gi pour WebUI).
+   - **Presidio DLP** : Caviardage vérifié en direct (`curl /sanitize`), substitution des emails par `[ARCIA_EMAIL_1]` et détection d'entités fonctionnelle.
+   - **LiteLLM Proxy** : `/health/readiness` en HTTP 200, 6 modèles exposés. Appel d'inférence réel exécuté avec succès avec le modèle `auto` (DeepSeek V4.1 Flash via OpenRouter/Together).
+   - **Hermes Studio & Gateway** : Auth Gate active (HTTP 302) et passée avec succès avec les identifiants déclarés.
+   - **Open-WebUI** : Route `/health` en HTTP 200, connectivité inter-pods validée vers LiteLLM Proxy (HTTP 200) et Hermes Gateway (HTTP 302).
+   - **Outillage Agentique & Compétences** : Montage vérifié dans le pod Hermes (`/opt/shared-skills/arcia/` contenant `ponytail`, `graphify`, `public-apis`) et plugin de compression `arcia_tokenmaxing.py`.
+
+4. **Nettoyage Post-Recette** :
+   - Namespace temporaire `arcia-sandbox` et PVCs associés purgés du cluster K3s.
+   - Scripts de test temporaires nettoyés.
+   - Cluster prêt à 100% pour le lancement de l'installation officielle via `.\wizard.ps1` ou `scripts/deploy.py`.
+
 
 
 

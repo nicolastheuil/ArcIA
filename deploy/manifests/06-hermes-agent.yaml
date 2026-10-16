@@ -101,12 +101,27 @@ spec:
       initContainers:
       - name: init-permissions
         image: docker.io/arcia/hermes-agent:v0.2
-        command: ["/bin/sh", "-c", "chown -R 10000:10000 /opt/data"]
+        command:
+        - /bin/sh
+        - -c
+        - |
+          chown -R 10000:10000 /opt/data
+          mkdir -p /opt/shared-skills/arcia/ponytail /opt/shared-skills/arcia/graphify /opt/shared-skills/arcia/public-apis
+          if [ -d /opt/native-skills-cm ]; then
+            [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/shared-skills/arcia/ponytail/SKILL.md
+            [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/shared-skills/arcia/graphify/SKILL.md
+            [ -f /opt/native-skills-cm/public-apis-skill.md ] && cp /opt/native-skills-cm/public-apis-skill.md /opt/shared-skills/arcia/public-apis/SKILL.md
+          fi
+          chown -R 10000:10000 /opt/shared-skills
         securityContext:
           runAsUser: 0
         volumeMounts:
         - name: user-state
           mountPath: /opt/data
+        - name: shared-skills
+          mountPath: /opt/shared-skills
+        - name: native-skills
+          mountPath: /opt/native-skills-cm
       containers:
       - name: hermes
         image: docker.io/arcia/hermes-agent:v0.2
@@ -169,6 +184,10 @@ spec:
       - name: tokenmaxing-plugin
         configMap:
           name: hermes-plugin-code
+      - name: native-skills
+        configMap:
+          name: arcia-native-skills
+          optional: true
 ---
 apiVersion: v1
 kind: Service
