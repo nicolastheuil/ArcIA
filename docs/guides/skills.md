@@ -96,21 +96,30 @@ l’inférence reste à intégrer/qualifier ; le pilote conserve sa passerelle f
 [Configuration et droits](omniroute.md). Aucune instruction de skill ne crée un droit réseau, un budget, un
 fournisseur ou une autorisation d'action externe.
 
-## Versions, mises à jour et nouvelles installations
+## Versions, cycle d'installation et mises à jour
 
-Le catalogue de skills est stocké sous le répertoire `skills/` du dépôt et synchronisé vers le cluster K3s dans le volume partagé `/var/data/arcia/shared-skills`.
+Le fonctionnement détaillé, l'inventaire complet des dépôts (ECC, Superpowers, Vercel, Anthropics, ArcIA natifs) et la gouvernance sont documentés dans le guide de référence : [skills/README.md](../../skills/README.md).
 
-```powershell
-# Synchronisation sous PowerShell
-.\scripts\Sync-Skills.ps1
-```
+### 1. À quel moment les skills sont-elles installées ?
+- **Instantanément au déploiement (deploy.py / Setup Wizard)** : Le volume partagé /var/data/arcia/shared-skills est monté en lecture seule dans Hermes Agent (/opt/shared-skills). Les compétences souveraines ArcIA (**Ponytail**, **Graphify**, **Public-APIs**) sont injectées d'office via le ConfigMap Kubernetes rcia-native-skills. Elles sont disponibles dès la première seconde sans accès internet requis.
+- **Initialisation des catalogues étendus** : L'administrateur ou le script d'initialisation exécute la synchronisation initiale pour rapatrier les fiches méthodologiques communautaires (ECC, Superpowers, Vercel AI SDK, Anthropics) dans le volume partagé.
 
-```bash
-# Synchronisation sous Linux / Bash
-bash skills/sync-skills.sh
-```
+### 2. Comment les garder à jour ? (Est-ce un one-shot ?)
+L'installation de base n'est pas obligatoirement figée :
+- **Mise à jour manuelle à la demande (Recommandée en entreprise)** :
+  `powershell
+  # Actualisation sous PowerShell
+  .\scripts\Sync-Skills.ps1 -Update
+  `
+  `ash
+  # Actualisation sous Linux / Bash
+  bash skills/sync-skills.sh --update
+  `
+- **Mise à jour automatisée programmée (Kubernetes CronJob optionnel)** :
+  ArcIA fournit le manifeste [deploy/manifests/10-skills-sync-cronjob.yaml](../../deploy/manifests/10-skills-sync-cronjob.yaml) pour planifier une synchronisation hebdomadaire automatique.
+- **Mode Souverain / Air-Gapped** :
+  Toutes les compétences sont figées dans le dépôt Git ou le volume persistant ; aucun flux réseau externe n'est sollicité à l'exécution.
 
-Ces commandes n'installent aucun outil applicatif sur le poste de l'administrateur. Chaque skill dispose de ses instructions claires et structurées dans son fichier `SKILL.md` (comme pour Ponytail, Graphify et Public-APIs). Une mise à jour ou un ajout de compétence s'effectue en ajoutant le dossier de la skill sous `skills/` puis en appliquant la synchronisation.
 
 ## Crédits, licences et qualification
 

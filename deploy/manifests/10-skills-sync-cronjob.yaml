@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: arcia-skills-sync
+  namespace: arcia
+spec:
+  # Exécution hebdomadaire chaque dimanche à 03h00 du matin
+  schedule: "0 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  # Définir à false pour activer la synchronisation automatique programmée
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: arcia-skills-sync
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: skills-syncer
+            image: node:20-alpine
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              echo "[*] Démarrage de la synchronisation programmée des compétences..."
+              TARGET="/var/data/arcia/shared-skills"
+              mkdir -p "$TARGET"
+              
+              # Téléchargement / Mise à jour des catalogues
+              npx -y skills add affaan-m/everything-claude-code --destination "$TARGET/ecc" --force || true
+              npx -y skills add obra/superpowers --destination "$TARGET/superpowers" --force || true
+              npx -y skills add vercel/ai-sdk --destination "$TARGET/vercel" --force || true
+              npx -y skills add anthropics/anthropic-quickstarts --destination "$TARGET/anthropics" --force || true
+              
+              echo "[+] Synchronisation hebdomadaire terminée avec succès."
+            volumeMounts:
+            - name: shared-skills
+              mountPath: /var/data/arcia/shared-skills
+          volumes:
+          - name: shared-skills
+            hostPath:
+              path: /var/data/arcia/shared-skills
+              type: DirectoryOrCreate
