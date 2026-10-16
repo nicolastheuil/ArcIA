@@ -217,7 +217,7 @@ perte d'une clé peut rendre les connexions irrécupérables. Tester restauratio
 rotation et refus d'un second propriétaire avant une release. Le runtime
 SQLite unique ne devient pas HA parce que les trois relais TLS sont présents.
 [Sauvegarde/reconstruction](../runbooks/sauvegarde-reconstruction.md) ·
-[Backlog](../backlog.md) · [Architecture](../architecture.md).
+[Architecture](../architecture.md) · [État de reprise](../etat-reprise.md).
 
 La synchronisation cloud native est désactivée et relue après application,
 avec la route officielle `POST /api/sync/cloud` limitée à `action=disable`.

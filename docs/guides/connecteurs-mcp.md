@@ -14,8 +14,7 @@ Dans ArcIA, le choix du compte, des utilisateurs, des objets et des éventuelles
 
 ## Exemple SharePoint
 
-Pour la mise en œuvre tenant, les permissions exactes, grants et tests de
-refus, suivre l'[annexe Intégration Microsoft365](../annexes/integration-microsoft365.md).
+Pour la mise en œuvre tenant, les permissions et la configuration d'identité, suivre le guide du [Portail et Entra ID](portail-webui-entraid.md) et de l'[Intégration Teams](integration-teams.md).
 
 Une intégration documentaire doit sélectionner sites, bibliothèques et fichiers, récupérer leurs versions et conserver les droits applicables. Un adaptateur MCP privé peut proposer `search_documents` et `download_document` en s’appuyant sur Microsoft Graph avec les permissions vérifiées. Le mode délégué représente l’utilisateur ; un accès applicatif à des sites sélectionnés n’imite pas automatiquement les droits individuels. [Permissions Graph sélectionnées](https://learn.microsoft.com/en-us/graph/permissions-selected-overview).
 

@@ -4,11 +4,11 @@ Tu construis le harness réel et son déploiement reproducible depuis ce projet.
 ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance.
 
 ## Sources à lire avant de modifier ou déployer
-1. docs/installation-k3s-codex.md
-2. docs/plan-integration-hermes.md, intégralement, notamment §26
-3. docs/schemas-plateforme-hermes.md
+1. docs/architecture.md
+2. docs/runbooks/quickstart.md
+3. docs/guides/deploiement-universel.md
 
-Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware avec stockage partagé. Docker Compose est une option de portabilité/laboratoire, pas la cible d'exploitation.
+Cible actuelle : trois VM Debian K3s sur VMware avec stockage partagé (ou Docker Lab local). Docker Compose est une option de portabilité/laboratoire, pas la cible d'exploitation.
 
 ## Travail autorisé et progression
 - Commencer par l'inventaire, les versions officielles, le backlog et l'architecture.
@@ -39,7 +39,7 @@ Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware av
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - Résultats distingués : proposé, codé, déployé, vérifié. Ne jamais annoncer un test non exécuté.
 - Maintenir un état de reprise en fichiers, sans dépendre de la mémoire du chat.
-- `docs/etat-reprise.md` est l’unique handoff courant, mis à jour en place ; ne pas créer de nouveaux `handoff-*.md`. Suivre `docs/organisation.md` et vérifier les liens avec `scripts/validate_docs.py`.
+- `docs/etat-reprise.md` est l’unique handoff courant, mis à jour en place ; ne pas créer de nouveaux `handoff-*.md`. Vérifier les liens avec `scripts/validate_docs.py`.
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 
 ## Bootstrap évolutif obligatoire

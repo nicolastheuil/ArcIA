@@ -64,7 +64,7 @@ def validate():
                 if unquote(url.fragment) not in cache[relative]:
                     errors.append(f'{source}: LINK_ANCHOR_MISSING {target}')
             count += 1
-    for folder in ('guides', 'runbooks', 'annexes'):
+    for folder in ('guides', 'runbooks'):
         index = 'docs/README.md'
         content = (ROOT / index).read_text(encoding='utf-8')
         for source in docs:

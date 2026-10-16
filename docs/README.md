@@ -1,20 +1,16 @@
 # Documentation d’ArcIA
 
 Le [README principal](../README.md) donne la vue synthétique du projet.
-L’[état de reprise](etat-reprise.md) est l’unique handoff courant ; le
-[backlog](backlog.md) porte les suites. Les documents ci-dessous sont les
+L’[état de reprise](etat-reprise.md) est l’unique handoff courant. Les documents ci-dessous sont les
 références complètes, regroupées par fonction.
 
 ## Architecture et cadrage
 
 | Document | Portée |
 |---|---|
-| [Architecture](architecture.md) | Composants, réseau, stockage et carte du code |
-| [Contrat intégral](plan-integration-hermes.md) | Périmètre et exigences de la plateforme, notamment §26 |
-| [Schémas](schemas-plateforme-hermes.md) | Flux actuels et contrats cibles |
-| [Installation K3s/Codex](installation-k3s-codex.md) | Fondations et parcours initial |
-| [Organisation et maintenance](organisation.md) | Responsabilités des dossiers, reprise unique et validation |
-| [AGENTS.md](../AGENTS.md) | Instructions de construction |
+| [Architecture](architecture.md) | Composants, réseau, stockage, flux et carte du code |
+| [État de reprise](etat-reprise.md) | Statut opérationnel courant et composants qualifiés |
+| [AGENTS.md](../AGENTS.md) | Instructions d'ingénierie et règles de développement |
 
 ## Guides fonctionnels
 
@@ -35,7 +31,6 @@ références complètes, regroupées par fonction.
 | Analyse AST Graphify, Ponytail et Public-APIs | [Outillage Builder & Sobriété](guides/outillage-builder.md) |
 | Ajouter une source vivante ou un outil | [Connecteurs MCP](guides/connecteurs-mcp.md) |
 | Vérifier versions, images et support | [Versions](guides/versions-officielles.md) |
-| Préparer Entra, Teams, SharePoint et Outlook | [Annexe Microsoft 365](annexes/integration-microsoft365.md) |
 
 <a id="exploitation"></a>
 ## Exploitation
@@ -49,7 +44,7 @@ références complètes, regroupées par fonction.
 ## Pilotage et preuves
 
 L’[état de reprise](etat-reprise.md) résume les derniers résultats consignés et
-l’ordre de reprise. Le [backlog](backlog.md) indique les travaux ouverts.
+l’ordre de reprise.
 L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé.
 
 **Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué
