@@ -3,8 +3,8 @@
 
 #define MyAppName "ArcIA Enterprise Platform"
 #define MyAppVersion "0.2.0"
-#define MyAppPublisher "ArcIA"
-#define MyAppURL "https://arcia.example.org"
+#define MyAppPublisher "arcITek"
+#define MyAppURL "https://www.arcitek.fr"
 
 [Setup]
 AppId={{8A9E4F20-6C5B-4B9E-9F1A-2D3C4E5F6A7B}
