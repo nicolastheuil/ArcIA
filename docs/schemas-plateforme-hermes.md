@@ -2,70 +2,61 @@
 
 Les schémas 1–3 décrivent le socle actuellement déployé en qualification ; les schémas 4–5 décrivent des contrats cibles qui restent à intégrer. [Architecture](architecture.md) · [Partage](guides/plateforme-arcia.md) · [Contrat complet](plan-integration-hermes.md).
 
-## 1. Composants du socle
+## 1. Composants du socle v0.2
 
 ```mermaid
 flowchart TB
-  U[Utilisateur de qualification] --> TLS[Entrée NGINX : HTTPS]
-  TLS --> H[Hermes : état exclusif RWOP]
-  H --> K[Knowledge : MCP de lecture]
-  K --> PG[PostgreSQL : 3 instances et pgvector]
-  K --> O[Originaux et schémas : PVC privé]
-  H --> G[Gateway : identité et pool administré]
-  G --> P[Presidio FR et EN : filtrage intégral]
-  P --> R[OmniRoute : clé scoped et mode auto]
-  R --> C[Modèles cloud : politique d’instance]
-  LAN[Portail OmniRoute privé : admin et personnel] --> G
-  H --> DNS[DNS interne statique sans forwarding]
-  H --> T[Outils et skills : volume en lecture seule]
-  ADMIN[Contrôleur administratif protégé] --> K3S[3 VM Debian : K3s et etcd]
-  K3S --> CSI[vSphere CSI : datastore partagé]
+  U[Collaborateur Web] --> TR[Traefik Ingress : HTTPS / 443]
+  T[Équipe Teams] --> TB[Teams Bot Adapter : 3978]
+  D[Hermes Desktop] --> TR
+  TR --> FA[OAuth2-Proxy : SSO Microsoft Entra ID]
+  FA --> W[Open-WebUI : 8080 / PVC 20Gi]
+  FA --> H[Hermes Agent : Studio 9119 & Gateway 8642 / PVC 20Gi]
+  TB --> L
+  W --> L[LiteLLM Proxy : 4000 / Modèle auto]
+  H --> L
+  H --> SK[Volume partagé /opt/shared-skills : ECC, Superpowers, ArcIA]
+  H --> GF[ArcIA Graphify : AST déterministe local 0 token]
+  L --> P[Presidio DLP : 8080 / Caviardage PII & secrets]
+  P --> C[Modèles Cloud : OpenRouter / Claude 3.5, GPT-4o, DeepSeek]
+  ADMIN[Poste Administrateur] --> K3S[3 VM Debian : K3s HA et etcd]
+  K3S --> CSI[vSphere CSI : StorageClass arcia-vsphere]
 ```
 
-Hermes ne possède pas de clé fournisseur et ne contacte pas directement Internet. OmniRoute ne reçoit que le contenu assaini du gateway ; le relais gratuit historique conserve son attestation HMAC. Knowledge calcule ses vecteurs localement. Les comptes et domaines sont des paramètres d’instance.
+Hermes ne possède pas de clé fournisseur en clair et ne contacte pas directement Internet. LiteLLM achemine les flux à travers Presidio DLP pour anonymisation systématique. Les données privées restent sur les volumes persistants sécurisés par VMware CSI.
 
-## 2. Parcours RAG
+## 2. Parcours d'Analyse Locale & Compétences (Graphify & Skills)
 
 ```mermaid
 flowchart LR
-  F[PDF textuel, OpenAPI, texte ou schéma] --> I[Ingestion privée : provenance et périmètre]
-  I --> A[Original, hash, version, assets]
-  I --> E[Extraction et fenêtres de tokens]
-  E --> V[E5 : titre et corps]
-  E --> L[mLateOn : vecteurs de tokens]
-  Q[Question autorisée] --> S[FTS et recherche dense sous RLS]
-  V --> S
-  S --> R[RRF : 30 candidats]
-  L --> X[MaxSim local]
-  R --> X
-  X --> REP[Extraits et citations]
-  A --> REP
+  SRC[Code source Python, JS, Go, Rust] --> G[ArcIA Graphify : analyseur AST local déterministe]
+  G --> AST[Extraction des nœuds, fonctions, classes et dépendances]
+  AST --> GR[Génération locale : graph.json et GRAPH_REPORT.md]
+  GR --> H[Hermes Agent : contexte enrichi 0 token dépensé]
+  SK[Shared Skills : Ponytail, Public-APIs, ECC] --> H
+  H --> SOL[Solution minimale et sobre : respect YAGNI]
 ```
 
-Les ACL s’appliquent avant la restitution. Les matrices de tokens affinent le classement ; elles ne permettent pas encore de comprendre visuellement toutes les illustrations. Les sources éditables sont conservées pour adaptation.
+L'analyse de code et la documentation interne sont traitées localement sans aucun envoi vers des API cloud tierces, garantissant l'hermétisme de la propriété intellectuelle.
 
-## 3. Filtrage et sortie modèle
+## 3. Filtrage et sortie modèle (LiteLLM & Presidio DLP)
 
 ```mermaid
 sequenceDiagram
-  participant H as Hermes
-  participant G as Gateway ArcIA
-  participant P as Presidio local
-  participant R as OmniRoute loopback
-  participant C as Fournisseur cloud autorisé
-  H->>G: Requête et token de périmètre
-  G->>G: Relire identité et rôles, choisir pool et mode admin
-  G->>P: Messages, historique, outils et extraits RAG
-  P->>P: Vérifier scope et classe, filtrer FR/EN, retirer secrets
-  P-->>G: Corps assaini ou refus
-  G->>R: Corps assaini et clé limitée aux connexions et modèles
-  R->>C: Appel TLS sous politique d’instance
-  C-->>R: Réponse ou refus
-  R-->>G: Résultat
-  G-->>H: Réponse OpenAI compatible ou erreur bornée
+  participant Client as Open-WebUI / Hermes / Teams
+  participant LLM as LiteLLM Proxy (:4000)
+  participant DLP as Presidio DLP (:8080)
+  participant Cloud as OpenRouter Cloud API
+  Client->>LLM: Requête d'inférence (model: auto)
+  LLM->>DLP: POST /sanitize (corps du prompt et contexte)
+  DLP->>DLP: Détection PII, regex secrets, emails, IPs, clés
+  DLP-->>LLM: Texte caviardé ([ARCIA_EMAIL_1], [SECRET_REMOVED])
+  LLM->>Cloud: POST /v1/chat/completions (données assainies)
+  Cloud-->>LLM: Réponse générée
+  LLM-->>Client: Restitution fluide et sécurisée
 ```
 
-Le mode streaming actuel restitue des événements SSE après réception de la réponse complète ; il ne garantit pas la latence d’un flux fournisseur token par token. Les appels à des MCP externes demandent une qualification distincte.
+Le caviardage DLP Presidio s'applique avant toute sortie vers des modèles d'inférence externes, préservant la stricte confidentialité des données métier.
 
 ## 4. Partage entreprise et isolation : cible
 

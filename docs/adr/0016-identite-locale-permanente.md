@@ -1,6 +1,6 @@
 # ADR 0016 — Identité locale permanente, par défaut, et fédération parallèle
 
-Statut : adopté le 13 octobre 2026 sur instruction du propriétaire.
+Statut : Remplacé le 15 octobre 2026 par le socle ArcIA v0.2 (SSO Microsoft Entra ID via OAuth2-Proxy et gestion des comptes utilisateurs Open-WebUI).
 
 L'annuaire local Keycloak est une fonction permanente du harness et sa solution
 d'identification par défaut. Il offre console de gestion et compte utilisateur.

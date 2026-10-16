@@ -29,6 +29,11 @@ data:
           model: openrouter/deepseek/deepseek-chat
           api_key: os.environ/OPENROUTER_API_KEY
 
+      - model_name: hermes-agent
+        litellm_params:
+          model: openrouter/anthropic/claude-3.5-sonnet
+          api_key: os.environ/OPENROUTER_API_KEY
+
       # Modèle interne d'entreprise souverain (vLLM local)
       - model_name: local-internal
         litellm_params:
@@ -36,13 +41,15 @@ data:
           api_base: http://vllm-internal.corp.local:8000/v1
           api_key: "none"
 
-    litellm_settings:
+    guardrails:
       # Anonymisation universelle obligatoire vers le Cloud
-      guardrails:
-        - guardrail_name: "presidio-guard"
+      - guardrail_name: "presidio-guard"
+        litellm_params:
+          guardrail: presidio
           mode: "pre_call"
           default_on: true
-          presidio_analyzer_url: "http://presidio-dlp:8080"
+          presidio_analyzer_api_base: "http://presidio-dlp:8080"
+          presidio_anonymizer_api_base: "http://presidio-dlp:8080"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -62,6 +69,11 @@ spec:
       containers:
       - name: litellm
         image: ghcr.io/berriai/litellm:main-latest
+        args:
+        - "--config"
+        - "/app/config.yaml"
+        - "--port"
+        - "4000"
         ports:
         - containerPort: 4000
         env:

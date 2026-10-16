@@ -120,8 +120,8 @@ dashboard natif, puis ouvre `/personal/` avec son compte **ArcIA.User + ArcIA.Ad
 Il sélectionne les connexions d'entreprise, les modèles autorisés et le mode
 intelligent/automatique. Le pool initial est vide : aucune route ni dépense
 n'est activée implicitement. Il active ensuite les connexions personnelles
-et attribue **ArcIA.ProviderSelfService** aux seuls comptes concernés dans Keycloak.
-Ce rôle est créé par le bootstrap et n'est attribué automatiquement à personne.
+et attribue les droits aux seuls comptes concernés via le SSO d'entreprise.
+Ce rôle n'est attribué automatiquement à personne.
 
 Un utilisateur standard suit le pool d'entreprise. Un utilisateur autorisé voit
 « Mes clés API », ajoute sa connexion puis choisit de l'utiliser ou de revenir
@@ -130,9 +130,9 @@ Anthropic, Gemini et OpenRouter, restreints par l'admin. Aucun endpoint libre,
 proxy, priorité globale ou rôle ne vient du navigateur. Un pool personnel
 indisponible refuse la demande sans débiter implicitement le pool d'entreprise.
 Le retrait du rôle revient au pool d'entreprise ; la désactivation du compte
-ferme toute inférence. Les droits sont relus auprès de Keycloak à chaque demande.
+ferme toute inférence. Les droits sont relus auprès du fournisseur d'identité à chaque demande.
 
-Hermes appelle le gateway interne sur 20131 avec son identité technique bornée ;
+Hermes appelle le gateway interne avec son identité technique bornée ;
 le propriétaire vient du binding serveur, jamais du prompt. Le mode imposé et
 le pool choisi produisent une clé native limitée aux connexions/modèles, sans
 scope de gestion, sans logs ni cache partagé. Presidio filtre ensuite le contenu
@@ -141,19 +141,15 @@ L'ajout d'une clé personnelle utilise l'API bulk sans validation automatique :
 aucun test de modèle payant n'est déclenché par ArcIA à la saisie.
 
 ```powershell
-./scripts/Invoke-ClusterFoundation.ps1 -Action install_omniroute
-./scripts/Invoke-ClusterFoundation.ps1 -Action install_routing_access
-./scripts/Invoke-ClusterFoundation.ps1 -Action verify_routing_access
+.\scripts\Deploy-ArcIA.ps1
+.\scripts\Apply-Secrets.ps1
 ```
 
-Les sessions et clés techniques ArcIA sont chiffrées dans un SQLite distinct,
-`arcia-self-service/state.db`, sur le même PVC et le même propriétaire Pod que
-le routeur. Les clés fournisseurs restent dans le stockage natif chiffré
+Les sessions et clés techniques ArcIA sont chiffrées dans un volume persistant
+dédié sur PVC. Les clés fournisseurs restent dans le stockage natif chiffré
 OmniRoute. Un état de création incertain se réconcilie par nom serveur unique ;
-un restart ne rejoue pas la création. Sauvegarder les deux bases de manière
-cohérente, avec les clés de chiffrement externes. Le service technique Keycloak
-est limité à la lecture des utilisateurs/rôles ; le token Kubernetes du seul
-sidecar lit uniquement les ConfigMaps `slot-binding` des espaces fixés.
+un restart ne rejoue pas la création. Sauvegarder les volumes de manière
+cohérente, avec les clés de chiffrement externes.
 
 ### Règles de connexion et de routage
 
@@ -172,9 +168,8 @@ personnelle et aucun override ne sont proposés.
 
 Le rôle **ArcIA.ProviderSelfService** n'est ni un rôle admin, ni un droit
 automatiquement déduit d'une adresse email. Avant connexion, un service doit
-vérifier signature OIDC, compte actif, `ArcIA.User`, rôle spécifique et switch
-d'instance. Le propriétaire stable est `(issuer, subject)` Keycloak, avec
-mapping contrôlé depuis `(tid, oid)` pour Entra. Les clés/connexions ne sont
+vérifier la session SSO, le compte actif et les droits attribués.
+Le propriétaire stable est identifié par le jeton SSO Microsoft Entra ID `(tid, oid)`. Les clés/connexions ne sont
 jamais partagées avec un autre sujet, y compris après suppression/recréation
 d'un compte portant le même nom.
 
@@ -231,6 +226,6 @@ Cette opération exige l'absence d'URL cloud et n'effectue aucun appel cloud.
 Les routes de synchronisation, tunnel et login OIDC global restent fermées sur
 le relais LAN ; le mot de passe admin existant est préservé.
 
-Preuve datée : [self-service, droits et filtrage sans inférence](../qualification/2026-10-14-omniroute-self-service.json).
+L'état de qualification opérationnelle du service est documenté dans [l'état de reprise](../etat-reprise.md).
 La compatibilité des endpoints fournisseurs, les quotas, le débit payant et
 le streaming token par token ne sont pas attestés par cette recette.

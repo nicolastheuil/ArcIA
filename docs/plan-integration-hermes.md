@@ -14,7 +14,7 @@ Une session authentifiée obtient un périmètre serveur. Hermes utilise des out
 
 ## 3. Hébergement
 
-Cible actuelle : trois VM Debian sur VMware, serveurs K3s/etcd et stockage partagé vSphere CSI. Docker Compose/Kilo sont des options de laboratoire ou portabilité, pas la cible d’exploitation. Les versions et digests sont fixés dans le lock ; compatibilité/support doivent être qualifiés séparément.
+Cible actuelle : trois VM Debian sur VMware, serveurs K3s/etcd et stockage partagé vSphere CSI. Docker Compose est une option de laboratoire ou portabilité, pas la cible d’exploitation. Les versions et digests sont fixés dans les manifestes ; compatibilité/support doivent être qualifiés séparément.
 
 ## 4. Source de vérité et dépôts
 
@@ -25,22 +25,13 @@ Cible actuelle : trois VM Debian sur VMware, serveurs K3s/etcd et stockage parta
 Distinguer données publiques, synthétiques, privées et confidentielles selon une politique propre à l’instance. Les noms de personnes ne sont qu’un type de donnée sensible : contrats, secrets industriels et agrégats peuvent rester confidentiels sans PII. Le stockage local, la classification et les droits précèdent le filtrage cloud. Le pilote actuel n’autorise que des fixtures synthétiques et les routes de qualification prévues.
 
 ## 6. Identité et autorisation
-
-L'identification par défaut utilise des **comptes locaux permanents Keycloak**,
-avec portail d'administration `/admin/users` et compte personnel `/account`.
-Entra ID et d'autres SSO sont optionnels et peuvent fonctionner en parallèle
-via brokering, sans supprimer l'identité locale. La clé stable est `(issuer,
-sub)` ; une liaison vérifiée à Entra conserve le même subject. OIDC authentifie ;
-propriétaire de runtime, rôles, groupes, périmètre, ressource et action sont
-contrôlés côté serveur. Le portail `/portal/` attribue au premier login un
-espace vide dans un pool borné, à la clé issuer/subject et sans réaffectation
-d'un ancien état. Le rôle `ArcIA.User` est obligatoire. Les ACL de groupes,
-fédération réelle et restauration demandent des preuves distinctes.
-[Référence identité](guides/portail-webui-entraid.md).
+ 
+L'identification d'entreprise repose sur le **SSO Microsoft Entra ID** (OIDC via OAuth2-Proxy et Open-WebUI), avec support de sessions Web et jetons Bearer.
+Entra ID sécurise l'accès aux interfaces utilisateur. La clé stable est `(tid, oid)` ou `(issuer, sub)` ; OIDC authentifie ; propriétaire de runtime, rôles, quotas et actions sont contrôlés côté serveur. Le portail Open-WebUI et Hermes Studio attribuent un espace propre et persistant, sans réaffectation d'un ancien état. Le rôle `ArcIA.User` est attribué aux collaborateurs autorisés. [Référence identité](guides/portail-webui-entraid.md).
 
 ## 7. Partage et cloisonnement
 
-Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Le service Knowledge actuel impose un périmètre par token et FORCE RLS ; la lecture commun + personnel est qualifiée ; les groupes et ACL d’annuaire restent à développer. [Détails](guides/plateforme-arcia.md#partage-et-cloisonnement).
+Une connaissance commune peut être accessible à plusieurs utilisateurs habilités, tout en conservant espaces restreints, conversations et connexions personnelles. Recherche, assets, caches, exports et sous-agents respectent le même périmètre. Les compétences partagées (`/var/data/arcia/shared-skills`) et l'analyse locale AST Graphify (`scripts/arcia_graphify.py`) alimentent le contexte sans fuite de code ni de token. [Détails](guides/plateforme-arcia.md#partage-et-cloisonnement).
 
 ## 8. Agents et état
 
@@ -66,9 +57,9 @@ RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des 
 
 Le catalogue de compétences et les connaissances de travail sont organisés sous `skills/` avec indexation locale et conformité DLP. [Compétences et documentation](guides/skills.md).
 
-## 14. Recherche hybride et multi-vecteur
+## 14. Analyse de code et connaissances locales
 
-PostgreSQL full-text et deux vecteurs E5 par fragment produisent les candidats, fusionnés par RRF. mLateOn reclasse au maximum 30 candidats avec MaxSim de tokens. Les modèles locaux sont fixés à révision/hash, hors ligne et sans remote code. Les gains sur un large corpus et le dimensionnement doivent être mesurés ; une recette synthétique ne constitue pas un benchmark de centaines de PDF.
+ArcIA Graphify extrait localement l'AST des projets sans token d'inférence, générant des graphes de dépendances déterministes. Le catalogue de compétences partagées (ECC, Superpowers, Vercel, Ponytail) est monté en lecture seule sur `/opt/shared-skills`. Tout appel sortant vers les modèles d'inférence est assaini par Presidio DLP.
 
 ## 15. Rôle de construction et catalogue
 
@@ -108,11 +99,11 @@ Une livraison du code n’est pas une release de production. Versionner digests,
 
 ## 24. Sources officielles
 
-[Hermes](https://github.com/NousResearch/hermes-agent), [K3s HA](https://docs.k3s.io/datastore/ha-embedded), [vSphere CSI](https://github.com/kubernetes-sigs/vsphere-csi-driver), [CNPG](https://cloudnative-pg.io/docs/), [pgvector](https://github.com/pgvector/pgvector), [Presidio](https://microsoft.github.io/presidio/), [OpenRouter routing](https://openrouter.ai/docs/guides/routing/provider-selection). Les locks enregistrent les versions retenues ; une documentation courante n’atteste pas leur compatibilité effective.
+[Hermes](https://github.com/NousResearch/hermes-agent), [K3s HA](https://docs.k3s.io/datastore/ha-embedded), [vSphere CSI](https://github.com/kubernetes-sigs/vsphere-csi-driver), [Presidio](https://microsoft.github.io/presidio/), [LiteLLM Proxy](https://docs.litellm.ai/), [Open-WebUI](https://docs.openwebui.com/), [OpenRouter routing](https://openrouter.ai/docs/guides/routing/provider-selection). Les manifestes enregistrent les versions retenues ; une documentation courante n’atteste pas leur compatibilité effective.
 
 ## 25. Intégration des outils
 
-Retenir uniquement les composants listés dans les locks et le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables. OmniRoute est le premier routeur du contrat, mode auto administré et portail exclusivement LAN ; raccordement d’inférence et overrides personnels restent à intégrer/qualifier. Les overrides exigent `ArcIA.ProviderSelfService` et un contrôle serveur du propriétaire. Ponytail est intégré en skill de sobriété logicielle (YAGNI). Graphify est intégré en analyseur AST déterministe local (`scripts/arcia_graphify.py`). Public-APIs est qualifié comme référentiel de veille pour l'intégration sécurisée d'APIs tierces ([ADR 0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)). La CI vérifie les sources, pas l’activation des fournisseurs. [Configuration OmniRoute](guides/omniroute.md).
+Retenir uniquement les composants qualifiés dans le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables. OmniRoute est le premier routeur du contrat, mode auto administré et portail exclusivement LAN ; raccordement d’inférence et overrides personnels restent à intégrer/qualifier. Ponytail est intégré en skill de sobriété logicielle (YAGNI). Graphify est intégré en analyseur AST déterministe local (`scripts/arcia_graphify.py`). Public-APIs est qualifié comme référentiel de veille pour l'intégration sécurisée d'APIs tierces ([ADR 0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)). La CI vérifie les sources, pas l’activation des fournisseurs. [Configuration OmniRoute](guides/omniroute.md).
 
 ## 26. Cible Kubernetes, VMware et build initial Codex
 
@@ -126,11 +117,11 @@ Vérifier domaines ESXi, anti-affinité, ressources, policy et datastore via inv
 
 ### 26.3 Workloads
 
-Hermes : un propriétaire actif par état, Recreate, non-root, readonly et sans token SA. Knowledge : service privé, modèles locaux et PostgreSQL. Privacy : service Presidio sans clé fournisseur, relay séparé et DNS interne sans forwarding pour Hermes. Les Jobs d’installation ont un accès public temporaire limité aux artefacts. Les futurs runtimes par utilisateur ne partagent aucun state.db en écriture.
+Hermes : un propriétaire actif par état, Recreate, non-root, readonly et sans token SA. Open-WebUI : portail collaborateur avec persistance PVC 20Gi. LiteLLM : passerelle d'inférence avec routage d'entreprise. Presidio : service de caviardage DLP sans clé fournisseur ni forwarding externe. Teams Bot Adapter : passerelle interactive Microsoft 365. Les services sans état n'ont pas de persistance ; Hermes et Open-WebUI ne partagent aucun volume en écriture.
 
 ### 26.4 Stockage et reprise
 
-CPI/CSI, ext4 bloc, WaitForFirstConsumer, Retain et RWOP sont les choix actuels. Qualifier attachement, second écrivain, déplacement ordonné puis fencing en panne réelle. PostgreSQL réplique indépendamment du stockage. Une interruption ne réexécute pas une action externe incertaine. Les sauvegardes cohérentes et clés externes sont obligatoires avant production.
+CPI/CSI, ext4 bloc, WaitForFirstConsumer, Retain et RWOP sont les choix actuels. Qualifier attachement, second écrivain, déplacement ordonné puis fencing en panne réelle. LiteLLM, Presidio et Teams Bot sont sans état. Hermes et Open-WebUI maintiennent leur persistance sur PVC VMware CSI dédié. Une interruption ne réexécute pas une action externe incertaine. Les sauvegardes cohérentes et clés externes sont obligatoires avant production.
 
 ### 26.5 Scaling
 
@@ -138,4 +129,4 @@ Scaler les services sans état et les workers selon mesure de file, CPU/RAM et c
 
 ### 26.6 Construction et recette
 
-Inventaire → versions/ADR/backlog → VM/confiance SSH → réseau/VIP → K3s → CSI → PostgreSQL → Hermes minimal → Knowledge/Privacy → outils/MCP → Hermes complet → recettes. Reporter toute correction dans Git et mettre à jour le manifeste de bootstrap. Les statuts actuels et derniers essais figurent dans l’état de reprise ; aucune release installable n’est déclarée avant rebuild neuf en mode sûr.
+Inventaire → versions/ADR/backlog → VM/confiance SSH → réseau/VIP → K3s → CSI → LiteLLM/Presidio → Hermes minimal → Open-WebUI/Teams → outils/MCP → Hermes complet → recettes. Reporter toute correction dans Git et mettre à jour les manifestes de déploiement. Les statuts actuels et derniers essais figurent dans l’état de reprise ; aucune release installable n’est déclarée avant rebuild neuf en mode sûr.

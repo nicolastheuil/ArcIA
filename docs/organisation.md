@@ -8,24 +8,21 @@ L’[état de reprise](etat-reprise.md) est l’unique handoff courant.
 
 | Ensemble | Contenu et règle |
 |---|---|
-| `services/` | Code applicatif, regroupé par frontière : identité, connaissance, confidentialité, isolation, skills |
-| `scripts/` | Entrées administratives PowerShell, renderers Python et workers ; chemins publics stables, liés au bootstrap et aux locks |
-| `bootstrap/` | Parcours exécutable et contrats verrouillés |
-| `infra/` / `deploy/` | Préparation des machines et ressources Kubernetes, fournisseurs conservés avec provenance/licences |
-| `builder/` | Rôle d’ingénierie et catalogue/dépendances d’outillage |
-| `schemas/` / `examples/` | Contrats et fixtures, aucune configuration réelle en clair |
-| `tests/` / `validation/` / `.github/` | Recettes synthétiques et contrôles CI |
+| `services/` | Microservices applicatifs : Presidio DLP, Teams Bot, plugin Hermes Tokenmaxing |
+| `scripts/` | Scripts de déploiement universel (`deploy.py`, `Deploy-ArcIA.ps1`), injection de secrets et validation |
+| `deploy/manifests/` | Manifestes Kubernetes déclaratifs unifiés pour le namespace `arcia` |
+| `skills/` | Compétences modulaires partagées : Graphify AST, Ponytail YAGNI, Public-APIs |
+| `tests/` / `.github/` | Recettes unitaires, conformité des manifestes et barrière de confidentialité CI |
 | Racine de `docs/` | Index, architecture, contrat, installation, schémas, état courant, backlog et règles d’organisation |
-| `docs/guides/` | Fonctionnement détaillé des capacités, sécurité, outils et versions |
-| `docs/runbooks/` | Procédures exécutables d’installation, exploitation et récupération |
-| `docs/annexes/` | Contrats d’intégration à remettre aux administrateurs externes |
-| `docs/adr/` | Décisions numérotées et conséquences ; les décisions remplacées gardent leur contexte |
-| `docs/qualification/` | Preuves assainies datées, distinctes des diagnostics privés |
-| `docs/archives/` | Instantanés historiques ; aucune consigne courante ne dépend de leur lecture en chaîne |
+| `docs/guides/` | Fonctionnement détaillé des capacités, sécurité, outils et versions officielles |
+| `docs/runbooks/` | Procédures exécutables de quickstart, exploitation quotidienne et reprise |
+| `docs/annexes/` | Contrats d’intégration à remettre aux administrateurs externes (Microsoft 365) |
+| `docs/adr/` | Décisions d'architecture numérotées et conséquences |
+| `docs/archives/` | Instantanés historiques (recette fondatrice initiale) |
 
 Les chemins `docs/installation-k3s-codex.md`, `docs/plan-integration-hermes.md`
 et `docs/schemas-plateforme-hermes.md` restent stables pour AGENTS.md.
-Les entrées de scripts et de services restent stables pour le bootstrap,
+Les entrées de scripts et de services restent stables pour le déploiement,
 les hashes et les consommateurs. La carte du code est dans
 [l’architecture](architecture.md#carte-du-dépôt).
 
@@ -38,18 +35,14 @@ Leur présence sur le poste ne signifie pas leur publication dans GitHub.
 Le README résume les capacités et leurs limites ; les guides les expliquent.
 Le backlog indique les travaux et gates restants ; l’état de reprise désigne
 les dernières preuves et le prochain point d’action. Les runbooks décrivent
-la procédure réutilisable. Les preuves datées n’affirment pas l’état réel actuel
-sans une nouvelle vérification de la cible.
+la procédure réutilisable.
 
 À chaque lot, **mettre à jour `docs/etat-reprise.md` au lieu de créer un nouveau
-`handoff-*.md`**. Un événement qui nécessite une preuve durable produit un
-rapport assaini dans `docs/qualification/`. Un changement de décision produit
-un ADR ; un changement de procédure met à jour le runbook concerné.
-Git conserve l’historique ordinaire. Les anciennes archives restent consultables
-et leurs liens internes sont maintenus, sans faire évoluer leurs résultats.
+`handoff-*.md`**. Un changement de décision produit un ADR ; un changement de procédure met à jour le runbook concerné.
+Git conserve l’historique ordinaire.
 
 Toute évolution de composant, outil applicatif, secret requis ou migration
-actualise bootstrap, locks, couverture, runbook et état de reprise dans le même
+actualise manifestes, runbook et état de reprise dans le même
 lot. Une réorganisation documentaire ne change pas les étapes runtime ni leurs
 preuves. Livrer sur `main` selon la décision du propriétaire.
 
@@ -59,9 +52,7 @@ Depuis la racine du dépôt, avec les dépendances de validation préparées :
 
 ```powershell
 python scripts/validate_docs.py
-python scripts/validate_sources.py
-python scripts/validate_bootstrap.py
-node validation/diagrams.mjs
+python -m unittest discover tests
 ```
 
 Le contrôle documentaire lit uniquement les Markdown suivis par Git : chemins

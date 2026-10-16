@@ -1,6 +1,6 @@
 # ADR 0013 — Runtimes personnels et qualification locale multi-utilisateur
 
-Statut : adopté pour la qualification synthétique du 12 octobre 2026. La gestion d’identités d’entreprise reste une cible distincte.
+Statut : Remplacé le 15 octobre 2026 par le socle ArcIA v0.2 (namespace unifié `arcia`, portail Open-WebUI et isolation par sessions / PVC dédiés).
 
 Deux profils dans un même processus Hermes ne séparent pas suffisamment les fichiers, mémoires, SQLite et outils. La qualification utilise donc deux namespaces et deux runtimes, avec chacun son état, son outillage RWOP et ses secrets propres. Le second espace utilise un préfixe HTTPS supporté nativement par Hermes, sur le même domaine et certificat ; aucune troisième entrée DNS n’est nécessaire.
 

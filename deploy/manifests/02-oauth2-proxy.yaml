@@ -17,8 +17,8 @@ spec:
       - name: oauth2-proxy
         image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
         args:
-        - --provider=azure
-        - --azure-tenant=$(ENTRA_TENANT_ID)
+        - --provider=oidc
+        - --oidc-issuer-url=https://login.microsoftonline.com/$(ENTRA_TENANT_ID)/v2.0
         - --client-id=$(ENTRA_CLIENT_ID)
         - --client-secret=$(ENTRA_CLIENT_SECRET)
         - --cookie-secret=$(OAUTH2_PROXY_COOKIE_SECRET)

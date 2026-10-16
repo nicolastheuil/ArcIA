@@ -1,7 +1,6 @@
 # ADR 0017 — Espace personnel à la première connexion
 
-Décision du 13 octobre 2026, suite au remplacement des comptes synthétiques
-par des comptes administrés dans Keycloak.
+Statut : Remplacé le 15 octobre 2026 par le socle ArcIA v0.2 (création automatique des espaces et profils utilisateurs dans Open-WebUI et PVC Hermes dédié).
 
 ## Problème
 

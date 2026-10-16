@@ -1,6 +1,6 @@
 # ADR 0009 — Recherche hybride et multi-vecteur locale
 
-Date : 12 octobre 2026. Statut : accepté et déployé en qualification synthétique.
+Date : 12 octobre 2026. Statut : Remplacé le 15 octobre 2026 par le socle ArcIA v0.2 (compétences partagées, RAG natif Open-WebUI et analyseur AST local Graphify, sans base de données vectorielle dédiée).
 
 ## Contexte
 

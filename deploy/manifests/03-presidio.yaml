@@ -96,6 +96,16 @@ data:
             "entities_detected": list(set(entities))
         }
 
+    class AnonymizeRequest(BaseModel):
+        text: str
+        analyzer_results: Optional[List[Dict[str, Any]]] = None
+        anonymizers: Optional[Dict[str, Any]] = None
+
+    @app.post("/anonymize")
+    def anonymize(req: AnonymizeRequest):
+        res = sanitize(SanitizeRequest(text=req.text, language="fr"))
+        return {"text": res["sanitized_text"], "items": []}
+
     @app.post("/analyze")
     def analyze(req: AnalyzeRequest):
         analyzer = get_analyzer()

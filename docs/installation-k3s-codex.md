@@ -28,16 +28,16 @@ ssh -V
 ```
 Installer les outils manquants par le canal approuvé de l’entreprise. Les identités GitHub et SSH restent personnelles à l’ingénieur. Le workspace Codex doit pouvoir exécuter les commandes nécessaires et atteindre les VM par le réseau privé ; un environnement Codex distant sans route vers ces IP ne peut pas déployer directement.
 
-## 3. Ouvrir le pack dans Codex
-Extraire bootstrap-harness-codex.zip, ouvrir son dossier racine dans Codex et conserver AGENTS.md à cette racine. Ce fichier est court et renvoie aux documents complets ; ne pas tenter de mettre tout le cahier de 100 Ko dans les instructions automatiques.
+## 3. Ouvrir le projet dans Codex
+Cloner ou extraire le projet ArcIA, ouvrir son dossier racine dans Codex et conserver AGENTS.md à cette racine. Ce fichier est court et renvoie aux documents complets ; ne pas tenter de mettre tout le cahier de 100 Ko dans les instructions automatiques.
 
 Premier message :
 > Lis AGENTS.md puis les documents référencés. Construis et déploie la plateforme sur les trois VM Debian K3s selon le guide. Commence par le préflight, le dépôt GitHub dédié et le backlog. Recueille seulement les paramètres manquants ; les secrets passent par un programme protégé. Chaque modification doit être versionnée et accompagnée de preuves. Ne présente pas une infrastructure ou une protection comme installée sans vérification.
 
 Un prompt de départ reste nécessaire pour déclencher l’action. Les permissions effectives de Codex et l’accès réseau ne sont pas créés par AGENTS.md.
 
-## 4. Créer le dépôt GitHub du harness
-Nom proposé : hermes-platform-harness. Codex collecte l’organisation exacte et vérifie les droits avant création. Le dépôt démarre privé pendant le build ; la publication du générique nécessite la revue de confidentialité prévue dans le plan.
+## 4. Dépôt GitHub du harness
+Nom officiel : `nicolastheuil/ArcIA`. Le dépôt porte le code générique de la plateforme. Les configurations sensibles d'instance et les secrets restent strictement protégés et isolés.
 
 Après extraction, si le dossier n’est pas déjà un dépôt et après choix de l’organisation :
 ```powershell
@@ -51,20 +51,16 @@ Remplacer ORGANISATION par la destination confirmée. Si le dépôt existe, le c
 
 Le dépôt est la source du code, pas un dump des machines. Les configs privées, données privéess et sauvegardes vont dans les dépôts dédiés sous chiffrement. Ni clé age, kubeconfig administrateur, token K3s, fichier .env ni secret de coffre n’est commité en clair.
 
-## 5. Générer le squelette de travail
-Codex crée et commite progressivement :
-- AGENTS.md et builder/role.md : rôle et instructions.
-- docs/adr/ et docs/backlog.md : décisions et avancement.
-- infra/ansible/ : préflight Debian, préparation et installation K3s idempotente.
-- deploy/ : charts Helm ou overlays Kustomize, politiques et templates.
-- services/ : API, gouvernance, assainissement, secrets, launcher, collecte.
-- schemas/ : contrats périmètre, mission, binding et configuration.
-- tests/ : scénarios synthétiques et tests de frontières.
-- scripts/ : wizard, doctor, backup, restore et migrations.
-- versions.lock.yaml : versions précises, commits et digests qualifiés.
-- docs/runbooks/ : installation, panne de nœud, reprise et rebuild.
-
-Ces éléments sont à implémenter ; leur présence dans une liste n’indique pas qu’ils existent déjà dans le pack.
+## 5. Structure de travail ArcIA v0.2
+Le dépôt versionne :
+- `AGENTS.md` : rôle et instructions d'ingénierie.
+- `docs/adr/` et `docs/backlog.md` : décisions et avancement.
+- `deploy/manifests/` : manifestes Kubernetes unifiés (Traefik, Cert-Manager, Presidio, LiteLLM, Hermes, Open-WebUI, Teams, OmniRoute).
+- `services/` : microservices dédiés (Presidio DLP, Teams Bot, plugin Hermes).
+- `skills/` : compétences partagées (Graphify, Ponytail, Public-APIs).
+- `tests/` : validation unitaire, manifests et contrôle de confidentialité CI.
+- `scripts/` : déploiement universel, injection de secrets et validation.
+- `docs/runbooks/` : quickstart, exploitation et sauvegarde/reconstruction.
 
 ## 6. Faire le préflight Debian et VMware
 Sur chaque VM, l’ingénieur ou Codex via SSH relève :
@@ -98,14 +94,14 @@ Privilégier les moyens de load balancing de l’entreprise. Si un VIP ou autre 
 
 K3s avec le réseau Flannel VXLAN implique notamment API 6443/TCP, etcd 2379–2380/TCP entre serveurs, VXLAN 8472/UDP entre nœuds et kubelet 10250/TCP selon usages. Les ports exacts sont recalculés pour le CNI retenu. Ils restent sur les réseaux privés ; ne pas ouvrir ces ports sur Internet.
 
-Choisir une release précise après contrôle de la matrice de compatibilité et l’enregistrer dans versions.lock.yaml. Le script d’installation et ses contrôles de hash sont eux aussi fixés ; pas de version flottante pour le rebuild.
+Choisir une release précise après contrôle de la matrice de compatibilité et l’enregistrer dans les manifestes. Le script d’installation et ses contrôles de hash sont eux aussi fixés ; pas de version flottante pour le rebuild.
 
-## 8. Préparer Debian par Ansible
-Codex automatise : packages système utiles, horloge, modules/réseau requis, permissions, répertoires, pare-feu compatible, identités administratives et réglages de secrets temporaires.
+## 8. Préparer Debian et K3s
+Automatiser : packages système utiles, horloge, modules/réseau requis, permissions, répertoires, pare-feu compatible, identités administratives et réglages de secrets temporaires.
 
 K3s apporte containerd ; Docker Engine sur les nœuds n’est pas requis. La construction des images peut se faire sur le poste de build ou en CI, puis être publiée avec digest dans le registre retenu.
 
-Les scripts Ansible et les configurations génériques sont commités ; les variables privées réelles sont chiffrées. Une seconde exécution ne doit ni recréer le cluster ni régénérer ses identités.
+Les scripts de déploiement et les configurations génériques sont commités ; les variables privées réelles sont chiffrées. Une seconde exécution ne doit ni recréer le cluster ni régénérer ses identités.
 
 ## 9. Installer K3s sur le premier serveur
 Codex génère /etc/rancher/k3s/config.yaml avec accès root limité. Exemple de forme à générer, NON applicable tel quel :
@@ -121,7 +117,7 @@ cluster-cidr: "<CIDR_PODS_VALIDE>"
 service-cidr: "<CIDR_SERVICES_VALIDE>"
 ```
 
-Le token est généré et placé dans un fichier protégé via le wizard/Ansible avec sorties masquées. Les placeholders sont refusés par le préflight.
+Le token est généré et placé dans un fichier protégé avec sorties masquées. Les placeholders sont refusés par le préflight.
 
 Codex applique le script d’installation officiel fixé par révision/hash avec INSTALL_K3S_VERSION fixé à la release retenue. Vérifications :
 ```bash
@@ -135,7 +131,7 @@ Les sorties peuvent contenir des IP et noms internes : les preuves destinées à
 ## 10. Ajouter les deux autres serveurs
 Ils rejoignent comme serveurs avec etcd, pas comme simples agents. Même version et paramètres critiques ; node-name unique, server pointant sur l’endpoint validé, token-file protégé. cluster-init est réservé à l’initialisation.
 
-Contrôles : trois Nodes Ready, état des services, réseau entre Pods sur nœuds différents et fonctionnement des politiques. Enregistrer la procédure idempotente dans Ansible. Le kubeconfig administrateur reste protégé et hors Git.
+Contrôles : trois Nodes Ready, état des services, réseau entre Pods sur nœuds différents et fonctionnement des politiques. Enregistrer la procédure idempotente dans les scripts d'exploitation. Le kubeconfig administrateur reste protégé et hors Git.
 
 ## 11. Déployer et qualifier le stockage
 Installer le CSI vSphere compatible, avec compte technique et secrets protégés. Créer la StorageClass utilisant la policy retenue. Vérifier :
@@ -150,9 +146,9 @@ Le volume bloc sera formaté comme un système de fichiers Linux local. L’éta
 Pour une panne brutale, confirmer que l’ancien propriétaire ne peut plus écrire avant de forcer une réattribution de volume.
 
 ## 12. Installer les fondations applicatives
-Par manifests versionnés : espaces de travail, identités techniques, quotas, politiques réseau, ingress, certificats et PostgreSQL/pgvector avec réplication qualifiée.
+Par manifests versionnés : espaces de travail, identités techniques, quotas, politiques réseau, ingress Traefik, certificats Cert-Manager, LiteLLM et Presidio DLP.
 
-Codex sélectionne le mécanisme PostgreSQL compatible et prépare un test de bascule ; le quorum etcd du cluster ne réplique pas la base métier.
+L'application des manifestes respecte l'ordre de dépendance défini dans le guide de déploiement universel.
 
 Activer les contrôles d’admission adaptés et limiter les permissions du lanceur. Les agents ne reçoivent aucune capacité cluster-admin. Les composants de tunnel ont une exception technique étroite, vérifiée séparément ; cette exception ne s’étend pas aux runtimes.
 
@@ -161,19 +157,19 @@ Utiliser l’image officielle résolue puis fixée par digest, un PVC propre et 
 
 Premiers essais uniquement synthétiques. Le backend de terminal local d’Hermes s’exécute dans le Pod, pas sur le nœud. Pas de montage de socket containerd/Docker ni clé SSH administrateur.
 
-Desktop distant utilise le backend dashboard, généralement sur 9119, ou l’API compatible OpenAI 8642. L'authentification repose sur Open-WebUI et le SSO Microsoft Entra ID. [Portail et procédures](guides/portail-webui-entraid.md).
+Desktop distant utilise le backend dashboard sur le port 9119, ou l’API compatible OpenAI sur le port 8642. L'authentification repose sur Open-WebUI et le SSO Microsoft Entra ID. [Portail et procédures](guides/portail-webui-entraid.md).
 
 Une duplication de ce Pod avec le même état n’est pas un test de scaling autorisé.
 
 ## 14. Développer puis activer les intégrations métier
 Codex construit les lots, teste puis déploie :
-1. Identité locale permanente Keycloak/OIDC, portail utilisateurs, SSO optionnels, registre périmètres/tâches et RBAC serveur.
-2. Passerelle d’assainissement et contrôle des sorties cloud.
-3. Opérations typées, plan immuable et validation Teams.
-4. Connecteurs de coffres persistants individuels.
-5. Launcher de missions, OpenConnect personnel et kill switch.
-6. Collecte documentaire et recherche avec ACL.
-7. Routage Desktop et partage des livrables.
+1. Authentification SSO Microsoft Entra ID (via OAuth2-Proxy et ForwardAuth).
+2. Passerelle d’assainissement Presidio DLP et contrôle des sorties cloud.
+3. Passerelle d'inférence d'entreprise LiteLLM Proxy et modèle virtuel `auto`.
+4. Portail collaborateur Open-WebUI avec persistance PVC 20Gi.
+5. Adaptateur de dialogue Microsoft Teams Bot.
+6. Analyse locale AST Graphify et compétences partagées (Skills).
+7. Routage Desktop et partage des livrables via Hermes Gateway.
 8. OmniRoute, fournisseurs qualifiés et budgets.
 9. Sauvegardes chiffrées et restauration.
 
@@ -182,20 +178,20 @@ Cette séquence peut comporter du travail parallèle, mais aucune mission réell
 ## 15. Tester la résilience et les limites
 Préparer des missions synthétiques et une fenêtre de test administrative. Démontrer :
 - panne d’un nœud : entrée et contrôle restent disponibles selon objectifs ;
-- PostgreSQL : bascule sans perte non maîtrisée et queue cohérente ;
+- persistance SQLite : reprise sans corruption et propriétaire unique sur volume CSI ;
 - état Hermes : reprise avec propriétaire unique ;
-- VPN : reconnexion à la demande, éventuel MFA, aucune réutilisation de session ;
+- filtrage DLP : aucune sortie non assainie vers les fournisseurs cloud ;
 - action interrompue : état incertain suspendu et réconcilié, jamais rejoué aveuglément ;
 - budgets : ingestion mise en file lorsque la capacité restante est insuffisante.
 
 Mesurer temps d’interruption et données potentiellement perdues. Un Pod Running ou un restart réussi ne suffit pas à annoncer le succès métier.
 
 ## 16. Sauvegarder et reconstruire depuis GitHub
-Automatiser les snapshots K3s/etcd avec leur matériel de récupération, les sauvegardes cohérentes PostgreSQL/Hermes et les objets. Chiffrer avant GitHub/LFS ; clés et secrets racines hors dépôts.
+Automatiser les snapshots K3s/etcd avec leur matériel de récupération, les sauvegardes des volumes persistants PVC et les objets. Chiffrer avant GitHub ; clés et secrets racines hors dépôts.
 
-Sur un autre cluster de test : cloner la release, fournir les moyens de récupération protégés, appliquer Ansible/manifests, restaurer, revérifier les droits actuels et exécuter la recette en mode sûr. Ne pas réactiver les VPN ni capacités d’écriture sauvegardés.
+Sur un autre cluster de test : cloner la release, fournir les moyens de récupération protégés, appliquer les manifests via `scripts/Deploy-ArcIA.ps1` ou `scripts/deploy-arcia.sh`, restaurer, revérifier les droits actuels et exécuter la recette en mode sûr. Ne pas réactiver les VPN ni capacités d’écriture sauvegardés.
 
-Produire une release avec versions.lock.yaml, migrations, rapport de recette assaini, checklist de paramètres et runbooks. Le dépôt devient alors la source des nouvelles installations.
+Produire une release avec manifestes versionnés, rapport de recette assaini, checklist de paramètres et runbooks. Le dépôt devient alors la source des nouvelles installations.
 
 ## 17. Informations à fournir au wizard
 Organisation GitHub et nom du harness ; IP/FQDN/SSH des trois VM ; version Debian et ressources ; vCenter/ESXi/datastore/policy ; réseau et endpoints avec bascule ; tenant Entra et application Teams existante ; Passbolt et références de récupération ; clés fournisseurs ; catalogue documentaire.

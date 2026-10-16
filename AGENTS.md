@@ -8,7 +8,7 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 2. docs/plan-integration-hermes.md, intégralement, notamment §26
 3. docs/schemas-plateforme-hermes.md
 
-Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware avec stockage partagé. Kilo et Docker Compose sont des options de portabilité/laboratoire, pas la cible d'exploitation.
+Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware avec stockage partagé. Docker Compose est une option de portabilité/laboratoire, pas la cible d'exploitation.
 
 ## Travail autorisé et progression
 - Commencer par l'inventaire, les versions officielles, le backlog et les ADR.
@@ -43,7 +43,7 @@ Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware av
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 
 ## Bootstrap évolutif obligatoire
-- `scripts/Bootstrap-Harness.ps1` et `bootstrap/qualification.json` décrivent le parcours jusqu’à l’état courant de qualification.
-- Toute évolution de composant, outil, service, secret requis ou migration met à jour le bootstrap, ses locks, ses contrôles de couverture, le runbook et le handoff dans le même lot sur main.
+- `scripts/deploy-arcia.sh`, `scripts/Deploy-ArcIA.ps1` et `arcia.config.yaml` décrivent le parcours jusqu’à l’état courant de qualification.
+- Toute évolution de composant, outil, service, secret requis ou migration met à jour le déploiement, ses manifestes, ses contrôles de couverture, le runbook et le handoff dans le même lot sur main.
 - Préserver les identités et volumes existants à la réapplication ; une étape réussie dans un ancien journal ne dispense jamais de vérifier la cible actuelle.
-- Distinguer bootstrap codé, réapplication vérifiée et reconstruction sur cluster neuf exécutée. Une CI synthétique ne vaut pas une recette VMware neuve.
+- Distinguer déploiement codé, réapplication vérifiée et reconstruction sur cluster neuf exécutée. Une CI synthétique ne vaut pas une recette VMware neuve.

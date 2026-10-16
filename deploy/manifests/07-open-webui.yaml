@@ -35,10 +35,14 @@ spec:
           value: "ArcIA"
         - name: ENABLE_PERSISTENT_CONFIG
           value: "false"
+        - name: BYPASS_MODEL_ACCESS_CONTROL
+          value: "true"
+        - name: DEFAULT_USER_ROLE
+          value: "user"
         - name: OPENAI_API_BASE_URLS
-          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
+          value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEYS
-          value: "sk-arcia;admin"
+          value: "sk-arcia"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEY
@@ -59,6 +63,13 @@ spec:
           value: "true"
         - name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL
           value: "true"
+        - name: OAUTH_PROVIDER_NAME
+          value: "Microsoft Entra ID"
+        - name: ENTRA_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: entraid-secret
+              key: tenant-id
         - name: OAUTH_CLIENT_ID
           valueFrom:
             secretKeyRef:
@@ -70,10 +81,7 @@ spec:
               name: entraid-secret
               key: client-secret
         - name: OPENID_PROVIDER_URL
-          valueFrom:
-            secretKeyRef:
-              name: entraid-secret
-              key: tenant-id
+          value: "https://login.microsoftonline.com/$(ENTRA_TENANT_ID)/v2.0/.well-known/openid-configuration"
         volumeMounts:
         - name: webui-data
           mountPath: /app/backend/data

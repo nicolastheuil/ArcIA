@@ -72,12 +72,14 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - **Automatisation** : Scripts `skills/sync-skills.sh` et `scripts/Sync-Skills.ps1` mis à jour pour le provisionnement vers `/var/data/arcia/shared-skills/arcia/`.
    - **Validation** : 23 tests unitaires et contrôles de confidentialité validés avec succès (`tests/test_graphify.py`, `tests/test_skills.py`, `tests/test_privacy.py`, etc.).
 
-11. **Purge Documentaire Intégrale & Alignement Déployé v0.2 (`scripts/validate_docs.py`)** :
+11. **Assainissement Documentaire Intégral & Réalignement Déployé v0.2 (`scripts/validate_docs.py`)** :
    - **Suppression des 10 guides & runbooks v0.1 obsolètes** : Guides `connaissance-documentaire.md`, `identite-utilisateurs.md`, `multi-utilisateur.md`, `confidentialite-cloud.md`, `securisation-plateforme-donnees.md` et runbooks `bootstrap.md`, `certificats-dns.md`, `exploitation-qualification.md`, `preparer-deploiement.md`, `vcenter.md`.
-   - **Archivage formel** : `recette-fondatrice.md` déplacé vers `docs/archives/recette-fondatrice-2026-10-12.md` et indexé.
+   - **Purge intégrale des archives et traces caduques (28 fichiers supprimés)** : Élimination des 14 anciens journaux `handoff-*.md` et rapports intermédiaires de `docs/archives/` ainsi que des 12 dumps JSON de `docs/qualification/`. Seule l'archive de la recette fondatrice de l'infrastructure (`recette-fondatrice-2026-10-12.md`) est conservée.
+   - **Réalignement intégral des documents directeurs (`AGENTS.md`)** : `docs/installation-k3s-codex.md`, `docs/plan-integration-hermes.md`, `docs/schemas-plateforme-hermes.md` (schémas Mermaid v0.2 Traefik, Open-WebUI, Hermes, LiteLLM, Presidio, Graphify), `docs/backlog.md` et `docs/organisation.md` entièrement purgés de leurs mentions de Keycloak, PostgreSQL/pgvector, Ansible et Kilo.
+   - **Actualisation des ADR historiques** : Statut des ADR 0009, 0013, 0016, 0017 et 0018 formellement marqué comme *Remplacé par le socle ArcIA v0.2*.
    - **Réalignement des guides v0.2 actifs** : `versions-officielles.md`, `plateforme-arcia.md`, `securite.md`, `outillage-builder.md`, `skills.md`, `omniroute.md` et refonte complète de `quickstart.md` (déploiement 3 étapes, LiteLLM keys, Open-WebUI BYOK/OAuth, Hermes Studio/Gateway, Teams).
-   - **Outillage d'intégrité automatique** : Script déterministe `scripts/validate_docs.py` vérifiant 100% des fichiers markdown et liens relatifs/ancres (72 fichiers, 222 liens validés sans erreur).
-   - **Périmètre GitHub** : Le dépôt GitHub est strictement assaini et ne comporte aucun composant ou documentation qui ne soit déployé et qualifié sur le harness.
+   - **Outillage d'intégrité automatique** : Script déterministe `scripts/validate_docs.py` vérifiant 100% des fichiers markdown et liens relatifs/ancres (56 fichiers, 200 liens validés sans erreur).
+   - **Périmètre GitHub** : Le dépôt GitHub est 100% épuré et ne comporte plus aucun composant, trace ou document qui ne soit déployé et qualifié sur le harness v0.2.
 
 ---
 

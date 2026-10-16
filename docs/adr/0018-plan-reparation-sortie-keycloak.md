@@ -1,7 +1,7 @@
 # ADR 0018 — Plan borné de réparation de la sortie Keycloak
 
-Statut : adopté pour la réparation ponctuelle autorisée le 13 octobre 2026 ;
-règle déployée et réseau vérifié, connexion utilisateur en attente de recette.
+Statut : Remplacé le 15 octobre 2026 par le socle ArcIA v0.2 (abandon de Keycloak au profit d'OAuth2-Proxy et Microsoft Entra ID).
+Règle historique déployée lors de la phase de transition.
 
 Actualisation documentaire du 14 octobre : le snapshot `/32` ci-dessous est
 historique, remplacé sur le pilote par l’option explicite de sortie publique
@@ -52,6 +52,6 @@ contrôle la borne de la règle et détecte des IP DNS manquantes, sans élargir
 la règle. Locks, couverture,
 runbook et handoff accompagnent le code ; aucun nouveau composant ou secret.
 
-[Preuves](../qualification/2026-10-13-m365-routing.json),
+[État courant](../etat-reprise.md),
 [NetworkPolicy Kubernetes](https://kubernetes.io/docs/concepts/services-networking/network-policies/),
 [endpoints Microsoft](https://learn.microsoft.com/en-us/microsoft-365/enterprise/urls-and-ip-address-ranges).

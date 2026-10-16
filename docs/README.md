@@ -50,9 +50,7 @@ références complètes, regroupées par fonction.
 
 L’[état de reprise](etat-reprise.md) résume les derniers résultats consignés et
 l’ordre de reprise. Le [backlog](backlog.md) indique les travaux ouverts.
-Les [preuves de qualification](qualification/) sont datées et assainies.
-Les [archives](archives/README.md) conservent les anciennes transmissions et
-rapports ; leur lecture n’est pas un prérequis de reprise.
+L'[archive fondatrice](archives/recette-fondatrice-2026-10-12.md) conserve la recette initiale d'infrastructure.
 
 **Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué
 à une cible désignée ; **vérifié** : scénario exécuté et preuve consignée.
