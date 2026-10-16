@@ -33,6 +33,42 @@ spec:
         env:
         - name: WEBUI_NAME
           value: "ArcIA"
+        - name: CUSTOM_NAME
+          value: "ArcIA"
+        - name: WEBUI_THEME
+          value: "dark"
+        - name: WEBUI_BANNERS
+          value: '[{"id":"arcia-brand","type":"info","title":"ArcIA Enterprise Agentic Platform","content":"Plateforme IA Agentique Souveraine d''Entreprise","dismissible":true}]'
+        - name: CUSTOM_CSS
+          value: |
+            :root {
+              --color-primary: #1659e4;
+              --color-primary-dark: #0c2762;
+              --color-primary-light: #6be7dd;
+            }
+            body, .dark body {
+              background-color: #050712 !important;
+              color: #f8fafc !important;
+            }
+            .dark #sidebar, .dark .sidebar {
+              background-color: #0a0f1d !important;
+              border-right: 1px solid #1e293b !important;
+            }
+            .dark .bg-gray-900, .dark .bg-gray-950, .dark .bg-gray-850 {
+              background-color: #0a0f1d !important;
+            }
+            .dark .bg-gray-800, .dark .bg-gray-700 {
+              background-color: #131b2e !important;
+              border-color: #1e293b !important;
+            }
+            .dark .bg-emerald-600, .dark .bg-emerald-700, .dark .bg-blue-600, .dark .bg-primary-600 {
+              background: linear-gradient(135deg, #1659e4, #5ad8ce) !important;
+              color: #ffffff !important;
+              border: none !important;
+            }
+            *:focus-visible {
+              outline: 2px solid #6be7dd !important;
+            }
         - name: ENABLE_PERSISTENT_CONFIG
           value: "false"
         - name: BYPASS_MODEL_ACCESS_CONTROL
@@ -40,9 +76,9 @@ spec:
         - name: DEFAULT_USER_ROLE
           value: "user"
         - name: OPENAI_API_BASE_URLS
-          value: "http://litellm-proxy.arcia.svc:4000/v1"
+          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
         - name: OPENAI_API_KEYS
-          value: "sk-arcia"
+          value: "sk-arcia;admin"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEY
