@@ -45,8 +45,6 @@ def validate():
         content = (ROOT / source).read_text(encoding='utf-8')
         if source.startswith('docs/handoff-'):
             errors.append(f'{source}: HANDOFF_MUST_BE_ARCHIVED')
-        if source.startswith('docs/archives/') and source != 'docs/archives/README.md':
-            continue
         for target in re.findall(r'\]\(([^\s)]+)\)', without_code(content)):
             url = urlsplit(target)
             if url.scheme or url.netloc:
@@ -66,8 +64,8 @@ def validate():
                 if unquote(url.fragment) not in cache[relative]:
                     errors.append(f'{source}: LINK_ANCHOR_MISSING {target}')
             count += 1
-    for folder in ('guides', 'runbooks', 'adr', 'archives', 'annexes'):
-        index = 'docs/archives/README.md' if folder == 'archives' else 'docs/README.md'
+    for folder in ('guides', 'runbooks', 'annexes'):
+        index = 'docs/README.md'
         content = (ROOT / index).read_text(encoding='utf-8')
         for source in docs:
             if source.startswith(f'docs/{folder}/') and source != index and Path(source).name not in content:

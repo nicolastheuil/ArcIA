@@ -18,7 +18,7 @@ Cible actuelle : trois VM Debian sur VMware, serveurs K3s/etcd et stockage parta
 
 ## 4. Source de vérité et dépôts
 
-`ArcIA` contient code générique, automation, manifests, tests synthétiques, ADR et runbooks. Chaque instance a un dépôt distinct pour usages, connecteurs spécifiques, surcharges et références de secrets. Les configurations sensibles sont chiffrées avant Git ; corpus privés et clés externes restent séparés. Une correction manuelle est reportée dans Git avant livraison. Les livraisons actuelles vont sur main selon la décision du propriétaire.
+`ArcIA` contient code générique, automation, manifests, tests synthétiques, guides et runbooks. Chaque instance a un dépôt distinct pour usages, connecteurs spécifiques, surcharges et références de secrets. Les configurations sensibles sont chiffrées avant Git ; corpus privés et clés externes restent séparés. Une correction manuelle est reportée dans Git avant livraison. Les livraisons actuelles vont sur main selon la décision du propriétaire.
 
 ## 5. Données et classification
 
@@ -91,7 +91,7 @@ Quorum etcd et persistance SQLite répondent à des problèmes différents. Troi
 
 ## 22. Recette et statuts
 
-Distinguer proposé, codé, déployé et vérifié. La recette inclut isolation, droits négatifs, confidentialité, restauration, perte de nœud, reprise sans double écriture et reconstruction indépendante. Les preuves détaillées restent protégées ; seuls booléens, codes et compteurs sont publiés. [Matrice historique](archives/recette-fondatrice-2026-10-12.md).
+Distinguer proposé, codé, déployé et vérifié. La recette inclut isolation, droits négatifs, confidentialité, restauration, perte de nœud, reprise sans double écriture et reconstruction indépendante. Les preuves détaillées restent protégées ; seuls booléens, codes et compteurs sont publiés. Voir [l’architecture](architecture.md).
 
 ## 23. Livraison
 
@@ -103,7 +103,7 @@ Une livraison du code n’est pas une release de production. Versionner digests,
 
 ## 25. Intégration des outils
 
-Retenir uniquement les composants qualifiés dans le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables. OmniRoute est le premier routeur du contrat, mode auto administré et portail exclusivement LAN ; raccordement d’inférence et overrides personnels restent à intégrer/qualifier. Ponytail est intégré en skill de sobriété logicielle (YAGNI). Graphify est intégré en analyseur AST déterministe local (`scripts/arcia_graphify.py`). Public-APIs est qualifié comme référentiel de veille pour l'intégration sécurisée d'APIs tierces ([ADR 0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)). La CI vérifie les sources, pas l’activation des fournisseurs. [Configuration OmniRoute](guides/omniroute.md).
+Retenir uniquement les composants qualifiés dans le catalogue revu. Vérifier licences, provenance, hooks, télémétrie, caches et capacité de désactivation. Context7 reste fermé pour les requêtes externes tant que son adaptateur DLP n’est pas qualifié. RTK et Headroom ont des intégrations natives bornées et testables. OmniRoute est le premier routeur du contrat, mode auto administré et portail exclusivement LAN ; raccordement d’inférence et overrides personnels restent à intégrer/qualifier. Ponytail est intégré en skill de sobriété logicielle (YAGNI). Graphify est intégré en analyseur AST déterministe local (`scripts/arcia_graphify.py`). Public-APIs est qualifié comme référentiel de veille pour l'intégration sécurisée d'APIs tierces ([Guide outillage](guides/outillage-builder.md)). La CI vérifie les sources, pas l’activation des fournisseurs. [Configuration OmniRoute](guides/omniroute.md).
 
 ## 26. Cible Kubernetes, VMware et build initial Codex
 
@@ -129,4 +129,4 @@ Scaler les services sans état et les workers selon mesure de file, CPU/RAM et c
 
 ### 26.6 Construction et recette
 
-Inventaire → versions/ADR/backlog → VM/confiance SSH → réseau/VIP → K3s → CSI → LiteLLM/Presidio → Hermes minimal → Open-WebUI/Teams → outils/MCP → Hermes complet → recettes. Reporter toute correction dans Git et mettre à jour les manifestes de déploiement. Les statuts actuels et derniers essais figurent dans l’état de reprise ; aucune release installable n’est déclarée avant rebuild neuf en mode sûr.
+Inventaire → versions/architecture/backlog → VM/confiance SSH → réseau/VIP → K3s → CSI → LiteLLM/Presidio → Hermes minimal → Open-WebUI/Teams → outils/MCP → Hermes complet → recettes. Reporter toute correction dans Git et mettre à jour les manifestes de déploiement. Les statuts actuels et derniers essais figurent dans l’état de reprise ; aucune release installable n’est déclarée avant rebuild neuf en mode sûr.

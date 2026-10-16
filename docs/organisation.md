@@ -17,8 +17,6 @@ L’[état de reprise](etat-reprise.md) est l’unique handoff courant.
 | `docs/guides/` | Fonctionnement détaillé des capacités, sécurité, outils et versions officielles |
 | `docs/runbooks/` | Procédures exécutables de quickstart, exploitation quotidienne et reprise |
 | `docs/annexes/` | Contrats d’intégration à remettre aux administrateurs externes (Microsoft 365) |
-| `docs/adr/` | Décisions d'architecture numérotées et conséquences |
-| `docs/archives/` | Instantanés historiques (recette fondatrice initiale) |
 
 Les chemins `docs/installation-k3s-codex.md`, `docs/plan-integration-hermes.md`
 et `docs/schemas-plateforme-hermes.md` restent stables pour AGENTS.md.
@@ -38,7 +36,8 @@ les dernières preuves et le prochain point d’action. Les runbooks décrivent
 la procédure réutilisable.
 
 À chaque lot, **mettre à jour `docs/etat-reprise.md` au lieu de créer un nouveau
-`handoff-*.md`**. Un changement de décision produit un ADR ; un changement de procédure met à jour le runbook concerné.
+`handoff-*.md`**. Les décisions architecturales sont directement intégrées dans
+`docs/architecture.md` et les guides correspondants ; un changement de procédure met à jour le runbook concerné.
 Git conserve l’historique ordinaire.
 
 Toute évolution de composant, outil applicatif, secret requis ou migration
@@ -56,7 +55,7 @@ python -m unittest discover tests
 ```
 
 Le contrôle documentaire lit uniquement les Markdown suivis par Git : chemins
-locaux, ancres, index et absence de nouveaux handoffs hors archives. Ajouter
+locaux, ancres, index et absence de nouveaux fichiers handoff. Ajouter
 explicitement les nouveaux fichiers du lot à l’index avant le contrôle ; ne pas
 utiliser `git add .` pour embarquer les diagnostics locaux. Les diagrammes sont
 également validés sur les sources suivies. Les liens web ne sont pas sondés.

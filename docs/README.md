@@ -50,35 +50,9 @@ références complètes, regroupées par fonction.
 
 L’[état de reprise](etat-reprise.md) résume les derniers résultats consignés et
 l’ordre de reprise. Le [backlog](backlog.md) indique les travaux ouverts.
-L'[archive fondatrice](archives/recette-fondatrice-2026-10-12.md) conserve la recette initiale d'infrastructure.
+L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé.
 
 **Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué
 à une cible désignée ; **vérifié** : scénario exécuté et preuve consignée.
 Une CI synthétique ne qualifie pas une reconstruction VMware neuve.
 
-<a id="decisions"></a>
-## Décisions
-
-| ADR | Décision |
-|---|---|
-| [0001](adr/0001-cible-et-limites.md) | Cible fondatrice et périmètre de préparation |
-| [0002](adr/0002-secrets-et-configuration.md) | Configuration locale protégée |
-| [0003](adr/0003-bootstrap-k3s-et-stockage.md) | Bootstrap K3s épinglé et stockage explicite |
-| [0004](adr/0004-vcenter-et-image-debian.md) | Connexion vCenter privée et disque Debian |
-| [0005](adr/0005-verification-ssh-hors-bande.md) | Vérifier SSH depuis le canal VMware approuvé |
-| [0006](adr/0006-reseaux-evolutifs-et-fondations.md) | Réseaux évolutifs et qualification des fondations |
-| [0007](adr/0007-vip-et-bootstrap-synthetique.md) | VIP et périmètre des gates de bootstrap |
-| [0008](adr/0008-qualification-applicative-et-tls.md) | Qualification applicative, état exclusif et TLS différé |
-| [0009](adr/0009-connaissance-hybride-multivecteur.md) | Recherche hybride et multi-vecteur locale |
-| [0010](adr/0010-outils-hermes-main-et-acces.md) | Outils dans Hermes/K3s et livraison main |
-| [0011](adr/0011-bootstrap-exhaustif.md) | Bootstrap exhaustif et évolutif d’ArcIA |
-| [0012](adr/0012-arcia-generique-et-confidentialite.md) | ArcIA générique, instances distinctes et cloud filtré |
-| [0013](adr/0013-qualification-multi-utilisateur.md) | Runtimes personnels et qualification locale multi-utilisateur |
-| [0014](adr/0014-catalogue-skills-et-responsabilites.md) | Catalogue riche de skills et responsables des fonctions |
-| [0015](adr/0015-preparation-microsoft365.md) | Préparation Microsoft 365 et configuration d'instance |
-| [0016](adr/0016-identite-locale-permanente.md) | Identité locale permanente, par défaut, et fédération parallèle |
-| [0017](adr/0017-espaces-personnels-premiere-connexion.md) | Espace personnel à la première connexion |
-| [0018](adr/0018-plan-reparation-sortie-keycloak.md) | Plan borné de réparation de la sortie Keycloak |
-| [0019](adr/0019-organisation-documentaire.md) | Documentation par fonction et reprise unique |
-| [0020](adr/0020-perimetre-harness-et-politiques-instance.md) | Périmètre générique et politiques de routage d’instance |
-| [0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md) | Évaluation et intégration de Ponytail, Graphify et Public-APIs |

@@ -20,7 +20,7 @@ ArcIA conserve les skills dans K3s et charge les instructions pertinentes au bes
 | Public-APIs | Référentiel de veille et règles de sécurisation des APIs externes | Skill de gouvernance ArcIA (`skills/public-apis`) avec isolation Presidio/NetworkPolicy |
 
 Le miroir compte **539 entrées upstream**, dont les 58 skills Hermes embarquées.
-Les entrées ArcIA natives s'ajoutent comme adaptations, compétences de méthode et orientation ([ADR 0021](../adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)).
+Les entrées ArcIA natives s'ajoutent comme adaptations, compétences de méthode et orientation ([Guide outillage](outillage-builder.md)).
 
 ## Parcours d'une demande
 
@@ -80,7 +80,7 @@ imports d'ingénierie. Ses commandes d'update ne gèrent pas le miroir ArcIA, do
 les adaptations, révisions et hashes sont maintenus par le harness. **Il n'existe
 pas de téléchargement libre de GitHub à chaque conversation.** Ce choix réduit
 les requêtes externes et garantit la reproductibilité sans limiter le catalogue
-aux six compétences du build initial. [Comparaison des options](../adr/0014-catalogue-skills-et-responsabilites.md).
+aux six compétences du build initial.
 
 ## Mémoire et fonctions qui se recouvrent
 
@@ -94,7 +94,7 @@ La gestion de contexte native Hermes reste la référence. RTK raccourcit automa
 portail LAN dispose d’un bootstrap distinct. Le raccordement générique de
 l’inférence reste à intégrer/qualifier ; le pilote conserve sa passerelle filtrée.
 [Configuration et droits](omniroute.md). Aucune instruction de skill ne crée un droit réseau, un budget, un
-fournisseur ou une autorisation d'action externe. [Matrice de décisions](../adr/0014-catalogue-skills-et-responsabilites.md).
+fournisseur ou une autorisation d'action externe.
 
 ## Versions, mises à jour et nouvelles installations
 

@@ -9,7 +9,7 @@ Utiliser le [Quickstart](runbooks/quickstart.md) et le [guide de déploiement un
 
 ## État et chemin de reprise
 
-Le socle déployé repose sur K3s haute disponibilité, Traefik Ingress, Cert-Manager TLS, Open-WebUI, Hermes Agent, LiteLLM et Presidio DLP. Les preuves et limites sont dans [la recette historique](archives/recette-fondatrice-2026-10-12.md) et [l’architecture réelle](architecture.md). Pour cette instance, suivre [l’exploitation](runbooks/exploitation.md). Le dépôt réel est `nicolastheuil/ArcIA`.
+Le socle déployé repose sur K3s haute disponibilité, Traefik Ingress, Cert-Manager TLS, Open-WebUI, Hermes Agent, LiteLLM et Presidio DLP. Les spécifications et limites sont dans [l’architecture réelle](architecture.md). Pour cette instance, suivre [l’exploitation](runbooks/exploitation.md). Le dépôt réel est `nicolastheuil/ArcIA`.
 
 Le TLS public est géré automatiquement par Cert-Manager avec Let's Encrypt (HTTP-01) ; voir [infrastructure](guides/infrastructure-k3s.md).
 
@@ -54,7 +54,7 @@ Le dépôt est la source du code, pas un dump des machines. Les configs privées
 ## 5. Structure de travail ArcIA v0.2
 Le dépôt versionne :
 - `AGENTS.md` : rôle et instructions d'ingénierie.
-- `docs/adr/` et `docs/backlog.md` : décisions et avancement.
+- `docs/architecture.md` et `docs/backlog.md` : architecture technique et avancement.
 - `deploy/manifests/` : manifestes Kubernetes unifiés (Traefik, Cert-Manager, Presidio, LiteLLM, Hermes, Open-WebUI, Teams, OmniRoute).
 - `services/` : microservices dédiés (Presidio DLP, Teams Bot, plugin Hermes).
 - `skills/` : compétences partagées (Graphify, Ponytail, Public-APIs).

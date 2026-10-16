@@ -11,7 +11,7 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware avec stockage partagé. Docker Compose est une option de portabilité/laboratoire, pas la cible d'exploitation.
 
 ## Travail autorisé et progression
-- Commencer par l'inventaire, les versions officielles, le backlog et les ADR.
+- Commencer par l'inventaire, les versions officielles, le backlog et l'architecture.
 - Développer scripts, schémas, services, manifests et tests manquants. Ne pas supposer que hermes-platform existe.
 - Collecter l'organisation GitHub, le nom du dépôt et les accès indispensables avant création/deploiement. Utiliser les identités propres à l'ingénieur.
 - Avancer sur les lots sans redemander les décisions déjà prises ; les autorisations effectives du terminal et du réseau restent nécessaires.
@@ -34,7 +34,7 @@ Cible actuelle : Codex pour le build initial ; trois VM Debian K3s sur VMware av
 - Tester kill switch, perte de nœud, droits croisés et rebuild.
 
 ## Source de vérité et vérification
-- Repo dédié au harness : code, automation, manifests, tests, ADR, backlog, rôle et runbooks.
+- Repo dédié au harness : code, automation, manifests, tests, architecture, backlog, rôle et runbooks.
 - Reporter toute correction manuelle dans Git avant livraison.
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - Résultats distingués : proposé, codé, déployé, vérifié. Ne jamais annoncer un test non exécuté.
