@@ -26,9 +26,10 @@ LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises pa
 ## 2. Déploiement Kubernetes & Base Comptable
 
 Le service est déployé via :
-- **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service interne `litellm-proxy.arcia.svc:4000`, exposition Ingress `/v1` avec RateLimit).
+- **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service `litellm-proxy.arcia.svc:4000`, NodePort `30400` sur la VIP K3s, Ingress `/v1` et Ingress UI `/ui`).
 - **Base Comptable PostgreSQL** : [05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml) (Service `litellm-db.arcia.svc:5432`, PVC 10Gi).
 - **Secrets injectés** : `litellm-secret` (`master-key`, `salt-key`, `db-password`) et `enterprise-llm-secret` (`openrouter-key`).
+- **Gestion Dynamique GUI (`store_model_in_db`)** : Activée en base de données (`STORE_MODEL_IN_DB: "True"`), permettant d'ajouter, modifier ou réassigner les modèles réels et les chaînes de fallback directement depuis l'interface web sans éditer de fichier YAML ni redémarrer les pods.
 
 ---
 
