@@ -138,8 +138,18 @@ Les secrets de production ont été restaurés depuis le coffre DPAPI local (`Ar
 
 ---
 
+---
+
 ## 5. Commandes d'Exploitation Rapides
 
+- **Lancer le Setup Wizard Graphique (Installation & Reconfiguration)** :
+  ```powershell
+  # Windows PowerShell
+  .\wizard.ps1
+
+  # Linux / macOS
+  ./wizard.sh
+  ```
 - **Vérifier l'état du cluster** :
   ```powershell
   .\scripts\Invoke-K3s.ps1 "get pods -n arcia -o wide"
@@ -156,3 +166,21 @@ Les secrets de production ont été restaurés depuis le coffre DPAPI local (`Ar
   ```powershell
   .\scripts\Invoke-K3s.ps1 "logs -l app=hermes-agent -n arcia --tail=50"
   ```
+
+---
+
+## 6. Assistant Graphique Interactif (Setup Wizard) & Déploiement Simplifié (16 octobre 2026)
+
+Conformément à l'exigence de fluidification intégrale du parcours d'installation :
+1. **Wizard Graphique Autonome (`scripts/wizard.py`, `./wizard.sh`, `.\wizard.ps1`)** :
+   - Parcours complet écran-par-écran (10 étapes) : Bienvenue -> Cluster K8s (test interactif de connectivité) -> Réseau/TLS -> Passerelle LLM -> Hermes Studio/Desktop -> SSO Entra ID -> Bot Teams -> OmniRoute -> Déploiement live avec streaming de logs -> Récapitulatif 100% opérationnel avec URLs et credentials.
+   - Serveur Web local autonome (Python standard library uniquement, 0 dépendance pip/npm requise).
+   - Détection et pré-remplissage automatique des configurations existantes (`arcia.config.yaml`) permettant des réexécutions sans perte de données.
+2. **Auto-Configuration Intégrale des Éléments Internes & Compétences** :
+   - Presidio DLP, Open-WebUI, Hermes Studio/Gateway, LiteLLM et synchronisation automatique de 100% des compétences natives (*Ponytail*, *Graphify*, *Public-APIs*) déployés d'office sans aucune manipulation utilisateur.
+3. **Guides Documentaires Intégrés** :
+   - Guides pas-à-pas intégrés directement dans l'interface et documentés sur GitHub pour la création d'application Microsoft Entra ID ([Guide SSO](guides/portail-webui-entraid.md#creation-app-entraid)) et Azure Bot Service ([Guide Teams](guides/integration-teams.md#creation-azure-bot)).
+4. **Vérification Complète** :
+   - 29 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_deploy.py`, etc.).
+   - Validation documentaire stricte à 100% (`scripts/validate_docs.py`).
+

@@ -19,7 +19,10 @@ param(
     [string]$ConfigFile = "arcia.config.yaml",
 
     [Parameter(Mandatory=$false)]
-    [switch]$DryRun
+    [switch]$DryRun,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Wizard
 )
 
 $ErrorActionPreference = 'Stop'
@@ -36,6 +39,13 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
 } else {
     Write-Error "Python 3 est requis pour exécuter le déploiement mais n'a pas été trouvé dans le PATH."
     exit 1
+}
+
+# Lancement du Wizard si demandé
+if ($Wizard) {
+    $WizardPy = Join-Path $ScriptDir "wizard.py"
+    & $PythonCmd $WizardPy
+    exit $LASTEXITCODE
 }
 
 # Construction des arguments

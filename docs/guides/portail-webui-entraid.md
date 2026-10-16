@@ -35,7 +35,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 
 ---
 
-## 3. Dépannage « Aucun modèle disponible »
+### 3. Dépannage « Aucun modèle disponible »
 
 Si le sélecteur affiche « Aucun modèle disponible » :
 1. Dans Open-WebUI, aller dans **Paramètres > Admin > Connexions**.
@@ -45,3 +45,44 @@ Si le sélecteur affiche « Aucun modèle disponible » :
    - Cliquer sur la validation/sauvegarde. Les modèles `auto` et `local-internal` apparaissent immédiatement.
 3. Désactiver le commutateur **API Ollama** (`http://host.docker.internal:11434`) pour éviter les timeouts locaux.
 4. Pour appliquer de manière définitive en mode Infrastructure-as-Code sans intervention manuelle, le manifeste injecte `ENABLE_PERSISTENT_CONFIG=false` et préconfigure les endpoints.
+
+---
+
+<a id="creation-app-entraid"></a>
+## 4. Procédure Détaillée : Création de l'Application Microsoft Entra ID (SSO)
+
+Cette étape facultative permet de verrouiller l'accès à Hermes Studio et Open-WebUI aux seuls comptes Microsoft 365 de votre entreprise.
+
+### Étape 1 : Créer l'inscription d'application
+1. Rendez-vous sur le [Portail Azure](https://portal.azure.com/) et connectez-vous avec un compte administrateur.
+2. Recherchez et sélectionnez **Microsoft Entra ID** (anciennement Azure AD).
+3. Dans le menu de gauche, cliquez sur **Inscriptions d'applications** (*App registrations*), puis sur **+ Nouvelle inscription** (*+ New registration*).
+4. Renseignez les paramètres suivants :
+   - **Nom** : `ArcIA-Enterprise-SSO` (ou le libellé souhaité).
+   - **Types de comptes pris en charge** : *Comptes dans cet annuaire d'organisation uniquement (Mono-locataire / Single-Tenant)*.
+   - **URI de redirection (facultatif)** : Sélectionnez la plateforme **Web** et entrez :
+     `https://<VOTRE_FQDN_PUBLIC>/oauth2/callback`
+     *(Exemple : `https://assistant.entreprise.com/oauth2/callback`)*
+5. Cliquez sur **Inscrire** (*Register*).
+
+### Étape 2 : Récupérer les identifiants Client & Tenant
+Sur la page **Vue d'ensemble** (*Overview*) de votre application créée :
+1. Copiez la valeur de l'**ID d'application (client)** -> Ce sera votre `client_id`.
+2. Copiez la valeur de l'**ID de l'annuaire (locataire)** -> Ce sera votre `tenant_id`.
+
+### Étape 3 : Générer le Secret Client (*Client Secret*)
+1. Dans le menu de gauche de l'application, cliquez sur **Certificats & secrets** (*Certificates & secrets*).
+2. Cliquez sur l'onglet **Secrets client** puis sur **+ Nouveau secret client** (*+ New client secret*).
+3. Ajoutez une description (ex: `ArcIA SSO Secret`) et choisissez une durée de validité (ex: *180 jours* ou *24 mois*).
+4. Cliquez sur **Ajouter**.
+5. **ATTENTION :** Copiez immédiatement la valeur du champ **Valeur** (*Value*). Cette valeur ne sera plus jamais affichée par la suite -> Ce sera votre `client_secret`.
+
+### Étape 4 : Permissions d'API
+1. Dans le menu de gauche, cliquez sur **Autorisations d'API** (*API permissions*).
+2. Vérifiez que la permission déléguée `Microsoft Graph > User.Read` est présente (attribuée par défaut).
+3. Cliquez sur **Accorder le consentement de l'administrateur pour [Votre Organisation]** (*Grant admin consent*) pour valider l'accès sans invite individuelle.
+
+### Étape 5 : Renseignement dans ArcIA
+Renseignez ces 3 identifiants (`tenant_id`, `client_id`, `client_secret`) dans le **Wizard graphique ArcIA** (Écran 6) ou dans `arcia.config.yaml`.
+Le `cookie_secret` (clé de 32 octets aléatoire) est généré automatiquement par le Wizard.
+

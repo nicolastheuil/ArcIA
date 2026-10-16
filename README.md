@@ -43,42 +43,44 @@ git clone https://github.com/nicolastheuil/ArcIA.git
 cd ArcIA
 ```
 
-### 2. Renseigner le fichier de configuration unique
-Copiez le gabarit officiel [arcia.config.yaml.example](arcia.config.yaml.example) vers `arcia.config.yaml` :
+### 2. Lancer l'Assistant Graphique Interactif (Setup Wizard)
+
+Pour configurer et déployer votre instance en toute simplicité écran par écran, lancez simplement l'assistant graphique :
+
 ```bash
-# Sous Linux / macOS
-cp arcia.config.yaml.example arcia.config.yaml
+# Sous Linux / macOS :
+./wizard.sh
 
-# Sous Windows PowerShell
-Copy-Item arcia.config.yaml.example arcia.config.yaml
-```
-
-Ce fichier unique regroupe tous les réglages et stipule clairement :
-- **Éléments Obligatoires** :
-  - Connexion Kubernetes (`local` avec votre Kubeconfig ou `remote-ssh`).
-  - Nom de domaine public FQDN (ex: `assistant.mon-entreprise.com`).
-  - Clé d'API Cloud pour les modèles LLM ([OpenRouter API Key](https://openrouter.ai/)).
-  - Mot de passe administrateur Hermes Studio et token PAT pour Hermes Desktop.
-  - Certificat SSL / TLS (Let's Encrypt automatique avec votre email, ou secret existant).
-- **Éléments Optionnels** :
-  - Serveur GPU local souverain (`vLLM` interne).
-  - Authentification d'entreprise SSO Microsoft Entra ID (Zero-Trust via `oauth2-proxy`).
-  - Bot conversationnel Microsoft Teams (DM & mentions en canaux).
-  - Intégration Microsoft 365 (Graph, SharePoint, réunions).
-
-### 3. Lancer le déploiement automatisé
-
-```powershell
 # Sous Windows (PowerShell) :
-.\scripts\Deploy-ArcIA.ps1
+.\wizard.ps1
 
-# Sous Linux / macOS / Serveur CI (Bash) :
-./scripts/deploy-arcia.sh
+# Ou directement avec Python :
+python scripts/wizard.py
 ```
 
-Le script prépare le namespace, injecte les secrets en mémoire, configure les PVC sur votre StorageClass, déploie les microservices, installe l'Ingress et attend la mise en service complète des Pods.
+Le Wizard démarre un serveur local autonome et ouvre automatiquement votre navigateur Web :
+- **Écran par écran** : Saisie guidée de la connexion Kubernetes, du nom de domaine FQDN et de votre clé LLM.
+- **Auto-configuration interne intégrale** : Presidio DLP, Open-WebUI, Hermes Studio & Gateway, LiteLLM Proxy et synchronisation automatique de toutes les compétences (Ponytail, Graphify, Public-APIs) sans aucune manipulation.
+- **Modules optionnels ré-exécutables** : Activez ou complétez à tout moment le SSO Microsoft Entra ID ou le bot Teams avec guides pas-à-pas intégrés et liens directs vers la documentation.
+- **Récapitulatif immédiat 100% opérationnel** : Affichage et copie directe de toutes les URLs d'accès, jetons et identifiants administrateur.
 
-👉 Pour le détail complet, consultez le **[Guide de Déploiement Universel](docs/guides/deploiement-universel.md)**.
+---
+
+### Alternative en ligne de commande (Sans interface graphique)
+
+Si vous préférez une configuration manuelle sans interface :
+1. Copiez [arcia.config.yaml.example](arcia.config.yaml.example) vers `arcia.config.yaml` :
+   ```bash
+   cp arcia.config.yaml.example arcia.config.yaml
+   ```
+2. Renseignez votre FQDN et votre clé OpenRouter.
+3. Exécutez le déploiement :
+   ```bash
+   ./scripts/deploy-arcia.sh   # Linux / macOS
+   .\scripts\Deploy-ArcIA.ps1  # Windows PowerShell
+   ```
+
+👉 Pour le détail complet, consultez le **[Guide de Déploiement Universel](docs/guides/deploiement-universel.md)** et le **[Quickstart](docs/runbooks/quickstart.md)**.
 
 ---
 

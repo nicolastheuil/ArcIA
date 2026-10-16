@@ -330,6 +330,66 @@ def validate_config(cfg: Dict[str, Any]) -> None:
 
     log_ok("Validation de la configuration : Tous les paramètres obligatoires sont valides.")
 
+def sync_native_skills(runner: K8sRunner, namespace: str, root_dir: str) -> None:
+    """Synchronise automatiquement les compétences natives (Ponytail, Graphify, Public-APIs)."""
+    skills_dir = os.path.join(root_dir, "skills")
+    if not os.path.isdir(skills_dir):
+        return
+
+    cm_data = []
+    for skill_name in ["ponytail", "graphify", "public-apis"]:
+        skill_file = os.path.join(skills_dir, skill_name, "SKILL.md")
+        if os.path.isfile(skill_file):
+            try:
+                with open(skill_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                indented = "\n".join("    " + line for line in content.splitlines())
+                cm_data.append(f"  {skill_name}-skill.md: |\n{indented}")
+            except Exception as e:
+                log_warn(f"Impossible de lire la compétence {skill_name}: {e}")
+
+    if cm_data:
+        cm_yaml = f"""apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arcia-native-skills
+  namespace: {namespace}
+data:
+""" + "\n".join(cm_data) + "\n"
+        try:
+            runner.apply_manifest(cm_yaml)
+            log_ok("ConfigMap 'arcia-native-skills' provisionné avec succès dans le namespace.")
+        except Exception as e:
+            log_warn(f"Impossible d'appliquer le ConfigMap des compétences : {e}")
+
+    # Synchronisation sur le système de fichiers hôte ou distant
+    if runner.mode == "remote-ssh":
+        try:
+            mkdir_cmd = "sudo mkdir -p /var/data/arcia/shared-skills/arcia/ponytail /var/data/arcia/shared-skills/arcia/graphify /var/data/arcia/shared-skills/arcia/public-apis"
+            runner_ssh = [
+                "ssh", "-o", "StrictHostKeyChecking=accept-new",
+                "-p", str(runner.ssh_port),
+                f"{runner.ssh_user}@{runner.ssh_node}",
+                mkdir_cmd
+            ]
+            subprocess.run(runner_ssh, capture_output=True)
+        except Exception:
+            pass
+    elif runner.mode == "local" and os.name != "nt":
+        try:
+            target_base = "/var/data/arcia/shared-skills/arcia"
+            import shutil
+            for s in ["ponytail", "graphify", "public-apis"]:
+                src = os.path.join(skills_dir, s)
+                dst = os.path.join(target_base, s)
+                if os.path.isdir(src):
+                    os.makedirs(dst, exist_ok=True)
+                    shutil.copytree(src, dst, dirs_exist_ok=True)
+        except Exception:
+            pass
+
+    log_ok("Toutes les compétences et outils natifs d'ArcIA sont déployés.")
+
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
 # -----------------------------------------------------------------------------
@@ -543,6 +603,10 @@ metadata:
     else:
         log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé.")
 
+    # F. Synchronisation Automatique des Compétences & Outils (Skills)
+    log_info(" -> [Automatique] Synchronisation des compétences natives (Ponytail, Graphify, Public-APIs)...")
+    sync_native_skills(runner, namespace, root_dir)
+
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
     net_cfg = cfg.get("network", {})
@@ -722,10 +786,16 @@ def main():
     parser.add_argument("--config", "-c", default="arcia.config.yaml",
                         help="Chemin vers le fichier arcia.config.yaml ou arcia.env")
     parser.add_argument("--dry-run", action="store_true", help="Valide la configuration sans appliquer")
+    parser.add_argument("--wizard", action="store_true", help="Lance le wizard graphique interactif d'installation")
     args = parser.parse_args()
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
+
+    if args.wizard:
+        wizard_script = os.path.join(script_dir, "wizard.py")
+        import subprocess
+        sys.exit(subprocess.call([sys.executable, wizard_script]))
 
     config_path = args.config
     if not os.path.isabs(config_path):
@@ -738,11 +808,14 @@ def main():
             config_path = env_fallback
         else:
             log_err(f"Fichier de configuration introuvable : {config_path}")
-            print("\nPour démarrer :")
-            print("  1. Copiez le gabarit d'exemple :")
-            print(f"     cp {os.path.join(root_dir, 'arcia.config.yaml.example')} {os.path.join(root_dir, 'arcia.config.yaml')}")
-            print("  2. Renseignez votre FQDN public et votre clé OpenRouter.")
-            print("  3. Relancez ce script.\n")
+            print(f"\n{C_BOLD}{C_CYAN}Méthode recommandée (Simple & Graphique) :{C_RESET}")
+            print("  Lancez le Wizard d'installation visuel pas-à-pas :")
+            print("    Linux / macOS       : ./wizard.sh")
+            print("    Windows PowerShell  : .\\wizard.ps1")
+            print("    Python direct       : python scripts/wizard.py")
+            print(f"\n{C_BOLD}Méthode manuelle :{C_RESET}")
+            print(f"  1. cp {os.path.join(root_dir, 'arcia.config.yaml.example')} {os.path.join(root_dir, 'arcia.config.yaml')}")
+            print("  2. Éditez arcia.config.yaml puis relancez deploy.py\n")
             sys.exit(1)
 
     print(f"{C_BOLD}{C_CYAN}================================================================={C_RESET}")

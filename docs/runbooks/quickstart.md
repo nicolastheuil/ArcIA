@@ -17,7 +17,7 @@ Pour déployer ArcIA, vous devez disposer de :
 
 ---
 
-## 2. Déploiement en 3 Étapes
+## 2. Déploiement Simplifié en 2 Étapes
 
 ### Étape 1 : Cloner le dépôt
 
@@ -26,37 +26,49 @@ git clone https://github.com/nicolastheuil/ArcIA.git
 cd ArcIA
 ```
 
-### Étape 2 : Préparer la configuration `arcia.config.yaml`
+### Étape 2 : Lancer le Setup Wizard Graphique
 
-Copiez le modèle d'exemple :
-```powershell
-# Sous Windows PowerShell
-Copy-Item arcia.config.yaml.example arcia.config.yaml
+Pour une installation fluide sans manipulation de fichiers, lancez le Wizard interactif :
 
-# Sous Linux / macOS
-cp arcia.config.yaml.example arcia.config.yaml
+```bash
+# Sous Linux / macOS :
+./wizard.sh
+
+# Sous Windows (PowerShell) :
+.\wizard.ps1
+
+# Ou avec Python directement :
+python scripts/wizard.py
 ```
 
-Ouvrez `arcia.config.yaml` et renseignez les paramètres obligatoires :
-- `network.public_fqdn` : Le nom de domaine complet pour accéder à l'assistant (ex: `assistant.entreprise.com`).
-- `network.acme_email` : Email de contact Let's Encrypt pour les certificats SSL.
-- `llm_gateway.openrouter_api_key` : Votre clé API OpenRouter d'entreprise (`sk-or-v1-...`).
-- `hermes.admin_password` : Mot de passe administrateur pour l'accès à Hermes Studio.
+Le Wizard s'ouvre dans votre navigateur et vous guide écran par écran :
+1. **Cluster Kubernetes** : Détection automatique des contextes ou saisie SSH K3s, avec test de connectivité en direct.
+2. **Réseau & Certificats** : FQDN public (`https://assistant.votre-entreprise.com/`) et émission automatique Let's Encrypt.
+3. **Passerelle LLM** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) (accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3).
+4. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
+5. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
+6. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
+7. **Accès 100% Opérationnel** : Récapitulatif instantané avec toutes les URLs prêtes à l'emploi.
 
-### Étape 3 : Lancer le Déploiement
+---
 
-Le moteur de déploiement universel valide la configuration, injecte les secrets nécessaires et applique les 10 manifests dans l'ordre strict de dépendance :
+### Alternative en ligne de commande (Mode Headless)
 
-```powershell
-# Déploiement sous Windows PowerShell
-.\scripts\Deploy-ArcIA.ps1
+Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
+1. Copiez `arcia.config.yaml.example` vers `arcia.config.yaml` :
+   ```bash
+   cp arcia.config.yaml.example arcia.config.yaml
+   ```
+2. Renseignez les paramètres obligatoires (`public_fqdn`, `openrouter_api_key`).
+3. Lancez le déploiement :
+   ```powershell
+   # Déploiement sous Windows PowerShell
+   .\scripts\Deploy-ArcIA.ps1
 
-# Déploiement sous Linux / Bash
-bash scripts/deploy-arcia.sh
+   # Déploiement sous Linux / Bash
+   bash scripts/deploy-arcia.sh
+   ```
 
-# Déploiement Python direct (multiplateforme)
-python scripts/deploy.py --config arcia.config.yaml
-```
 
 ---
 

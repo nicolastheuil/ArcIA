@@ -19,5 +19,11 @@ else
     exit 1
 fi
 
+# Si option --wizard demandée
+if [ "${1:-}" = "--wizard" ] || [ "${1:-}" = "-w" ]; then
+    exec "$PYTHON_BIN" "${SCRIPT_DIR}/wizard.py" "${@:2}"
+fi
+
 # Exécution du moteur universel de déploiement
 exec "$PYTHON_BIN" "${SCRIPT_DIR}/deploy.py" --config "$CONFIG_FILE" "${@:2}"
+
