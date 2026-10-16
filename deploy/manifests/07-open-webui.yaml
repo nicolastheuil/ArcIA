@@ -110,7 +110,7 @@ spec:
         - name: ENABLE_OPENAI_API
           value: "true"
         - name: DEFAULT_MODELS
-          value: "auto"
+          value: "ArcIA-Agentic"
         - name: TASK_MODEL
           value: "auto"
         - name: ENABLE_SUBAGENTS

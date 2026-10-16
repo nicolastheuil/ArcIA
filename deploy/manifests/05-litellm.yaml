@@ -29,6 +29,11 @@ data:
           model: openrouter/deepseek/deepseek-chat
           api_key: os.environ/OPENROUTER_API_KEY
 
+      - model_name: ArcIA-Agentic
+        litellm_params:
+          model: openrouter/anthropic/claude-3.5-sonnet
+          api_key: os.environ/OPENROUTER_API_KEY
+
       - model_name: hermes-agent
         litellm_params:
           model: openrouter/anthropic/claude-3.5-sonnet
