@@ -23,4 +23,4 @@ python -m unittest discover -s tests -v
 
 ## Intégration Continue (CI)
 
-Cette suite de tests est automatiquement exécutée à chaque commit et pull request via le workflow GitHub Actions [.github/workflows/validate.yml](../.github/README.md).
+Cette suite de tests est automatiquement exécutée à chaque commit et pull request via le workflow GitHub Actions [.github/workflows/validate.yml](../.github/WORKFLOWS.md).

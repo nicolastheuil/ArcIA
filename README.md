@@ -225,7 +225,7 @@ Chaque dossier du dépôt dispose de son propre `README.md` d'orientation :
 | **[secrets/](secrets/README.md)** | Gabarit officiel `arcia.env.template` et règles de non-divulgation des secrets | [README](secrets/README.md) |
 | **[tests/](tests/README.md)** | Suite de tests automatisés (41 tests unitaires, conformité manifests et barrière DLP) | [README](tests/README.md) |
 | **[assets/](assets/README.md)** | Identité visuelle ([branding/](assets/branding/README.md)), package [Teams](assets/teams/README.md) et [installateur](assets/installer/README.md) | [README](assets/README.md) |
-| **[.github/](.github/README.md)** | Pipeline d'intégration continue multi-OS GitHub Actions (`validate.yml`) | [README](.github/README.md) |
+| **[.github/](.github/WORKFLOWS.md)** | Pipeline d'intégration continue multi-OS GitHub Actions (`validate.yml`) | [WORKFLOWS](.github/WORKFLOWS.md) |
 
 ---
 
