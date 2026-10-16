@@ -99,6 +99,21 @@ Ne fais aucune concession sur la latence.
         self.assertIn("dev-net-tun", rendered)
         self.assertIn("openconnect", rendered)
 
+    def test_render_manifest_contains_agentic_models_catalog(self):
+        rendered = render_manifest(user_email="dev.lead@company.com")
+        self.assertIn("ArcIA Agentic", rendered)
+        self.assertIn("discover_models: false", rendered)
+        self.assertIn("agentic/auto", rendered)
+        self.assertIn("agentic/free", rendered)
+        self.assertIn("agentic/deepseek-v4.1-flash", rendered)
+
+    def test_render_manifest_init_container_config_sync(self):
+        rendered = render_manifest(user_email="dev.lead@company.com")
+        self.assertIn("hermes_yaml", rendered)
+        self.assertIn("init-user-state", rendered)
+        self.assertIn("providers", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
+

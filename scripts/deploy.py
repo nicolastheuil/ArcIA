@@ -1070,6 +1070,20 @@ spec:
         else:
             log_warn(f"Le déploiement '{dep}' met du temps à démarrer ({err.strip() or out.strip()}).")
 
+    # 6b. Réconciliation et synchronisation universelle des instances Power Users
+    log_info(" -> [Power Users] Synchronisation du catalogue de modèles sur l'ensemble des instances...")
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from arcia_poweruser import sync_all_powerusers
+        def _deploy_runner(cmd_args, input_data=None):
+            rc, out, err = runner.run(cmd_args, stdin_input=input_data)
+            return subprocess.CompletedProcess(cmd_args, rc, out, err)
+        synced = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_deploy_runner)
+        if synced > 0:
+            log_ok(f"{synced} instance(s) Power User synchronisée(s) avec le catalogue de modèles.")
+    except Exception as exc:
+        log_warn(f"Synchronisation automatique des Power Users ignorée : {exc}")
+
     # 7. Synthèse et Liens d'Accès
     log_step(7, total_steps, "Récapitulatif de Déploiement d'ArcIA")
     print(f"\n{C_BOLD}{C_GREEN}================================================================={C_RESET}")

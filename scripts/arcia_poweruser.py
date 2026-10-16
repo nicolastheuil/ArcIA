@@ -349,6 +349,145 @@ def cmd_list(args):
         print(f"{name:<32} {replicas:<12} {available:<12} {status}")
 
 
+def sync_single_user(slug: str, ns: str = "arcia", fqdn: Optional[str] = None, runner_func=run_kubectl) -> bool:
+    """Synchronise une instance Power User existante avec les derniers modèles et templates."""
+    cfg = load_arcia_config()
+    fqdn = fqdn or cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+
+    # 1. Secret existant (préserver mot de passe et PAT)
+    pwd, pat = None, None
+    proc_sec = runner_func(["get", "secret", f"hermes-user-{slug}-secret", "-n", ns, "-o", "json"])
+    if proc_sec.returncode == 0:
+        sec_data = json.loads(proc_sec.stdout).get("data", {})
+        import base64
+        if "studio-password" in sec_data:
+            pwd = base64.b64decode(sec_data["studio-password"]).decode("utf-8")
+        if "litellm-pat" in sec_data:
+            pat = base64.b64decode(sec_data["litellm-pat"]).decode("utf-8")
+
+    # 2. ConfigMap existant (préserver SOUL.md et USER.md)
+    custom_soul = None
+    user_email = f"{slug}@arcitek.fr"
+    team = "engineering"
+    job_title = "Expert / Ingénieur"
+    manager = "Direction Technique"
+    proc_cm = runner_func(["get", "configmap", f"hermes-user-{slug}-config", "-n", ns, "-o", "json"])
+    if proc_cm.returncode == 0:
+        cm_data = json.loads(proc_cm.stdout).get("data", {})
+        if "SOUL.md" in cm_data:
+            custom_soul = cm_data["SOUL.md"]
+        if "USER.md" in cm_data:
+            user_md = cm_data["USER.md"]
+            m_email = re.search(r"- Email\s*:\s*([^\r\n]+)", user_md)
+            if m_email:
+                user_email = m_email.group(1).strip()
+            m_team = re.search(r"- (?:Équipe|Equipe)\s*:\s*([^\r\n]+)", user_md)
+            if m_team:
+                team = m_team.group(1).strip()
+            m_job = re.search(r"- Fonction\s*:\s*([^\r\n]+)", user_md)
+            if m_job:
+                job_title = m_job.group(1).strip()
+            m_mgr = re.search(r"- Responsable\s*:\s*([^\r\n]+)", user_md)
+            if m_mgr:
+                manager = m_mgr.group(1).strip()
+
+    # 3. Détecter si le VPN était activé dans le déploiement
+    vpn_enabled = False
+    proc_dep = runner_func(["get", "deployment", f"hermes-poweruser-{slug}", "-n", ns, "-o", "json"])
+    if proc_dep.returncode == 0:
+        dep_json = json.loads(proc_dep.stdout)
+        containers = dep_json.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
+        for c in containers:
+            if c.get("name") == "hermes":
+                caps = c.get("securityContext", {}).get("capabilities", {}).get("add", [])
+                if "NET_ADMIN" in caps:
+                    vpn_enabled = True
+
+    # 4. Rendu et application du manifeste mis à jour
+    manifest = render_manifest(
+        user_email=user_email,
+        team=team,
+        job_title=job_title,
+        manager=manager,
+        custom_soul=custom_soul,
+        public_fqdn=fqdn,
+        namespace=ns,
+        litellm_pat=pat,
+        studio_password=pwd,
+        enable_vpn=vpn_enabled
+    )
+
+    proc_apply = runner_func(["apply", "-f", "-"], input_data=manifest)
+    if proc_apply.returncode != 0:
+        print(f"    [WARN] Échec apply : {proc_apply.stderr}")
+        return False
+
+    # 5. Enregistrement PAT LiteLLM
+    if pat:
+        register_litellm_pat(pat, user_email, team=team, ns=ns)
+
+    # 6. Synchronisation à chaud du pod en cours d'exécution
+    sync_code = """
+import sys; sys.path.insert(0, '/opt/hermes'); import hermes_yaml
+cfg_p = '/opt/data/.hermes/config.yaml'
+try:
+    with open(cfg_p) as f: c = hermes_yaml.safe_load(f) or {}
+    c.setdefault('providers', {})['custom'] = {
+        'name': 'ArcIA Agentic',
+        'base_url': 'http://litellm-proxy.arcia.svc:4000/v1',
+        'key_env': 'OPENAI_API_KEY',
+        'discover_models': False,
+        'models': ['agentic/auto', 'agentic/free', 'agentic/deepseek-v4.1-flash']
+    }
+    with open(cfg_p, 'w') as f: hermes_yaml.safe_dump(c, f)
+    with open('/opt/data/config.yaml', 'w') as f: hermes_yaml.safe_dump(c, f)
+except Exception: pass
+"""
+    runner_func(["exec", "-i", f"deployment/hermes-poweruser-{slug}", "-c", "hermes", "-n", ns, "--", "/opt/hermes/.venv/bin/python"], input_data=sync_code)
+    return True
+
+
+def sync_all_powerusers(namespace: str = "arcia", fqdn: Optional[str] = None, runner_func=run_kubectl) -> int:
+    """Fonction universelle pour réconcilier toutes les instances Power Users."""
+    cfg = load_arcia_config()
+    fqdn = fqdn or cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+    ns = namespace
+
+    print(f"[*] Détection des instances Power Users à réconcilier dans '{ns}'...")
+    proc = runner_func(["get", "deployments", "-n", ns, "-l", "arcia.io/role=poweruser", "-o", "json"])
+    if proc.returncode != 0:
+        return 0
+
+    try:
+        data = json.loads(proc.stdout)
+        items = data.get("items", [])
+    except Exception:
+        return 0
+
+    if not items:
+        print(f"[-] Aucune instance Power User à synchroniser.")
+        return 0
+
+    synced_count = 0
+    print(f"[+] Synchronisation de {len(items)} instance(s) Power User avec le catalogue de modèles...")
+    for it in items:
+        dep_name = it["metadata"]["name"]
+        slug = it["metadata"].get("labels", {}).get("app.kubernetes.io/instance") or dep_name.replace("hermes-poweruser-", "")
+        print(f"  -> Synchronisation de '{slug}'...")
+        if sync_single_user(slug=slug, ns=ns, fqdn=fqdn, runner_func=runner_func):
+            synced_count += 1
+            print(f"     [OK] '{slug}' à jour.")
+    return synced_count
+
+
+def cmd_sync_all(args):
+    """Commande CLI pour synchroniser toutes les instances Power Users existantes."""
+    cfg = load_arcia_config()
+    ns = args.namespace or cfg.get("kubernetes", {}).get("namespace", "arcia")
+    fqdn = args.fqdn or cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+    sync_all_powerusers(namespace=ns, fqdn=fqdn)
+
+
 def cmd_stop(args):
     """Met en veille le Pod de l'utilisateur (replicas=0) pour libérer la RAM."""
     slug = email_to_slug(args.email)
@@ -429,6 +568,10 @@ def main():
     # list
     p_list = sub.add_parser("list", help="Lister les instances Power Users")
     p_list.set_defaults(func=cmd_list)
+
+    # sync-all
+    p_sync = sub.add_parser("sync-all", help="Synchroniser toutes les instances Power Users avec les derniers modèles et templates")
+    p_sync.set_defaults(func=cmd_sync_all)
 
     # stop
     p_stop = sub.add_parser("stop", help="Mettre en veille le Pod (scale=0)")
