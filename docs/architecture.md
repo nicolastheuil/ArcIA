@@ -20,6 +20,9 @@ ArcIA est la plateforme d'IA agentique souveraine d'entreprise conçue pour conc
    - Persistance PostgreSQL des clés virtuelles, budgets et équipes.
 5. **Intégration Microsoft Teams Native** : Bot applicatif certifié Bot Framework connecté sur le palier `arcia/standard` pour les conversations 1:1 et canaux d'équipe.
 6. **Suppression des Fuites BYOK** : Les connexions directes navigateur-fournisseur sont désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), garantissant la couverture DLP et budgétaire sur 100 % des flux.
+7. **Verrouillage Strict du Portail Open-WebUI** : Inscription publique désactivée (`ENABLE_SIGNUP=false`), rôle par défaut verrouillé en attente (`DEFAULT_USER_ROLE=pending`), contrôle des modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`), et authentification obligatoire (`WEBUI_AUTH=true`). Seuls les utilisateurs authentifiés via Microsoft 365 / Entra ID SSO ou des comptes administrateurs créés manuellement peuvent accéder au portail.
+8. **Isolation Réseau & Bouclier Inter-Pods (NetworkPolicies)** : Politique `DenyAll` par défaut limitant strictement les communications intra-namespace aux flux autorisés (WebUI/Teams/Hermes vers LiteLLM, LiteLLM vers Presidio et PostgreSQL, et egress HTTPS vers OpenRouter / Entra ID).
+9. **Protection Ingress & Limitation de Débit** : Séparation de la route `/v1` d'inférence protégée par un middleware Traefik de RateLimiting pour éviter tout déni de service ou surconsommation budgétaire.
 
 ---
 
@@ -88,13 +91,14 @@ flowchart TD
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
 |---|---|---|---|---|---|
-| **Open-WebUI** | `ghcr.io/open-webui/open-webui:main` | `8080` | `/` (Public SSO) | PVC 20Gi (`open-webui-pvc`) | Interface web conversationnelle grand public sans contournement direct |
+| **Open-WebUI** | `ghcr.io/open-webui/open-webui:main` | `8080` | `/` (SSO O365 / Admin local) | PVC 20Gi (`open-webui-pvc`) | Interface web conversationnelle verrouillée (signup désactivé, rôle pending par défaut, sans contournement direct) |
 | **Hermes Studio** | `nousresearch/hermes-agent:latest` | `9119` | `/studio` (Protégé SSO) | PVC 20Gi (`hermes-user-pvc`) | Observabilité Kanban, sessions, multi-agents |
 | **Hermes Gateway** | `nousresearch/hermes-agent:latest` | `8642` | `/gateway` (Protégé PAT) | - | WebSocket & API pour Hermes Desktop |
 | **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle interactive Microsoft Teams connectée sur `arcia/standard` |
-| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.61.16` | `4000` | `/v1` (Public PAT) | Stateless | Passerelle LLM, routage 3 paliers, fallbacks et gestion des clés virtuelles |
+| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.61.16` | `4000` | `/v1` (Public PAT + RateLimit) | Stateless | Passerelle LLM, routage 3 paliers, fallbacks et gestion des clés virtuelles |
 | **LiteLLM DB** | `postgres:16-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
 | **Presidio DLP** | `python:3.11-slim` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII |
+| **NetworkPolicy** | `networking.k8s.io/v1` | N/A | Interne cluster | N/A | Isolation réseau périmétrique et intra-cluster (Default DenyAll) |
 | **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.6.0` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
 
 > **Composants retirés en v0.3** :

@@ -12,9 +12,26 @@ import sys
 import re
 import json
 import time
+import secrets
 import argparse
 import subprocess
 from typing import Dict, Any, Optional, List, Tuple
+
+def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str]) -> str:
+    """Génère un manifeste Kubernetes Secret déclaratif avec stringData pour transmission sécurisée par stdin."""
+    lines = [
+        "apiVersion: v1",
+        "kind: Secret",
+        "metadata:",
+        f"  name: {name}",
+        f"  namespace: {namespace}",
+        "type: Opaque",
+        "stringData:",
+    ]
+    for k, v in string_data.items():
+        escaped_v = str(v).replace("\\", "\\\\").replace('"', '\\"')
+        lines.append(f'  {k}: "{escaped_v}"')
+    return "\n".join(lines) + "\n"
 
 # Support UTF-8 sur Windows PowerShell / CMD
 if hasattr(sys.stdout, "reconfigure"):
@@ -586,92 +603,89 @@ metadata:
     teams_cfg = cfg.get("teams_bot", {})
     omniroute_cfg = cfg.get("omniroute", {})
 
-    # enterprise-llm-secret
+    KNOWN_INSECURE_SECRETS = {
+        "sk-arcia-master-key-v03",
+        "sk-arcia-master-key-change-me-32b",
+        "arcia-salt-key-32-chars-long-secret",
+        "ArcIALiteLLMPostgres2026!",
+        "ChangeThisToAStrongPassword2026!",
+        "admin",
+        "arcia-pat-default",
+        "arcia-pat-secret-key-32b-secure",
+        "arcia-presidio-master-secret-key",
+        "arcia-presidio-master-key"
+    }
+
+    # 1. enterprise-llm-secret
     openrouter_key = llm_cfg.get("openrouter_api_key", "")
-    runner.run([
-        "create", "secret", "generic", "enterprise-llm-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=openrouter-key={openrouter_key}",
-        "--dry-run=client", "-o", "yaml"
-    ], stdin_input=None)
-    rc, out, err = runner.run([
-        "create", "secret", "generic", "enterprise-llm-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=openrouter-key={openrouter_key}",
-        "--dry-run=client", "-o", "yaml"
-    ])
-    if rc == 0:
-        runner.apply_manifest(out)
+    runner.apply_manifest(make_secret_manifest("enterprise-llm-secret", namespace, {
+        "openrouter-key": openrouter_key
+    }))
 
-    # litellm-secret (Master key, DB password, Salt key pour la passerelle d'inférence)
-    litellm_master = llm_cfg.get("master_key", "sk-arcia-master-key-v03")
-    litellm_salt = llm_cfg.get("salt_key", "arcia-salt-key-32-chars-long-secret")
-    litellm_db_pass = llm_cfg.get("db_password", "ArcIALiteLLMPostgres2026!")
-    rc, out, _ = runner.run([
-        "create", "secret", "generic", "litellm-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=master-key={litellm_master}",
-        f"--from-literal=salt-key={litellm_salt}",
-        f"--from-literal=db-password={litellm_db_pass}",
-        "--dry-run=client", "-o", "yaml"
-    ])
-    if rc == 0:
-        runner.apply_manifest(out)
+    # 2. litellm-secret (Master key, DB password, Salt key pour la passerelle d'inférence)
+    litellm_master = llm_cfg.get("master_key", "")
+    if not litellm_master or litellm_master in KNOWN_INSECURE_SECRETS:
+        litellm_master = f"sk-arcia-{secrets.token_urlsafe(32)}"
+        log_info(" -> Génération automatique d'une Master Key LiteLLM cryptographiquement sécurisée.")
 
-    # hermes-gateway-secret
+    litellm_salt = llm_cfg.get("salt_key", "")
+    if not litellm_salt or litellm_salt in KNOWN_INSECURE_SECRETS:
+        litellm_salt = secrets.token_hex(16)
+
+    litellm_db_pass = llm_cfg.get("db_password", "")
+    if not litellm_db_pass or litellm_db_pass in KNOWN_INSECURE_SECRETS:
+        litellm_db_pass = f"ArcIA_DB_{secrets.token_urlsafe(24)}"
+
+    runner.apply_manifest(make_secret_manifest("litellm-secret", namespace, {
+        "master-key": litellm_master,
+        "salt-key": litellm_salt,
+        "db-password": litellm_db_pass
+    }))
+
+    # 3. hermes-gateway-secret
     hermes_key = hermes_cfg.get("api_token", "")
-    hermes_pass = hermes_cfg.get("admin_password", "admin")
-    rc, out, _ = runner.run([
-        "create", "secret", "generic", "hermes-gateway-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=api-server-key={hermes_key}",
-        f"--from-literal=admin-password={hermes_pass}",
-        "--dry-run=client", "-o", "yaml"
-    ])
-    if rc == 0:
-        runner.apply_manifest(out)
+    if not hermes_key or hermes_key in KNOWN_INSECURE_SECRETS:
+        hermes_key = f"arcia-pat-{secrets.token_urlsafe(24)}"
+    hermes_pass = hermes_cfg.get("admin_password", "")
+    if not hermes_pass or hermes_pass in KNOWN_INSECURE_SECRETS:
+        hermes_pass = secrets.token_urlsafe(16)
 
-    # presidio-secret
-    presidio_key = presidio_cfg.get("master_key", "arcia-master-key")
-    rc, out, _ = runner.run([
-        "create", "secret", "generic", "presidio-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=master-key={presidio_key}",
-        "--dry-run=client", "-o", "yaml"
-    ])
-    if rc == 0:
-        runner.apply_manifest(out)
+    runner.apply_manifest(make_secret_manifest("hermes-gateway-secret", namespace, {
+        "api-server-key": hermes_key,
+        "admin-password": hermes_pass
+    }))
 
-    # entraid-secret (si SSO actif ou placeholder sécurisé pour satisfaire les références des pods)
+    # 4. presidio-secret
+    presidio_key = presidio_cfg.get("master_key", "")
+    if not presidio_key or presidio_key in KNOWN_INSECURE_SECRETS:
+        presidio_key = f"arcia-presidio-{secrets.token_urlsafe(24)}"
+    runner.apply_manifest(make_secret_manifest("presidio-secret", namespace, {
+        "master-key": presidio_key
+    }))
+
+    # 5. entraid-secret (si SSO actif ou placeholder sécurisé pour satisfaire les références des pods)
     sso_tenant = sso_cfg.get("tenant_id", "00000000-0000-0000-0000-000000000000") if sso_cfg.get("enabled") else "00000000-0000-0000-0000-000000000000"
     sso_client = sso_cfg.get("client_id", "placeholder-client-id") if sso_cfg.get("enabled") else "placeholder-client-id"
     sso_secret = sso_cfg.get("client_secret", "placeholder-client-secret") if sso_cfg.get("enabled") else "placeholder-client-secret"
-    sso_cookie = sso_cfg.get("cookie_secret", "placeholder-cookie-secret-32-bytes") if sso_cfg.get("enabled") else "placeholder-cookie-secret-32-bytes"
-    rc, out, _ = runner.run([
-        "create", "secret", "generic", "entraid-secret",
-        f"--namespace={namespace}",
-        f"--from-literal=tenant-id={sso_tenant}",
-        f"--from-literal=client-id={sso_client}",
-        f"--from-literal=client-secret={sso_secret}",
-        f"--from-literal=cookie-secret={sso_cookie}",
-        "--dry-run=client", "-o", "yaml"
-    ])
-    if rc == 0:
-        runner.apply_manifest(out)
+    sso_cookie = sso_cfg.get("cookie_secret", "") if sso_cfg.get("enabled") else ""
+    if not sso_cookie or sso_cookie in KNOWN_INSECURE_SECRETS:
+        sso_cookie = secrets.token_urlsafe(32)
 
-    # teams-bot-secret (si bot actif)
+    runner.apply_manifest(make_secret_manifest("entraid-secret", namespace, {
+        "tenant-id": sso_tenant,
+        "client-id": sso_client,
+        "client-secret": sso_secret,
+        "cookie-secret": sso_cookie
+    }))
+
+    # 6. teams-bot-secret (si bot actif)
     if teams_cfg.get("enabled"):
-        rc, out, _ = runner.run([
-            "create", "secret", "generic", "teams-bot-secret",
-            f"--namespace={namespace}",
-            f"--from-literal=app-id={teams_cfg.get('app_id', '')}",
-            f"--from-literal=app-password={teams_cfg.get('app_password', '')}",
-            "--dry-run=client", "-o", "yaml"
-        ])
-        if rc == 0:
-            runner.apply_manifest(out)
+        runner.apply_manifest(make_secret_manifest("teams-bot-secret", namespace, {
+            "app-id": teams_cfg.get("app_id", ""),
+            "app-password": teams_cfg.get("app_password", "")
+        }))
 
-    log_ok("Tous les secrets Kubernetes sont provisionnés.")
+    log_ok("Tous les secrets Kubernetes sont provisionnés de façon déclarative et sécurisée.")
 
     # 4. Déploiement des Microservices Fondamentaux
     log_step(4, total_steps, "Déploiement des microservices du socle ArcIA")
@@ -775,6 +789,14 @@ metadata:
             runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
         log_ok("CronJob 'arcia-skills-sync' déployé pour la mise à jour hebdomadaire.")
 
+    # H. Politiques Réseau d'Isolation (NetworkPolicies)
+    netpol_path = os.path.join(manifests_dir, "09-network-policy.yaml")
+    if os.path.isfile(netpol_path):
+        log_info(" -> [Sécurité Réseau] Déploiement des NetworkPolicies d'isolation (09-network-policy.yaml)...")
+        with open(netpol_path, "r", encoding="utf-8") as f:
+            runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
+        log_ok("NetworkPolicies d'isolation appliquées au namespace.")
+
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
     net_cfg = cfg.get("network", {})
@@ -836,7 +858,7 @@ spec:
 
     studio_middleware_line = ""
     if sso_cfg.get("enabled"):
-        studio_middleware_line = "    traefik.ingress.kubernetes.io/router.middlewares: arcia-entra-id-auth@kubernetescrd"
+        studio_middleware_line = f"    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-entra-id-auth@kubernetescrd"
 
     # Construction dynamique des routes Ingress
     teams_path_block = ""
@@ -878,13 +900,6 @@ spec:
       paths:
 {oauth_path_block}
 {teams_path_block}
-      - path: /v1
-        pathType: Prefix
-        backend:
-          service:
-            name: litellm-proxy
-            port:
-              number: 4000
       - path: /
         pathType: Prefix
         backend:
@@ -893,7 +908,33 @@ spec:
             port:
               number: 8080
 ---
-# 2. Ingress Studio & Gateway Desktop
+# 2. Ingress Power Users /v1 (Protégé par RateLimit Traefik)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arcia-v1-ingress
+  namespace: {namespace}
+  annotations:
+{ingress_annotations}
+    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-litellm-ratelimit@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - {public_fqdn}
+    secretName: {tls_secret_name}
+  rules:
+  - host: {public_fqdn}
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:
+          service:
+            name: litellm-proxy
+            port:
+              number: 4000
+---
+# 3. Ingress Studio & Gateway Desktop (Protégé par Entra ID SSO)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -925,6 +966,17 @@ spec:
             name: hermes-studio
             port:
               number: 8642
+---
+# 4. Middleware Rate Limiting pour /v1
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: litellm-ratelimit
+  namespace: {namespace}
+spec:
+  rateLimit:
+    average: 100
+    burst: 50
 """
     runner.apply_manifest(rendered_ingress)
     log_ok(f"Ingress configuré pour l'hôte public : https://{public_fqdn}/")
@@ -969,9 +1021,10 @@ spec:
         print(f"  * {C_BOLD}OmniRoute Portail LAN (:20129)      :{C_RESET} http://omniroute.{namespace}.svc.cluster.local:20129")
 
 
-    print(f"\n{C_BOLD}Identifiants d'accès :{C_RESET}")
-    print(f"  - {C_BOLD}Hermes Studio Web :{C_RESET} Identifiant: 'admin' | Mot de passe: '{hermes_cfg.get('admin_password', 'admin')}'")
-    print(f"  - {C_BOLD}Hermes Desktop PAT:{C_RESET} '{hermes_cfg.get('api_token', '')}'")
+    print(f"\n{C_BOLD}Identifiants et Secrets Sécurisés :{C_RESET}")
+    print(f"  - {C_BOLD}Hermes Studio Web :{C_RESET} Identifiant: 'admin' | Secret: [Géré de façon sécurisée dans le Secret Kubernetes hermes-gateway-secret]")
+    print(f"  - {C_BOLD}Hermes Desktop PAT:{C_RESET} [Géré de façon sécurisée dans le Secret Kubernetes hermes-gateway-secret]")
+    print(f"  - {C_BOLD}LiteLLM Master Key:{C_RESET} [Géré de façon sécurisée dans le Secret Kubernetes litellm-secret]")
 
     print(f"\n{C_BOLD}Rappel DNS & Réseau :{C_RESET}")
     print(f"  Assurez-vous que le nom de domaine {C_CYAN}{public_fqdn}{C_RESET} pointe vers l'adresse IP publique de votre Ingress.")

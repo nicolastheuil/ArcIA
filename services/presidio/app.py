@@ -32,8 +32,8 @@ SECRET_PATTERNS = [
 
 # PII regex patterns
 EMAIL_PATTERN = re.compile(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
-IP_PATTERN = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
-IBAN_PATTERN = re.compile(r'\b[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}(?:[A-Z0-9]){0,16}\b')
+IP_PATTERN = re.compile(r'(?<![\w\.])(?:\d{1,3}\.){3}\d{1,3}(?![\w\.])')
+IBAN_PATTERN = re.compile(r'\b[A-Z]{2}\d{2}(?:[\s]?[A-Z0-9]{4}){3,7}(?:[\s]?[A-Z0-9]{1,4})?\b')
 PHONE_PATTERN = re.compile(r'(?:\+33|0033|0)[1-9](?:[\s\.\-]?[0-9]{2}){4}\b')
 CREDIT_CARD_PATTERN = re.compile(r'\b(?:\d{4}[\s\-]?){3}\d{4}\b')
 
@@ -89,7 +89,7 @@ class AnonymizeRequest(BaseModel):
 def health():
     analyzer = get_analyzer()
     return {
-        "status": "ok",
+        "status": "ok" if analyzer is not None else "degraded",
         "service": "presidio-dlp",
         "version": "0.3.0",
         "analyzer_ready": analyzer is not None
@@ -97,54 +97,54 @@ def health():
 
 @app.post("/sanitize")
 def sanitize(req: SanitizeRequest):
-    text = req.text
-    entities = []
+    try:
+        text = req.text
+        entities = []
 
-    # 1. Caviardage des secrets explicites
-    for pattern in SECRET_PATTERNS:
-        matches = list(pattern.finditer(text))
-        for match in matches:
-            entities.append("SECRET")
-            if match.groups():
-                secret_val = match.group(1)
-                text = text.replace(secret_val, "[SECRET_REMOVED]")
-            else:
-                text = text.replace(match.group(0), "[SECRET_REMOVED]")
+        # 1. Caviardage des secrets explicites
+        for pattern in SECRET_PATTERNS:
+            matches = list(pattern.finditer(text))
+            for match in matches:
+                entities.append("SECRET")
+                if match.groups():
+                    secret_val = match.group(1)
+                    text = text.replace(secret_val, "[SECRET_REMOVED]")
+                else:
+                    text = text.replace(match.group(0), "[SECRET_REMOVED]")
 
-    # 2. Caviardage des adresses IP (v0.3 active)
-    ip_matches = [m.group(0) for m in IP_PATTERN.finditer(text)]
-    for idx, ip in enumerate(ip_matches):
-        entities.append("IP_ADDRESS")
-        text = text.replace(ip, f"[ARCIA_IP_ADDRESS_{idx+1}]")
+        # 2. Caviardage des adresses IP (v0.3 active)
+        ip_matches = [m.group(0) for m in IP_PATTERN.finditer(text)]
+        for idx, ip in enumerate(ip_matches):
+            entities.append("IP_ADDRESS")
+            text = text.replace(ip, f"[ARCIA_IP_ADDRESS_{idx+1}]")
 
-    # 3. Caviardage des emails
-    email_matches = [m.group(0) for m in EMAIL_PATTERN.finditer(text)]
-    for idx, email in enumerate(email_matches):
-        entities.append("EMAIL_ADDRESS")
-        text = text.replace(email, f"[ARCIA_EMAIL_{idx+1}]")
+        # 3. Caviardage des emails
+        email_matches = [m.group(0) for m in EMAIL_PATTERN.finditer(text)]
+        for idx, email in enumerate(email_matches):
+            entities.append("EMAIL_ADDRESS")
+            text = text.replace(email, f"[ARCIA_EMAIL_{idx+1}]")
 
-    # 4. Caviardage des IBANs
-    iban_matches = [m.group(0) for m in IBAN_PATTERN.finditer(text)]
-    for idx, iban in enumerate(iban_matches):
-        entities.append("IBAN")
-        text = text.replace(iban, f"[ARCIA_IBAN_{idx+1}]")
+        # 4. Caviardage des IBANs
+        iban_matches = [m.group(0) for m in IBAN_PATTERN.finditer(text)]
+        for idx, iban in enumerate(iban_matches):
+            entities.append("IBAN")
+            text = text.replace(iban, f"[ARCIA_IBAN_{idx+1}]")
 
-    # 5. Caviardage des numéros de téléphone
-    phone_matches = [m.group(0) for m in PHONE_PATTERN.finditer(text)]
-    for idx, phone in enumerate(phone_matches):
-        entities.append("PHONE_NUMBER")
-        text = text.replace(phone, f"[ARCIA_PHONE_{idx+1}]")
+        # 5. Caviardage des numéros de téléphone
+        phone_matches = [m.group(0) for m in PHONE_PATTERN.finditer(text)]
+        for idx, phone in enumerate(phone_matches):
+            entities.append("PHONE_NUMBER")
+            text = text.replace(phone, f"[ARCIA_PHONE_{idx+1}]")
 
-    # 6. Caviardage des cartes bancaires
-    cc_matches = [m.group(0) for m in CREDIT_CARD_PATTERN.finditer(text)]
-    for idx, cc in enumerate(cc_matches):
-        entities.append("CREDIT_CARD")
-        text = text.replace(cc, f"[ARCIA_CREDIT_CARD_{idx+1}]")
+        # 6. Caviardage des cartes bancaires
+        cc_matches = [m.group(0) for m in CREDIT_CARD_PATTERN.finditer(text)]
+        for idx, cc in enumerate(cc_matches):
+            entities.append("CREDIT_CARD")
+            text = text.replace(cc, f"[ARCIA_CREDIT_CARD_{idx+1}]")
 
-    # 7. Analyse PII avancée Presidio (Personnes, Organisations, Lieux)
-    analyzer = get_analyzer()
-    if analyzer and len(text) > 0:
-        try:
+        # 7. Analyse PII avancée Presidio (Personnes, Organisations, Lieux)
+        analyzer = get_analyzer()
+        if analyzer and len(text) > 0:
             lang = req.language if req.language in ["fr", "en"] else "fr"
             results = analyzer.analyze(text=text, language=lang)
             for res in sorted(results, key=lambda r: r.start, reverse=True):
@@ -152,16 +152,17 @@ def sanitize(req: SanitizeRequest):
                     entities.append(res.entity_type)
                     placeholder = f"[ARCIA_{res.entity_type}]"
                     text = text[:res.start] + placeholder + text[res.end:]
-        except Exception:
-            pass
 
-    return {
-        "text": text,
-        "sanitized_text": text,
-        "original_length": len(req.text),
-        "sanitized_length": len(text),
-        "entities_detected": list(set(entities))
-    }
+        return {
+            "text": text,
+            "sanitized_text": text,
+            "original_length": len(req.text),
+            "sanitized_length": len(text),
+            "entities_detected": list(set(entities))
+        }
+    except Exception as e:
+        # En cas d'erreur inattendue, Presidio déclenche un Fail-Closed strict
+        raise HTTPException(status_code=500, detail=f"Presidio DLP fail-closed error: {str(e)}")
 
 @app.post("/anonymize")
 def anonymize(req: AnonymizeRequest):

@@ -1407,10 +1407,28 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
+    def is_safe_origin(self) -> bool:
+        host = self.headers.get("Host", "").split(":")[0].strip()
+        if host and host not in ("127.0.0.1", "localhost", "::1"):
+            return False
+        origin = self.headers.get("Origin")
+        if origin:
+            parsed = urlparse(origin)
+            if parsed.hostname not in ("127.0.0.1", "localhost", "::1"):
+                return False
+        return True
+
     def end_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Restriction stricte aux origines locales (Protection anti-DNS rebinding et CSRF)
+        origin = self.headers.get("Origin")
+        if origin:
+            parsed = urlparse(origin)
+            if parsed.hostname in ("127.0.0.1", "localhost", "::1"):
+                self.send_header("Access-Control-Allow-Origin", origin)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         super().end_headers()
 
     def send_json(self, status: int, data: Any):
@@ -1422,12 +1440,20 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_OPTIONS(self):
+        if not self.is_safe_origin():
+            self.send_response(403)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_GET(self):
         try:
+            if not self.is_safe_origin():
+                self.send_json(403, {"success": False, "error": "Accès refusé : requête interdite depuis une origine externe non autorisée."})
+                return
+
             parsed = urlparse(self.path)
             path = parsed.path
 
@@ -1470,6 +1496,9 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            if not self.is_safe_origin():
+                self.send_json(403, {"success": False, "error": "Accès refusé : requête interdite depuis une origine externe non autorisée."})
+                return
             self._handle_post_internal()
         except Exception as e:
             self.send_json(500, {"success": False, "error": f"Erreur serveur (POST) : {str(e)}"})

@@ -2,26 +2,30 @@
 
 > **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation. Elle offre une expérience moderne et ergonomique pour dialoguer avec les agents et les modèles d'entreprise.
+Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation. Elle offre une expérience moderne et ergonomique pour dialoguer avec les agents et les modèles d'entreprise, sous une gouvernance d'accès strictement verrouillée.
 
 ---
 
-## 1. Caractéristiques Principales v0.3
+## 1. Caractéristiques Principales & Verrouillage d'Accès v0.3
 
-- **Interface Conversationnelle Avancée** :
-  - Support du Markdown riche, des artefacts de code, des tableaux et des rendus mathématiques LaTeX.
-  - Gestion des historiques de discussion et organisation par dossiers.
+- **Accès Verrouillé & Zéro Auto-Inscription Publique** :
+  - `WEBUI_AUTH=true` : Authentification obligatoire pour tout accès à l'interface.
+  - `ENABLE_SIGNUP=false` : **Auto-inscription publique totalement interdite.** N'importe quel internaute arrivant sur le portail ne peut pas créer de compte.
+  - **Modes d'accès autorisés exclusivement** :
+    1. **Authentification SSO Microsoft 365 / Entra ID** (`ENABLE_OAUTH_SIGNUP=true`) pour les collaborateurs du tenant d'entreprise.
+    2. **Comptes locaux créés manuellement par l'administrateur** via le panneau de gestion des utilisateurs.
+  - `DEFAULT_USER_ROLE=pending` : Tout nouveau compte provisionné arrive en rôle `pending` (verrouillé sans accès) jusqu'à activation explicite ou assignation de droits par l'administrateur.
+  - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès strict par rôle et niveau d'autonomie (N1 Collaborateur, N2 Expert, N3 Power User).
+  - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=false` : Interdiction de fusion arbitraire par simple adresse email pour prévenir tout risque de détournement de compte (*account takeover*).
+
 - **Raccordement Exclusif sur LiteLLM Proxy** :
-  - `http://litellm-proxy.arcia.svc:4000/v1` : fournit les 3 paliers d'entreprise (`arcia/standard`, `arcia/expert`, `arcia/reasoning`) avec bascule et caviardage DLP Presidio fail-closed.
+  - `http://litellm-proxy.arcia.svc:4000/v1` : Authentifié via le secret d'infrastructure `litellm-secret:master-key`. Fournit les 3 paliers d'entreprise (`arcia/standard`, `arcia/expert`, `arcia/reasoning`) avec bascule et caviardage DLP Presidio fail-closed.
 - **Suppression des Connexions Directes (Sécurité & Gouvernance)** :
   - `ENABLE_DIRECT_CONNECTIONS=false` : empêche le navigateur d'émettre des requêtes directes vers des tiers non gouvernés et protège les secrets personnels de toute persistance en clair.
 - **Propagation de l'Identité Utilisateur** :
   - `ENABLE_FORWARD_USER_INFO_HEADERS=true` : transmet l'adresse email de la session collaborateur (`X-OpenWebUI-User-Email`) à LiteLLM pour imputer la consommation budgétaire à l'équipe.
 - **Sous-agents & Exécution Multi-Agents** :
   - `ENABLE_SUBAGENTS=true` : active la délégation de tâches à des sous-agents spécialisés.
-- **Authentification Unique (SSO) Microsoft Entra ID** :
-  - Connexion fluide avec le compte d'entreprise Microsoft 365.
-  - Fusion automatique des comptes par adresse email (`OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`).
 - **Persistance Dédiée (PVC 20Gi)** :
   - Monté sous `/app/backend/data`.
   - Conserve la base de données interne des profils, favoris, réglages et conversations.

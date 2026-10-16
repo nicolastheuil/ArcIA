@@ -45,3 +45,18 @@ La documentation d'ArcIA respecte désormais une stricte transparence entre l'ex
 | **N1** | Collaborateur | Open-WebUI, Microsoft Teams | `arcia/standard` | Budget d'équipe partagé | Caviardage universel obligatoire |
 | **N2** | Expert Métier | Open-WebUI (+ Outils & RAG) | `arcia/standard`, `arcia/expert` | Budget d'équipe avec alerte | Caviardage universel obligatoire |
 | **N3** | Power User / Dev | IDE, Hermes local, `/v1` | Tous les paliers (`standard`, `expert`, `reasoning`) | Budget individuel nominatif | Caviardage universel obligatoire (via `/v1`) |
+
+---
+
+## Synthèse des Durcissements de Sécurité (v0.3)
+
+| Domaine | Mesure Appliquée | Fichiers & Manifests | Bénéfice Sécurité |
+|---|---|---|---|
+| **Verrouillage Portail WebUI** | Inscription publique coupée (`ENABLE_SIGNUP=false`), rôle par défaut en attente (`DEFAULT_USER_ROLE=pending`), contrôle des modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`), auth locale manuelle ou SSO O365/Entra ID obligatoire. | `07-open-webui.yaml`, `docker-compose.lab.yml` | Aucun compte non autorisé ne peut consommer de modèles ou s'auto-enregistrer. |
+| **Isolation Réseau K8s** | Politique `arcia-default-deny-all` Ingress/Egress, règles explicites pour Traefik, LiteLLM, Presidio, DB et DNS 53. | `09-network-policy.yaml`, `kustomization.yaml` | Étanche les flux internes ; empêche toute évasion ou contournement du bouclier DLP. |
+| **Limitation de Débit (RateLimit)** | Middleware Traefik RateLimit dédié sur l'Ingress `/v1` d'inférence. | `04-ingress.yaml`, `scripts/deploy.py` | Protège contre le déni de service et la surconsommation de crédits API. |
+| **Hermes Agent Runtime** | Exécution conjointe de Studio (:9119) et Gateway (:8642), désactivation des auto-approbations risquées (`agent.auto_approve_safe_commands: false`). | `06-hermes-agent.yaml` | Conformité au principe du moindre privilège pour les exécutions d'outils agentiques. |
+| **Teams Bot & Sondes K8s** | Sonde de santé dédiée `/healthz` (évite les erreurs 405 sur `/api/teams/messages`), masquage des journaux et injection de `LITELLM_API_KEY`. | `services/teams/app.py`, `08-teams-bot.yaml` | Évite les crash loops Kubernetes et protège les données de conversation dans les logs. |
+| **Secrets & Moteur Déploiement** | Injection déclarative via `stringData` sur stdin (élimine `--from-literal`), génération automatique de secrets cryptographiques forts, et masquage dans le résumé. | `scripts/deploy.py` | Zéro fuite de secret dans la table des processus (`ps`) ou l'historique shell. |
+| **Sécurisation du Wizard Web** | Validation stricte de l'Origin/Host (rejet des requêtes hors localhost/127.0.0.1) et headers de protection X-Content-Type-Options / X-Frame-Options. | `scripts/wizard.py` | Immunité contre les attaques DNS rebinding et CSRF depuis un navigateur tiers. |
+

@@ -5,6 +5,10 @@ metadata:
   namespace: arcia
 data:
   app.py: |
+    """
+    ArcIA Microsoft Teams Bot Adapter
+    Integrates Microsoft Teams (DM 1:1 and @ArcIA channel mentions) with LiteLLM / Hermes runtime.
+    """
     import os
     import sys
     import logging
@@ -23,13 +27,13 @@ data:
     APP_ID = os.environ.get("MICROSOFT_APP_ID", "")
     APP_PASSWORD = os.environ.get("MICROSOFT_APP_PASSWORD", "")
     LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm-proxy.arcia.svc:4000/v1")
-
     LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
     SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD)
     ADAPTER = BotFrameworkAdapter(SETTINGS)
 
     async def call_litellm(user_message: str, user_name: str = "Collaborateur") -> str:
+        """Dispatches user prompt to LiteLLM arcia/standard model (protected by Presidio DLP)."""
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {
@@ -63,6 +67,7 @@ data:
             return "⚠️ **ArcIA :** La passerelle d'inférence est temporairement indisponible."
 
     async def on_turn(turn_context: TurnContext):
+        """Processes incoming Teams message activities."""
         activity = turn_context.activity
 
         if activity.type == ActivityTypes.message:
@@ -70,7 +75,7 @@ data:
             clean_text = text.replace("@ArcIA", "").strip()
             user_name = activity.from_property.name if activity.from_property else "Collaborateur"
             
-            logger.info("Received message from %s: %s", user_name, clean_text)
+            logger.info("Received message from %s (length: %d chars)", user_name, len(clean_text))
             reply_content = await call_litellm(clean_text, user_name)
             
             reply = Activity(type=ActivityTypes.message, text=reply_content)
@@ -88,6 +93,7 @@ data:
                         await turn_context.send_activity(Activity(type=ActivityTypes.message, text=welcome))
 
     async def messages(request: web.Request) -> web.Response:
+        """Webhook endpoint for Microsoft Bot Framework."""
         if "application/json" in request.headers.get("Content-Type", ""):
             body = await request.json()
         else:
@@ -103,10 +109,10 @@ data:
             return web.Response(status=200)
         except Exception as e:
             logger.error("Exception in messages handler: %s", e)
-            return web.Response(status=500, text=str(e))
+            return web.Response(status=500, text="Internal Bot Framework Error")
 
     async def health(request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.2.0"})
+        return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.3.0"})
 
     app = web.Application()
     app.router.add_post("/api/teams/messages", messages)
@@ -116,6 +122,7 @@ data:
 
     if __name__ == "__main__":
         web.run_app(app, host="0.0.0.0", port=3978)
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -155,6 +162,11 @@ spec:
               key: app-password
         - name: LITELLM_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
+        - name: LITELLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: master-key
         ports:
         - containerPort: 3978
           name: http
@@ -167,13 +179,13 @@ spec:
             memory: 512Mi
         readinessProbe:
           httpGet:
-            path: /api/teams/messages
+            path: /healthz
             port: 3978
           initialDelaySeconds: 15
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /api/teams/messages
+            path: /healthz
             port: 3978
           initialDelaySeconds: 20
           periodSeconds: 15

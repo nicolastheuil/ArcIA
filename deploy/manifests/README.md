@@ -16,11 +16,10 @@ Les manifests sont préfixés de `00` à `10` pour garantir un déploiement dét
 | **05a**| [05-litellm-db.yaml](05-litellm-db.yaml) | `StatefulSet`, `Service`, `PVC` | Base de données PostgreSQL pour la comptabilité LiteLLM, budgets d'équipe et clés virtuelles nominatives (port 5432). |
 | **05b**| [05-litellm.yaml](05-litellm.yaml) | `Deployment`, `Service`, `ConfigMap` | Passerelle d'inférence universelle v0.3, catalogue à 3 paliers (`standard`, `expert`, `reasoning`), ZDR et quotas (port 4000). |
 | **06** | [06-hermes-agent.yaml](06-hermes-agent.yaml) | `Deployment`, `Service`, `PVC`, `ConfigMap` | Moteur d'agents Hermes, Studio Kanban (port 9119) et Gateway (port 8642) configuré sur LiteLLM. |
-| **07** | [07-open-webui.yaml](07-open-webui.yaml) | `Deployment`, `Service`, `PVC` | Portail web conversationnel grand public, SSO Entra ID, sans contournement BYOK (port 8080). |
+| **07** | [07-open-webui.yaml](07-open-webui.yaml) | `Deployment`, `Service`, `PVC` | Portail web conversationnel grand public, verrouillage strict (SSO O365 / création locale manuelle uniquement, signup désactivé), sans contournement BYOK (port 8080). |
 | **08** | [08-teams-bot.yaml](08-teams-bot.yaml) | `Deployment`, `Service`, `ConfigMap` | Adaptateur bot Microsoft Teams branché sur le palier `arcia/standard` (port 3978). |
+| **09** | [09-network-policy.yaml](09-network-policy.yaml) | `NetworkPolicy` | Isolation réseau intra-namespace (Default DenyAll, flux stricts inter-pods et bouclier DLP étanche). |
 | **10** | [10-skills-sync-cronjob.yaml](10-skills-sync-cronjob.yaml) | `CronJob` | Tâche planifiée de mise à jour des compétences (suspendue par défaut en v0.3 : compétences revues dans le dépôt d'instance). |
-
-> **Note sur OmniRoute (anciennement 09)** : Retiré en v0.3 au profit du routage unifié LiteLLM et de la gouvernance stricte des coûts et du DLP.
 
 ## Application Manuelle ou Automatisée
 

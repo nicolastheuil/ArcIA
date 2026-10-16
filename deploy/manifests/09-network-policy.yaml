@@ -1,0 +1,238 @@
+# ==============================================================================
+# ArcIA v0.3 — Politiques Réseau Kubernetes (NetworkPolicy Isolation)
+# ==============================================================================
+# Restreint les communications intra-cluster aux seuls flux légitimes et
+# interdit tout contournement du bouclier DLP Presidio et de LiteLLM.
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-default-deny-all
+  namespace: arcia
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Autoriser le trafic DNS interne (CoreDNS) pour tous les pods arcia
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-allow-dns
+  namespace: arcia
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Autoriser l'Ingress Traefik vers les services exposés
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-allow-ingress-controller
+  namespace: arcia
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values: ["open-webui", "litellm-proxy", "hermes-agent", "teams-bot-adapter", "oauth2-proxy"]
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 4000
+    - protocol: TCP
+      port: 9119
+    - protocol: TCP
+      port: 8642
+    - protocol: TCP
+      port: 3978
+    - protocol: TCP
+      port: 4180
+---
+# Flux LiteLLM : Inférence, Base comptable, Bouclier DLP et Sortie Cloud (443)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-litellm-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: litellm-proxy
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values: ["open-webui", "hermes-agent", "teams-bot-adapter"]
+    ports:
+    - protocol: TCP
+      port: 4000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-db
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: presidio-dlp
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Sortie HTTPS vers les fournisseurs LLM Cloud sécurisés (OpenRouter ZDR)
+  - ports:
+    - protocol: TCP
+      port: 443
+---
+# Flux Presidio DLP : Uniquement accessible depuis LiteLLM (Interdit tout accès direct non-autorisé)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-presidio-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: presidio-dlp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 8080
+---
+# Flux LiteLLM PostgreSQL DB : Uniquement accessible depuis LiteLLM
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-litellm-db-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: litellm-db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+# Flux Open-WebUI : Communication vers LiteLLM et SSO Entra ID
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-open-webui-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: open-webui
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
+  - ports:
+    - protocol: TCP
+      port: 443
+---
+# Flux Hermes Agent : Strictement canalisé vers la passerelle d'inférence d'entreprise LiteLLM
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-hermes-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: hermes-agent
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
+---
+# Flux Teams Bot Adapter : Communication vers LiteLLM et Webhook Azure Bot Framework
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-teams-bot-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: teams-bot-adapter
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
+  - ports:
+    - protocol: TCP
+      port: 443
+---
+# Flux OAuth2-Proxy : Émission OIDC vers Microsoft Entra ID (443)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-oauth2-proxy-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      app: oauth2-proxy
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 443

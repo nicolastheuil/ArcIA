@@ -53,7 +53,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("DATABASE_URL", content)
 
     def test_open_webui_v03_security(self):
-        """Vérifie que les connexions directes contournant le DLP sont désactivées."""
+        """Vérifie le verrouillage strict d'Open-WebUI (pas d'inscription publique, rôle pending, contrôle d'accès)."""
         webui_path = os.path.join(self.manifests_dir, "07-open-webui.yaml")
         with open(webui_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -61,15 +61,43 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: ENABLE_DIRECT_CONNECTIONS\n          value: "false"', content)
         self.assertIn('name: ENABLE_FORWARD_USER_INFO_HEADERS\n          value: "true"', content)
         self.assertIn('name: DEFAULT_MODELS\n          value: "arcia/standard"', content)
+        self.assertIn('name: ENABLE_SIGNUP\n          value: "false"', content)
+        self.assertIn('name: DEFAULT_USER_ROLE\n          value: "pending"', content)
+        self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
+        self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "false"', content)
+        self.assertIn('name: litellm-secret\n              key: master-key', content)
+
+    def test_ingress_v1_rate_limited(self):
+        """Vérifie que l'Ingress /v1 est séparé et protégé par le middleware RateLimit."""
+        ingress_path = os.path.join(self.manifests_dir, "04-ingress.yaml")
+        with open(ingress_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("name: arcia-v1-ingress", content)
+        self.assertIn("arcia-litellm-ratelimit@kubernetescrd", content)
+        self.assertIn("name: litellm-ratelimit", content)
+
+    def test_teams_bot_health_probes(self):
+        """Vérifie que les sondes de Teams Bot ciblent /healthz et non /api/teams/messages."""
+        teams_path = os.path.join(self.manifests_dir, "08-teams-bot.yaml")
+        with open(teams_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("path: /healthz", content)
+        self.assertNotIn("path: /api/teams/messages\n            port: 3978", content)
+        self.assertIn("LITELLM_API_KEY", content)
 
     def test_hermes_native_config(self):
-        """Vérifie que Hermes utilise ~/.hermes/config.yaml et non les variables OPENAI_API_BASE obsolètes."""
+        """Vérifie que Hermes utilise ~/.hermes/config.yaml, démarre la gateway et désactive auto_approve_safe_commands."""
         hermes_path = os.path.join(self.manifests_dir, "06-hermes-agent.yaml")
         with open(hermes_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         self.assertIn("provider: custom", content)
         self.assertIn("base_url: http://litellm-proxy.arcia.svc:4000/v1", content)
+        self.assertIn("auto_approve_safe_commands: false", content)
+        self.assertIn("hermes gateway &", content)
+        self.assertIn("OPENAI_API_KEY", content)
         self.assertNotIn("OPENAI_API_BASE", content)
         self.assertNotIn("OPENAI_MODEL_NAME", content)
         self.assertNotIn("arcia_tokenmaxing.py", content)
@@ -82,6 +110,16 @@ class TestKubernetesManifests(unittest.TestCase):
             content = f.read()
         self.assertIn("kind: StatefulSet", content)
         self.assertIn("name: litellm-db", content)
+
+    def test_network_policy_manifest_present(self):
+        """Vérifie que les politiques d'isolation réseau NetworkPolicy sont déclarées."""
+        netpol_path = os.path.join(self.manifests_dir, "09-network-policy.yaml")
+        self.assertTrue(os.path.isfile(netpol_path))
+        with open(netpol_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("name: arcia-default-deny-all", content)
+        self.assertIn("name: arcia-litellm-policy", content)
+        self.assertIn("name: arcia-presidio-policy", content)
 
 
 if __name__ == "__main__":

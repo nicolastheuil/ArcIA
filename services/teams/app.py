@@ -20,16 +20,17 @@ logger = logging.getLogger("arcia-teams-bot")
 APP_ID = os.environ.get("MICROSOFT_APP_ID", "")
 APP_PASSWORD = os.environ.get("MICROSOFT_APP_PASSWORD", "")
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm-proxy.arcia.svc:4000/v1")
+LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
 
 SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD)
 ADAPTER = BotFrameworkAdapter(SETTINGS)
 
 async def call_litellm(user_message: str, user_name: str = "Collaborateur") -> str:
-    """Dispatches user prompt to LiteLLM auto model (protected by Presidio DLP)."""
+    """Dispatches user prompt to LiteLLM arcia/standard model (protected by Presidio DLP)."""
     try:
         async with aiohttp.ClientSession() as session:
             payload = {
-                "model": "auto",
+                "model": "arcia/standard",
                 "messages": [
                     {
                         "role": "system",
@@ -41,7 +42,12 @@ async def call_litellm(user_message: str, user_name: str = "Collaborateur") -> s
                     {"role": "user", "content": f"Message de {user_name}: {user_message}"}
                 ]
             }
-            async with session.post(f"{LITELLM_URL}/chat/completions", json=payload, timeout=aiohttp.ClientTimeout(total=45)) as resp:
+            headers = {"Content-Type": "application/json"}
+            if LITELLM_API_KEY:
+                headers["Authorization"] = f"Bearer {LITELLM_API_KEY}"
+            headers["X-OpenWebUI-User-Email"] = f"{user_name.lower().replace(' ', '.')}@teams.local"
+
+            async with session.post(f"{LITELLM_URL}/chat/completions", json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=45)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     return data["choices"][0]["message"]["content"]
@@ -59,20 +65,13 @@ async def on_turn(turn_context: TurnContext):
 
     if activity.type == ActivityTypes.message:
         text = activity.text or ""
-        # Strip bot mention tag if in channel
         clean_text = text.replace("@ArcIA", "").strip()
         user_name = activity.from_property.name if activity.from_property else "Collaborateur"
         
-        logger.info("Received message from %s: %s", user_name, clean_text)
-        
-        # Call LiteLLM inference
+        logger.info("Received message from %s (length: %d chars)", user_name, len(clean_text))
         reply_content = await call_litellm(clean_text, user_name)
         
-        # Send reply
-        reply = Activity(
-            type=ActivityTypes.message,
-            text=reply_content
-        )
+        reply = Activity(type=ActivityTypes.message, text=reply_content)
         await turn_context.send_activity(reply)
 
     elif activity.type == ActivityTypes.conversation_update:
@@ -103,10 +102,10 @@ async def messages(request: web.Request) -> web.Response:
         return web.Response(status=200)
     except Exception as e:
         logger.error("Exception in messages handler: %s", e)
-        return web.Response(status=500, text=str(e))
+        return web.Response(status=500, text="Internal Bot Framework Error")
 
 async def health(request: web.Request) -> web.Response:
-    return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.2.0"})
+    return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.3.0"})
 
 app = web.Application()
 app.router.add_post("/api/teams/messages", messages)

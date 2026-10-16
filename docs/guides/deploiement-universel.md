@@ -131,7 +131,7 @@ Le moteur universel de déploiement :
 Dès que le déploiement est terminé :
 1. Créez l'enregistrement DNS de type A pour votre FQDN pointant vers l'adresse IP publique de votre Ingress.
 2. Ouvrez votre navigateur sur :
-   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (Direct Connections désactivées pour conformité DLP).
+   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (Inscription publique verrouillée, accès restreint SSO O365 ou comptes locaux créés par l'administrateur, Direct Connections désactivées pour conformité DLP).
    - `https://<public_fqdn>/studio` : Dashboard Kanban multi-agents Hermes.
    - `https://<public_fqdn>/gateway` : Passerelle client lourd Hermes Desktop.
    - `https://<public_fqdn>/v1` : Endpoint d'inférence LiteLLM Proxy pour Power Users (N3).
