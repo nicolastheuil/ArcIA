@@ -262,8 +262,22 @@ def cmd_spawn(args):
     elif args.soul:
         soul_content = args.soul
 
-    pat = args.pat or generate_litellm_pat(args.email, team=args.team)
-    pwd = args.password or secrets.token_urlsafe(16)
+    existing_pwd = None
+    existing_pat = None
+    try:
+        proc_sec = run_kubectl(["get", "secret", f"hermes-user-{slug}-secret", "-n", ns, "-o", "json"])
+        if proc_sec.returncode == 0:
+            sec_data = json.loads(proc_sec.stdout).get("data", {})
+            import base64
+            if "studio-password" in sec_data:
+                existing_pwd = base64.b64decode(sec_data["studio-password"]).decode("utf-8")
+            if "litellm-pat" in sec_data:
+                existing_pat = base64.b64decode(sec_data["litellm-pat"]).decode("utf-8")
+    except Exception:
+        pass
+
+    pat = args.pat or existing_pat or generate_litellm_pat(args.email, team=args.team)
+    pwd = args.password or existing_pwd or secrets.token_urlsafe(16)
 
     manifest = render_manifest(
         user_email=args.email,
