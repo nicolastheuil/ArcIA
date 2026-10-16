@@ -8,6 +8,26 @@
   var BRAND_TITLE = 'ArcIA — Enterprise Agentic Platform';
   var BRAND_NAME = 'ArcIA';
 
+  function sanitizeTextNodes(root) {
+    if (!root) return;
+    try {
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+      var node;
+      while ((node = walker.nextNode())) {
+        var val = node.nodeValue;
+        if (val && (val.includes('Open WebUI') || val.includes('(Open WebUI)'))) {
+          node.nodeValue = val
+            .replace(/ArcIA\s*\(Open WebUI\)/gi, BRAND_NAME)
+            .replace(/\(Open WebUI\)/gi, '')
+            .replace(/Open WebUI/gi, BRAND_NAME)
+            .trim();
+        }
+      }
+    } catch (e) {
+      // Ignore walker errors
+    }
+  }
+
   function applyArcIABranding() {
     // 1. Maintain document title
     if (document.title.includes('Open WebUI') || document.title === 'ArcIA (Open WebUI)') {
@@ -38,7 +58,7 @@
       ) {
         if (img.src !== window.location.origin + '/static/logo.svg') {
           img.src = '/static/logo.svg';
-          img.style.maxHeight = '48px';
+          img.style.maxHeight = '42px';
           img.style.width = 'auto';
         }
       } else if (src.includes('favicon.png') || src.includes('favicon-96x96.png')) {
@@ -48,14 +68,14 @@
       }
     });
 
-    // 4. Clean up brand text in DOM nodes
-    var targets = document.querySelectorAll('h1, h2, span, a, div.text-2xl, div.font-semibold');
-    targets.forEach(function (el) {
-      if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
-        var text = el.textContent.trim();
-        if (text === 'Open WebUI' || text === 'ArcIA (Open WebUI)') {
-          el.textContent = BRAND_NAME;
-        }
+    // 4. Sanitize text across all text nodes (removes "(Open WebUI)" in sidebar, titles, buttons)
+    sanitizeTextNodes(document.body || document.documentElement);
+
+    // 5. Hide any update banner notification
+    document.querySelectorAll('a[href*="github.com/open-webui/open-webui/releases"]').forEach(function (el) {
+      var container = el.closest('div.fixed, div.toast, div[class*="bottom-"]');
+      if (container) {
+        container.style.display = 'none';
       }
     });
   }
