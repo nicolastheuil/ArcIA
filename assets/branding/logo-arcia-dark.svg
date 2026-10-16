@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200" fill="none">
+  <defs>
+    <linearGradient id="arciaSymbolGrad" x1="20" y1="180" x2="180" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0066FF" />
+      <stop offset="100%" stop-color="#00D2FF" />
+    </linearGradient>
+    <linearGradient id="arciaTextCyanGrad" x1="380" y1="45" x2="540" y2="145" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" />
+      <stop offset="100%" stop-color="#0066FF" />
+    </linearGradient>
+    <radialGradient id="arciaSymbolHalo" cx="100" cy="100" r="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#131B2E" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Symbol on the left (x=20..180, y=20..180) -->
+  <g id="arcia-symbol">
+    <rect x="20" y="20" width="160" height="160" rx="38" ry="38" fill="#131B2E" stroke="#1E293B" stroke-width="3" />
+    <circle cx="100" cy="100" r="68" fill="url(#arciaSymbolHalo)" />
+
+    <!-- Neural Mesh Lines -->
+    <g stroke="url(#arciaSymbolGrad)" stroke-width="2" stroke-linecap="round" opacity="0.45">
+      <line x1="100" y1="52" x2="100" y2="106" />
+      <line x1="74" y1="94" x2="100" y2="106" />
+      <line x1="126" y1="94" x2="100" y2="106" />
+    </g>
+
+    <!-- Stylized Arch -->
+    <path
+      d="M56 146 L85 64 C90 50 110 50 115 64 L144 146"
+      stroke="url(#arciaSymbolGrad)"
+      stroke-width="11"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Arch -->
+    <path
+      d="M73 138 C73 102 84 78 100 78 C116 78 127 102 127 138"
+      stroke="url(#arciaSymbolGrad)"
+      stroke-width="4"
+      stroke-linecap="round"
+      opacity="0.75"
+    />
+
+    <!-- Neural Crossbar -->
+    <path
+      d="M68 115 L100 104 L132 115"
+      stroke="url(#arciaSymbolGrad)"
+      stroke-width="6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Neural Nodes -->
+    <circle cx="100" cy="54" r="7.5" fill="#131B2E" stroke="#00D2FF" stroke-width="3" />
+    <circle cx="100" cy="54" r="3" fill="#F8FAFC" />
+
+    <circle cx="100" cy="104" r="8" fill="#131B2E" stroke="#00D2FF" stroke-width="3" />
+    <circle cx="100" cy="104" r="3.5" fill="#00D2FF" />
+
+    <circle cx="56" cy="146" r="6" fill="#131B2E" stroke="#0066FF" stroke-width="2.5" />
+    <circle cx="56" cy="146" r="2.5" fill="#00D2FF" />
+
+    <circle cx="144" cy="146" r="6" fill="#131B2E" stroke="#00D2FF" stroke-width="2.5" />
+    <circle cx="144" cy="146" r="2.5" fill="#F8FAFC" />
+  </g>
+
+  <!-- Typography on the right -->
+  <g id="arcia-wordmark">
+    <text
+      x="212"
+      y="124"
+      font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+      font-size="92"
+      font-weight="800"
+      letter-spacing="-2"
+    >
+      <tspan fill="#F8FAFC">Arc</tspan><tspan fill="url(#arciaTextCyanGrad)">IA</tspan>
+    </text>
+    <text
+      x="216"
+      y="158"
+      font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+      font-size="16"
+      font-weight="600"
+      letter-spacing="3.5"
+      fill="#F8FAFC"
+      opacity="0.72"
+    >ENTERPRISE AGENTIC PLATFORM</text>
+  </g>
+</svg>

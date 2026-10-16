@@ -169,15 +169,18 @@ Les secrets de production ont été restaurés depuis le coffre DPAPI local (`Ar
 
 ---
 
-## 6. Assistant Graphique Interactif (Setup Wizard), Dépôts d'Instance Privés & Restauration (16 octobre 2026)
+## 6. Assistant Graphique Interactif (Setup Wizard), Multi-Cibles d'Hébergement & Dépôts Privés (16 octobre 2026)
 
 Conformément à l'exigence de fluidification intégrale du parcours d'installation et de stricte séparation socle/instance :
 1. **Wizard Graphique Autonome (`scripts/wizard.py`, `./wizard.sh`, `.\wizard.ps1`)** :
    - Parcours complet écran-par-écran (11 étapes) :
      - *Étape 1* : Choix du mode (**Nouvelle Instance** ou **Restaurer une Instance existante**).
      - *Étape 2* : **Dépôt Git d'Instance Privé** (GitHub ou GitLab, test live de PAT, création automatique de `ArcIA-instance-XXXX`, mot de passe maître de chiffrement AES-256-GCM / PBKDF2).
-     - *Étape 3* : Cluster K8s (test interactif de connectivité `kubectl` ou SSH K3s).
-     - *Étape 4* : Réseau & TLS FQDN (`assistant.votre-entreprise.com`).
+     - *Étape 3* : **Cible & Infrastructure d'Hébergement** :
+       - **Option 1 — Nouveau cluster K3s sur VMware vSphere / ESXi** : Déploiement automatisé de machines virtuelles Debian (`scripts/Deploy-VMwareCluster.ps1`), test de connexion TLS direct et **dimensionnement interactif par tranche d'utilisateurs** (Pilote 20 users / 4 vCPU 8 Go, PME 100 users / 12 vCPU 48 Go HA etcd, Entreprise 500 users / 28 vCPU 112 Go, Grande Entreprise >500 users / 88+ vCPU 352+ Go avec vGPU).
+       - **Option 2 — Connexion à un environnement Kubernetes existant** : Connexion via contextes `kubeconfig` ou SSH distant, avec **audit de qualification exhaustif en 6 volets** (API Server >= 1.28, CPU/RAM allouables des nœuds, Ingress Traefik/NGINX, Cert-Manager CRD, StorageClass CSI dynamique, droits RBAC).
+       - **Option 3 — Déploiement local sur ce poste avec Docker (Mode Lab)** : Lancement instantané via Docker Compose (`docker-compose.lab.yml`, `deploy/litellm-lab.yaml`) sans cluster K8s, avec détection du daemon Docker et accès direct sur `http://localhost:3000`.
+     - *Étape 4* : Réseau & TLS FQDN (`assistant.votre-entreprise.com` ou port local `3000` en mode Lab).
      - *Étape 5* : Passerelle LLM Cloud & Local (OpenRouter, LiteLLM).
      - *Étape 6* : Hermes Studio & Desktop (génération automatique des PAT et mots de passe).
      - *Étape 7* : SSO Microsoft Entra ID (optionnel, avec guide pas-à-pas intégré).
@@ -192,7 +195,7 @@ Conformément à l'exigence de fluidification intégrale du parcours d'installat
 3. **État du Cluster Kubernetes** :
    - Cluster entièrement remis à blanc : namespace `arcia` détruit, 24 Persistent Volumes orphelins VMware CSI purgés, état prêt pour une installation fraîche 100% propre via le Wizard.
 4. **Vérification Complète** :
-   - 31 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_privacy.py`, `tests/test_deploy.py`, etc.).
+   - 36 tests unitaires validés avec succès (`tests/test_wizard.py`, `tests/test_privacy.py`, `tests/test_deploy.py`, etc.).
    - Validation documentaire stricte à 100% (`scripts/validate_docs.py`).
 
 ---

@@ -162,6 +162,89 @@ class TestArcIAWizard(unittest.TestCase):
         with self.assertRaises(ValueError):
             wizard.decrypt_instance_bundle(encrypted_bundle, "Wrong-Passphrase-999")
 
+    def test_vmware_sizing_tiers(self):
+        """Vérifie la définition des tranches de dimensionnement VMware vSphere."""
+        tiers = wizard.VMWARE_SIZING_TIERS
+        self.assertIn("20", tiers)
+        self.assertIn("100", tiers)
+        self.assertIn("500", tiers)
+        self.assertIn("1000", tiers)
+
+        # Vérifier que le profil 100 utilisateurs est HA et recommandé
+        tier_100 = tiers["100"]
+        self.assertTrue(tier_100["recommended"])
+        self.assertEqual(tier_100["nodes"], 3)
+        self.assertEqual(tier_100["total_vcpu"], 12)
+        self.assertEqual(tier_100["total_ram_gb"], 48)
+
+        # Vérifier le profil Pilote 20 utilisateurs
+        tier_20 = tiers["20"]
+        self.assertEqual(tier_20["nodes"], 1)
+        self.assertEqual(tier_20["total_vcpu"], 4)
+
+    def test_vmware_connection_validation_missing_host(self):
+        """Vérifie que le testeur VMware rejette les requêtes sans hôte."""
+        res = wizard.test_vmware_connection({})
+        self.assertFalse(res["success"])
+        self.assertIn("obligatoire", res["error"])
+
+    def test_get_docker_status(self):
+        """Vérifie la structure du statut Docker retourné par get_docker_status."""
+        st = wizard.get_docker_status()
+        self.assertIn("installed", st)
+        self.assertIn("running", st)
+        self.assertIn("message", st)
+
+    def test_audit_kubernetes_environment_full_mock(self):
+        """Vérifie que l'audit de qualification K8s évalue l'ensemble des 6 catégories requises."""
+        class MockRunner:
+            def run(self, cmd_args, stdin_input=None):
+                cmd = " ".join(cmd_args)
+                if "version" in cmd:
+                    return 0, '{"serverVersion": {"major": "1", "minor": "31", "gitVersion": "v1.31.1"}}', ""
+                elif "get nodes" in cmd:
+                    return 0, json.dumps({
+                        "items": [
+                            {"status": {"conditions": [{"type": "Ready", "status": "True"}], "allocatable": {"cpu": "4", "memory": "16Gi"}}},
+                            {"status": {"conditions": [{"type": "Ready", "status": "True"}], "allocatable": {"cpu": "4", "memory": "16Gi"}}},
+                            {"status": {"conditions": [{"type": "Ready", "status": "True"}], "allocatable": {"cpu": "4", "memory": "16Gi"}}}
+                        ]
+                    }), ""
+                elif "get ingressclass" in cmd:
+                    return 0, '{"items": [{"metadata": {"name": "traefik"}}]}', ""
+                elif "get crd" in cmd:
+                    return 0, "certificates.cert-manager.io\nclusterissuers.cert-manager.io", ""
+                elif "get storageclass" in cmd:
+                    return 0, '{"items": [{"metadata": {"name": "arcia-vsphere", "annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}]}', ""
+                elif "auth can-i" in cmd:
+                    return 0, "yes", ""
+                return 0, "", ""
+
+        mock = MockRunner()
+        res = wizard.audit_kubernetes_environment_full(mock)
+        self.assertTrue(res["success"])
+        self.assertTrue(res["all_valid"])
+        self.assertEqual(len(res["checks"]), 6)
+        check_ids = [c["id"] for c in res["checks"]]
+        self.assertIn("api_server", check_ids)
+        self.assertIn("nodes_capacity", check_ids)
+        self.assertIn("ingress_controller", check_ids)
+        self.assertIn("cert_manager", check_ids)
+        self.assertIn("storage_class", check_ids)
+        self.assertIn("rbac_admin", check_ids)
+
+    def test_html_page_contains_infrastructure_targets(self):
+        """Vérifie que la page HTML du Wizard contient les 3 cibles d'hébergement et le dimensionnement."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("target_card_vmware", html)
+        self.assertIn("target_card_k8s", html)
+        self.assertIn("target_card_docker", html)
+        self.assertIn("panel_infra_vmware", html)
+        self.assertIn("panel_infra_docker", html)
+        self.assertIn("panel_infra_k8s", html)
+        self.assertIn("tier_card_100", html)
+        self.assertIn("testK8sQualificationFull", html)
+
 
 if __name__ == "__main__":
     unittest.main()

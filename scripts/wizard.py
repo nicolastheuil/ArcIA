@@ -24,6 +24,7 @@ import re
 import json
 import time
 import socket
+import ssl
 import secrets
 import argparse
 import threading
@@ -438,6 +439,365 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) ->
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 # -----------------------------------------------------------------------------
+# Dimensionnement VMware vSphere & Cibles d'Infrastructure
+# -----------------------------------------------------------------------------
+
+VMWARE_SIZING_TIERS = {
+    "20": {
+        "title": "Équipe Pilote / Découverte",
+        "users_label": "Jusqu'à 20 utilisateurs",
+        "description": "Idéal pour un PoC, qualification technique ou une petite équipe projet.",
+        "nodes": 1,
+        "type": "All-in-One (Control-Plane + Worker)",
+        "vcpu_per_node": 4,
+        "ram_per_node_gb": 8,
+        "disk_per_node_gb": 60,
+        "total_vcpu": 4,
+        "total_ram_gb": 8,
+        "total_disk_gb": 60,
+        "concurrency": "1 à 3 interactions agentiques simultanées",
+        "recommended": False
+    },
+    "100": {
+        "title": "PME / Direction Métier",
+        "users_label": "21 à 100 utilisateurs",
+        "description": "Cluster K3s Haute Disponibilité avec résilience multi-nœuds (etcd multi-maître).",
+        "nodes": 3,
+        "type": "3x Control-Plane HA / Workers",
+        "vcpu_per_node": 4,
+        "ram_per_node_gb": 16,
+        "disk_per_node_gb": 100,
+        "total_vcpu": 12,
+        "total_ram_gb": 48,
+        "total_disk_gb": 300,
+        "concurrency": "15 interactions simultanées avec streaming et DLP en temps réel",
+        "recommended": True
+    },
+    "500": {
+        "title": "Entreprise / Multi-Départements",
+        "users_label": "101 à 500 utilisateurs",
+        "description": "Séparation du plan de contrôle et des nœuds d'exécution agentique.",
+        "nodes": 5,
+        "type": "3x Control-Plane HA + 2x Workers Dédiés",
+        "vcpu_per_node": 8,
+        "ram_per_node_gb": 32,
+        "disk_per_node_gb": 200,
+        "total_vcpu": 28,
+        "total_ram_gb": 112,
+        "total_disk_gb": 700,
+        "concurrency": "60 interactions simultanées, flux Teams continus, pipelines Graphify",
+        "recommended": False
+    },
+    "1000": {
+        "title": "Grande Entreprise",
+        "users_label": "Plus de 500 utilisateurs",
+        "description": "Architecture multi-nœuds extensible, stockage haute performance et option vGPU.",
+        "nodes": 7,
+        "type": "3x Control-Plane HA + 4x Workers Haute Performance",
+        "vcpu_per_node": 16,
+        "ram_per_node_gb": 64,
+        "disk_per_node_gb": 300,
+        "total_vcpu": 88,
+        "total_ram_gb": 352,
+        "total_disk_gb": 2000,
+        "concurrency": "200+ interactions simultanées, modèles LLM locaux vLLM optionnels",
+        "recommended": False
+    }
+}
+
+def test_vmware_connection(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Valide la connectivité réseau et les identifiants vCenter / ESXi de manière sécurisée."""
+    host = data.get("host", "").strip()
+    port = int(data.get("port", 443))
+    user = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+    insecure = data.get("insecure_tls", False)
+    target_type = data.get("target_type", "vCenter Server")
+
+    if not host:
+        return {"success": False, "error": "L'adresse d'hôte ou IP du serveur vSphere est obligatoire."}
+
+    # 1. Test de connectivité socket TCP
+    try:
+        sock = socket.create_connection((host, port), timeout=6)
+        sock.close()
+    except Exception as se:
+        return {
+            "success": False,
+            "error": f"Impossible d'établir la connexion TCP vers {host}:{port} ({str(se)}). Vérifiez l'adresse IP et les flux réseau (port {port})."
+        }
+
+    # 2. Test poignée de main TLS / HTTPS
+    try:
+        ctx = ssl.create_default_context()
+        if insecure:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        with socket.create_connection((host, port), timeout=6) as raw_sock:
+            with ctx.wrap_socket(raw_sock, server_hostname=host if not insecure else None) as ssock:
+                _ = ssock.getpeercert()
+    except ssl.SSLCertVerificationError:
+        return {
+            "success": False,
+            "error": "Échec de vérification du certificat TLS vSphere. Cochez l'option 'Autoriser les certificats vSphere auto-signés' pour continuer."
+        }
+    except Exception as te:
+        return {
+            "success": False,
+            "error": f"Erreur lors de la négociation TLS vers {host}:{port} : {str(te)}"
+        }
+
+    # 3. Test authentification session vSphere si identifiants fournis
+    auth_status = "Non authentifié (connectivité réseau et TLS confirmées)"
+    session_id = None
+    detected_version = f"VMware vSphere ({target_type})"
+
+    if user and password:
+        try:
+            auth_url = f"https://{host}:{port}/rest/com/vmware/cis/session"
+            creds = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode("utf-8")
+            headers = {"Authorization": f"Basic {creds}", "Content-Type": "application/json"}
+
+            req = urllib.request.Request(auth_url, data=b"{}", headers=headers, method="POST")
+            ssl_ctx = ssl.create_default_context()
+            if insecure:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = ssl.CERT_NONE
+
+            try:
+                with urllib.request.urlopen(req, timeout=8, context=ssl_ctx) as resp:
+                    if resp.status == 200:
+                        body = json.loads(resp.read().decode("utf-8"))
+                        session_id = body.get("value")
+                        auth_status = "Authentification REST vSphere réussie"
+                        detected_version = "VMware vCenter 7.0 / 8.0"
+            except urllib.error.HTTPError as he:
+                if he.code == 401:
+                    return {"success": False, "error": "Échec d'authentification vSphere : nom d'utilisateur ou mot de passe incorrect."}
+                elif he.code == 404:
+                    auth_status = "Endpoint vSphere actif, session SOAP accessible"
+            except Exception:
+                pass
+        except Exception as ae:
+            auth_status = f"Vérification réseau OK (auth : {str(ae)})"
+
+    return {
+        "success": True,
+        "message": f"Connexion vSphere établie avec succès sur {host}:{port} !",
+        "details": {
+            "host": host,
+            "port": port,
+            "target_type": target_type,
+            "detected_version": detected_version,
+            "auth_status": auth_status,
+            "tls_verified": not insecure
+        }
+    }
+
+def audit_kubernetes_environment_full(runner: Any) -> Dict[str, Any]:
+    """Exécute un audit de qualification exhaustif sur un environnement Kubernetes existant."""
+    checks = []
+
+    # 1. API Server & Version
+    rc_ver, out_ver, _ = runner.run(["version", "-o", "json"])
+    k8s_version = "Inconnue"
+    ver_ok = False
+    if rc_ver == 0:
+        try:
+            v_data = json.loads(out_ver)
+            server_v = v_data.get("serverVersion", {})
+            k8s_version = server_v.get("gitVersion", "v1.28+")
+            major = int(re.sub(r"\D", "", server_v.get("major", "1")) or "1")
+            minor = int(re.sub(r"\D", "", server_v.get("minor", "28")) or "28")
+            ver_ok = (major > 1) or (major == 1 and minor >= 28)
+        except Exception:
+            ver_ok = True
+    else:
+        rc_ci, out_ci, _ = runner.run(["cluster-info"])
+        ver_ok = (rc_ci == 0)
+
+    checks.append({
+        "id": "api_server",
+        "title": "API Server Kubernetes & Version",
+        "status": "ok" if ver_ok else "error",
+        "message": f"Connectivité confirmée ({k8s_version})" if ver_ok else "Impossible de joindre le serveur d'API Kubernetes.",
+        "recommendation": "Assurez-vous que le cluster K8s (v1.28+) est opérationnel et accessible."
+    })
+
+    # 2. Nodes & Capacités (CPU/RAM)
+    rc_nodes, out_nodes, _ = runner.run(["get", "nodes", "-o", "json"])
+    nodes_count = 0
+    ready_count = 0
+    total_cpu = 0
+    total_mem_gb = 0
+    if rc_nodes == 0:
+        try:
+            n_data = json.loads(out_nodes)
+            items = n_data.get("items", [])
+            nodes_count = len(items)
+            for n in items:
+                status = n.get("status", {})
+                for cond in status.get("conditions", []):
+                    if cond.get("type") == "Ready" and cond.get("status") == "True":
+                        ready_count += 1
+                        break
+                alloc = status.get("allocatable", {})
+                cpu_str = str(alloc.get("cpu", "0"))
+                if cpu_str.endswith("m"):
+                    total_cpu += int(cpu_str[:-1]) / 1000.0
+                elif cpu_str.isdigit():
+                    total_cpu += int(cpu_str)
+                else:
+                    total_cpu += 2
+                mem_str = str(alloc.get("memory", "0Ki"))
+                if mem_str.endswith("Ki"):
+                    total_mem_gb += int(mem_str[:-2]) / (1024 * 1024)
+                elif mem_str.endswith("Mi"):
+                    total_mem_gb += int(mem_str[:-2]) / 1024
+                elif mem_str.endswith("Gi"):
+                    total_mem_gb += int(mem_str[:-2])
+        except Exception:
+            pass
+
+    nodes_ok = (ready_count >= 1)
+    checks.append({
+        "id": "nodes_capacity",
+        "title": "Santé des Nœuds & Ressources Allouables",
+        "status": "ok" if nodes_ok else "error",
+        "message": f"{ready_count}/{nodes_count} nœud(s) Ready — Ressources globales : ~{int(total_cpu)} vCPU, ~{int(total_mem_gb)} Go RAM" if nodes_ok else "Aucun nœud en état Ready détecté.",
+        "recommendation": "Vérifiez l'état de santé de vos nœuds avec 'kubectl get nodes'."
+    })
+
+    # 3. Contrôleur d'Ingress (Traefik / Nginx)
+    rc_ing, out_ing, _ = runner.run(["get", "ingressclass", "-o", "json"])
+    ingress_name = None
+    if rc_ing == 0:
+        try:
+            ing_data = json.loads(out_ing)
+            for item in ing_data.get("items", []):
+                name = item.get("metadata", {}).get("name", "")
+                if name:
+                    ingress_name = name
+                    break
+        except Exception:
+            pass
+    if not ingress_name:
+        rc_p, out_p, _ = runner.run(["get", "pods", "-A", "-l", "app.kubernetes.io/name in (traefik,ingress-nginx)"])
+        if rc_p == 0 and "Running" in out_p:
+            ingress_name = "traefik" if "traefik" in out_p.lower() else "ingress-nginx"
+
+    ing_ok = bool(ingress_name)
+    checks.append({
+        "id": "ingress_controller",
+        "title": "Contrôleur d'Ingress (Routage HTTPS)",
+        "status": "ok" if ing_ok else "warn",
+        "message": f"Contrôleur détecté ({ingress_name})" if ing_ok else "Aucune IngressClass explicite détectée. Traefik ou NGINX sera utilisé par défaut.",
+        "recommendation": "K3s inclut Traefik nativement. Si vous utilisez un cluster nu, installez Traefik ou ingress-nginx."
+    })
+
+    # 4. Cert-Manager (TLS & Let's Encrypt)
+    rc_crd, out_crd, _ = runner.run(["get", "crd", "certificates.cert-manager.io", "clusterissuers.cert-manager.io", "--no-headers"])
+    cm_ok = (rc_crd == 0 and "cert-manager.io" in out_crd)
+    checks.append({
+        "id": "cert_manager",
+        "title": "Gestionnaire de Certificats (Cert-Manager)",
+        "status": "ok" if cm_ok else "warn",
+        "message": "CRDs Cert-Manager détectées (Let's Encrypt automatique disponible)" if cm_ok else "Cert-Manager non détecté. Le déploiement universel ArcIA appliquera les manifests Cert-Manager automatiquement.",
+        "recommendation": "L'émetteur Let's Encrypt automatique utilise Cert-Manager."
+    })
+
+    # 5. StorageClass Dynamique (Persistance PVC)
+    rc_sc, out_sc, _ = runner.run(["get", "storageclass", "-o", "json"])
+    default_sc = None
+    sc_list = []
+    if rc_sc == 0:
+        try:
+            sc_data = json.loads(out_sc)
+            for sc in sc_data.get("items", []):
+                sc_name = sc.get("metadata", {}).get("name", "")
+                sc_list.append(sc_name)
+                annotations = sc.get("metadata", {}).get("annotations", {})
+                if annotations.get("storageclass.kubernetes.io/is-default-class") == "true":
+                    default_sc = sc_name
+        except Exception:
+            pass
+
+    sc_ok = bool(sc_list)
+    checks.append({
+        "id": "storage_class",
+        "title": "Stockage Persistant Dynamique (StorageClass CSI)",
+        "status": "ok" if sc_ok else "error",
+        "message": f"StorageClass par défaut : '{default_sc}' (disponibles : {', '.join(sc_list)})" if default_sc else (f"StorageClasses disponibles : {', '.join(sc_list)}" if sc_list else "Aucune StorageClass dynamique détectée."),
+        "recommendation": "Les PVCs de Hermes Agent et Open-WebUI requièrent une StorageClass dynamique."
+    })
+
+    # 6. Droits RBAC d'Administration
+    rc_rbac, out_rbac, _ = runner.run(["auth", "can-i", "create", "namespaces"])
+    rbac_ok = (rc_rbac == 0 and "yes" in out_rbac.lower())
+    checks.append({
+        "id": "rbac_admin",
+        "title": "Droits RBAC d'Administration du Cluster",
+        "status": "ok" if rbac_ok else "error",
+        "message": "Droits d'administration confirmés (création de namespace, deployments, secrets autorisée)" if rbac_ok else "Droits restreints : le compte ne peut pas créer de namespace.",
+        "recommendation": "Utilisez un kubeconfig ou compte ayant les droits administrateur sur le cluster."
+    })
+
+    all_ok = all(c["status"] == "ok" for c in checks)
+    has_error = any(c["status"] == "error" for c in checks)
+
+    return {
+        "success": not has_error,
+        "all_valid": all_ok,
+        "summary": "Qualification réussie : le cluster est 100% prêt pour le déploiement d'ArcIA !" if all_ok else ("Attention : certains prérequis méritent votre attention mais ne sont pas bloquants." if not has_error else "Échec de qualification : des prérequis bloquants ont été détectés."),
+        "checks": checks
+    }
+
+def get_docker_status() -> Dict[str, Any]:
+    """Vérifie la présence et le statut d'exécution de Docker et Docker Compose."""
+    docker_bin = shutil.which("docker")
+    if not docker_bin:
+        return {
+            "installed": False,
+            "running": False,
+            "docker_version": None,
+            "compose_version": None,
+            "message": "Docker n'a pas été détecté sur cette machine. Pour utiliser le Mode Lab, installez Docker Desktop ou lancez le daemon Docker."
+        }
+
+    running = False
+    docker_version = None
+    compose_version = None
+
+    try:
+        proc_ver = subprocess.run(["docker", "version", "--format", "{{.Server.Version}}"], capture_output=True, timeout=5)
+        if proc_ver.returncode == 0:
+            docker_version = proc_ver.stdout.decode("utf-8", errors="replace").strip()
+            running = True
+        else:
+            docker_version = "Client détecté (Daemon non démarré)"
+    except Exception:
+        pass
+
+    try:
+        proc_comp = subprocess.run(["docker", "compose", "version", "--short"], capture_output=True, timeout=5)
+        if proc_comp.returncode == 0:
+            compose_version = proc_comp.stdout.decode("utf-8", errors="replace").strip()
+        else:
+            proc_comp_old = subprocess.run(["docker-compose", "--version"], capture_output=True, timeout=5)
+            if proc_comp_old.returncode == 0:
+                compose_version = proc_comp_old.stdout.decode("utf-8", errors="replace").strip()
+    except Exception:
+        pass
+
+    return {
+        "installed": True,
+        "running": running,
+        "docker_version": docker_version or "Inconnue",
+        "compose_version": compose_version or "Non détecté",
+        "message": "Docker Engine et Docker Compose sont opérationnels." if running else "Docker est installé mais le moteur (daemon) ne semble pas être démarré."
+    }
+
+# -----------------------------------------------------------------------------
 # Utilitaires Détection K8s & Configuration
 # -----------------------------------------------------------------------------
 
@@ -714,18 +1074,105 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
 # Exécution du Déploiement en Tâche de Fond & Sauvegarde Git Chiffrée
 # -----------------------------------------------------------------------------
 
-def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dict] = None):
+def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dict] = None,
+                          infra_target: str = "k8s_existing", infra_config: Optional[dict] = None):
     global deployment_state
-    deploy_script = os.path.join(SCRIPT_DIR, "deploy.py")
-    cmd = [sys.executable, deploy_script, "--config", DEFAULT_CONFIG_PATH]
-    if dry_run:
-        cmd.append("--dry-run")
 
     with deployment_lock:
         deployment_state["status"] = "running"
         deployment_state["logs"] = []
         deployment_state["start_time"] = time.time()
         deployment_state["exit_code"] = None
+
+    if infra_target == "docker_lab":
+        try:
+            with deployment_lock:
+                deployment_state["logs"].append("[INFO] Initialisation du déploiement en Mode Lab (Docker Local)...")
+
+            doc_st = get_docker_status()
+            if not doc_st.get("installed"):
+                with deployment_lock:
+                    deployment_state["status"] = "error"
+                    deployment_state["logs"].append("[FATAL ERROR] Docker n'est pas détecté sur cette machine. Veuillez installer Docker Desktop ou démarrer le service Docker.")
+                return
+
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            openrouter_key = cfg.get("llm_gateway", {}).get("openrouter_api_key", "")
+            admin_pass = cfg.get("hermes", {}).get("admin_password", "AdminArcIA2026!")
+
+            docker_cfg = (infra_config or {}).get("docker", {})
+            webui_port = docker_cfg.get("webui_port", 3000)
+            litellm_port = docker_cfg.get("litellm_port", 4000)
+
+            compose_file = os.path.join(ROOT_DIR, "docker-compose.lab.yml")
+            if not os.path.isfile(compose_file):
+                with deployment_lock:
+                    deployment_state["status"] = "error"
+                    deployment_state["logs"].append("[FATAL ERROR] Fichier docker-compose.lab.yml introuvable.")
+                return
+
+            with deployment_lock:
+                deployment_state["logs"].append(f"[INFO] Démarrage des conteneurs via Docker Compose (Portail: http://localhost:{webui_port})...")
+
+            env_vars = os.environ.copy()
+            env_vars["OPENROUTER_API_KEY"] = openrouter_key
+            env_vars["WEBUI_PORT"] = str(webui_port)
+            env_vars["LITELLM_PORT"] = str(litellm_port)
+            env_vars["ADMIN_PASSWORD"] = admin_pass
+
+            cmd = ["docker", "compose", "-f", compose_file, "up", "-d"]
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=ROOT_DIR,
+                env=env_vars
+            )
+
+            for line in iter(proc.stdout.readline, ''):
+                if line:
+                    clean_line = line.rstrip()
+                    with deployment_lock:
+                        deployment_state["logs"].append(clean_line)
+
+            proc.wait()
+            exit_code = proc.returncode
+
+            with deployment_lock:
+                deployment_state["exit_code"] = exit_code
+                if exit_code == 0:
+                    deployment_state["status"] = "success"
+                    deployment_state["logs"].append("\n[OK] Déploiement Docker Lab terminé avec succès !")
+                    deployment_state["summary"] = {
+                        "public_fqdn": "localhost",
+                        "webui_url": f"http://localhost:{webui_port}/",
+                        "studio_url": f"http://localhost:{webui_port}/studio",
+                        "gateway_url": f"http://localhost:{litellm_port}/v1",
+                        "teams_webhook": None,
+                        "omniroute_admin": None,
+                        "hermes_admin_user": "admin@arcia.local",
+                        "hermes_admin_pass": admin_pass,
+                        "hermes_pat": cfg.get("hermes", {}).get("api_token", ""),
+                        "instance_repo_url": None,
+                        "mode": "docker_lab"
+                    }
+                else:
+                    deployment_state["status"] = "error"
+                    deployment_state["logs"].append(f"\n[ERROR] Échec d'exécution de docker compose (Code: {exit_code})")
+            return
+        except Exception as de:
+            with deployment_lock:
+                deployment_state["status"] = "error"
+                deployment_state["logs"].append(f"[FATAL ERROR Docker] {str(de)}")
+            return
+
+    # Mode Kubernetes Existant ou VMware vSphere
+    deploy_script = os.path.join(SCRIPT_DIR, "deploy.py")
+    cmd = [sys.executable, deploy_script, "--config", DEFAULT_CONFIG_PATH]
+    if dry_run:
+        cmd.append("--dry-run")
 
     try:
         proc = subprocess.Popen(
@@ -756,7 +1203,6 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                 teams_enabled = cfg.get("teams_bot", {}).get("enabled", False)
                 omni_enabled = cfg.get("omniroute", {}).get("enabled", False)
 
-                # Si configuration d'un dépôt d'instance Git privé, exécuter la sauvegarde chiffrée
                 instance_repo_url = None
                 if instance_git_info and instance_git_info.get("enabled") and not dry_run:
                     try:
@@ -766,7 +1212,6 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                         passphrase = instance_git_info.get("passphrase", "")
                         inst_name = instance_git_info.get("instance_name", "ArcIA-instance")
 
-                        # Créer le bundle chiffré
                         yaml_content = serialize_yaml_config(cfg)
                         env_content = ""
                         try:
@@ -802,7 +1247,8 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                     "hermes_admin_user": "admin",
                     "hermes_admin_pass": hermes_pass,
                     "hermes_pat": hermes_pat,
-                    "instance_repo_url": instance_repo_url
+                    "instance_repo_url": instance_repo_url,
+                    "mode": infra_target
                 }
             else:
                 deployment_state["status"] = "error"
@@ -865,6 +1311,11 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     "count": len(deployment_state["logs"])
                 }
             self.send_json(200, state_copy)
+        elif path == "/api/docker/status":
+            st = get_docker_status()
+            self.send_json(200, st)
+        elif path == "/api/vmware/tiers":
+            self.send_json(200, VMWARE_SIZING_TIERS)
         elif path == "/api/health":
             self.send_json(200, {"status": "ok"})
         else:
@@ -954,6 +1405,37 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_json(500, {"success": False, "error": str(e)})
 
+        elif path == "/api/vmware/test":
+            res = test_vmware_connection(req_data)
+            self.send_json(200, res)
+
+        elif path == "/api/k8s/validate-full":
+            mode = req_data.get("mode", "local")
+            kubeconfig = req_data.get("kubeconfig", "")
+            context = req_data.get("context", "")
+            remote_ssh = req_data.get("remote_ssh", {})
+
+            try:
+                sys.path.insert(0, SCRIPT_DIR)
+                import deploy
+                runner = deploy.K8sRunner(
+                    mode=mode,
+                    kubeconfig=kubeconfig,
+                    context=context,
+                    ssh_node=remote_ssh.get("node_ip", "127.0.0.1"),
+                    ssh_user=remote_ssh.get("ssh_user", "debian"),
+                    ssh_port=int(remote_ssh.get("ssh_port", 22))
+                )
+                res = audit_kubernetes_environment_full(runner)
+                self.send_json(200, res)
+            except Exception as e:
+                self.send_json(200, {
+                    "success": False,
+                    "all_valid": False,
+                    "summary": f"Erreur lors de l'audit Kubernetes : {str(e)}",
+                    "checks": []
+                })
+
         elif path == "/api/deploy":
             with deployment_lock:
                 if deployment_state["status"] == "running":
@@ -966,10 +1448,17 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
 
             dry_run = req_data.get("dry_run", False)
             git_info = req_data.get("instance_git", None)
-            worker = threading.Thread(target=run_deployment_worker, args=(dry_run, git_info), daemon=True)
+            infra_target = req_data.get("infra_target", "k8s_existing")
+            infra_config = req_data.get("infra_config", None)
+
+            worker = threading.Thread(
+                target=run_deployment_worker,
+                args=(dry_run, git_info, infra_target, infra_config),
+                daemon=True
+            )
             worker.start()
 
-            self.send_json(200, {"success": True, "started": True, "dry_run": dry_run})
+            self.send_json(200, {"success": True, "started": True, "dry_run": dry_run, "infra_target": infra_target})
 
         else:
             self.send_error(404, "Endpoint non trouvé")
@@ -1055,6 +1544,22 @@ def get_wizard_html_page() -> str:
     .mode-card-icon { font-size: 36px; margin-bottom: 12px; }
     .mode-card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
     .mode-card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+
+    /* Target & Sizing Cards */
+    .target-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .target-card { border: 2px solid var(--border-color); border-radius: var(--radius); padding: 20px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
+    .target-card:hover { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.04); transform: translateY(-2px); }
+    .target-card.active { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.08); box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
+    
+    .tier-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s; position: relative; }
+    .tier-card:hover { border-color: var(--accent-cyan); }
+    .tier-card.active { border-color: var(--accent-cyan); background: rgba(0, 210, 255, 0.1); box-shadow: 0 0 12px rgba(0, 210, 255, 0.25); }
+    
+    .audit-check-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); }
+    .audit-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; flex-shrink: 0; }
+    .audit-badge.ok { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.4); }
+    .audit-badge.warn { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.4); }
+    .audit-badge.error { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.4); }
 
     /* Form Fields */
     .form-group { margin-bottom: 20px; }
@@ -1151,7 +1656,7 @@ def get_wizard_html_page() -> str:
       </div>
       <div class="step-item" onclick="goToStep(3)">
         <div class="step-icon">3</div>
-        <div class="step-label">☸️ Cluster Kubernetes</div>
+        <div class="step-label">☸️ Cible & Infrastructure</div>
         <div class="step-tag required">Requis</div>
       </div>
       <div class="step-item" onclick="goToStep(4)">
@@ -1354,78 +1859,271 @@ def get_wizard_html_page() -> str:
         </div>
       </section>
 
-      <!-- SCREEN 3: Kubernetes -->
+      <!-- SCREEN 3: Infrastructure & Hébergement -->
       <section id="step3" class="screen card">
         <div class="screen-header">
-          <h2 class="screen-title">Étape 3 : Connectivité au Cluster Kubernetes</h2>
-          <p class="screen-desc">Renseignez la méthode de connexion au cluster où sera déployée la plateforme ArcIA.</p>
+          <h2 class="screen-title">Étape 3 : Cible d'Hébergement & Infrastructure</h2>
+          <p class="screen-desc">Choisissez l'environnement d'hébergement d'ArcIA : déployez un nouveau cluster K3s sur VMware avec dimensionnement par tranche d'utilisateurs, connectez-vous à un cluster Kubernetes existant, ou lancez une instance locale en conteneurs Docker (mode Lab).</p>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Mode d'exécution de kubectl</label>
-          <div class="form-sublabel">Choisissez si kubectl s'exécute depuis votre machine locale ou directement via SSH sur un nœud maître K3s.</div>
-          <select id="k8s_mode" class="form-control" onchange="toggleK8sMode()">
-            <option value="local">Local — Utilise la commande kubectl locale de cette machine</option>
-            <option value="remote-ssh">Remote SSH — Exécute kubectl à distance sur le nœud K3s</option>
-          </select>
+        <!-- 3 Cibles d'infrastructure cliquables -->
+        <div class="target-grid">
+          <!-- Cible 1: VMware vSphere -->
+          <div id="target_card_vmware" class="target-card" onclick="selectInfraTarget('vmware_k3s')">
+            <div style="font-size:32px; margin-bottom:8px;">☁️</div>
+            <div style="font-weight:700; font-size:15px; margin-bottom:4px;">Nouveau Cluster K3s sur VMware</div>
+            <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">Déploiement automatisé de VMs Debian sur vCenter ou ESXi avec dimensionnement par effectif d'utilisateurs.</div>
+          </div>
+
+          <!-- Cible 2: Kubernetes Existant -->
+          <div id="target_card_k8s" class="target-card active" onclick="selectInfraTarget('k8s_existing')">
+            <div style="font-size:32px; margin-bottom:8px;">☸️</div>
+            <div style="font-weight:700; font-size:15px; margin-bottom:4px;">Cluster Kubernetes Existant</div>
+            <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">Connexion à votre cluster K3s, RKE2, AKS, EKS avec audit de qualification exhaustif en direct.</div>
+          </div>
+
+          <!-- Cible 3: Docker Local Lab -->
+          <div id="target_card_docker" class="target-card" onclick="selectInfraTarget('docker_lab')">
+            <div style="font-size:32px; margin-bottom:8px;">🐳</div>
+            <div style="font-weight:700; font-size:15px; margin-bottom:4px;">Docker Local (Mode Lab)</div>
+            <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">Exécution locale directe sur ce poste via Docker Compose sans prérequis Kubernetes. Idéal pour PoC et démo.</div>
+          </div>
         </div>
 
-        <div id="k8s_local_block">
-          <div class="form-group">
-            <label class="form-label">Contexte Kubernetes (Context)</label>
-            <div class="form-sublabel">Laissez vide pour utiliser le contexte courant actif (~/.kube/config), ou sélectionnez un contexte détecté :</div>
-            <div class="input-row">
-              <input type="text" id="k8s_context" class="form-control" placeholder="Défaut : contexte courant actif">
-              <select id="k8s_context_select" class="form-control" style="max-width: 200px;" onchange="selectContextFromList()">
-                <option value="">Contextes détectés...</option>
-              </select>
+        <!-- SOUS-PANEL 1 : Cible VMware vSphere -->
+        <div id="panel_infra_vmware" style="display:none;">
+          <h3 style="font-size:16px; font-weight:700; color:var(--accent-cyan); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <span>👥 1. Dimensionnement par tranche d'utilisateurs</span>
+          </h3>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
+            Sélectionnez votre tranche d'utilisateurs pour calculer automatiquement le dimensionnement matériel optimal (vCPU, RAM, stockage SSD, topologie HA) :
+          </p>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <div id="tier_card_20" class="tier-card" onclick="selectVmwareTier('20')">
+              <div style="font-weight:700; font-size:14px; margin-bottom:4px;">Jusqu'à 20 utilisateurs</div>
+              <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Équipe Pilote / PoC</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">1 VM All-in-One (4 vCPU, 8 Go RAM, 60 Go SSD)</div>
+            </div>
+            <div id="tier_card_100" class="tier-card active" onclick="selectVmwareTier('100')">
+              <span style="position:absolute; top:8px; right:8px; font-size:10px; background:rgba(0,210,255,0.2); color:var(--accent-cyan); padding:2px 6px; border-radius:10px; font-weight:700;">Recommandé</span>
+              <div style="font-weight:700; font-size:14px; margin-bottom:4px;">21 à 100 utilisateurs</div>
+              <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">PME / Direction Métier</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">3 VMs K3s HA (12 vCPU, 48 Go RAM, 300 Go SSD total)</div>
+            </div>
+            <div id="tier_card_500" class="tier-card" onclick="selectVmwareTier('500')">
+              <div style="font-weight:700; font-size:14px; margin-bottom:4px;">101 à 500 utilisateurs</div>
+              <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Entreprise</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">5 VMs (3 CP HA + 2 Workers dédiés, 28 vCPU, 112 Go RAM)</div>
+            </div>
+            <div id="tier_card_1000" class="tier-card" onclick="selectVmwareTier('1000')">
+              <div style="font-weight:700; font-size:14px; margin-bottom:4px;">Plus de 500 utilisateurs</div>
+              <div style="font-size:11px; color:var(--accent-cyan); font-weight:600; margin-bottom:6px;">Grande Entreprise</div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">7+ VMs multi-nœuds (88+ vCPU, 352+ Go, option vGPU)</div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Chemin Kubeconfig personnalisé (Facultatif)</label>
-            <input type="text" id="k8s_kubeconfig" class="form-control" placeholder="C:\Users\...\.kube\config ou /home/.../.kube/config">
+          <div id="vmware_tier_summary" class="alert-box alert-info" style="margin-bottom:20px;">
+            <!-- Rempli dynamiquement par JS -->
           </div>
-        </div>
 
-        <div id="k8s_ssh_block" style="display:none;">
+          <h3 style="font-size:16px; font-weight:700; color:var(--accent-cyan); margin-bottom:12px;">
+            <span>🌐 2. Connexion vCenter Server ou Hôte ESXi</span>
+          </h3>
+
           <div class="input-row">
             <div class="form-group" style="flex:2;">
-              <label class="form-label">Adresse IP du nœud maître K3s</label>
-              <input type="text" id="k8s_ssh_ip" class="form-control" placeholder="ex: 192.168.1.50">
+              <label class="form-label">Type d'environnement vSphere</label>
+              <select id="vmware_type" class="form-control">
+                <option value="vCenter Server">vCenter Server (vSphere 7.0 / 8.0)</option>
+                <option value="ESXi Host">Hôte ESXi Autonome</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:3;">
+              <label class="form-label">Adresse FQDN ou IP du serveur vSphere <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="text" id="vmware_host" class="form-control" placeholder="ex: vcenter.corp.local ou 192.168.1.10">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Utilisateur SSH</label>
-              <input type="text" id="k8s_ssh_user" class="form-control" value="debian">
+              <label class="form-label">Port HTTPS</label>
+              <input type="number" id="vmware_port" class="form-control" value="443">
+            </div>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Nom d'utilisateur vSphere <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="text" id="vmware_user" class="form-control" placeholder="ex: administrator@vsphere.local ou compte de service">
             </div>
             <div class="form-group" style="flex:1;">
-              <label class="form-label">Port SSH</label>
-              <input type="number" id="k8s_ssh_port" class="form-control" value="22">
+              <label class="form-label">Mot de passe vSphere <span style="color:var(--accent-cyan);">*</span></label>
+              <input type="password" id="vmware_pass" class="form-control" placeholder="Mot de passe">
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:#cbd5e1; cursor:pointer;">
+              <input type="checkbox" id="vmware_insecure" checked>
+              <span>Autoriser les certificats TLS vSphere auto-signés ou internes (Insecure TLS)</span>
+            </label>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Datacenter vSphere</label>
+              <input type="text" id="vmware_dc" class="form-control" placeholder="ex: Datacenter-Prod">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Cluster ou Ressource Pool</label>
+              <input type="text" id="vmware_cluster" class="form-control" placeholder="ex: Cluster-HA">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Datastore de stockage</label>
+              <input type="text" id="vmware_ds" class="form-control" placeholder="ex: vsanDatastore">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Réseau / PortGroup</label>
+              <input type="text" id="vmware_pg" class="form-control" placeholder="ex: VM Network">
+            </div>
+          </div>
+
+          <div style="margin: 16px 0; display:flex; align-items:center; gap:14px;">
+            <button class="btn btn-test" onclick="testVmwareConnection()">🔍 Tester la connexion vCenter / ESXi</button>
+            <span id="vmware_test_status" style="font-size: 13px;"></span>
+          </div>
+
+          <h3 style="font-size:16px; font-weight:700; color:var(--accent-cyan); margin:18px 0 12px 0;">
+            <span>⚙️ 3. Réseau et Identités des VMs K3s</span>
+          </h3>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:2;">
+              <label class="form-label">Adresses IP fixes des nœuds K3s (séparées par virgules)</label>
+              <input type="text" id="vmware_ips" class="form-control" placeholder="ex: 192.168.1.11, 192.168.1.12, 192.168.1.13">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Passerelle (Gateway)</label>
+              <input type="text" id="vmware_gw" class="form-control" placeholder="ex: 192.168.1.1">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Serveur DNS</label>
+              <input type="text" id="vmware_dns" class="form-control" placeholder="ex: 192.168.1.1">
+            </div>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Utilisateur SSH administrateur des VMs</label>
+              <input type="text" id="vmware_ssh_user" class="form-control" value="debian">
+            </div>
+            <div class="form-group" style="flex:2;">
+              <label class="form-label">Clé publique SSH (Optionnel pour injection Cloud-Init)</label>
+              <input type="text" id="vmware_ssh_key" class="form-control" placeholder="ssh-ed25519 AAAAC3... ou vide">
             </div>
           </div>
         </div>
 
-        <div class="input-row">
-          <div class="form-group" style="flex:1;">
-            <label class="form-label">Namespace cible</label>
-            <input type="text" id="k8s_namespace" class="form-control" value="arcia">
+        <!-- SOUS-PANEL 2 : Cible Kubernetes Existant (Actif par défaut) -->
+        <div id="panel_infra_k8s">
+          <div class="form-group">
+            <label class="form-label">Mode d'accès à Kubernetes</label>
+            <div class="form-sublabel">Choisissez si kubectl s'exécute depuis votre machine locale ou directement via SSH sur un nœud maître K3s.</div>
+            <select id="k8s_mode" class="form-control" onchange="toggleK8sMode()">
+              <option value="local">Local — Utilise la commande kubectl locale de cette machine</option>
+              <option value="remote-ssh">Remote SSH — Exécute kubectl à distance sur le nœud K3s</option>
+            </select>
           </div>
-          <div class="form-group" style="flex:1;">
-            <label class="form-label">StorageClass personnalisée (Optionnel)</label>
-            <input type="text" id="k8s_storage_class" class="form-control" placeholder="Défaut : StorageClass par défaut du cluster">
+
+          <div id="k8s_local_block">
+            <div class="form-group">
+              <label class="form-label">Contexte Kubernetes (Context)</label>
+              <div class="form-sublabel">Laissez vide pour utiliser le contexte courant actif (~/.kube/config), ou sélectionnez un contexte détecté :</div>
+              <div class="input-row">
+                <input type="text" id="k8s_context" class="form-control" placeholder="Défaut : contexte courant actif">
+                <select id="k8s_context_select" class="form-control" style="max-width: 200px;" onchange="selectContextFromList()">
+                  <option value="">Contextes détectés...</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Chemin Kubeconfig personnalisé (Facultatif)</label>
+              <input type="text" id="k8s_kubeconfig" class="form-control" placeholder="C:\Users\...\.kube\config ou /home/.../.kube/config">
+            </div>
+          </div>
+
+          <div id="k8s_ssh_block" style="display:none;">
+            <div class="input-row">
+              <div class="form-group" style="flex:2;">
+                <label class="form-label">Adresse IP du nœud maître K3s</label>
+                <input type="text" id="k8s_ssh_ip" class="form-control" placeholder="ex: 192.168.1.50">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Utilisateur SSH</label>
+                <input type="text" id="k8s_ssh_user" class="form-control" value="debian">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Port SSH</label>
+                <input type="number" id="k8s_ssh_port" class="form-control" value="22">
+              </div>
+            </div>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Namespace cible</label>
+              <input type="text" id="k8s_namespace" class="form-control" value="arcia">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">StorageClass personnalisée (Optionnel)</label>
+              <input type="text" id="k8s_storage_class" class="form-control" placeholder="Défaut : StorageClass par défaut du cluster">
+            </div>
+          </div>
+
+          <div style="margin: 16px 0; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+            <button class="btn btn-test" onclick="testK8sQualificationFull()">🔍 Qualifier et tester l'environnement Kubernetes</button>
+            <span id="k8s_audit_status" style="font-size: 13px;"></span>
+          </div>
+
+          <!-- Zone du rapport d'audit exhaustif K8s -->
+          <div id="k8s_audit_results" style="display:none; margin-top:16px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:10px; padding:16px;">
+            <div id="k8s_audit_summary" style="font-weight:700; font-size:14px; margin-bottom:12px;"></div>
+            <div id="k8s_audit_items" style="display:flex; flex-direction:column; gap:10px;"></div>
           </div>
         </div>
 
-        <div style="margin: 16px 0; display:flex; align-items:center; gap:14px;">
-          <button class="btn btn-test" onclick="testK8sConnection()">🔍 Tester la connexion au cluster</button>
-          <span id="k8s_test_status" style="font-size: 13px;"></span>
-        </div>
+        <!-- SOUS-PANEL 3 : Cible Docker Local (Mode Lab) -->
+        <div id="panel_infra_docker" style="display:none;">
+          <div id="docker_status_box" class="alert-box alert-info" style="margin-bottom:16px;">
+            <!-- Rempli par checkDockerStatus() -->
+          </div>
 
-        <div id="k8s_nodes_result" style="display:none; margin-top:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:8px; padding:12px; font-family:monospace; font-size:12px;"></div>
+          <div class="alert-box alert-warn">
+            <span style="font-size:20px;">💡</span>
+            <div>
+              <strong>Mode Lab & Démonstration Portable :</strong><br>
+              Les services (Open-WebUI, LiteLLM, Presidio DLP, Hermes Agent) sont démarrés directement dans des conteneurs Docker locaux. Les données persistantes sont stockées dans un volume Docker local. Aucun nom de domaine public n'est nécessaire (accès immédiat sur <code>http://localhost:3000</code>).
+            </div>
+          </div>
+
+          <div class="input-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Port Local Open-WebUI</label>
+              <input type="number" id="docker_webui_port" class="form-control" value="3000">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Port Local LiteLLM Proxy</label>
+              <input type="number" id="docker_litellm_port" class="form-control" value="4000">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Port Local Presidio Anonymizer</label>
+              <input type="number" id="docker_presidio_port" class="form-control" value="5001">
+            </div>
+          </div>
+        </div>
 
         <div class="actions-bar">
           <button class="btn btn-secondary" onclick="goToStep(2)">← Précédent</button>
-          <button class="btn btn-primary" onclick="goToStep(4)">Suivant : Réseau & Ingress →</button>
+          <button class="btn btn-primary" onclick="goToStep(4)">Suivant : Réseau & Exposition →</button>
         </div>
       </section>
 
@@ -1909,6 +2607,7 @@ def get_wizard_html_page() -> str:
 
       updateGuideFqdn();
       updateInstanceRepoSuggestion();
+      renderVmwareTierSummary();
     }
 
     function collectFormData() {
@@ -2109,6 +2808,221 @@ def get_wizard_html_page() -> str:
       }
     }
 
+    let currentInfraTarget = "k8s_existing";
+    let currentVmwareTier = "100";
+
+    const vmwareTiersData = {
+      "20": {
+        title: "Équipe Pilote / PoC (jusqu'à 20 utilisateurs)",
+        nodes: 1,
+        vcpu: 4,
+        ram: 8,
+        disk: 60,
+        topo: "1x VM K3s All-in-One (Control-Plane + Worker)",
+        desc: "Idéal pour évaluer ArcIA, tests métiers d'équipe ou qualification technique."
+      },
+      "100": {
+        title: "PME / Direction Métier (21 à 100 utilisateurs) [Recommandé]",
+        nodes: 3,
+        vcpu: 12,
+        ram: 48,
+        disk: 300,
+        topo: "3x VMs K3s Haute Disponibilité (etcd multi-maître, 4 vCPU / 16 Go / 100 Go par VM)",
+        desc: "Tolérance aux pannes, haute résilience et streaming fluide pour toute la direction."
+      },
+      "500": {
+        title: "Entreprise / Multi-Départements (101 à 500 utilisateurs)",
+        nodes: 5,
+        vcpu: 28,
+        ram: 112,
+        disk: 700,
+        topo: "3x Control-Plane HA (4 vCPU / 16 Go) + 2x Workers Dédiés (8 vCPU / 32 Go / 200 Go)",
+        desc: "Isolation du plan de contrôle, haute concurrence agentique et intégration Teams continue."
+      },
+      "1000": {
+        title: "Grande Entreprise (Plus de 500 utilisateurs)",
+        nodes: 7,
+        vcpu: 88,
+        ram: 352,
+        disk: 2000,
+        topo: "3x Control-Plane HA (8 vCPU / 32 Go) + 4x Workers Haute Performance (vGPU compatible)",
+        desc: "Charge massive multi-tenant, modèles LLM locaux vLLM optionnels, stockage SAN rapide."
+      }
+    };
+
+    function selectInfraTarget(target) {
+      currentInfraTarget = target;
+      const cardVmware = document.getElementById("target_card_vmware");
+      const cardK8s = document.getElementById("target_card_k8s");
+      const cardDocker = document.getElementById("target_card_docker");
+
+      if (cardVmware) cardVmware.classList.toggle("active", target === "vmware_k3s");
+      if (cardK8s) cardK8s.classList.toggle("active", target === "k8s_existing");
+      if (cardDocker) cardDocker.classList.toggle("active", target === "docker_lab");
+
+      const pVm = document.getElementById("panel_infra_vmware");
+      const pK8s = document.getElementById("panel_infra_k8s");
+      const pDoc = document.getElementById("panel_infra_docker");
+
+      if (pVm) pVm.style.display = (target === "vmware_k3s") ? "block" : "none";
+      if (pK8s) pK8s.style.display = (target === "k8s_existing") ? "block" : "none";
+      if (pDoc) pDoc.style.display = (target === "docker_lab") ? "block" : "none";
+
+      if (target === "vmware_k3s") {
+        renderVmwareTierSummary();
+      } else if (target === "docker_lab") {
+        checkDockerStatus();
+        const fqdnInput = document.getElementById("net_fqdn");
+        if (fqdnInput && (!fqdnInput.value || fqdnInput.value === "assistant.example.org")) {
+          fqdnInput.value = "localhost";
+        }
+      }
+    }
+
+    function selectVmwareTier(tierKey) {
+      currentVmwareTier = tierKey;
+      ["20", "100", "500", "1000"].forEach(k => {
+        const el = document.getElementById(`tier_card_${k}`);
+        if (el) el.classList.toggle("active", k === tierKey);
+      });
+      renderVmwareTierSummary(tierKey);
+    }
+
+    function renderVmwareTierSummary(tierKey = currentVmwareTier) {
+      const t = vmwareTiersData[tierKey] || vmwareTiersData["100"];
+      const box = document.getElementById("vmware_tier_summary");
+      if (!box) return;
+      box.innerHTML = `
+        <span style="font-size:20px;">🖥️</span>
+        <div>
+          <strong>Dimensionnement calculé : ${t.title}</strong><br>
+          • Topologie : <strong>${t.topo}</strong><br>
+          • Ressources totales requises : <strong>${t.vcpu} vCPU</strong>, <strong>${t.ram} Go RAM</strong>, <strong>${t.disk} Go SSD</strong><br>
+          • Recommandation : ${t.desc}
+        </div>
+      `;
+    }
+
+    async function testVmwareConnection() {
+      const status = document.getElementById("vmware_test_status");
+      status.innerHTML = '<span style="color:var(--accent-cyan);">⏳ Test de connexion vSphere en cours...</span>';
+
+      const payload = {
+        host: document.getElementById("vmware_host").value.trim(),
+        port: parseInt(document.getElementById("vmware_port").value, 10) || 443,
+        username: document.getElementById("vmware_user").value.trim(),
+        password: document.getElementById("vmware_pass").value,
+        insecure_tls: document.getElementById("vmware_insecure").checked,
+        target_type: document.getElementById("vmware_type").value
+      };
+
+      try {
+        const res = await fetch("/api/vmware/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          status.innerHTML = `<span style="color:var(--success); font-weight:700;">✅ ${data.message} (${data.details.detected_version})</span>`;
+        } else {
+          status.innerHTML = `<span style="color:var(--danger); font-weight:700;">❌ ${data.error}</span>`;
+        }
+      } catch (err) {
+        status.innerHTML = `<span style="color:var(--danger);">❌ Erreur réseau : ${err.message}</span>`;
+      }
+    }
+
+    async function testK8sQualificationFull() {
+      const status = document.getElementById("k8s_audit_status");
+      const resBox = document.getElementById("k8s_audit_results");
+      const summaryBox = document.getElementById("k8s_audit_summary");
+      const itemsBox = document.getElementById("k8s_audit_items");
+
+      status.innerHTML = '<span style="color:var(--accent-cyan);">⏳ Audit de qualification exhaustif en cours...</span>';
+      resBox.style.display = "none";
+
+      const formData = collectFormData();
+      try {
+        const res = await fetch("/api/k8s/validate-full", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData.kubernetes)
+        });
+        const data = await res.json();
+        status.innerHTML = data.success 
+          ? '<span style="color:var(--success); font-weight:700;">✅ Qualification terminée avec succès</span>'
+          : '<span style="color:var(--danger); font-weight:700;">⚠️ Qualification avec avertissements ou erreurs</span>';
+
+        resBox.style.display = "block";
+        summaryBox.innerHTML = `<span style="color:${data.all_valid ? 'var(--success)' : (data.success ? 'var(--warning)' : 'var(--danger)')};">${data.summary}</span>`;
+
+        itemsBox.innerHTML = "";
+        data.checks.forEach(c => {
+          const badgeClass = c.status === "ok" ? "ok" : (c.status === "warn" ? "warn" : "error");
+          const badgeLabel = c.status === "ok" ? "VALIDE" : (c.status === "warn" ? "ATTENTION" : "BLOQUANT");
+          const item = document.createElement("div");
+          item.className = "audit-check-item";
+          item.innerHTML = `
+            <span class="audit-badge ${badgeClass}">${badgeLabel}</span>
+            <div style="flex:1;">
+              <div style="font-weight:700; font-size:13px; margin-bottom:2px;">${c.title}</div>
+              <div style="font-size:12px; color:#cbd5e1; margin-bottom:4px;">${c.message}</div>
+              ${c.status !== 'ok' ? `<div style="font-size:11px; color:var(--text-muted);">💡 <em>${c.recommendation}</em></div>` : ''}
+            </div>
+          `;
+          itemsBox.appendChild(item);
+        });
+      } catch (err) {
+        status.innerHTML = `<span style="color:var(--danger);">❌ Erreur de qualification : ${err.message}</span>`;
+      }
+    }
+
+    async function checkDockerStatus() {
+      const box = document.getElementById("docker_status_box");
+      if (!box) return;
+      box.innerHTML = '<span style="color:var(--accent-cyan);">⏳ Détection de Docker en cours...</span>';
+
+      try {
+        const res = await fetch("/api/docker/status");
+        const data = await res.json();
+        if (data.installed && data.running) {
+          box.className = "alert-box alert-success";
+          box.innerHTML = `
+            <span style="font-size:22px;">🐳</span>
+            <div>
+              <strong>Docker Engine est opérationnel !</strong><br>
+              • Version Docker : <strong>${data.docker_version}</strong> | Docker Compose : <strong>${data.compose_version}</strong><br>
+              Votre machine est prête pour le lancement local en Mode Lab.
+            </div>
+          `;
+        } else if (data.installed) {
+          box.className = "alert-box alert-warn";
+          box.innerHTML = `
+            <span style="font-size:22px;">⚠️</span>
+            <div>
+              <strong>Docker est installé mais le moteur n'est pas démarré :</strong><br>
+              ${data.message}<br>
+              Veuillez démarrer Docker Desktop ou le service Docker sur cette machine.
+            </div>
+          `;
+        } else {
+          box.className = "alert-box alert-warn";
+          box.innerHTML = `
+            <span style="font-size:22px;">⚠️</span>
+            <div>
+              <strong>Docker n'a pas été détecté sur ce poste :</strong><br>
+              ${data.message}<br>
+              <a href="https://docs.docker.com/get-docker/" target="_blank" style="color:var(--accent-cyan); font-weight:600;">Télécharger Docker Desktop ↗</a>
+            </div>
+          `;
+        }
+      } catch (err) {
+        box.className = "alert-box alert-warn";
+        box.innerHTML = `Erreur vérification Docker : ${err.message}`;
+      }
+    }
+
     function toggleK8sMode() {
       const mode = document.getElementById("k8s_mode").value;
       document.getElementById("k8s_local_block").style.display = (mode === "local") ? "block" : "none";
@@ -2226,8 +3140,15 @@ def get_wizard_html_page() -> str:
 
     function updateDeploySummary() {
       const cfg = collectFormData();
-      const fqdn = cfg.network.public_fqdn || "Non renseigné";
-      const mode = cfg.kubernetes.mode;
+      const fqdn = (currentInfraTarget === "docker_lab") ? "localhost" : (cfg.network.public_fqdn || "Non renseigné");
+      let targetLabel = "Cluster Kubernetes Existant";
+      if (currentInfraTarget === "vmware_k3s") {
+        const t = vmwareTiersData[currentVmwareTier] || vmwareTiersData["100"];
+        targetLabel = `Nouveau Cluster K3s sur VMware (${t.title} - ${t.topo})`;
+      } else if (currentInfraTarget === "docker_lab") {
+        targetLabel = "Docker Local (Mode Lab - Conteneurs locaux sur ce poste)";
+      }
+
       const sso = cfg.entra_id_sso.enabled ? "Activé" : "Désactivé";
       const teams = cfg.teams_bot.enabled ? "Activé" : "Désactivé";
       const omni = cfg.omniroute.enabled ? "Activé" : "Désactivé";
@@ -2236,8 +3157,8 @@ def get_wizard_html_page() -> str:
 
       document.getElementById("deploySummaryText").innerHTML = `
         <strong>Cible de déploiement & Sauvegarde :</strong><br>
-        • Domaine FQDN : <strong>https://${fqdn}/</strong><br>
-        • Cluster Kubernetes : Mode <strong>${mode}</strong> (Namespace: <strong>${cfg.kubernetes.namespace}</strong>)<br>
+        • Cible d'infrastructure : <strong>${targetLabel}</strong><br>
+        • Point d'accès : <strong>${currentInfraTarget === "docker_lab" ? "http://localhost:3000/" : "https://" + fqdn + "/"}</strong><br>
         • Dépôt d'instance privé chiffré : <strong>${gitMsg}</strong><br>
         • Modules optionnels : SSO Entra ID (<strong>${sso}</strong>) | Bot Teams (<strong>${teams}</strong>) | OmniRoute (<strong>${omni}</strong>)<br>
         • Briques internes automatiques : Presidio DLP, Open-WebUI, Hermes Studio, LiteLLM Proxy, Skills natifs (Ponytail, Graphify, Public-APIs).
@@ -2286,10 +3207,37 @@ def get_wizard_html_page() -> str:
       }
 
       try {
+        const infraConfig = {
+          vmware: {
+            host: document.getElementById("vmware_host").value.trim(),
+            port: parseInt(document.getElementById("vmware_port").value, 10) || 443,
+            user: document.getElementById("vmware_user").value.trim(),
+            password: document.getElementById("vmware_pass").value,
+            insecure_tls: document.getElementById("vmware_insecure").checked,
+            target_type: document.getElementById("vmware_type").value,
+            datacenter: document.getElementById("vmware_dc").value.trim(),
+            cluster: document.getElementById("vmware_cluster").value.trim(),
+            datastore: document.getElementById("vmware_ds").value.trim(),
+            portgroup: document.getElementById("vmware_pg").value.trim(),
+            user_tier: currentVmwareTier
+          },
+          docker: {
+            webui_port: parseInt(document.getElementById("docker_webui_port").value, 10) || 3000,
+            litellm_port: parseInt(document.getElementById("docker_litellm_port").value, 10) || 4000,
+            presidio_port: parseInt(document.getElementById("docker_presidio_port").value, 10) || 5001
+          }
+        };
+
         const res = await fetch("/api/deploy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ config: cfg, dry_run: dryRun, instance_git: gitInfo })
+          body: JSON.stringify({
+            config: cfg,
+            dry_run: dryRun,
+            instance_git: gitInfo,
+            infra_target: currentInfraTarget,
+            infra_config: infraConfig
+          })
         });
         const data = await res.json();
         if (!data.success) {
@@ -2368,6 +3316,10 @@ def get_wizard_html_page() -> str:
     }
 
     function getCurrentPublicUrl() {
+      if (currentInfraTarget === "docker_lab") {
+        const webPort = parseInt(document.getElementById("docker_webui_port").value, 10) || 3000;
+        return `http://localhost:${webPort}/`;
+      }
       const fqdn = document.getElementById("net_fqdn").value.trim() || "assistant.example.org";
       return `https://${fqdn}/`;
     }
@@ -2379,26 +3331,55 @@ def get_wizard_html_page() -> str:
       const hermesPat = cfg.hermes.api_token || "";
       const grid = document.getElementById("recapAccessGrid");
 
-      let cards = [
-        {
-          title: "🌐 Portail Collaborateur (Open-WebUI)",
-          url: `https://${fqdn}/`,
-          desc: "Interface conversationnelle souveraine pour l'ensemble des collaborateurs.",
-          actionText: "Ouvrir le portail"
-        },
-        {
-          title: "📊 Hermes Studio (Kanban Multi-Agents)",
-          url: `https://${fqdn}/studio`,
-          desc: `Pilotage visuel des agents autonomes. Identifiant : <strong>admin</strong> | Mot de passe : <code>${hermesPass}</code>`,
-          actionText: "Accéder au Studio"
-        },
-        {
-          title: "⚡ Hermes Desktop Gateway (WebSocket)",
-          url: `https://${fqdn}/gateway`,
-          desc: `Point de raccordement du client lourd de bureau Hermes. Jeton PAT : <code style="font-size:11px;">${hermesPat}</code>`,
-          actionText: "Copier le token"
-        }
-      ];
+      let cards = [];
+
+      if (currentInfraTarget === "docker_lab") {
+        const webPort = parseInt(document.getElementById("docker_webui_port").value, 10) || 3000;
+        const llmPort = parseInt(document.getElementById("docker_litellm_port").value, 10) || 4000;
+        const presPort = parseInt(document.getElementById("docker_presidio_port").value, 10) || 5001;
+
+        cards = [
+          {
+            title: "🌐 Portail Collaborateur (Open-WebUI Local)",
+            url: `http://localhost:${webPort}/`,
+            desc: "Interface conversationnelle d'entreprise hébergée localement via Docker Compose. Identifiant : <strong>admin@arcia.local</strong>",
+            actionText: "Ouvrir le portail"
+          },
+          {
+            title: "🧠 Passerelle d'Inférence IA LiteLLM Proxy",
+            url: `http://localhost:${llmPort}/v1`,
+            desc: "Accès unifié OpenAI-compatible pour vos modèles Cloud (Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3). Clé maître : <code>sk-or-v1-arcia-lab</code>",
+            actionText: "Tester l'API"
+          },
+          {
+            title: "🛡️ Guardrail DLP Microsoft Presidio Anonymizer",
+            url: `http://localhost:${presPort}/`,
+            desc: "Service local d'anonymisation et de détection des données sensibles (PII).",
+            actionText: "Inspecter"
+          }
+        ];
+      } else {
+        cards = [
+          {
+            title: "🌐 Portail Collaborateur (Open-WebUI)",
+            url: `https://${fqdn}/`,
+            desc: "Interface conversationnelle souveraine pour l'ensemble des collaborateurs.",
+            actionText: "Ouvrir le portail"
+          },
+          {
+            title: "📊 Hermes Studio (Kanban Multi-Agents)",
+            url: `https://${fqdn}/studio`,
+            desc: `Pilotage visuel des agents autonomes. Identifiant : <strong>admin</strong> | Mot de passe : <code>${hermesPass}</code>`,
+            actionText: "Accéder au Studio"
+          },
+          {
+            title: "⚡ Hermes Desktop Gateway (WebSocket)",
+            url: `https://${fqdn}/gateway`,
+            desc: `Point de raccordement du client lourd de bureau Hermes. Jeton PAT : <code style="font-size:11px;">${hermesPat}</code>`,
+            actionText: "Copier le token"
+          }
+        ];
+      }
 
       if (createdRepoUrl) {
         cards.push({

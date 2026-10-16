@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "00000000-0000-0000-0000-000000000000",
+  "packageName": "org.example.arcia",
+  "developer": {
+    "name": "ArcIA Community",
+    "websiteUrl": "https://arcia.example.org",
+    "privacyUrl": "https://arcia.example.org/privacy",
+    "termsOfUseUrl": "https://arcia.example.org/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "ArcIA",
+    "full": "ArcIA — Enterprise Agentic AI Platform"
+  },
+  "description": {
+    "short": "Plateforme IA agentique souveraine d'entreprise.",
+    "full": "ArcIA est la plateforme IA agentique souveraine d'entreprise, intégrant Hermes Agent, LiteLLM et le filtrage DLP Presidio."
+  },
+  "accentColor": "#0A0F1D",
+  "bots": [
+    {
+      "botId": "00000000-0000-0000-0000-000000000000",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "arcia.example.org"
+  ]
+}

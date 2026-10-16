@@ -48,13 +48,28 @@ Le Wizard s'ouvre dans votre navigateur et vous propose deux parcours :
    - Connectez votre compte **GitHub** ou **GitLab** avec un jeton personnel (PAT).
    - Le Wizard teste les permissions et **crée automatiquement le dépôt privé** d'instance (ex: `ArcIA-instance-prod`).
    - Définissez un **mot de passe maître de chiffrement** : tous les secrets d'instance (`instance-secrets.enc`) sont chiffrés en **AES-256-GCM** (dérivation PBKDF2 100 000 itérations) avant d'être sauvegardés sur votre Git privé. Le dépôt racine ArcIA reste ainsi 100% générique et inviolable.
-2. **Cluster Kubernetes** : Détection automatique des contextes `kubeconfig` ou saisie SSH K3s, avec test de connectivité interactif en un clic.
-3. **Réseau & Certificats** : FQDN public (`https://assistant.votre-entreprise.com/`) et émission automatique Let's Encrypt.
+2. **Cible & Infrastructure d'Hébergement** :
+   Le Wizard propose trois cibles d'hébergement selon vos besoins :
+   - **Nouveau cluster K3s sur VMware (vCenter / ESXi)** :
+     - Provisionnement automatisé de machines virtuelles Debian avec initialisation K3s HA (`scripts/Deploy-VMwareCluster.ps1`).
+     - Dimensionnement matériel interactif par tranche d'utilisateurs pour garantir les performances :
+       - *Pilote (jusqu'à 20 utilisateurs)* : 1 VM All-in-One (4 vCPU, 8 Go RAM, 60 Go SSD).
+       - *PME / Équipe Métier (jusqu'à 100 utilisateurs) [Recommandé]* : 3 VMs K3s HA multi-master etcd (12 vCPU, 48 Go RAM, 300 Go SSD).
+       - *Entreprise (jusqu'à 500 utilisateurs)* : 5 VMs (3 Master HA + 2 Workers dédiés, 28 vCPU, 112 Go RAM, 700 Go SSD).
+       - *Grande Entreprise (> 500 utilisateurs)* : 7+ VMs (3 Master HA + 4+ Workers extensibles, support vGPU, 88+ vCPU, 352+ Go RAM, 2+ To).
+     - Test de connectivité TLS/vSphere intégré en un clic.
+   - **Connexion à un environnement Kubernetes existant** :
+     - Connexion via contexte `kubeconfig` local ou accès SSH distant.
+     - **Audit de qualification exhaustif en 6 volets** avant déploiement (API Server, version >= 1.28, capacité CPU/RAM des nœuds, contrôleur Ingress, Cert-Manager CRD, StorageClass CSI dynamique, droits RBAC).
+   - **Déploiement local sur ce poste avec Docker (Mode Lab)** :
+     - Démarrage instantané via Docker Compose (`docker-compose.lab.yml`) sans cluster Kubernetes.
+     - Détection en direct du daemon Docker Engine et accès immédiat sur `http://localhost:3000`.
+3. **Réseau & Certificats** : FQDN public (`https://assistant.votre-entreprise.com/`) et émission automatique Let's Encrypt (ou port local `3000` en mode Lab).
 4. **Passerelle LLM** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) (accès à Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3).
 5. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
 6. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
 7. **Auto-configuration intégrale** : Presidio DLP, Open-WebUI, LiteLLM et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement sans aucune manipulation technique.
-8. **Déploiement & Sauvegarde** : Déploiement en streaming sur Kubernetes, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
+8. **Déploiement & Sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
 9. **Accès 100% Opérationnel** : Récapitulatif instantané avec toutes les URLs prêtes à l'emploi et le lien direct vers votre dépôt d'instance.
 
 #### Parcours B : Restaurer une instance existante

@@ -1,0 +1,22 @@
+# Configuration LiteLLM Proxy pour ArcIA (Mode Lab / Docker Local)
+model_list:
+  - model_name: auto
+    litellm_params:
+      model: openrouter/auto
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: claude-3.5-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-3.5-sonnet
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: gpt-4o
+    litellm_params:
+      model: openrouter/openai/gpt-4o
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: deepseek-chat
+    litellm_params:
+      model: openrouter/deepseek/deepseek-chat
+      api_key: os.environ/OPENROUTER_API_KEY
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false

@@ -1,0 +1,61 @@
+{
+  "name": "ArcIA Visual Identity — Dark Mode",
+  "organization": "ArcIA",
+  "typography": {
+    "fontFamily": "Inter, system-ui, sans-serif"
+  },
+  "hex": {
+    "background": "#0A0F1D",
+    "surface": "#131B2E",
+    "border": "#1E293B",
+    "primaryCyan": "#00D2FF",
+    "secondaryBlue": "#0066FF",
+    "textPrimary": "#F8FAFC"
+  },
+  "rgb": {
+    "background": "rgb(10, 15, 29)",
+    "surface": "rgb(19, 27, 46)",
+    "border": "rgb(30, 41, 59)",
+    "primaryCyan": "rgb(0, 210, 255)",
+    "secondaryBlue": "rgb(0, 102, 255)",
+    "textPrimary": "rgb(248, 250, 252)"
+  },
+  "cssVariables": {
+    "background": "--arcia-background: #0A0F1D;",
+    "surface": "--arcia-surface: #131B2E;",
+    "border": "--arcia-border: #1E293B;",
+    "primaryCyan": "--arcia-primary-cyan: #00D2FF;",
+    "secondaryBlue": "--arcia-secondary-blue: #0066FF;",
+    "textPrimary": "--arcia-text-primary: #F8FAFC;"
+  },
+  "background": {
+    "hex": "#0A0F1D",
+    "rgb": "rgb(10, 15, 29)",
+    "cssVariables": "--arcia-background: #0A0F1D;"
+  },
+  "surface": {
+    "hex": "#131B2E",
+    "rgb": "rgb(19, 27, 46)",
+    "cssVariables": "--arcia-surface: #131B2E;"
+  },
+  "border": {
+    "hex": "#1E293B",
+    "rgb": "rgb(30, 41, 59)",
+    "cssVariables": "--arcia-border: #1E293B;"
+  },
+  "primaryCyan": {
+    "hex": "#00D2FF",
+    "rgb": "rgb(0, 210, 255)",
+    "cssVariables": "--arcia-primary-cyan: #00D2FF;"
+  },
+  "secondaryBlue": {
+    "hex": "#0066FF",
+    "rgb": "rgb(0, 102, 255)",
+    "cssVariables": "--arcia-secondary-blue: #0066FF;"
+  },
+  "textPrimary": {
+    "hex": "#F8FAFC",
+    "rgb": "rgb(248, 250, 252)",
+    "cssVariables": "--arcia-text-primary: #F8FAFC;"
+  }
+}

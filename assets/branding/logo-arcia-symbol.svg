@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <linearGradient id="arciaArchGradient" x1="96" y1="416" x2="416" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0066FF" />
+      <stop offset="100%" stop-color="#00D2FF" />
+    </linearGradient>
+    <linearGradient id="arciaBridgeGradient" x1="160" y1="300" x2="352" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0066FF" stop-opacity="0.85" />
+      <stop offset="50%" stop-color="#00D2FF" stop-opacity="1" />
+      <stop offset="100%" stop-color="#0066FF" stop-opacity="0.85" />
+    </linearGradient>
+    <radialGradient id="arciaCoreGlow" cx="256" cy="240" r="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.22" />
+      <stop offset="65%" stop-color="#0066FF" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#131B2E" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Squircle Container -->
+  <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="#131B2E" stroke="#1E293B" stroke-width="8" />
+
+  <!-- Subtle Inner Ambient Halo -->
+  <circle cx="256" cy="248" r="192" fill="url(#arciaCoreGlow)" />
+
+  <!-- Inner Architectural Ring -->
+  <rect x="48" y="48" width="416" height="416" rx="92" ry="92" stroke="#1E293B" stroke-width="2" stroke-opacity="0.65" />
+
+  <!-- Neural Mesh Background Connections -->
+  <g stroke="url(#arciaArchGradient)" stroke-width="4" stroke-linecap="round" opacity="0.45">
+    <line x1="256" y1="108" x2="256" y2="224" />
+    <line x1="178" y1="236" x2="256" y2="224" />
+    <line x1="334" y1="236" x2="256" y2="224" />
+    <line x1="140" y1="376" x2="256" y2="300" />
+    <line x1="372" y1="376" x2="256" y2="300" />
+    <line x1="256" y1="224" x2="256" y2="300" />
+  </g>
+
+  <!-- Stylized Arch (Outer Vault / A-Structure) -->
+  <path
+    d="M128 392 L212 148 C226 108 286 108 300 148 L384 392"
+    stroke="url(#arciaArchGradient)"
+    stroke-width="32"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Inner Secondary Arch Vault -->
+  <path
+    d="M178 368 C178 256 210 184 256 184 C302 184 334 256 334 368"
+    stroke="url(#arciaArchGradient)"
+    stroke-width="12"
+    stroke-linecap="round"
+    opacity="0.75"
+  />
+
+  <!-- Neural Crossbar Bridge -->
+  <path
+    d="M162 300 L256 268 L350 300"
+    stroke="url(#arciaBridgeGradient)"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Connected Neural Nodes -->
+  <!-- Apex Node -->
+  <circle cx="256" cy="116" r="22" fill="#131B2E" stroke="#00D2FF" stroke-width="8" />
+  <circle cx="256" cy="116" r="9" fill="#F8FAFC" />
+
+  <!-- Central Core Synapse Node -->
+  <circle cx="256" cy="268" r="24" fill="#131B2E" stroke="#00D2FF" stroke-width="8" />
+  <circle cx="256" cy="268" r="10" fill="#00D2FF" />
+
+  <!-- Mid-Pillar Nodes -->
+  <circle cx="178" cy="236" r="15" fill="#131B2E" stroke="url(#arciaArchGradient)" stroke-width="6" />
+  <circle cx="178" cy="236" r="6" fill="#F8FAFC" />
+
+  <circle cx="334" cy="236" r="15" fill="#131B2E" stroke="url(#arciaArchGradient)" stroke-width="6" />
+  <circle cx="334" cy="236" r="6" fill="#F8FAFC" />
+
+  <!-- Base Anchor Nodes -->
+  <circle cx="128" cy="392" r="18" fill="#131B2E" stroke="#0066FF" stroke-width="7" />
+  <circle cx="128" cy="392" r="7" fill="#00D2FF" />
+
+  <circle cx="384" cy="392" r="18" fill="#131B2E" stroke="#00D2FF" stroke-width="7" />
+  <circle cx="384" cy="392" r="7" fill="#F8FAFC" />
+</svg>

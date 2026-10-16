@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" fill="none">
+  <defs>
+    <linearGradient id="bannerArchGrad" x1="540" y1="320" x2="740" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0066FF" />
+      <stop offset="100%" stop-color="#00D2FF" />
+    </linearGradient>
+    <linearGradient id="bannerCyanGrad" x1="640" y1="360" x2="780" y2="470" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" />
+      <stop offset="100%" stop-color="#0066FF" />
+    </linearGradient>
+    <radialGradient id="bannerCenterHalo" cx="640" cy="280" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.22" />
+      <stop offset="45%" stop-color="#0066FF" stop-opacity="0.09" />
+      <stop offset="100%" stop-color="#0A0F1D" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="bannerGrid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M 64 0 L 0 0 0 64" fill="none" stroke="#1E293B" stroke-width="1" stroke-opacity="0.55" />
+      <circle cx="64" cy="64" r="1.5" fill="#00D2FF" fill-opacity="0.2" />
+    </pattern>
+  </defs>
+
+  <!-- Primary Dark Mode Background -->
+  <rect width="1280" height="640" fill="#0A0F1D" />
+
+  <!-- Subtle Geometric Grid Overlay -->
+  <rect width="1280" height="640" fill="url(#bannerGrid)" />
+
+  <!-- Decorative Architectural Orbit Lines -->
+  <circle cx="640" cy="280" r="340" stroke="#1E293B" stroke-width="1.5" stroke-dasharray="6 10" opacity="0.7" />
+  <circle cx="640" cy="280" r="240" stroke="#1E293B" stroke-width="1" opacity="0.6" />
+
+  <!-- Centered Radial Cyan Halo -->
+  <circle cx="640" cy="280" r="420" fill="url(#bannerCenterHalo)" />
+
+  <!-- Centered ArcIA Symbol Squircle (x=544..736, y=104..296, 192x192) -->
+  <g id="banner-arcia-symbol">
+    <rect x="544" y="104" width="192" height="192" rx="46" ry="46" fill="#131B2E" stroke="#1E293B" stroke-width="4" />
+
+    <!-- Neural Connectors -->
+    <g stroke="url(#bannerArchGrad)" stroke-width="2.5" stroke-linecap="round" opacity="0.45">
+      <line x1="640" y1="142" x2="640" y2="205" />
+      <line x1="609" y1="190" x2="640" y2="205" />
+      <line x1="671" y1="190" x2="640" y2="205" />
+    </g>
+
+    <!-- Stylized Arch -->
+    <path
+      d="M588 256 L622 156 C628 139 652 139 658 156 L692 256"
+      stroke="url(#bannerArchGrad)"
+      stroke-width="13"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Inner Arch -->
+    <path
+      d="M608 246 C608 202 621 174 640 174 C659 174 672 202 672 246"
+      stroke="url(#bannerArchGrad)"
+      stroke-width="5"
+      stroke-linecap="round"
+      opacity="0.75"
+    />
+
+    <!-- Crossbar -->
+    <path
+      d="M602 218 L640 205 L678 218"
+      stroke="url(#bannerArchGrad)"
+      stroke-width="7"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Nodes -->
+    <circle cx="640" cy="144" r="9" fill="#131B2E" stroke="#00D2FF" stroke-width="3.5" />
+    <circle cx="640" cy="144" r="3.5" fill="#F8FAFC" />
+
+    <circle cx="640" cy="205" r="9.5" fill="#131B2E" stroke="#00D2FF" stroke-width="3.5" />
+    <circle cx="640" cy="205" r="4" fill="#00D2FF" />
+
+    <circle cx="588" cy="256" r="7" fill="#131B2E" stroke="#0066FF" stroke-width="3" />
+    <circle cx="588" cy="256" r="3" fill="#00D2FF" />
+
+    <circle cx="692" cy="256" r="7" fill="#131B2E" stroke="#00D2FF" stroke-width="3" />
+    <circle cx="692" cy="256" r="3" fill="#F8FAFC" />
+  </g>
+
+  <!-- Main Title -->
+  <text
+    x="640"
+    y="416"
+    text-anchor="middle"
+    font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    font-size="96"
+    font-weight="800"
+    letter-spacing="-2"
+  >
+    <tspan fill="#F8FAFC">Arc</tspan><tspan fill="url(#bannerCyanGrad)">IA</tspan>
+  </text>
+
+  <!-- Subtitle Badge -->
+  <rect x="370" y="458" width="540" height="46" rx="23" ry="23" fill="#131B2E" stroke="#1E293B" stroke-width="2" />
+  <text
+    x="640"
+    y="487"
+    text-anchor="middle"
+    font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    font-size="20"
+    font-weight="600"
+    letter-spacing="0.8"
+    fill="#F8FAFC"
+  >Enterprise Agentic AI Platform</text>
+
+  <!-- Bottom Accent Line -->
+  <line x1="520" y1="548" x2="760" y2="548" stroke="url(#bannerArchGrad)" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+</svg>
