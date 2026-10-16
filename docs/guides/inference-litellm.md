@@ -26,7 +26,7 @@ LiteLLM sert de point de passage unique pour toutes les requêtes LLM émises pa
 ## 2. Déploiement Kubernetes & Base Comptable
 
 Le service est déployé via :
-- **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service `litellm-proxy.arcia.svc:4000`, NodePort `30400` sur la VIP K3s, Ingress `/v1` et Ingress UI `/ui`).
+- **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service interne `litellm-proxy.arcia.svc:4000`, portail d'administration NodePort `30400` sur la VIP du cluster, API power users via Ingress `/v1` avec RateLimit).
 - **Base Comptable PostgreSQL** : [05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml) (Service `litellm-db.arcia.svc:5432`, PVC 10Gi).
 - **Secrets injectés** : `litellm-secret` (`master-key`, `salt-key`, `db-password`) et `enterprise-llm-secret` (`openrouter-key`).
 - **Gestion Dynamique GUI (`store_model_in_db`)** : Activée en base de données (`STORE_MODEL_IN_DB: "True"`), permettant d'ajouter, modifier ou réassigner les modèles réels et les chaînes de fallback directement depuis l'interface web sans éditer de fichier YAML ni redémarrer les pods.
@@ -35,7 +35,7 @@ Le service est déployé via :
 
 ## 3. Configuration du Routage v0.3
 
-Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles de l'instance (exemple d'illustration avec routage Cloud ZDR) :
+Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice initiale de modèles de l'instance (exemple d'illustration avec routage Cloud ZDR) :
 
 ```yaml
 model_list:
@@ -77,9 +77,51 @@ router_settings:
 
 ---
 
-## 4. Gestion des Clés Virtuelles et Budgets (Power Users N3)
+## 4. Portail d'Administration Graphique LiteLLM UI (VIP K3s)
 
-L'administration des clés virtuelles nominatives pour les power users et clients locaux (IDE, Hermes CLI) s'effectue via le script dédié :
+LiteLLM intègre nativement une interface web de gestion des modèles, des clés virtuelles et de la comptabilité adossée à PostgreSQL.
+
+### Sécurité & Périmètre d'Exposition
+* **Zéro exposition Internet** : L'interface d'administration LiteLLM n'est **JAMAIS** exposée sur le nom de domaine public ou sur l'Ingress Internet. Les requêtes publiques vers `/ui` sont rejetées (HTTP 404).
+* **Accès LAN / VIP K3s exclusif** : Le portail est accessible uniquement depuis le réseau d'administration interne ou VPN via la VIP du cluster sur le NodePort `30400` :
+  ```text
+  http://<IP_VIP_K3S>:30400/ui/
+  ```
+
+### Authentification par Master Key
+La connexion requiert la **Master Key** cryptographique générée au déploiement (`sk-arcia-...`), stockée dans le Secret Kubernetes `litellm-secret`.
+
+* **Copie directe dans le presse-papiers (PowerShell)** :
+  ```powershell
+  [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((.\scripts\Invoke-K3s.ps1 "get secret litellm-secret -n arcia -o jsonpath={.data.master-key}" -Node "<IP_NOEUD>"))).Trim() | Set-Clipboard
+  ```
+* **Lecture console (Bash SSH)** :
+  ```bash
+  sudo k3s kubectl get secret litellm-secret -n arcia -o jsonpath="{.data.master-key}" | base64 -d
+  ```
+
+### Configuration Dynamique des Modèles et Chaînes de Fallback
+Grâce à `store_model_in_db: true`, les modèles peuvent être réassignés en direct dans la base de données sans modifier de fichier YAML ni redémarrer de Pod :
+
+1. Accédez à **Models + Endpoints** > **+ Add Model**.
+2. Renseignez l'alias d'entreprise dans **Model Name** (ex: `arcia/standard`).
+3. Spécifiez le modèle amont dans **LiteLLM Model Name** (ex: `openrouter/auto`, `azure/gpt-4o`, ou endpoint souverain local `openai/vllm-model`).
+4. Forcez le Zéro Data Retention dans **Extra Body** :
+   ```json
+   {
+     "provider": {
+       "zdr": true
+     }
+   }
+   ```
+5. Définissez la chaîne de repli dans **Fallback Models** (ex: `["arcia/expert"]`).
+6. Cliquez sur **Save** : le modèle porte le badge *Database* et devient immédiatement actif pour Open-WebUI, Hermes Agent et Teams.
+
+---
+
+## 5. Gestion des Clés Virtuelles et Budgets (Power Users N3)
+
+L'administration des clés virtuelles nominatives pour les power users et clients locaux (IDE, Hermes CLI) s'effectue via le portail UI (onglet **Virtual Keys**) ou via le script en ligne de commande :
 
 ```bash
 # Créer une clé nominative avec budget mensuel contraint
@@ -99,3 +141,4 @@ Voir également :
 - [Gouvernance & Confidentialité Presidio DLP](confidentialite-presidio.md)
 - [État des fonctionnalités v0.3](../etat-des-fonctionnalites.md)
 - [Quickstart & Configuration Pratique](../runbooks/quickstart.md)
+
