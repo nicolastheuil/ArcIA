@@ -11,7 +11,7 @@ monté inscriptible concernent la lecture d’ansible.cfg, pas un accès SSH par
 
 Sur cible : CSI 5 checks ; applications 12 (pgvector, réplication/bascule PG,
 persistance SQLite et refus réseau) ; HTTPS/auth 6 ; VIP réelles 9 API + 9 HTTPS.
-Voir [matrice de recette et limites](../runbooks/recette-fondatrice.md) et
+Voir [matrice de recette et limites](recette-fondatrice-2026-10-12.md) et
 [handoff courant](handoff-2026-10-12-qualification-verifiee.md).
 TLS public différé, WebSocket/SSE complet, perte brutale/fencing,
 backups/rebuild et services métier non qualifiés.

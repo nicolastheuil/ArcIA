@@ -1,61 +1,58 @@
 # ArcIA : périmètre, fonctionnement et partage
 
-ArcIA est une plateforme IA agentique d’entreprise. Hermes est son moteur d’agents ; `ArcIA` est le dépôt de son socle générique. Aucun domaine, métier, compte fournisseur ou corpus privé d’une organisation ne définit le produit.
+ArcIA est une plateforme d’IA agentique d’entreprise. Hermes est son moteur d’agents ; `ArcIA` est le dépôt de son socle générique. Aucun domaine, métier, compte fournisseur ou corpus privé d’une organisation ne définit le produit.
 
-## Capacités et exemples
+---
 
-Les agents utilisent des outils autorisés, consultent une connaissance documentaire, délèguent des tâches bornées et produisent des réponses ou fichiers vérifiables. Une même plateforme peut servir uniquement à rechercher dans des manuels, comparer des versions d’API, réutiliser des schémas, croiser plusieurs documents ou préparer un livrable. Des connecteurs supplémentaires peuvent ouvrir d’autres capacités après qualification. Ce sont des exemples ; aucun workflow métier n’est imposé.
+## 1. Capacités et architecture
+
+Les agents utilisent des outils autorisés, consultent une base de compétences et de connecteurs, délèguent des tâches bornées et produisent des réponses ou fichiers vérifiables :
+- **Portail Collaborateur (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes, intégrée au SSO Microsoft Entra ID.
+- **Studio Kanban & Gateway (Hermes Agent)** : Pilotage visuel des missions longues, multi-agents, et connexion native pour l'application de bureau Hermes Desktop.
+- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des modèles (`auto`, `claude-3.5-sonnet`, `gpt-4o`, `deepseek-chat`), résilience et suivi des quotas.
+- **Gouvernance & Confidentialité (Presidio DLP)** : Caviardage automatique des PII et des secrets d'entreprise avant tout appel vers un LLM externe.
+- **Canal Microsoft Teams** : Bot interactif pour les échanges directs et le travail en équipe.
 
 Le contenu retrouvé est une preuve à citer, jamais une instruction de sécurité. Les services fixent les droits et classifications indépendamment du texte produit par le modèle. Les agents n’obtiennent ni privilège Kubernetes ni autorité implicite d’exécution.
 
-## Deux dépôts, deux responsabilités
+---
+
+## 2. Deux dépôts, deux responsabilités
 
 | Socle générique : ArcIA | Dépôt de chaque instance |
 |---|---|
 | Architecture, moteur, outillage et interface des connecteurs | Populations, usages, sources et adaptateurs spécifiques |
 | Contrôles de confidentialité et contrats d’autorisation | Groupes, habilitations et classifications de l’organisation |
 | Presidio par défaut pour le cloud ; contrat de routes internes autorisées | Modèles internes/cloud, fournisseurs, budgets, exigences ZDR/collecte/résidence |
-| Bootstrap, manifests, locks, tests synthétiques et runbooks | Surcharges, références de secrets et bootstrap d’instance |
+| Manifests Kubernetes, tests synthétiques et runbooks | Surcharges, références de secrets et configuration d'instance (`arcia.config.yaml`) |
 | Exemples synthétiques et documentation produit | Documentation d’exploitation spécifique et sauvegardes chiffrées autorisées |
 
 Un dépôt privé ne remplace pas le chiffrement. Les documents et secrets bruts restent dans le stockage privé ; les clés de récupération sont externes à Git. Le code d’instance référence une révision précise du harness. Une capacité réutilisable remonte au harness ; une règle d’usage particulière reste dans l’instance.
 
-Teams est une entrée conversationnelle optionnelle, à intégrer par adaptateur
-authentifié. Ollama/vLLM internes ne passent pas par Presidio par défaut ; les
-routes cloud y passent. Le pilote gratuit/ZDR est un choix d’instance. Les
-adaptateurs Teams et la généralisation des routes modèles restent à construire.
-Le transfert personnel des secrets d’un ingénieur entre deux PC est hors harness.
+---
 
-## Partage et cloisonnement
+<a id="partage-et-cloisonnement"></a>
+## 3. Partage et cloisonnement
 
-L'identité par défaut repose sur des comptes locaux permanents Keycloak,
-administrés via `/admin/users`. Les SSO comme Entra ID peuvent fonctionner
-en parallèle et se lier explicitement à la même identité. Le provider OIDC
-impose propriétaire et client du runtime ; authentification, provisioning et
-ACL restent des responsabilités distinctes. [Référence identité](identite-utilisateurs.md).
+L'accès repose sur l'authentification d'entreprise via Microsoft Entra ID (SSO OIDC via OAuth2-Proxy et Open-WebUI).
 
-| Niveau cible | Lecture et partage | État actuel |
+| Niveau cible | Lecture et partage | État déployé |
 |---|---|---|
-| Connaissance commune | Sources approuvées accessibles aux utilisateurs habilités de l’entreprise | Corpus commun synthétique accessible aux lecteurs A/B |
-| Espace restreint | Groupe/équipe avec ACL explicites, y compris recherche, assets et caches | Périmètres personnels A/B sous RLS ; groupes dynamiques non intégrés |
-| Espace personnel | Conversations, mémoire, fichiers et connexions propres à une identité | Deux runtimes et quatre PVC distincts ; authentification locale de qualification |
-| Tâche déléguée | Capacité limitée aux ressources et actions nécessaires | Délégation Hermes disponible ; propagation d’identité/permissions à intégrer |
+| **Portail Web** | Accès collaborateurs avec SSO Entra ID ou comptes locaux | Open-WebUI sur port 8080 avec persistance PVC 20Gi |
+| **Studio & Gateway** | Espace de pilotage Kanban et API pour Hermes Desktop | Hermes Studio sur port 9119 et Gateway sur port 8642 avec PVC 20Gi |
+| **Sortie Cloud** | Anonymisation systématique des flux externes | Presidio DLP sur port 8080 devant LiteLLM |
+| **Canaux Collaboratifs**| Bot Teams en direct message ou mention de canal | Teams Bot Adapter sur port 3978 |
 
-L’authentification identifie l’utilisateur. Une politique serveur calcule les périmètres accessibles et choisit les connexions autorisées. L’agent ne fournit jamais la preuve de ses propres droits. Le filtre des ACL doit intervenir avant classement, téléchargement et restitution ; la confidentialité s’applique également aux titres, logs, exports et caches.
+Chaque instance Hermes conserve un propriétaire unique de son état SQLite persistant (`state.db`). Des profils ou sous-agents ne constituent pas une isolation de sécurité.
 
-Le service Knowledge impose une liste de lecture et un périmètre d’écriture liés au jeton serveur. FORCE RLS PostgreSQL applique « commun + personnel » avant recherche et téléchargement. Les groupes, l’identité Entra et leur cycle de révocation restent à intégrer. La [recette multi-utilisateur](multi-utilisateur.md) distingue ces limites des refus croisés réellement testés.
+---
 
-Chaque runtime Hermes conserve un propriétaire unique de son état SQLite. Des
-profils ou sous-agents ne constituent pas une isolation de sécurité. Les deux
-espaces de qualification sont rattachés à l'annuaire local central ; le
-provisioning général de nouveaux runtimes et les ACL dynamiques restent à livrer.
+## 4. Parcours d’une demande
 
-## Parcours d’une demande
+1. **Identification** : L'utilisateur s'identifie via SSO Entra ID sur le portail ou Teams.
+2. **Consultation & Outils** : Hermes ou le portail consulte les compétences requises (skills locales, outils de code, analyse AST Graphify).
+3. **Assainissement DLP** : Toute requête destinée à un modèle cloud externe passe préalablement par Presidio DLP pour caviardage des données sensibles.
+4. **Inférence & Synthèse** : LiteLLM achemine la requête assainie vers le modèle approprié et restitue la réponse.
+5. **Actions Externes** : Toute action sensible extérieure requiert validation explicite selon la politique de gouvernance.
 
-1. Identifier la session et établir son périmètre côté serveur.
-2. Consulter les sources pertinentes ou un MCP autorisé ; conserver provenance et version.
-3. Assainir l’ensemble du contexte avant un modèle cloud et vérifier la classe de données autorisée.
-4. Produire une réponse avec sources ou un livrable relié à ses originaux.
-5. Pour une action externe, recontrôler permissions, plan, approbation et idempotence avant exécution.
-
-L’étape 1 reste une authentification locale de qualification. Les actions externes approuvées, les connecteurs d’entreprise et l’IAM complet restent à construire. La [recette](../runbooks/recette-fondatrice.md), le [guide MCP](connecteurs-mcp.md) et le [filtrage cloud](confidentialite-cloud.md) indiquent ce qui est réellement vérifié.
+Voir également : [Moteur d'Agents Hermes](hermes-agent.md) · [Inférence LiteLLM](inference-litellm.md) · [Confidentialité Presidio](confidentialite-presidio.md) · [Guide de Déploiement](deploiement-universel.md).

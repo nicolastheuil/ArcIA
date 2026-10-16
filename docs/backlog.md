@@ -1,7 +1,7 @@
 # Backlog ArcIA — 14 octobre 2026
 
 Référence courante : [état de reprise](etat-reprise.md).
-La [recette](runbooks/recette-fondatrice.md) définit la portée de « vérifié ».
+La [recette](archives/recette-fondatrice-2026-10-12.md) définit la portée de « vérifié ».
 Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Hermes/K3s et recherche documentaire locale. Les adaptations d’usage appartiennent aux dépôts d’instance ; qualification multi-utilisateur locale exécutée sur fixtures synthétiques.
 
 | ID | Travail | État réel / suite |
@@ -29,8 +29,8 @@ Périmètre courant : socle/Hermes synthétiques, documentation, outils dans Her
 | IAM-LOCAL-02 | Raccordement des espaces, sessions et identité stable | Provider OIDC public PKCE, validation UserInfo/propriétaire ; 12 contrôles HTTPS et 200 d'isolation réussis ; [handoff](archives/handoff-2026-10-13-identite.md) |
 | IAM-LOCAL-03 | Coexistence local/SSO, nouveaux runtimes et ACL de groupes | Login Microsoft confirmé sur le pilote ; recette complète du tenant, launcher général, ACL dynamiques et restore/HA à qualifier |
 | IAM-LOCAL-04 | Espace personnel vide au premier login | Portail PKCE, pool borné, binding issuer/subject et contrôle administratif limité ; [handoff](archives/handoff-2026-10-13-portail-personnel.md) |
-| IAM-NET-01 | OIDC depuis le nœud local de la VIP | Correction ciblée ingress/8443 déployée après accord explicite ; 34 règles relues, quatre OIDC et douze sondes nœuds vérifiés ; retour Microsoft interactif à confirmer ; [procédure](runbooks/bootstrap.md) |
-| IAM-SESSION-01 | Renouvellement après expiration du jeton | Correction générique déployée après accord explicite ; expiration réelle et refresh HTTP 200, rejeux logout HTTP 401 ; Fresh/Reconcile et locks alignés, 254 tests dont deux skips Windows ; [procédure](runbooks/bootstrap.md) |
+| IAM-NET-01 | OIDC depuis le nœud local de la VIP | Correction ciblée ingress/8443 déployée après accord explicite ; 34 règles relues, quatre OIDC et douze sondes nœuds vérifiés ; retour Microsoft interactif à confirmer ; [procédure](guides/deploiement-universel.md) |
+| IAM-SESSION-01 | Renouvellement après expiration du jeton | Correction générique déployée après accord explicite ; expiration réelle et refresh HTTP 200, rejeux logout HTTP 401 ; Fresh/Reconcile et locks alignés, 254 tests dont deux skips Windows ; [procédure](guides/deploiement-universel.md) |
 | IAM-LOCAL-05 | Cycle de vie et capacité des espaces | Transfert explicite, purge, récupération d'emplacements, migration d'outils actifs et sauvegarde/restore restent à qualifier ; aucun recyclage automatique |
 | IAM-LOCAL-06 | Récupération admin nommé et admission automatique du tenant Microsoft | Appliquées sur exception limitée ; realm-admin et ArcIA.User fédéré relus ; pool privé 32 places, nettoyage explicite d'un compte supprimé ; recette interactive et charge simultanée à compléter ; [reprise](archives/handoff-2026-10-13-identity-public-https.md) |
 | L0-03 | Policy/RBAC, sanitizer, sortie IA unique | Presidio/gateway/DNS déployés et réponse gratuite vérifiée ; deux espaces locaux qualifiés ; IAM central restant |

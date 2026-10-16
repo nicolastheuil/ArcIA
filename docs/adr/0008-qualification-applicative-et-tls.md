@@ -26,5 +26,5 @@ ni Desktop/WebSocket/SSE complet, ni Entra/Teams/RBAC/DLP/VPN/ingestion.
 Les incompatibilités de matrice de support demeurent visibles.
 
 La publication publique reste désactivée, même après émission éventuelle d’un
-certificat public. Voir [recette](../runbooks/recette-fondatrice.md),
-[TLS](../runbooks/certificats-dns.md) et [sécurité](../guides/securite.md).
+certificat public. Voir [recette](../archives/recette-fondatrice-2026-10-12.md),
+[infrastructure et TLS](../guides/infrastructure-k3s.md) et [sécurité](../guides/securite.md).

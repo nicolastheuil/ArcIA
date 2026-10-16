@@ -72,6 +72,13 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
    - **Automatisation** : Scripts `skills/sync-skills.sh` et `scripts/Sync-Skills.ps1` mis à jour pour le provisionnement vers `/var/data/arcia/shared-skills/arcia/`.
    - **Validation** : 23 tests unitaires et contrôles de confidentialité validés avec succès (`tests/test_graphify.py`, `tests/test_skills.py`, `tests/test_privacy.py`, etc.).
 
+11. **Purge Documentaire Intégrale & Alignement Déployé v0.2 (`scripts/validate_docs.py`)** :
+   - **Suppression des 10 guides & runbooks v0.1 obsolètes** : Guides `connaissance-documentaire.md`, `identite-utilisateurs.md`, `multi-utilisateur.md`, `confidentialite-cloud.md`, `securisation-plateforme-donnees.md` et runbooks `bootstrap.md`, `certificats-dns.md`, `exploitation-qualification.md`, `preparer-deploiement.md`, `vcenter.md`.
+   - **Archivage formel** : `recette-fondatrice.md` déplacé vers `docs/archives/recette-fondatrice-2026-10-12.md` et indexé.
+   - **Réalignement des guides v0.2 actifs** : `versions-officielles.md`, `plateforme-arcia.md`, `securite.md`, `outillage-builder.md`, `skills.md`, `omniroute.md` et refonte complète de `quickstart.md` (déploiement 3 étapes, LiteLLM keys, Open-WebUI BYOK/OAuth, Hermes Studio/Gateway, Teams).
+   - **Outillage d'intégrité automatique** : Script déterministe `scripts/validate_docs.py` vérifiant 100% des fichiers markdown et liens relatifs/ancres (72 fichiers, 222 liens validés sans erreur).
+   - **Périmètre GitHub** : Le dépôt GitHub est strictement assaini et ne comporte aucun composant ou documentation qui ne soit déployé et qualifié sur le harness.
+
 ---
 
 ## 2. État Courant des Composants
@@ -95,6 +102,7 @@ Conformément à `PLAN_DE_MISE_EN_OEUVRE_ARCIA_v0.2.md` :
 | **Ponytail** | `skills/ponytail` | Skill | **v1.0 Codé & Intégré** | Sobriété logicielle, échelle de décision YAGNI et anti-bloat |
 | **ArcIA Graphify** | `scripts/arcia_graphify.py` | Tool/Skill | **v0.2 Codé & Vérifié (3/3)** | Cartographie AST locale déterministe et GraphRAG (0 token) |
 | **Public-APIs** | `skills/public-apis` | Référentiel | **Cadré (Veille)** | Guide de qualification et sécurisation Presidio/NetworkPolicy |
+| **Doc Validator** | `scripts/validate_docs.py` | CLI | **Vérifié (72 docs / 222 liens)** | Contrôle d'intégrité automatique des liens et ancres |
 
 
 ---

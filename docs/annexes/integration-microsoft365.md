@@ -4,15 +4,7 @@ Annexe administrateur du tenant — référence vérifiée le **13 octobre 2026*
 Produit : ArcIA ; moteur : Hermes ; cible applicative : K3s sur VMware.
 Les noms `ArcIA-*` ci-dessous sont des noms proposés, à adapter à l'instance.
 
-## 1. Objet, livrables et état réel
-
-L'identification **par défaut** d'ArcIA repose sur des comptes locaux permanents
-Keycloak, administrables sans tenant Microsoft. Entra peut coexister avec eux
-par brokering. Le callback du broker et les règles de liaison sont dans
-[Identité et portail utilisateurs](../guides/identite-utilisateurs.md). Le profil
-Entra-Web direct décrit ci-dessous reste une option ; il n'est pas un
-prérequis pour utiliser ou administrer ArcIA. Les identités et permissions
-Graph des connecteurs Microsoft demeurent séparées de cette authentification.
+L'identification d'entreprise dans ArcIA repose sur le SSO Microsoft Entra ID (OIDC via OAuth2-Proxy et Open-WebUI), configurable dans `arcia.config.yaml`. Le fonctionnement et la configuration sont détaillés dans [Portail et Entra ID](../guides/portail-webui-entraid.md). Les identités et permissions Graph des connecteurs Microsoft demeurent séparées de cette authentification.
 
 Ce dossier permet de préparer côté Microsoft l'authentification Entra ID, un bot
 Teams personnel, la synthèse de réunions après transcription, SharePoint Online
@@ -606,9 +598,7 @@ double publication d'une synthèse.
 
 ## 11. YAML d'instance et configuration assistée
 
-Fichier de référence : `instance/microsoft365.yaml` dans votre dépôt d'instance privé (ex: `ArcIA-tenant-<Organisation>`).
-Gabarit générique : [microsoft365.yaml](../../examples/microsoft365/microsoft365.yaml) ;
-schéma : [microsoft365.schema.json](../../schemas/microsoft365.schema.json).
+Fichier de référence : les sections `entra_id_sso` et `teams_bot` du fichier de configuration racine `arcia.config.yaml` (voir [arcia.config.yaml.example](../../arcia.config.yaml.example)).
 
 Le fichier livré est une **préparation inactive**, avec valeurs inconnues à
 `null`, collections de ressources vides et références de secrets symboliques.

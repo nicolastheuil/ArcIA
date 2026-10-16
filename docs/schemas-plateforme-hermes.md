@@ -69,25 +69,21 @@ Le mode streaming actuel restitue des événements SSE après réception de la r
 
 ## 4. Partage entreprise et isolation : cible
 
-L'identification par défaut passe par Keycloak : comptes locaux permanents,
-portail d'administration et fédération SSO optionnelle en parallèle. Le
-raccordement des deux espaces synthétiques ne qualifie pas encore le
-provisioning général ni les ACL de groupes. [Identité](guides/identite-utilisateurs.md).
+L'identification repose sur Open-WebUI et le SSO Microsoft Entra ID (via OAuth2-Proxy). [Portail et SSO Entra ID](guides/portail-webui-entraid.md).
 
 ```mermaid
 flowchart TB
   UA[Utilisateur A] --> IAM[Identité et autorisation serveur]
   UB[Utilisateur B] --> IAM
-  IAM --> RA[Runtime A : historique et connexions propres]
-  IAM --> RB[Runtime B : historique et connexions propres]
-  RA --> KB[Service documentaire : ACL avant recherche et téléchargement]
+  IAM --> RA[Open-WebUI : historique et sessions propres]
+  IAM --> RB[Hermes Agent : studio et gateway propres]
+  RA --> KB[LiteLLM : routage et modèles d'entreprise]
   RB --> KB
-  KB --> COMMUN[Corpus commun : personnes habilitées]
-  KB --> GROUPE[Corpus restreint : groupe autorisé]
-  KB --> PERSO[Documents personnels : propriétaire]
+  KB --> DLP[Presidio DLP : caviardage PII et secrets]
+  DLP --> CLOUD[Modèles Cloud sécurisés]
 ```
 
-Deux runtimes locaux distincts et une lecture « commun + personnel » existent en qualification synthétique. Le schéma reste une cible pour l’IAM central et les groupes. La [recette multi-utilisateur](guides/multi-utilisateur.md) détaille les preuves et limites. Les agents délégués n’obtiennent pas des droits plus larges.
+La séparation des espaces et le cloisonnement sont détaillés dans le [guide plateforme](guides/plateforme-arcia.md). Les agents délégués n’obtiennent pas des droits plus larges.
 
 ## 5. Harness et instances
 

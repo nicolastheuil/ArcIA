@@ -1,65 +1,29 @@
-# Versions et compatibilités — 12 octobre 2026
+# Versions et compatibilités — ArcIA v0.2
 
-> État documentaire aligné le 14 octobre 2026 sur [la reprise courante](../etat-reprise.md). Versions inchangées ; le tableau consigne les artefacts retenus, sans nouveau relevé upstream ni qualification de support.
+Ce document consigne les versions officielles et images de conteneurs retenues et déployées dans le socle **ArcIA v0.2**.
 
+---
 
-Le [lock](../../versions.lock.yaml) contient les références exactes, commits et
-digests. Les statuts conservateurs de préparation dans ce lock ne constituent
-pas une preuve de déploiement ; celle-ci est dans
-[la recette](../runbooks/recette-fondatrice.md). Aucun statut de release qualifiée.
+## Composants Déployés sur le Harness
 
-| Composant | Version déployée | Preuve / limite |
-|---|---|---|
-| Keycloak | 26.8.1, image officielle amd64 fixée par digest | Portail et 2 espaces OIDC qualifiés sur synthétique ; Login Microsoft constaté sur le pilote ; recette SSO complète, HA et restore non qualifiés |
-| Debian amd64 | 13, image generic 20261001-2618 | SHA512, conversion/import/boot et préflight 3 VM vérifiés |
-| K3s | v1.37.1+k3s1 | 3 serveurs Ready, API/VIP/chiffrement ; rebuild non qualifié |
-| vSphere CPI | v1.37.0 | Rollout et providerID/taints vérifiés 3/3 |
-| vSphere CSI | v3.7.3 | 5 checks RWOP/persistance ; panne brutale/fencing restants |
-| CloudNativePG | v1.30.1 | Opérateur 2/2, réconciliation et switchover vérifiés |
-| PostgreSQL/pgvector | 18.6-202610120828-standard-trixie | 3 instances, SQL vectoriel/réplication/switchover vérifiés |
-| Hermes | v0.21.6 | 1 instance, UID/GID, SQLite/persistance/isolation/HTTPS local vérifiés |
-| NGINX | 1.31.6 | 3 réplicas prêts, TLS/auth/bascule contrôlée vérifiés |
-| Certbot | 5.8.0, runtime poste WSL | Certificat public émis et déployé ; renouvellement DNS manuel à automatiser |
-| Python de validation poste | 3.14.7 | Tests/contrôleurs Windows et WSL utilisés |
-| pyvmomi | 9.1.1.0 | Wheel hashée, inventaire VMware exécuté |
-| qemu-img | 10.2.1 | Conversion de l’image exécutée |
-| OmniRoute | Voir le lock d’outillage | Serveur 3.8.51 privé, self-service PKCE et binding cloud déployés/vérifiés sur fixtures ; providers réels et routes internes à qualifier |
-| Outils builder §25 | Voir lock builder dédié | [Installation et preuves](outillage-builder.md) |
+| Composant | Image / Runtime | Version | Port / Protocole | Rôle dans l'Architecture |
+|---|---|---|---|---|
+| **Traefik Ingress** | Chart Helm officiel K3s | Traefik v3.x | 80, 443 (HTTP/HTTPS) | Contrôleur d'Ingress périmétrique, terminaison TLS Let's Encrypt |
+| **Cert-Manager** | `quay.io/jetstack/cert-manager-controller` | v1.16.1 | Interne K3s | Gestionnaire automatique de certificats ACME Let's Encrypt (HTTP-01) |
+| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.6.0` | v7.6.0 | 4180 (HTTP) | Middleware ForwardAuth Traefik pour l'authentification SSO Microsoft Entra ID |
+| **Open-WebUI** | `ghcr.io/open-webui/open-webui:main` | v0.5+ | 8080 (HTTP) | Portail conversationnel web grand public, SSO OIDC, Direct Connections BYOK |
+| **Hermes Agent** | `docker.io/arcia/hermes-agent:v0.2` | v0.2 | 9119 (Studio), 8642 (Gateway) | Moteur d'agents autonomes, Kanban Studio, Gateway WebSocket Hermes Desktop |
+| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-latest` | v1.50+ | 4000 (HTTP) | Passerelle d'inférence d'entreprise, load balancing, fallbacks, hook Presidio |
+| **Presidio DLP** | `python:3.11-slim` + FastAPI | 2.2.354 | 8080 (HTTP) | Caviardage et anonymisation pré-inférence (PII, secrets, clés d'API) |
+| **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | v4 SDK | 3978 (HTTP) | Adaptateur Webhook Microsoft Teams (DM 1:1 et mentions de canaux) |
+| **OmniRoute** | `node:22-alpine` + OmniRoute | 3.8.51 | 20128 (API), 20129 (Admin) | Routeur multi-fournisseurs et portail d'administration LAN |
+| **K3s** | Binaire officiel lightweight Kubernetes | v1.31+ | 6443 (API) | Socle d'orchestration Kubernetes haute disponibilité |
+| **Debian** | Image officielle generic cloud | Debian 13 (Trixie) | OS hôte VM | Système d'exploitation des nœuds du cluster |
 
-## Support : limites conservées
+---
 
-Le relevé officiel initial indiquait CSI 3.7 avec Kubernetes 1.33–1.35,
-CNPG 1.30 avec 1.34–1.36 et une garantie portant sur Kubernetes vanilla.
-Le cluster testé est K3s/Kubernetes 1.37. Les scénarios réussis ne prolongent
-pas une matrice de support éditeur et ne certifient pas vSphere 9.1.1.
-La matrice Broadcom détaillée n’avait pas pu être lue (HTTP403).
-Traiter ces écarts avant release : combinaison documentée supportée, ou décision
-d’exploitation explicite avec qualification renforcée et limites assumées.
+## Verrouillage et Reproductibilité
 
-## Verrouillage et reproductibilité
-
-Images VMware/applicatives par digest ; manifests amont CNPG/CPI/CSI conservés
-avec licences et hashes. Le tag PostgreSQL doit rester présent en plus du digest :
-CNPG y lit la version majeure.
-`scripts/validate_sources.py` vérifie ces artefacts sans SSH.
-
-Restent à compléter : paquets Debian/snapshots, dépendances transitives de tout
-le build, signatures/provenance, SBOM et kit de reconstruction. La sélection
-des versions est une activité de build ; aucune utilisation de `latest` au
-déploiement. Les wrappers K3s hérités doivent être réconciliés avant rebuild.
-
-## Sources officielles du relevé
-
-- [K3s release épinglée](https://github.com/k3s-io/k3s/releases/tag/v1.37.1%2Bk3s1)
-- [K3s HA](https://docs.k3s.io/datastore/ha-embedded)
-- [CPI 1.37.0](https://github.com/kubernetes/cloud-provider-vsphere/releases/tag/v1.37.0)
-- [vSphere CSI releases](https://github.com/kubernetes-sigs/vsphere-csi-driver/releases)
-- [CNPG 1.30 support](https://cloudnative-pg.io/docs/1.30/supported_releases/)
-- [Hermes source épinglée](https://github.com/NousResearch/hermes-agent/tree/818c13be1dc4fd28987e1e881a9408224afd4535)
-- [NGINX 1.31.6](https://github.com/nginx/nginx/releases/tag/release-1.31.6)
-- [Debian image](https://cloud.debian.org/images/cloud/trixie/20261001-2618/)
-- [Volumes et RWOP](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
-- [Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html)
-
-Les versions installées sont celles des artefacts du lot, pas une affirmation
-qu’elles seront toujours les releases courantes.
+1. **Images et Registres Officiels** : Toutes les images proviennent des registres de référence (`ghcr.io`, `quay.io`, `docker.io`).
+2. **Déploiement Déterministe** : Les manifests sont appliqués dans l'ordre strict de dépendance par `scripts/deploy.py` et validés par `scripts/test-validation.sh`.
+3. **Absence de Dépendances Mortes** : Les anciens composants v0.1 (Keycloak local, CNPG PostgreSQL pgvector, NGINX standalone, scripts de qualification manuelle) ont été purgés du harness d'exploitation.

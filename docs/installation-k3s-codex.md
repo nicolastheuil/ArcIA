@@ -5,25 +5,13 @@ Version 1.1 — actualisation opérationnelle du 12 octobre 2026.
 
 ## Point d’entrée actuel
 
-Utiliser le [bootstrap exhaustif](runbooks/bootstrap.md) pour Plan/Apply/Reconcile/Verify/Audit. Il couvre maintenant le RAG, Presidio et le cloud gratuit filtré. Les étapes détaillées ci-dessous expliquent les fondations et restent soumises aux prérequis/propriétés contrôlés par le bootstrap. Les customisations métier se font dans le dépôt d’instance.
+Utiliser le [Quickstart](runbooks/quickstart.md) et le [guide de déploiement universel](guides/deploiement-universel.md) pour déployer et administrer la plateforme. Les étapes détaillées ci-dessous expliquent les fondations et restent soumises aux prérequis d'infrastructure. Les customisations métier se font dans le fichier `arcia.config.yaml` et le dépôt d’instance.
 
 ## État et chemin de reprise
 
-Le socle décrit aux étapes 1–13 existe désormais sur les trois VM désignées :
-K3s, CPI/CSI, CNPG/PostgreSQL/pgvector, Hermes et NGINX privés. Les preuves et
-limites sont dans [la recette](runbooks/recette-fondatrice.md) et
-[l’architecture réelle](architecture.md). Pour cette instance, suivre
-[l’exploitation](runbooks/exploitation-qualification.md), sans recréer VM,
-token, compte technique ou configuration. Le dépôt réel est
-`nicolastheuil/ArcIA`, privé ; les noms des étapes initiales sont des exemples.
+Le socle déployé repose sur K3s haute disponibilité, Traefik Ingress, Cert-Manager TLS, Open-WebUI, Hermes Agent, LiteLLM et Presidio DLP. Les preuves et limites sont dans [la recette historique](archives/recette-fondatrice-2026-10-12.md) et [l’architecture réelle](architecture.md). Pour cette instance, suivre [l’exploitation](runbooks/exploitation.md). Le dépôt réel est `nicolastheuil/ArcIA`.
 
-Les commandes des étapes suivantes constituent le parcours d’une nouvelle cible.
-Une release/reconstruction neuve n’est pas encore qualifiée. Les wrappers K3s
-hérités, le nettoyage du répertoire d’extraction au démarrage, le verrouillage
-des paquets et les matrices CSI/CNPG doivent être revus avant rebuild.
-Le TLS public est déployé, le renouvellement manuel reste à automatiser ; voir [certificats](runbooks/certificats-dns.md).
-
-Ce guide remplace le parcours Compose envisagé avant la confirmation des VM multiples. Infrastructure confirmée : VMware et stockage partagé. Les extensions d’usage appartiennent à chaque instance ; le socle possède un bootstrap logiciel, dont le rebuild neuf reste à qualifier. Les étapes ci-dessous définissent le travail réel à effectuer et les preuves requises.
+Le TLS public est géré automatiquement par Cert-Manager avec Let's Encrypt (HTTP-01) ; voir [infrastructure](guides/infrastructure-k3s.md).
 
 ## 1. Préparer trois VM
 Réutiliser la VM Debian vierge comme hermes-k3s-01 et créer hermes-k3s-02 et hermes-k3s-03. Proposition initiale par VM : 8 vCPU, 32 Go RAM, 150 Go système/runtime, x86_64, sans GPU. Prévoir environ 1 To de volumes persistants partagés à ajuster aux rétentions et à la réplication.
@@ -173,7 +161,7 @@ Utiliser l’image officielle résolue puis fixée par digest, un PVC propre et 
 
 Premiers essais uniquement synthétiques. Le backend de terminal local d’Hermes s’exécute dans le Pod, pas sur le nœud. Pas de montage de socket containerd/Docker ni clé SSH administrateur.
 
-Desktop distant utilise le backend dashboard, généralement sur 9119, pas l’API compatible OpenAI 8642. Pour les premiers tests, utiliser un accès privé/port-forward et une authentification de qualification ; pas de NAT public avant qualification de l'IAM et des sessions. La solution par défaut est l'identité locale Keycloak permanente ; Entra est optionnel. [Portail et procédures](guides/identite-utilisateurs.md).
+Desktop distant utilise le backend dashboard, généralement sur 9119, ou l’API compatible OpenAI 8642. L'authentification repose sur Open-WebUI et le SSO Microsoft Entra ID. [Portail et procédures](guides/portail-webui-entraid.md).
 
 Une duplication de ce Pod avec le même état n’est pas un test de scaling autorisé.
 

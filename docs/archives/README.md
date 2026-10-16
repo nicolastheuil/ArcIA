@@ -23,4 +23,5 @@ l’historique des mises à jour du handoff unique.
 | [2026-10-13-skills-catalogue](handoff-2026-10-13-skills-catalogue.md) | Reprise ArcIA — catalogue de skills et fonctions sans doublons |
 | [2026-10-13-tenant-admission-admin-recovery](handoff-2026-10-13-tenant-admission-admin-recovery.md) | Reprise — récupération admin et admission Microsoft du tenant |
 | [historique-qualification-2026-10-12](historique-qualification-2026-10-12.md) | Historique de qualification du socle ArcIA |
+| [recette-fondatrice-2026-10-12](recette-fondatrice-2026-10-12.md) | Recette fondatrice du socle — 12 octobre 2026 |
 | [verification-preparation](verification-preparation.md) | Vérification de la préparation — 11 octobre 2026 |

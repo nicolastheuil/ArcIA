@@ -14,25 +14,27 @@ références complètes, regroupées par fonction.
 | [Schémas](schemas-plateforme-hermes.md) | Flux actuels et contrats cibles |
 | [Installation K3s/Codex](installation-k3s-codex.md) | Fondations et parcours initial |
 | [Organisation et maintenance](organisation.md) | Responsabilités des dossiers, reprise unique et validation |
-| [AGENTS.md](../AGENTS.md) / [rôle builder](../builder/role.md) | Instructions de construction |
+| [AGENTS.md](../AGENTS.md) | Instructions de construction |
 
 ## Guides fonctionnels
 
 | Besoin | Référence complète |
 |---|---|
 | Comprendre ArcIA, les instances et le partage | [Plateforme](guides/plateforme-arcia.md) |
-| Administrer comptes, portail et SSO | [Identité et utilisateurs](guides/identite-utilisateurs.md) |
-| Qualifier les espaces et les refus croisés | [Multi-utilisateur](guides/multi-utilisateur.md) |
-| Alimenter le RAG et rechercher avec citations | [Connaissance documentaire](guides/connaissance-documentaire.md) |
-| Ajouter une source vivante ou un outil | [Connecteurs MCP](guides/connecteurs-mcp.md) |
-| Contrôler modèles, filtrage et sorties | [Confidentialité cloud](guides/confidentialite-cloud.md) |
-| Configurer OmniRoute, abonnements et overrides autorisés | [OmniRoute](guides/omniroute.md) |
-| Comprendre les frontières et leurs preuves | [Sécurisation plateforme et données](guides/securisation-plateforme-donnees.md) |
-| Appliquer les règles de sécurité | [Politique de sécurité](guides/securite.md) |
+| Déployer ArcIA sur n'importe quel cluster Kubernetes | [Déploiement universel](guides/deploiement-universel.md) |
+| Infrastructure, stockage CSI, Traefik et Cert-Manager | [Infrastructure K3s](guides/infrastructure-k3s.md) |
+| Portail conversationnel, SSO Entra ID, BYOK & OAuth | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
+| Moteur d'agents, Studio Kanban et Gateway Desktop | [Hermes Agent](guides/hermes-agent.md) |
+| Passerelle LLM, routage auto et fallbacks | [Inférence LiteLLM](guides/inference-litellm.md) |
+| Caviardage automatique des secrets et des PII | [Confidentialité Presidio DLP](guides/confidentialite-presidio.md) |
+| Bot conversationnel Microsoft Teams | [Intégration Teams](guides/integration-teams.md) |
+| Routage multi-fournisseurs et portail LAN | [OmniRoute](guides/omniroute.md) |
+| Frontières de sécurité et protection des données | [Politique de sécurité](guides/securite.md) |
 | Découvrir et maintenir les compétences | [Skills](guides/skills.md) |
-| Réduire le contexte et comprendre les mesures | [Tokenmaxing](guides/tokenmaxing.md) |
-| Administrer les outils et leur provenance | [Outillage builder](guides/outillage-builder.md) |
-| Vérifier versions, locks et support | [Versions](guides/versions-officielles.md), [lock](../versions.lock.yaml), [crédits](../THIRD_PARTY_NOTICES.md) |
+| Réduire le contexte et économiser les tokens | [Tokenmaxing](guides/tokenmaxing.md) |
+| Analyse AST Graphify, Ponytail et Public-APIs | [Outillage Builder & Sobriété](guides/outillage-builder.md) |
+| Ajouter une source vivante ou un outil | [Connecteurs MCP](guides/connecteurs-mcp.md) |
+| Vérifier versions, images et support | [Versions](guides/versions-officielles.md) |
 | Préparer Entra, Teams, SharePoint et Outlook | [Annexe Microsoft 365](annexes/integration-microsoft365.md) |
 
 <a id="exploitation"></a>
@@ -40,13 +42,8 @@ références complètes, regroupées par fonction.
 
 | Procédure | Référence |
 |---|---|
-| Plan / Fresh / Reconcile / Verify / Audit | [Bootstrap](runbooks/bootstrap.md) |
-| Démarrer : authentification, OmniRoute, ArcIA et Teams optionnel | [Quickstart complet](runbooks/quickstart.md) |
-| Prérequis de déploiement | [Préparation](runbooks/preparer-deploiement.md) |
-| Inventaire et préparation VMware | [vCenter](runbooks/vcenter.md) |
-| Exploiter le pilote existant | [Exploitation de qualification](runbooks/exploitation-qualification.md) |
-| Émission, DNS et renouvellement TLS | [Certificats](runbooks/certificats-dns.md) |
-| Évaluer les résultats et les gates | [Recette fondatrice](runbooks/recette-fondatrice.md) |
+| Déploiement en 3 étapes, clés LiteLLM, usage et recette | [Quickstart complet](runbooks/quickstart.md) |
+| Maintenance quotidienne, diagnostic, logs et validation | [Exploitation & Maintenance](runbooks/exploitation.md) |
 | Sauvegarder, restaurer et reconstruire | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md) |
 
 ## Pilotage et preuves
@@ -86,3 +83,4 @@ Une CI synthétique ne qualifie pas une reconstruction VMware neuve.
 | [0018](adr/0018-plan-reparation-sortie-keycloak.md) | Plan borné de réparation de la sortie Keycloak |
 | [0019](adr/0019-organisation-documentaire.md) | Documentation par fonction et reprise unique |
 | [0020](adr/0020-perimetre-harness-et-politiques-instance.md) | Périmètre générique et politiques de routage d’instance |
+| [0021](adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md) | Évaluation et intégration de Ponytail, Graphify et Public-APIs |

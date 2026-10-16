@@ -1,42 +1,59 @@
-# Sauvegarde et reconstruction de la plateforme
+# Sauvegarde et Reconstruction de la Plateforme ArcIA v0.2
 
-Sauvegardes cohérentes du cluster et reconstruction sur cluster neuf restent à implémenter et qualifier. [Recette](recette-fondatrice.md) et [contrat §17/26](../plan-integration-hermes.md). Le transfert personnel des secrets d’un ingénieur entre deux PC est hors périmètre du harness.
+Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.2**.
 
-## Éléments à préserver
+---
 
-| Périmètre | À préserver | État |
-|---|---|---|
-| Logiciel | Commit, versions, manifests, scripts, migrations, documentation | Git, locks et preuves assainies |
-| Administration de l’instance | Références de secrets, identités, matériel de récupération etcd et certificats | Stockage protégé, clés externes ; récupération de plateforme à qualifier |
-| Données actives | PostgreSQL/WAL, SQLite/WAL cohérents, corpus, objets et états applicatifs | Backup/restore intégral non qualifié |
+## 1. Cartographie des Données et État Persistant
 
-Réplication PG, quorum etcd, datastore partagé et PV Retain ne remplacent pas une sauvegarde indépendante. Chaque ingénieur prépare son propre contrôleur et ses accès protégés ; la copie de ses secrets personnels n’est pas une dépendance de plateforme.
+| Donnée / Composant | Emplacement | Mode de Persistance | Procédure de Sauvegarde |
+|---|---|---|---|
+| **Code & Manifests** | Dépôt Git `ArcIA` | Versionné dans GitHub | `git push` vers le dépôt distant |
+| **Configuration d'Instance** | `arcia.config.yaml` & `secrets/arcia.env` | Fichiers locaux protégés | Sauvegarde chiffrée hors ligne (DPAPI / coffre d'entreprise) |
+| **Cluster K3s (etcd)** | `/var/lib/rancher/k3s/server/db/snapshots` | Snapshot etcd natif K3s | Snapshot etcd périodique automatique ou manuel |
+| **État Hermes Agent** | PVC 20Gi `hermes-user-pvc` | Volume CSI (`state.db`, mémoire SQLite) | Snapshot de volume CSI VMware ou backup fichier SQLite |
+| **Données Open-WebUI** | PVC 20Gi `open-webui-pvc` | Volume CSI (comptes, préférences, historiques) | Snapshot de volume CSI VMware |
+| **Configuration OmniRoute** | PVC 5Gi `omniroute-pvc` | Volume CSI (clés et profils LAN) | Snapshot de volume CSI VMware |
 
-```mermaid
-flowchart LR
-  G[Git : code et locks] --> B[Rebuild des composants]
-  D[Bases et objets actifs] --> S[Sauvegarde cohérente à implémenter]
-  S --> C[Chiffrement avant externalisation]
-  C --> R[Restore sur cluster neuf en mode sûr]
-  K[Matériel de récupération et clés externes] --> R
-  B --> R
-  R --> V[Recette et réconciliation avant activation]
+---
+
+## 2. Procédure de Sauvegarde
+
+### A. Snapshot etcd K3s
+
+Sur le nœud principal du cluster K3s :
+```bash
+sudo k3s etcd-snapshot save --name arcia-backup-$(date +%Y%m%d%H%M%S)
 ```
+Les snapshots sont stockés par défaut dans `/var/lib/rancher/k3s/server/db/snapshots/`.
 
-## Sauvegarde cluster à construire
+### B. Sauvegarde des Volumes Persistants (PVC)
 
-Définir un manifeste avec release, migrations, horodatages et checksums. Sauvegarder etcd avec son matériel de récupération, PostgreSQL par un mécanisme cohérent/PITR, SQLite par API backup ou arrêt contrôlé tenant compte du WAL, puis corpus et objets. Chiffrer avant externalisation, séparer les clés et tester lecture/intégrité de tous les objets requis.
+Les volumes applicatifs (`hermes-user-pvc`, `open-webui-pvc`) sont hébergés sur le datastore VMware via la StorageClass CSI.
+- Exécuter un snapshot VMware du datastore ou des disques virtuels attachés.
+- En cas de sauvegarde au niveau fichier, arrêter temporairement les écritures ou planifier la sauvegarde en heures creuses.
 
-Les objectifs RPO/RTO sont des cibles à mesurer ; aucun horaire de backup, succès quotidien ou durée de restauration n’est garanti. La récupération du compte ACME et des certificats relève du [runbook certificats](certificats-dns.md).
+---
 
-## Rebuild de qualification
+## 3. Procédure de Reconstruction sur Nouveau Cluster
 
-1. Désigner un cluster neuf distinct ; vérifier SSH hors bande et domaines de panne.
-2. Récupérer code/lock et matériel chiffré ; déverrouiller via programme local protégé.
-3. Déployer en mode sûr, sans VPN, écriture externe ni notification métier.
-4. Restaurer bases/objets de façon cohérente et appliquer les migrations.
-5. Revalider droits actuels, clés, bindings, isolation, intégrité et citations.
-6. Invalider anciennes sessions/approbations et réconcilier les tâches incertaines.
-7. Exécuter la recette avec un deuxième ingénieur, mesurer pertes/durée, puis autoriser uniquement de nouvelles missions après les gates.
+En cas de reconstruction complète :
+1. **Provisionner un cluster K3s vierge** (ou restaurer un snapshot etcd).
+2. **Cloner le dépôt ArcIA** :
+   ```bash
+   git clone https://github.com/nicolastheuil/ArcIA.git
+   cd ArcIA
+   ```
+3. **Restaurer la configuration d'instance** :
+   - Restaurer `arcia.config.yaml` et `secrets/arcia.env`.
+4. **Restaurer les volumes PVC si nécessaire** (rattacher les volumes CSI existants).
+5. **Appliquer le déploiement universel** :
+   ```powershell
+   .\scripts\Deploy-ArcIA.ps1
+   ```
+6. **Vérifier l'intégrité opérationnelle** :
+   ```powershell
+   Get-Content .\scripts\test-validation.sh -Raw | .\scripts\Invoke-K3s.ps1 -RawShell "bash -s"
+   ```
 
-Revoir d’abord les wrappers K3s hérités, verrouiller dépendances/paquets et traiter les limites de support. Ce document n’annonce pas un rebuild exécuté.
+Voir également : [Guide Quickstart](quickstart.md) · [Exploitation Quotidienne](exploitation.md) · [Infrastructure K3s](../guides/infrastructure-k3s.md).

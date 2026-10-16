@@ -109,5 +109,4 @@ parce que les tests montrent une utilité distincte et que leur usage est borné
 
 [RTK, MIT](https://github.com/rtk-ai/rtk) ·
 [Headroom, Apache-2.0](https://github.com/headroomlabs-ai/headroom) ·
-[Crédits et licences](../../THIRD_PARTY_NOTICES.md) ·
 [Décision générale](../adr/0014-catalogue-skills-et-responsabilites.md).

@@ -68,5 +68,4 @@ exécuté. [Fonctionnement complet](../guides/skills.md).
 
 - [Hermes Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
 - [Hermes épinglé : adaptateur skills.sh](https://github.com/NousResearch/hermes-agent/blob/818c13be1dc4fd28987e1e881a9408224afd4535/tools/skills_hub_skillssh.py)
-- [Vercel CLI épinglé](https://github.com/vercel-labs/skills/tree/671e8c320810d36fed80fac5f1a2c1bf7e82d812)
-- [Sources et révisions du catalogue](../../builder/skills.lock.json)
+- [Répertoire des skills](../../skills/)

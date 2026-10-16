@@ -1,52 +1,49 @@
-# Outillage d’ArcIA : rôle, installation K3s et GitHub
+# Outillage d’ArcIA : Moteur Hermes & Compétences Intégrées
 
-La décision actuelle remplace l’ancien placement sur le poste : **les outils sont installés dans l’instance Hermes du cluster K3s**. Le nom historique `builder/` désigne désormais les locks et le catalogue de fabrication, sans autoriser une installation locale.
+Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.2**.
 
-## Emplacement et versions
+---
 
-Namespace `arcia-hermes`, PVC `hermes-tools` 10 Gi RWOP, monté à `/opt/arcia-tools` en lecture seule dans Hermes. Le Job d’installation utilise la même image Hermes fixée par digest, UID 10000, sans token Kubernetes. Il est supprimé avant de rattacher le PVC au runtime. Les versions et intégrités sont dans [tools.lock.json](../../builder/tools.lock.json), [NPM lock](../../builder/npm/package-lock.json), [Python lock](../../builder/requirements-tools.lock.txt) et [catalogue](../../builder/catalog.lock.json).
+## 1. Outils et Modules Déployés
 
-| Outil | Version | Chemin / usage |
-|---|---|---|
-| Context7 | 4.3.0 | `/opt/arcia-tools/bin/context7`, MCP natif |
-| skills | 1.7.2 | `/opt/arcia-tools/bin/skills`, catalogue revu |
-| LintLang | 0.8.2 | `/opt/arcia-tools/bin/lintlang`, rapport |
-| RTK | 0.51.0 | `/opt/arcia-tools/bin/rtk`, invocation explicite |
-| Headroom | 0.40.0 | Outil natif `arcia_compress_json_file`, SDK dans Python isolé |
-| OmniRoute | 3.8.51 | `node /opt/arcia-tools/npm/node_modules/omniroute/bin/omniroute.mjs` |
-| Certbot | 5.8.0 | `/opt/arcia-tools/bin/certbot` |
-| ArcIA Graphify | v0.2 | `scripts/arcia_graphify.py`, analyse AST locale et GraphRAG |
-| Ponytail | v1.0 | `skills/ponytail/SKILL.md`, discipline YAGNI & Decision Ladder |
-| Public-APIs | v1.0 | `skills/public-apis/SKILL.md`, veille et cadrage sous Presidio/NetworkPolicy |
+| Outil / Compétence | Type | Emplacement | Rôle dans l'Architecture |
+|---|---|---|---|
+| **ArcIA Tokenmaxing** | Plugin Python natif Hermes | `services/hermes/plugin.py` | Compression dynamique des sorties terminales (`git log`), réduction JSON Headroom |
+| **ArcIA Graphify** | Script d'analyse AST local | `scripts/arcia_graphify.py` | Cartographie structurelle de codebase, graphes de dépendances déterministes (0 token, 0 fuite) |
+| **Ponytail** | Skill de sobriété logicielle | `skills/ponytail/SKILL.md` | Échelle de décision YAGNI, prévention du sur-développement et de l'over-engineering |
+| **Public-APIs** | Skill de gouvernance d'APIs | `skills/public-apis/SKILL.md` | Référentiel de veille et règles de sécurisation des intégrations d'APIs externes |
+| **OmniRoute** | Routeur LLM / Proxy | `deploy/manifests/09-omniroute.yaml` | Port 20128, routage multi-fournisseurs et portail d'administration LAN |
 
-Sources : [RTK](https://github.com/rtk-ai/rtk), [Headroom](https://github.com/headroomlabs-ai/headroom), [OmniRoute](https://github.com/diegosouzapw/OmniRoute), [Context7](https://github.com/upstash/context7), [skills](https://github.com/vercel-labs/skills), [LintLang](https://github.com/hermes-labs-ai/lintlang), [Ponytail](https://github.com/DietrichGebert/ponytail), [Graphify](https://github.com/graphifyy/graphify). Les sources Superpowers/ECC et licences sont conservées dans [le catalogue de licences](../../builder/licenses/README.md).
+---
 
-Les six adaptations initiales et l'orientation `arcia-skills` sont versionnées sous `deploy/hermes/skills`. Le catalogue complet ajoute 539 entrées upstream recherchables localement, avec crédits et licences par entrée ; les 58 skills embarquées Hermes sont aussi exposées au chargeur natif. Un plugin ArcIA natif guide la découverte, borne RTK et fournit la lecture compressée de JSON Headroom. Aucun hook de pack, export de sessions ou apprentissage ECC/Headroom n'est activé. [Fonctionnement et mises à jour](skills.md) · [Crédits et licences](../../THIRD_PARTY_NOTICES.md).
+## 2. Tokenmaxing et Sobriété de Contexte
 
-## Réseau et activation
+Le plugin natif ArcIA ([services/hermes/plugin.py](../../services/hermes/plugin.py)) intercepte et optimise automatiquement les flux d'entrée d'Hermes :
+1. **Réécriture `git log`** : Simplifie les sorties verbeuses vers un format concis sans impacter les paramètres métier.
+2. **Compression JSON Headroom (`arcia_compress_json_file`)** : Les fichiers JSON volumineux du workspace sont réduits de plus de 40% avant présentation au modèle, tout en conservant l'original paginable via `arcia_restore_tool_result`.
+3. **Économie de Tokens & Respect DLP** : Les tokens économisés réduisent l'empreinte carbone et la facture API, tout en restant strictement contrôlés par Presidio DLP avant sortie cloud.
 
-Hermes accède au DNS statique privé, à Knowledge et à la passerelle Presidio. Les requêtes Context7 externes sont désormais refusées : leur adaptateur filtrant reste à qualifier. Hermes n’a ni Internet direct, ni clé fournisseur, ni identifiants PostgreSQL ; il dispose seulement d’un token de passerelle et de lecture documentaire. [Confidentialité cloud](confidentialite-cloud.md).
+---
 
-RTK réécrit automatiquement seulement les commandes `git log` simples ; les formats structurés, écritures et shells composés restent inchangés. Headroom réduit automatiquement les gros résultats JSON des lectures déclarées avant entrée en contexte, avec original privé récupérable ; `arcia_compress_json_file` reste disponible pour les JSON du workspace. Aucun proxy global ni mémoire partagée. Hermes conserve la mémoire personnelle et la compaction de l'historique. [Mesures, choix et limites](tokenmaxing.md). Le CLI OmniRoute est installé et vérifié dans les outils. Son serveur de gestion LAN dispose maintenant de son bootstrap distinct ; le raccordement d’inférence générique et les fournisseurs personnels restent à intégrer/qualifier. [Configuration OmniRoute](omniroute.md). Ponytail est intégré comme skill de sobriété logicielle (YAGNI / Decision Ladder). Graphify est intégré comme analyseur AST déterministe local (`scripts/arcia_graphify.py`, 0 token, 0 fuite). Le catalogue public-apis est qualifié comme référentiel de veille pour l'intégration sécurisée d'APIs tierces ([ADR 0021](../adr/0021-evaluation-et-integration-ponytail-graphify-public-apis.md)).
+## 3. Analyse Déterministe de Codebase (ArcIA Graphify)
 
-## Installer et vérifier
+Pour comprendre l'architecture d'un projet sans consommer des millions de tokens en RAG naïf :
+- L'analyseur AST Python ([scripts/arcia_graphify.py](../../scripts/arcia_graphify.py)) extrait classes, méthodes, fonctions, imports et dépendances de manière purement algorithmique.
+- Produit un graphe orienté exportable en JSON ou en diagramme Mermaid.
+- Zéro appel réseau, zéro token consommé, conformité totale avec le secret des affaires.
 
-```powershell
-./scripts/Invoke-ClusterFoundation.ps1 -Action install_hermes_tools
-./scripts/Invoke-ClusterFoundation.ps1 -Action verify_hermes_tools
-```
+---
 
-Ces commandes s’exécutent sur le contrôleur d’administration existant et déploient sur la cible K3s désignée. Le runtime ne peut pas modifier le catalogue monté en lecture seule. NPM utilise son lock avec intégrités et sans scripts lifecycle ; Python exige les hashes et des wheels. Le binaire RTK est vérifié par SHA256. La réapplication Hermes conserve outils et MCP documentaires.
+## 4. Synchronisation des Compétences
 
-Une mise à jour de catalogue arrête Hermes de façon contrôlée, attend la disparition de son Pod, réinstalle sur le PVC RWOP puis rétablit une seule instance. Ce parcours a été exécuté pour corriger le chargement UTF-8 des instructions. Un échec laisse le propriétaire arrêté et exige inspection/reprise du Job, sans second writer. Le rebuild neuf doit installer le volume d’outils avant d’activer son montage dans Hermes. Le bootstrap orchestre maintenant ce parcours et sa réconciliation sur la cible existante ; le rebuild neuf demeure une gate de release.
+La mise à jour du catalogue de compétences s'effectue via les scripts dédiés :
+- Sous Windows PowerShell :
+  ```powershell
+  .\scripts\Sync-Skills.ps1
+  ```
+- Sous Linux / Bash :
+  ```bash
+  bash skills/sync-skills.sh
+  ```
 
-## Correction du poste et livraison
-
-`Uninstall-WorkstationTools.ps1` a supprimé les anciennes installations utilisateur ArcIA-Builder et leur enregistrement MCP Codex, après sauvegarde protégée de la configuration. Les autres paramètres Codex et les runtimes d’administration préexistants sont conservés. Les anciennes commandes d’installation locale sont désactivées. Le compte/runtime ACME WSL reste temporairement nécessaire à la reprise du certificat jusqu’à sa migration protégée ; Certbot est également installé dans K3s.
-
-GitHub : dépôt `nicolastheuil/ArcIA`, livraison directe sur **main**, sans nouvelle branche ni PR. Les sources génériques, locks et preuves assainies sont versionnés ; les scripts de debug privés et inventaires ne le sont pas. La CI ne reçoit aucun secret ni accès entreprise. [Handoff et preuves](../archives/handoff-2026-10-12-arcia-cloud-bootstrap.md).
-
-La présentation par catégories, une ligne par outil, est dans le README. La veille
-de catalogue est disponible par script et workflow GitHub manuel
-`Check upstream skills candidates` ; elle ne modifie ni Git ni un cluster.
-La promotion d'une mise à jour reste une révision du harness suivie de sa recette.
+Voir également : [Guide des Skills](skills.md) · [Mesures Tokenmaxing](tokenmaxing.md) · [Moteur d'Agents Hermes](hermes-agent.md).

@@ -36,7 +36,7 @@ contrôlés côté serveur. Le portail `/portal/` attribue au premier login un
 espace vide dans un pool borné, à la clé issuer/subject et sans réaffectation
 d'un ancien état. Le rôle `ArcIA.User` est obligatoire. Les ACL de groupes,
 fédération réelle et restauration demandent des preuves distinctes.
-[Référence identité](guides/identite-utilisateurs.md).
+[Référence identité](guides/portail-webui-entraid.md).
 
 ## 7. Partage et cloisonnement
 
@@ -52,11 +52,11 @@ MCP expose des outils stdio/HTTP vérifiés et bornés. Les connecteurs propres 
 
 ## 10. Confidentialité et cloud
 
-Tous les appels aux modèles cloud passent par Presidio par défaut, avec détecteurs supplémentaires et relais authentifié. Les modèles Ollama/vLLM internes déclarés par l’entreprise ne passent pas par Presidio par défaut ; identité, droits et destinations restent contrôlés. Tout repli cloud reprend le filtrage. Fournisseurs, modèles, coûts, ZDR, collecte et résidence sont des politiques d’instance. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. Le pilote actuel a choisi OpenRouter free, prix nul, ZDR et collecte interdite ; son relais reste spécialisé et les routes internes/génériques restent à intégrer. Les règles serveur ne sont pas modifiables dans un prompt. [Politique complète](guides/confidentialite-cloud.md).
+Tous les appels aux modèles cloud passent par Presidio par défaut, avec détecteurs supplémentaires et relais authentifié. Les modèles Ollama/vLLM internes déclarés par l’entreprise ne passent pas par Presidio par défaut ; identité, droits et destinations restent contrôlés. Tout repli cloud reprend le filtrage. Fournisseurs, modèles, coûts, ZDR, collecte et résidence sont des politiques d’instance. Hermes ne possède pas de clé fournisseur, d’Internet général ni de DNS libre. Les règles serveur ne sont pas modifiables dans un prompt. [Politique complète](guides/confidentialite-presidio.md).
 
 ## 11. Routage et coûts
 
-Chaque instance choisit ses routes internes/cloud, fournisseurs, budgets et replis. Le harness impose les droits et la politique de filtrage selon la destination ; un repli ne contourne pas les règles de l’instance. La trajectoire OmniRoute → OpenRouter free → OpenRouter auto appartient au pilote, pas au socle générique. Aujourd’hui OmniRoute est installé mais son serveur n’est pas activé ; seul le chemin gratuit filtré fonctionne. Le pilote n’autorise aucun repli payant ni suppression de son exigence ZDR. La configuration générique de routage reste à construire.
+Chaque instance choisit ses routes internes/cloud, fournisseurs, budgets et replis. Le harness impose les droits et la politique de filtrage selon la destination ; un repli ne contourne pas les règles de l’instance.
 
 ## 12. Compression et caches
 
@@ -64,7 +64,7 @@ RTK réduit les sorties CLI ; Headroom réduit le contexte. Ils ne sont pas des 
 
 ## 13. Connaissance documentaire
 
-Le service privé conserve originaux, versions, provenance, empreintes, extraits et assets. PDF textuels, texte/Markdown, OpenAPI, JSON Schema, Mermaid/SVG/draw.io sont pris en charge dans les limites des parseurs. OCR et compréhension visuelle avancée sont différés. Les documents sont des données non fiables. [Pipeline complet](guides/connaissance-documentaire.md).
+Le catalogue de compétences et les connaissances de travail sont organisés sous `skills/` avec indexation locale et conformité DLP. [Compétences et documentation](guides/skills.md).
 
 ## 14. Recherche hybride et multi-vecteur
 
@@ -84,7 +84,7 @@ Git reconstruit le logiciel ; il ne restaure pas spontanément les documents et 
 
 ## 18. Bootstrap exhaustif et évolutif
 
-Le point d’entrée est Bootstrap-Harness.ps1. Fresh prépare une cible vierge ; Reconcile réapplique la cible possédée ; Verify exécute les recettes prévues ; Audit inspecte. Le manifeste impose ordre, succès récents, timeouts et couverture de chaque composant/outillage/service. Toute évolution du harness actualise bootstrap, tests et runbook. [Procédure](runbooks/bootstrap.md).
+Le point d’entrée est le script de déploiement universel (`scripts/deploy.py` ou `Deploy-ArcIA.ps1`). Il valide la configuration `arcia.config.yaml`, injecte les secrets et applique les manifests dans l'ordre strict de dépendance. [Procédure](guides/deploiement-universel.md).
 
 ## 19. Secrets et administration
 
@@ -92,15 +92,15 @@ DPAPI/ACL sous le compte ingénieur protège l’enrôlement local. Les wrappers
 
 ## 20. Réseau et publication
 
-L’API K3s reste privée ; l’entrée HTTPS est stable et NGINX refuse les SNI inconnus. Les noms sont des entrées privées d’instance, jamais des constantes métier. NetworkPolicies deny-all et allowlists sont appliquées aux workloads. L’installation peut télécharger des artefacts publics depuis un Job isolé ; ce droit ne reste pas dans Hermes. Les MCP externes ont leur propre qualification de sortie.
+L’API K3s reste privée ; l’entrée HTTPS est stable et Traefik Ingress route les flux avec terminaison TLS Cert-Manager. Les noms sont des entrées privées d’instance, jamais des constantes métier. NetworkPolicies deny-all et allowlists sont appliquées aux workloads. Les MCP externes ont leur propre qualification de sortie.
 
 ## 21. Disponibilité et quotas
 
-Quorum etcd, réplication PostgreSQL et unicité SQLite répondent à des problèmes différents. Trois VM et un stockage partagé ne suffisent pas à déclarer HA. Mesurer perte de nœud, fencing, capacité restante et RPO/RTO. Les workers sans état peuvent être répliqués après qualification ; ingestion et contexte ont des limites explicites. Pas de scaling arbitraire des états personnels.
+Quorum etcd et persistance SQLite répondent à des problèmes différents. Trois VM et un stockage partagé ne suffisent pas à déclarer HA. Mesurer perte de nœud, fencing, capacité restante et RPO/RTO. Les workers sans état peuvent être répliqués après qualification ; contexte et tokens ont des limites explicites. Pas de scaling arbitraire des états personnels.
 
 ## 22. Recette et statuts
 
-Distinguer proposé, codé, déployé et vérifié. La recette inclut isolation, droits négatifs, confidentialité, restauration, perte de nœud, reprise sans double écriture et reconstruction indépendante. Les preuves détaillées restent protégées ; seuls booléens, codes et compteurs sont publiés. [Matrice](runbooks/recette-fondatrice.md).
+Distinguer proposé, codé, déployé et vérifié. La recette inclut isolation, droits négatifs, confidentialité, restauration, perte de nœud, reprise sans double écriture et reconstruction indépendante. Les preuves détaillées restent protégées ; seuls booléens, codes et compteurs sont publiés. [Matrice historique](archives/recette-fondatrice-2026-10-12.md).
 
 ## 23. Livraison
 

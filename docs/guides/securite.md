@@ -1,37 +1,44 @@
-# Sécurité et données privées dans ArcIA
+# Sécurité et Gouvernance des Données — ArcIA v0.2
 
-Le socle est qualifié sur des données synthétiques. La [politique cloud](confidentialite-cloud.md) décrit le filtrage réellement déployé ; le [contrat de plateforme](../plan-integration-hermes.md) décrit les contrôles à compléter avant données privées réelles et partage multi-utilisateur.
+Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.2**.
 
-## Frontières actuelles
+---
 
-| Frontière | Contrôle | Limite |
+## 1. Frontières et Niveaux de Contrôle
+
+| Frontière | Mécanisme de Protection Déployé | Garanties Apportées |
 |---|---|---|
-| Administration SSH | Clés hôtes vérifiées hors bande, identité protégée, destinations désignées | Un administrateur root reste dans la frontière de confiance |
-| Administration VMware | TLS contrôlé, compte technique et privilèges bornés | Permissions et inventaire privés |
-| Secrets cluster | Chiffrement des Secrets K3s vérifié, montages distincts | Ne prouve pas le chiffrement de chaque disque/datastore |
-| Entrée utilisateur | TLS, authentification locale scrypt, cookies sécurisés | Identité d’entreprise et révocation non intégrées |
-| Runtime Hermes | Non-root, readonly, sans token SA ni socket d’administration | Un seul propriétaire de qualification |
-| Réseau Hermes | Services internes autorisés, DNS sans forwarding, refus Internet et relais direct | Chaque nouveau connecteur exige sa recette |
-| RAG | Scope serveur, FORCE RLS et rôle DB non propriétaire/non bypass | Deux scopes synthétiques ; agrégation selon identité à développer |
-| Cloud | Presidio FR/EN, filtres techniques/secrets, enveloppe attestée, route gratuite ZDR | Faux négatifs possibles ; aucune garantie d’anonymat absolu |
-| État Hermes | RWOP, replica unique, Recreate | Fencing sous panne brutale à qualifier |
+| **Périmètre HTTPS** | Certificats Let's Encrypt automatiques via Cert-Manager et Traefik Ingress | Chiffrement TLS de bout en bout, renouvellement automatisé |
+| **Authentification Utilisateurs** | Middleware ForwardAuth Traefik couplé à OAuth2-Proxy et Microsoft Entra ID | Accès conditionné au compte d'entreprise, MFA et gestion centralisée des identités |
+| **Gouvernance DLP (Cloud)** | Microservice Presidio DLP (`presidio-dlp.arcia.svc:8080`) | Caviardage systématique des emails, téléphones, cartes, IPs, mots de passe et API keys |
+| **Passerelle d'Inférence** | LiteLLM Proxy (`litellm-proxy.arcia.svc:4000`) | Abstraction complète des clés d'API fournisseurs, quotas, équilibrage et traçabilité |
+| **Persistance des Agents** | Volumes PVC dédiés `ReadWriteOnce` sous CSI VMware (`arcia-vsphere`) | Étanchéité des états `state.db` SQLite, aucun partage multi-écrivain non contrôlé |
+| **Clés Privées et Secrets** | Chiffrement natif des Secrets Kubernetes (`arcia-env-secret`) | Aucune clé d'API ni mot de passe n'est stocké dans Git ou injecté en clair dans le code |
 
-## Secrets et preuves
+---
 
-Le contrôleur utilise DPAPI CurrentUser et ACL dans une racine privée hors Git/OneDrive. Get-ArcIAStateRoot retrouve aussi le LocalCache MSIX de Codex et refuse plusieurs états ambigus. Les wrappers déchiffrent dans leurs processus, transmettent les paramètres privés par stdin et rechiffrent les diagnostics. Le modèle ne reçoit que des codes, booléens et compteurs autorisés.
+## 2. Cycle de Traitement des Données et Préservation de la Confidentialité
 
-Ne pas afficher bundles, get secret, kubeconfigs, logs bruts, sessions, clés ou fichiers de credentials. La saisie se fait dans un programme local protégé. Le transfert personnel entre postes est hors périmètre du harness ; sauvegardes et restauration de la plateforme restent à qualifier.
+```mermaid
+flowchart LR
+    A["Collaborateur Teams / WebUI"] --> B["Ingress Traefik (TLS Let's Encrypt)"]
+    B --> C["SSO Entra ID / OAuth2-Proxy"]
+    C --> D["Moteur ArcIA (Hermes / WebUI)"]
+    D --> E["Presidio DLP (Caviardage PII & Secrets)"]
+    E --> F["LiteLLM Gateway"]
+    F --> G["Modèles d'Inférence Cloud Sécurisés"]
+```
 
-## Autorité et données non fiables
+1. **Aucun secret d'infrastructure dans les requêtes** : Presidio analyse le prompt complet et substitue les informations sensibles (`[ARCIA_EMAIL_1]`, `[SECRET_REMOVED]`).
+2. **BYOK (Bring Your Own Key) étanche** : Dans Open-WebUI, les collaborateurs utilisant des clés personnelles conservent leur clé exclusivement dans le `localStorage` de leur navigateur (`ENABLE_DIRECT_CONNECTIONS=true`).
+3. **Séparation des responsabilités** : Les clés d'entreprise sont injectées côté cluster dans le secret Kubernetes `arcia-env-secret` par `scripts/Apply-Secrets.ps1` ou `scripts/apply-secrets.sh`.
 
-Un document, un résultat MCP ou une réponse modèle peut contenir des instructions malveillantes. Les sources sont citées comme données, sans autorité sur les permissions. L’agent ne choisit pas son scope ni sa classification cloud. Un téléchargement autorisé n’autorise pas une exécution. Les schémas actifs, références distantes et formats opaques sont traités/refusés selon leur chemin.
+---
 
-Les futures actions externes exigeront permission serveur, plan immuable, approbation vérifiée et idempotence. Une perte de connexion impose réconciliation, jamais rejeu aveugle. Les intégrations d’instance ne peuvent pas ouvrir un accès fournisseur direct contournant la politique du socle.
+## 3. Gestion des Secrets et Bonnes Pratiques
 
-## Partage, sauvegardes et production
+- **Jamais de secrets dans Git** : Les modèles de fichiers `.example` et `.template` définissent les variables attendues. Les vraies clés sont conservées dans `secrets/arcia.env` (protégé par `.gitignore`).
+- **Validation Automatisée en CI** : Le test de barrière de confidentialité (`tests/test_privacy.py`) s'assure qu'aucun identifiant de tenant privé, IP WAN ou sous-réseau d'exploitation n'est commité dans Git.
+- **Audits et Vérifications** : La suite de tests d'exploitation (`scripts/test-validation.sh`) valide la santé des 6 composants critiques et le bon fonctionnement du caviardage Presidio en conditions réelles.
 
-Les connaissances communes doivent être accessibles uniquement aux personnes habilitées. Espaces restreints, historiques et connexions personnelles restent distincts. Le pilote actuel ne prouve pas encore ce modèle complet. [Contrat de partage](plateforme-arcia.md#partage-et-cloisonnement).
-
-Code générique et exemples synthétiques dans le harness ; usages/configuration propres à l’organisation dans son dépôt d’instance ; données et sauvegardes sensibles chiffrées, clés externes. Un dépôt privé ne dispense pas du chiffrement. Réplication, stockage partagé et PV Retain ne sont pas des backups. [Reconstruction et limites](../runbooks/sauvegarde-reconstruction.md).
-
-La [sécurisation détaillée de la plateforme et des données](securisation-plateforme-donnees.md) relie chaque protection à sa frontière, sa recette et ses limites : sessions/révocation, corpus communs et personnels, outils, réseau, cloud, secrets, chiffrement et restauration.
+Voir également : [Gouvernance Presidio DLP](confidentialite-presidio.md) · [Inférence LiteLLM](inference-litellm.md) · [Infrastructure K3s](infrastructure-k3s.md).

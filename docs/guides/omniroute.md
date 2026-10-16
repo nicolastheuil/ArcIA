@@ -6,7 +6,7 @@ Un utilisateur
 standard utilise toujours le mode intelligent/automatique choisi par
 l'administrateur ; il ne choisit ni destination libre, ni credential, ni
 repli depuis son prompt. Le budget, les fournisseurs et les exigences
-ZDR/résidence appartiennent à l'instance. [Quickstart](../runbooks/quickstart.md#3-configurer-omniroute-sur-le-lan).
+ZDR/résidence appartiennent à l'instance. [Quickstart](../runbooks/quickstart.md).
 
 ## État et version
 
@@ -26,63 +26,22 @@ de route. **Le raccordement générique Hermes → OmniRoute, les fournisseurs
 personnels dans le portail utilisateur sont codés et restent à qualifier ; les routes internes restent à intégrer/qualifier.** Le pilote conserve son relais historique filtré tant
 que cette migration n'est pas qualifiée.
 
-## Portail d'administration privé
+## Déploiement et Accès dans ArcIA v0.2
 
-Namespace applicatif `arcia-routing` sous PSA restricted, Service interne
-`omniroute:20128` ; relais TLS LAN dans `arcia-routing-lan`
-sur **20129**, accessible par la **VIP HTTPS privée**. Le défaut filtre les
-CIDR RFC1918 explicites du réseau cible. Une instance dont les VM/VIP sont
-exclusivement LAN/VPN derrière son firewall peut autoriser explicitement toutes
-les IP sources : `-AuthorizeAllPrivateRouterSources` enregistre cette frontière
-privée dans sa politique, préservée à la réapplication. Ce choix ne publie
-aucun service sur Internet. L'authentification reste obligatoire.
-Le nom HTTPS de l'instance sert de SNI ; le navigateur administratif le résout
-vers la VIP. Aucun Ingress, LoadBalancer, NAT ou tunnel public n'est
-créé. Avec le filtre CIDR par défaut, une connexion venant d'un autre réseau
-est refusée ; les chemins
-d'inférence du dashboard sont fermés sur ce relais de gestion.
+OmniRoute est déployé dans le namespace applicatif unifié `arcia` via [deploy/manifests/09-omniroute.yaml](../../deploy/manifests/09-omniroute.yaml) :
+- **Service interne** : `omniroute.arcia.svc:20128`
+- **Volume persistant** : PVC 5Gi (`omniroute-pvc`) pour stocker la configuration et les clés
+- **Portail d'administration LAN** : port `20129`, accessible en réseau local ou VPN
 
-```powershell
-./scripts/Invoke-ClusterFoundation.ps1 -Action install_omniroute
-./scripts/Invoke-ClusterFoundation.ps1 -Action verify_omniroute
-./scripts/Invoke-ClusterFoundation.ps1 -Action inspect_omniroute
-./scripts/Show-RoutingAccess.ps1 -OpenPortal
-```
+Pour activer OmniRoute dans votre déploiement :
+1. Renseigner `omniroute.enabled: true` dans `arcia.config.yaml`.
+2. Déployer via `python scripts/deploy.py --config arcia.config.yaml` ou `.\scripts\Deploy-ArcIA.ps1`.
+3. Vérifier le bon fonctionnement du service :
+   ```powershell
+   .\scripts\Invoke-K3s.ps1 "get pods -n arcia -l app=omniroute"
+   ```
 
-JWT, chiffrement du stockage, signature des API keys et mot de passe initial
-sont générés localement côté worker. Les valeurs ne sortent que par I/O
-protégée vers DPAPI et formulaire local. Changer le mot de passe initial
-dans le dashboard ; sa valeur nouvelle n'est pas récupérable par le helper.
-Vérifier le certificat et le DNS privé après renouvellement. Une adresse
-administrative VPN privée peut être enrôlée seule avec
-`-AuthorizePrivateRouterController`, sur autorisation explicite. Une autorisation
-de toutes les sources exige la déclaration de frontière firewall privée ci-dessus ;
-elle n'est pas le défaut d'une nouvelle instance.
-
-### Accès HTTPS directement par IP
-
-Un certificat public pour le domaine ne couvre pas une VIP RFC1918. Le listener
-IP nécessite un certificat interne avec cette VIP dans son SAN, et une confiance
-explicite sur chaque poste client. Le domaine conserve son certificat public.
-Le listener IP accepte le Host de la VIP et refuse les autres noms ; le proxy
-conserve le port dans Host/Origin pour les contrôles d'authentification/CSRF.
-
-```powershell
-# Générer/enrôler le certificat IP sans modifier la confiance du poste
-./scripts/Enable-RoutingIpAccess.ps1
-# Seulement après accord de l'opérateur : confiance pour ce compte Windows
-./scripts/Enable-RoutingIpAccess.ps1 -TrustCurrentUser
-./scripts/Show-RoutingAccess.ps1 -OpenPortal -UseIp
-```
-
-La clé serveur reste dans `routing-ip-tls.dpapi` et le Secret TLS dédié ; seul
-le certificat public `.cer` est exporté. La confiance ne fait pas partie de
-Fresh/Reconcile ; aucun autre poste n'est modifié. Le certificat est valable
-un an et sa rotation exige une procédure contrôlée ; ni certificat ni clé
-existants ne sont régénérés silencieusement. Une autre instance peut fournir
-sa PKI interne après adaptation/qualification de l'enrôlement.
-
-Le dashboard natif donne une vue administrative globale des connexions.
+Le dashboard natif donne une vue administrative globale des connexions et des quotas.
 **Ne pas distribuer son mot de passe aux utilisateurs** : il ne fournit pas
 à lui seul la séparation de leurs comptes personnels.
 
@@ -250,19 +209,12 @@ Le pilote a choisi gratuité, ZDR et collecte interdite. Ces contraintes sont
 sa politique propre, pas le comportement obligatoire d'une autre instance.
 Ni `auto/cheap`, ni un nom « free » ne prouvent ZDR, résidence ou coût nul.
 Les restrictions doivent être appliquées et testées au niveau du fournisseur
-effectif. [Politique cloud et limites Presidio](confidentialite-cloud.md).
+effectif. [Gouvernance Presidio DLP](confidentialite-presidio.md).
 
-## Bootstrap, preuves et exploitation
+## Déploiement et exploitation
 
-`bootstrap/routing.lock.json` couvre runtime, politique, renderer, worker,
-helper d'accès, enrôlement TLS IP, page personnelle, stockage, identité, gateway
-et rendus canoniques. Le bootstrap réapplique le binding OmniRoute, conserve
-les versions/UID/PVC et refuse une modification concurrente du runtime. Les contrôles rejettent dashboard public,
-ouverture de toutes les sources sans déclaration firewall privée, absence du rôle
-spécifique et sortie cloud sans défaut Presidio. Le [bootstrap](../runbooks/bootstrap.md)
-installe après Privacy, vérifie le service et les trois relais LAN, puis
-inspecte lors d'Audit. La recette vérifie TLS/SNI et refus des routes de gestion,
-inférence et publication depuis le LAN et, si autorisé, le contrôleur et la VIP.
+Le déploiement applique le binding OmniRoute, conserve les versions et volumes PVC, et refuse une modification non contrôlée du runtime. Les contrôles rejettent dashboard public et sortie cloud sans filtrage Presidio. Le [déploiement universel](deploiement-universel.md)
+installe les services dans l'ordre strict de dépendance.
 La vérification du portail n'exécute aucune inférence et ne contourne pas TLS.
 
 Sauvegarder de manière cohérente le PVC des données et les secrets de

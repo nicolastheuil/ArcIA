@@ -98,43 +98,23 @@ fournisseur ou une autorisation d'action externe. [Matrice de décisions](../adr
 
 ## Versions, mises à jour et nouvelles installations
 
-Le bootstrap installe le catalogue dans le Job d'outillage avant le montage
-readonly du volume. Le Job télécharge les archives publiques aux commits fixés,
-contrôle SHA256, chemins, liens, tailles et index déterministe, puis publie une
-version locale. Il n'exécute aucun installateur upstream. Les licences et fichiers
-de référence textuels accompagnent leur skill. Les deux runtimes ont chacun leur
-copie readonly ; aucune écriture commune et aucun token fournisseur n'est ajouté.
+Le catalogue de skills est stocké sous le répertoire `skills/` du dépôt et synchronisé vers le cluster K3s dans le volume partagé `/var/data/arcia/shared-skills`.
 
 ```powershell
-# Contrôleur administratif : vérification des révisions fixées, aucun déploiement
-& "$env:LOCALAPPDATA\ArcIA-Validation\venv\Scripts\python.exe" scripts/refresh_skills_catalog.py
-
-# Examiner les révisions plus récentes, sans les promouvoir ni les déployer
-& "$env:LOCALAPPDATA\ArcIA-Validation\venv\Scripts\python.exe" scripts/refresh_skills_catalog.py --latest
-
-# Après revue : produire des locks candidats, puis tests/CI et bootstrap K3s
-& "$env:LOCALAPPDATA\ArcIA-Validation\venv\Scripts\python.exe" scripts/refresh_skills_catalog.py --latest --write
-./scripts/Bootstrap-Harness.ps1 -Mode Apply -Profile Reconcile
-./scripts/Bootstrap-Harness.ps1 -Mode Verify
+# Synchronisation sous PowerShell
+.\scripts\Sync-Skills.ps1
 ```
 
-Ces commandes n'installent aucun outil applicatif sur le poste. Les archives
-publiques de build peuvent être mises en cache par le contrôleur ; les runtimes,
-skills utilisées et outils restent dans K3s. La vérification de nouvelles versions
-est explicite, par script ou workflow GitHub manuel `Check upstream skills candidates`,
-pas une tâche de veille planifiée. Aucun auto-update ne modifie une
-session. Une mise à jour de source, dépendance ou protocole exige les mêmes locks,
-tests, couverture bootstrap, documentation et preuves que les autres composants.
-Revenir à une révision précédente réinstalle son catalogue ; Git ne restaure pas
-les données personnelles de l'agent.
+```bash
+# Synchronisation sous Linux / Bash
+bash skills/sync-skills.sh
+```
+
+Ces commandes n'installent aucun outil applicatif sur le poste de l'administrateur. Chaque skill dispose de ses instructions claires et structurées dans son fichier `SKILL.md` (comme pour Ponytail, Graphify et Public-APIs). Une mise à jour ou un ajout de compétence s'effectue en ajoutant le dossier de la skill sous `skills/` puis en appliquant la synchronisation.
 
 ## Crédits, licences et qualification
 
-[Notices par outil](../../THIRD_PARTY_NOTICES.md), [sources épinglées](../../builder/skills.lock.json)
-et [index détaillé](../../builder/skills-index.json). Chaque entrée référence auteur,
-dépôt, commit, licence et fichiers contrôlés. La licence racine n'écrase pas une
-licence propre à une skill ou à un script. Certains contenus Hermes ont une
-licence spécifique : il faut lire le lien propre à l'entrée avant redistribution.
+Chaque compétence intégrée référence son auteur original, sa licence open-source et ses fichiers contrôlés. La licence racine du projet n'écrase pas une licence propre à une skill ou à un script.
 
 « Cataloguée » signifie recherchable et lisible, avec provenance et intégrité.
 Cela ne signifie pas « chaque script exécuté », « dépendances installées », ni

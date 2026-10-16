@@ -3,7 +3,7 @@
 Les lignes « vérifié » correspondent aux scénarios exécutés sur les seules VM
 de qualification. Les preuves détaillées restent chiffrées ; leurs statuts
 assainis sont sous `%LOCALAPPDATA%\ArcIA-Harness`.
-La [vérification locale](../archives/verification-preparation.md) est distincte de cette recette.
+La [vérification locale](verification-preparation.md) est distincte de cette recette.
 
 ## Matrice actuelle
 
@@ -48,7 +48,7 @@ Aucun test de fuite n’emploie de secret réel.
 ## Rejouer et compléter
 
 Les commandes et leurs effets sont dans
-[l’exploitation](exploitation-qualification.md). Les recettes stockage,
+[l’exploitation](../runbooks/exploitation.md). Les recettes stockage,
 applications et VIP modifient temporairement le socle ; réserver une fenêtre.
 Ne pas confondre switchover PostgreSQL et crash automatique du primaire.
 
@@ -56,4 +56,4 @@ Pour tout nouvel essai : consigner scénario, commit/lock, date, cible opaque,
 résultat, nettoyage et référence privée. Les compteurs ne prouvent que les
 assertions du scénario ; ne pas extrapoler à l’ensemble de la plateforme.
 Une release exige les gates restants du [plan §19/25/26](../plan-integration-hermes.md)
-et [la reconstruction](sauvegarde-reconstruction.md).
+et [la reconstruction](../runbooks/sauvegarde-reconstruction.md).

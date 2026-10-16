@@ -68,6 +68,7 @@ flowchart TD
 
 ---
 
+<a id="carte-du-dépôt"></a>
 ## 3. Cartographie des Composants & Ports
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |

@@ -8,4 +8,4 @@ Les changements génériques sont committés et poussés directement sur **main*
 
 Les certificats Let’s Encrypt sont émis pour les deux seuls noms publics demandés et appliqués à NGINX. NAT et Teams restent absents. Le dashboard utilise l’authentification locale et la résolution privée ; le formulaire d’accès retrouve le stockage protégé Codex/MSIX depuis un terminal Windows classique. Aucune valeur secrète ne passe par le chat.
 
-Cette décision remplace les recommandations historiques de placement builder sur le poste et de livraison par branche/PR, ainsi que le statut TLS différé de l’ADR 0008. [Outillage](../guides/outillage-builder.md), [certificats](../runbooks/certificats-dns.md), [reprise](../etat-reprise.md).
+Cette décision remplace les recommandations historiques de placement builder sur le poste et de livraison par branche/PR, ainsi que le statut TLS différé de l’ADR 0008. [Outillage](../guides/outillage-builder.md), [infrastructure](../guides/infrastructure-k3s.md), [reprise](../etat-reprise.md).
