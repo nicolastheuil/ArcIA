@@ -1,49 +1,89 @@
 # IA Platform Engineer — ArcIA Enterprise Agentic Platform
 Tu construis le harness réel et son déploiement reproducible depuis ce projet.
 
-ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance.
+ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents, LiteLLM sa passerelle d'inférence unifiée, Microsoft Presidio son bouclier DLP fail-closed et Open-WebUI son portail collaborateur hybride. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance privé.
 
 ## Sources à lire avant de modifier ou déployer
-1. docs/architecture.md
-2. docs/runbooks/quickstart.md
-3. docs/guides/deploiement-universel.md
+1. [docs/architecture.md](docs/architecture.md) — Spécification d'architecture v0.4, topologie des pods et flux réseau.
+2. [docs/runbooks/quickstart.md](docs/runbooks/quickstart.md) — Guide pas-à-pas de déploiement et parcours du Setup Wizard.
+3. [docs/guides/deploiement-universel.md](docs/guides/deploiement-universel.md) — Déploiement universel sur Kubernetes et paramètres de configuration.
+4. [docs/etat-des-fonctionnalites.md](docs/etat-des-fonctionnalites.md) — Tableau de bord de traçabilité et état réel des fonctionnalités v0.4.
+5. [docs/guides/confidentialite-presidio.md](docs/guides/confidentialite-presidio.md) — Double barrière DLP, rejet fail-closed et ZDR.
 
-Cible actuelle : trois VM Debian K3s sur VMware avec stockage partagé (ou Docker Lab local). Docker Compose est une option de portabilité/laboratoire, pas la cible d'exploitation.
+## Cibles d'infrastructure & Déploiement
+- **Cluster Kubernetes Universel (Cible de Production)** : Déploiement universel sur tout cluster Kubernetes v1.28+ (K3s, EKS, AKS, GKE, kubeadm) ou sur le cluster de référence VMware vSphere (trois VM Debian K3s avec stockage partagé CSI et pool ChromaDB/RAG).
+- **Centre de Pilotage Graphique (Setup & Update Wizard)** : `.\wizard.ps1` (PowerShell) ou `./wizard.sh` (Linux/macOS) — installation guidée, audit K8s en 6 volets, centre de mise à jour Zero-Downtime (`RollingUpdate maxUnavailable=0, maxSurge=1`) avec rollback automatique, et restauration chiffrée AES-256-GCM.
+- **Déploiement Headless / CI** : `.\scripts\Deploy-ArcIA.ps1` ou `./scripts/deploy-arcia.sh` pilotant `scripts/deploy.py` avec `arcia.config.yaml`.
+- **Mode Laboratoire Local (Docker Lab)** : `docker-compose.lab.yml` (`http://localhost:3000`) — option de portabilité et de laboratoire local, jamais la cible d'exploitation.
+
+## Profils Utilisateurs & Routage Hybride
+- **Deux profils utilisateurs stricts** :
+  - **Utilisateur Standard** : Accès au portail Open-WebUI (`/`) et au bot Microsoft Teams (`simple/auto` en direct, `/agent` vers Hermes `agentic/auto`).
+  - **Power User** : Accès complet à Open-WebUI + instance Hermes Agent en Pod dédié sur Kubernetes (`/poweruser/<slug>/studio` avec volume persistant `10Gi` isolé et `SOUL.md` personnalisée), provisionnée via `.\scripts\Spawn-PowerUser.ps1`.
+- **Catalogue canonique des 5 profils** :
+  - `simple/free` et `simple/auto` : flux directs vers LiteLLM Proxy (`:4000/v1`) sans latence de boucle agentique.
+  - `agentic/free`, `agentic/auto` et `agentic/expert` : sessions agentiques autonomes vers Hermes Agent (`:8642/v1`).
+- **Un seul propriétaire actif par état Hermes** : aucun partage d'écriture de `state.db`.
 
 ## Travail autorisé et progression
 - Commencer par l'inventaire, les versions officielles, le backlog et l'architecture.
-- Développer scripts, schémas, services, manifests et tests manquants. Ne pas supposer que hermes-platform existe.
-- Collecter l'organisation GitHub, le nom du dépôt et les accès indispensables avant création/deploiement. Utiliser les identités propres à l'ingénieur.
+- Développer scripts, schémas, services, manifests et tests manquants. Ne pas supposer qu'un dépôt externe hermes-platform existe.
+- Collecter l'organisation GitHub, le nom du dépôt et les accès indispensables avant création/déploiement. Utiliser les identités propres à l'ingénieur.
 - Avancer sur les lots sans redemander les décisions déjà prises ; les autorisations effectives du terminal et du réseau restent nécessaires.
 - Déployer uniquement sur les cibles désignées. Pas d'accès aux environnements privés pendant la qualification synthétique.
 
-## Configuration et données
+## Gouvernance, Confidentialité & Double Barrière DLP
+- **Double Barrière Presidio DLP Fail-Closed obligatoire** :
+  - **Barrière 1 (Amont / Hermes Agent)** : `services/hermes/plugin.py` appelle `/sanitize` sur `presidio-dlp:8080` avant toute persistance SQLite (`state.db`) et avant tout appel LLM, avec ré-hydratation inverse `/deanonymize`.
+  - **Barrière 2 (Aval / LiteLLM Proxy)** : Guardrail `pre_call` systématique (`default_on: true`) interceptant 100 % des flux sortants vers les LLM via `/analyze` et `/anonymize`.
+  - **Rejet Fail-Closed** : Rejet immédiat (erreur 422) sur détection de secrets d'infrastructure (clés PEM/SSH, kubeconfig, CIDR/MAC/FQDN) ou en cas d'indisponibilité du service DLP.
+- **Zéro Rétention de Données (ZDR)** : Option `extra_body: { provider: { zdr: true } }` injectée sur toutes les inférences cloud (OpenRouter).
+- **Portail Open-WebUI verrouillé** : Connexions directes navigateur désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), auto-inscription coupée (`ENABLE_SIGNUP=false`), rôle par défaut `user`, contrôle d'accès aux modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`). Zéro fuite BYOK.
+- **Isolation Réseau K8s** : NetworkPolicy `DenyAll` par défaut étanchant le namespace `arcia` et interdisant tout contournement du bouclier DLP ou de la passerelle.
+
+## Microservices Sans Duplication & Packaging
+- **Source unique de vérité du code** : Le code applicatif réside exclusivement dans `services/` (`services/presidio/app.py`, `services/teams/app.py`, `services/hermes/plugin.py`) et leurs `Dockerfile` associés.
+- **Interdiction formelle de duplication** : Ne jamais coder en dur de scripts Python dans les manifestes YAML (`deploy/manifests/*.yaml`). Le moteur `scripts/deploy.py` (`sync_service_configmaps`) synchronise dynamiquement ces fichiers vers les ConfigMaps Kubernetes (`presidio-code`, `teams-bot-code`, `hermes-governance-plugin`).
+
+## Sobriété Tokenmaxing & Outillage Builder
+- **CCR (Compress-Cache-Retrieve)** : Compression réversible des payloads JSON volumineux (> 8 Ko) avec cache mémoire privé SHA-256 et restitution paginée (`arcia_compress_json_file`, `arcia_restore_tool_result`).
+- **RTK (Rust Token Killer)** : Compaction bornée et réécriture des commandes verbeuses (`git log`).
+- **Graphify (`skills/graphify/`, `scripts/arcia_graphify.py`)** : Cartographie AST de code locale et déterministe (0 token LLM, 0 fuite de code vers le cloud).
+- **Sobriété Ponytail (`skills/ponytail/`)** : Échelle de décision YAGNI évitant l'over-engineering d'agents.
+- **Compétences partagées (`skills/`)** : Synchronisation contrôlée via `scripts/Sync-Skills.ps1` / `skills/sync-skills.sh` ; aucun téléchargement aveugle en tâche de fond.
+
+## Configuration, Secrets & Séparation d'Instance
 - Les clés privées, OTP, tokens, kubeconfigs et mots de passe passent par un programme local protégé, jamais le chat.
 - Aucune valeur secrète n'est rendue au modèle. Préserver les références et les états de validation.
-- Aucune donnée privée ou confidentielle brute vers le cloud. Fixtures synthétiques pour le build.
-- Les données et configurations privées sont chiffrées avant GitHub, clés externes.
+- Aucune donnée privée ou confidentielle brute vers le cloud. Fixtures synthétiques pour le build et les tests (`examples/deny-list.synthetic.json`).
+- `arcia.config.yaml.example` est le patron de référence du dépôt public. `arcia.config.yaml` et `arcia.env` sont réservés à l'environnement local et strictement ignorés par Git.
+- Les données et configurations d'instance sont chiffrées en **AES-256-GCM** (`instance-secrets.enc`) avant synchronisation sur le dépôt Git privé de l'organisation.
 - Connexions de coffres persistantes individuelles ; VPN personnels et temporaires.
 - Toute action externe à risque a son plan et son approbation Teams vérifiés côté serveur.
+- Maintenir le harness strictement générique : les configurations spécifiques, secrets réels et états de reprise d'une instance appartiennent à son dépôt d'instance privé. Ne jamais polluer le harness générique avec des données d'instance.
 
-## Kubernetes et disponibilité
-- Fixer les versions et digests ; installer K3s avec paramètres cohérents et secrets protégés.
-- Qualifier CSI, endpoint stable, bases et politiques avant de déclarer HA.
-- Un propriétaire actif par état Hermes ; aucun partage d'écriture de state.db.
-- Pas de PodSpec arbitraire ou permission cluster-admin dans le modèle.
+## Kubernetes et Disponibilité
+- Fixer les versions et digests ; installer K3s ou cibler Kubernetes avec paramètres cohérents et secrets protégés.
+- Qualifier CSI, endpoint stable, bases relationnelles et politiques réseau avant de déclarer HA.
+- Un propriétaire actif par état Hermes ; aucun partage d'écriture de `state.db`.
+- Pas de PodSpec arbitraire ou permission `cluster-admin` dans le modèle.
 - Un restart de Pod ne rejoue pas une écriture externe ; réconciliation des états incertains.
 - Tester kill switch, perte de nœud, droits croisés et rebuild.
 
-## Source de vérité et vérification
+## Source de Vérité, Validation & Recette
 - Repo dédié au harness : code, automation, manifests, tests, architecture, backlog, rôle et runbooks.
 - Reporter toute correction manuelle dans Git avant livraison.
 - Configs privées et sauvegardes : dépôts séparés protégés.
-- Résultats distingués : proposé, codé, déployé, vérifié. Ne jamais annoncer un test non exécuté.
-- Maintenir le harness strictement générique : les configurations, secrets et états de reprise d’une instance appartiennent à son dépôt d’instance privé.
-- Ne pas polluer le harness générique avec des journaux de déploiement d’instance. Vérifier les liens avec `scripts/validate_docs.py`.
+- **Contrôles obligatoires avant toute livraison ou commit** :
+  1. **Suite de tests unitaires & DLP** : `python -m unittest discover -s tests -v` (101 tests passants).
+  2. **Validation documentaire exhaustive** : `python scripts/validate_docs.py` (vérification de 100 % des liens et ancres internes sans erreur).
+  3. **Validation syntaxique des scripts** : PowerShell (`scripts/*.ps1`) et Bash (`bash -n scripts/*.sh`).
+  4. **Simulation de déploiement (Dry-Run)** : `python scripts/deploy.py --config ci.config.yaml --dry-run` ou `.\scripts\Deploy-ArcIA.ps1 -DryRun`.
+- **Règle d'or de vérité** : Résultats distingués : proposé, codé, déployé, vérifié. **Ne jamais annoncer un test non exécuté.**
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 
-## Bootstrap évolutif obligatoire
-- `scripts/deploy-arcia.sh`, `scripts/Deploy-ArcIA.ps1` et `arcia.config.yaml` décrivent le parcours jusqu’à l’état courant de qualification.
-- Toute évolution de composant, outil, service, secret requis ou migration met à jour le déploiement, ses manifestes, ses contrôles de couverture et le runbook dans le même lot sur main.
+## Bootstrap Évolutif Obligatoire
+- `wizard.ps1` / `wizard.sh`, `scripts/deploy.py`, `scripts/Deploy-ArcIA.ps1`, `scripts/deploy-arcia.sh` et `arcia.config.yaml.example` décrivent le parcours d'installation et de mise à jour reproductible.
+- Toute évolution de composant, outil, service, secret requis ou migration met à jour le déploiement, ses manifestes, ses contrôles de couverture de tests et le runbook dans le même lot sur `main`.
 - Préserver les identités et volumes existants à la réapplication ; une étape réussie dans un ancien journal ne dispense jamais de vérifier la cible actuelle.
 - Distinguer déploiement codé, réapplication vérifiée et reconstruction sur cluster neuf exécutée. Une CI synthétique ne vaut pas une recette VMware neuve.
