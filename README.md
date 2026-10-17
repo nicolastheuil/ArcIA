@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="#-centre-de-pilotage-graphique-setup--update-wizard"><b>🎛️ Centre de Pilotage (Wizard)</b></a> •
   <a href="#-démarrage-rapide"><b>🚀 Démarrage Rapide</b></a> •
   <a href="#-architecture-globale"><b>🏛️ Architecture</b></a> •
   <a href="#-fonctionnalités-clés"><b>🌟 Fonctionnalités</b></a> •
@@ -127,10 +128,33 @@ flowchart LR
 
 ---
 
-<a id="-démarrage-rapide"></a>
-## 🚀 Démarrage Rapide & Mise à Jour Zero-Downtime
+<a id="-centre-de-pilotage-graphique-setup--update-wizard"></a>
+## 🎛️ Centre de Pilotage Graphique (Setup & Update Wizard)
 
-ArcIA se déploie et se met à jour sur n'importe quel cluster Kubernetes (EKS, AKS, GKE, K3s, kubeadm) ou en mode laboratoire Docker local via son **Centre de Pilotage Graphique (Setup Wizard)**.
+ArcIA intègre un **Centre de Pilotage Graphique local** (`.\wizard.ps1` sous Windows ou `./wizard.sh` sous Linux/macOS) conçu pour administrer le cycle de vie complet de votre plateforme sans complexité. 
+
+Son interface web épurée s'ouvre sur une **page d'accueil du projet** (logotype officiel, description pédagogique d'ArcIA et vue synthétique de l'architecture) et oriente l'administrateur vers **3 parcours dédiés**, avec chargement contextuel de la configuration (`arcia.config.yaml`) directement dans la page choisie :
+
+| Parcours Dédié | Fonctionnalités & Capacités Clés | Méthode & Sécurité |
+|---|---|---|
+| **🚀 Installer une nouvelle instance** | Configuration pas à pas pour déployer sur **Kubernetes existant** (audit de qualification en 6 volets), **VMware vSphere K3s** (dimensionnement matériel interactif avec pool ChromaDB/RAG dédié de `50Gi` à `2Ti`) ou **Docker Lab**. | Bandeau d'import YAML/ENV en haut de page, secrets sauvegardés et chiffrés de bout en bout en **AES-256-GCM** sur votre dépôt Git privé. |
+| **🔄 Mettre à jour mon instance** | Comparaison en direct avec les dépôts officiels amont (*Open-WebUI, Hermes, LiteLLM, Presidio DLP, OAuth2-Proxy*). Tableau haute lisibilité avec garantie stricte anti-retour à la ligne des versions et badges. | Orchestration **Zero-Downtime** en 6 phases séquentielles (`RollingUpdate maxUnavailable=0, maxSurge=1`), validation des sondes de santé et rollback automatique. |
+| **🛡️ Restaurer une instance (PRA)** | Reprise d'activité instantanée en cas de sinistre ou de réplication de cluster. | **Option A** : chargement d'un fichier `arcia.config.yaml` / `arcia.env` local.<br/>**Option B** : déchiffrement direct du bundle `instance-secrets.enc` depuis votre dépôt Git privé avec votre mot de passe maître. |
+
+```powershell
+# Lancer le Centre de Pilotage Graphique :
+.\wizard.ps1          # Windows (PowerShell)
+```
+```bash
+./wizard.sh           # Linux / macOS (Bash)
+```
+
+---
+
+<a id="-démarrage-rapide"></a>
+## 🚀 Démarrage Rapide & Déploiement
+
+ArcIA se déploie et se met à jour sur n'importe quel cluster Kubernetes (EKS, AKS, GKE, K3s, kubeadm) ou en mode laboratoire Docker local via son **Centre de Pilotage Graphique** ou en ligne de commande (mode Headless).
 
 ### 1. Cloner le dépôt
 ```bash
@@ -138,13 +162,8 @@ git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### 2. Lancer l'assistant graphique (Installation, Mise à jour en ligne & Restauration)
-Dès la page d'accueil, le Wizard vous présente l'architecture et vous propose **4 parcours** :
-* 🚀 **Installer une nouvelle instance** (configuration guidée + sauvegarde Git chiffrée `AES-256-GCM`).
-* ⬆️ **Mettre à jour l'instance (Zero-Downtime)** : vérifie en ligne les nouvelles versions de chaque composant (*Open-WebUI, Hermes Agent, LiteLLM, Presidio DLP, OAuth2-Proxy*) et exécute une séquence `RollingUpdate (maxUnavailable=0, maxSurge=1)` sans coupure avec barre de progression et rollback automatique.
-* 🔄 **Restaurer une instance existante** depuis votre dépôt Git privé chiffré.
-* 📂 **Préremplir depuis un fichier YAML** (`arcia.config.yaml`).
-
+### 2. Déployer via le Centre de Pilotage Graphique (Recommandé)
+Lancez l'assistant local et choisissez votre parcours :
 ```powershell
 # Sous Windows (PowerShell) :
 .\wizard.ps1
@@ -154,7 +173,7 @@ Dès la page d'accueil, le Wizard vous présente l'architecture et vous propose 
 ./wizard.sh
 ```
 
-*(Pour un déploiement headless sans interface graphique :)*
+*(Pour un déploiement headless sans interface graphique / CI-CD :)*
 ```powershell
 # Sous Windows (PowerShell) :
 .\scripts\Deploy-ArcIA.ps1

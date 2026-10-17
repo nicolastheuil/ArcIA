@@ -39,9 +39,10 @@ Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez
 ./wizard.sh
 ```
 
-Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wizard_ui/index.html](../../scripts/wizard_ui/index.html)) s'ouvre dans votre navigateur et vous propose deux parcours :
+Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wizard_ui/index.html](../../scripts/wizard_ui/index.html)) s'ouvre sur une **page d'accueil dédiée** présentant le projet **ArcIA**, le rôle de l'assistant et **trois options** renvoyant chacune vers sa page dédiée (avec chargement contextuel d'un fichier `arcia.config.yaml` directement dans la page choisie) :
 
-#### Parcours A : Installer une nouvelle instance ArcIA
+#### Parcours A : Installer une nouvelle instance
+Dans la page dédiée d'installation (munie d'un bandeau supérieur permettant de pré-remplir toutes les étapes depuis un fichier `arcia.config.yaml` ou `arcia.env` existant) :
 1. **Dépôt Git d'Instance Privé** :
    - Connectez votre compte **GitHub** ou **GitLab** avec un jeton personnel (PAT).
    - Le Wizard teste les permissions et **crée automatiquement le dépôt privé** d'instance (ex: `ArcIA-instance-prod`).
@@ -64,17 +65,18 @@ Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wiz
 7. **Auto-configuration intégrale** : Presidio DLP (double barrière), Open-WebUI, LiteLLM (avec base PostgreSQL 16), le plugin CCR/RTK (`services/hermes/plugin.py`) et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
 8. **Déploiement & Sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
 
-#### Parcours B : Mettre à jour l'instance en ligne (Zero-Downtime)
-1. Sur la page d'accueil du Wizard, cliquez sur **« ⬆️ Mettre à jour l'instance (Zero-Downtime) »** (ou sur le bouton `⬆️ Mises à jour` dans l'en-tête).
-2. Le Wizard interroge en direct les dépôts officiels amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy, Teams Bot, ArcIA Core & Skills*) et compare avec les versions de vos manifestes locaux.
-3. Sélectionnez les composants souhaités et lancez la séquence (ou testez-la via **Simuler la séquence (Dry-Run)**).
-4. L'orchestrateur exécute les **6 phases séquentielles** en `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes `readinessProbe` et rollback automatique (`kubectl rollout undo`) en cas d'anomalie, sans aucune coupure de service.
+#### Parcours B : Mettre à jour mon instance (Zero-Downtime)
+1. Sur la page d'accueil du Wizard, cliquez sur **« Mettre à jour mon instance »** pour ouvrir la page dédiée de mise à jour.
+2. Vous pouvez y charger votre fichier `arcia.config.yaml` si vous souhaitez cibler un contexte Kubernetes ou nœud SSH spécifique.
+3. Le Wizard interroge en direct les dépôts officiels amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy, Teams Bot, ArcIA Core & Skills*) et compare avec les versions de vos manifestes locaux.
+4. Sélectionnez les composants souhaités et lancez la séquence (ou testez-la via **Simuler la séquence (Dry-Run)**).
+5. L'orchestrateur exécute les **6 phases séquentielles** en `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes `readinessProbe` et rollback automatique (`kubectl rollout undo`) en cas d'anomalie, sans aucune coupure de service.
 
-#### Parcours C : Restaurer une instance existante
-1. Indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`) et votre token d'accès.
-2. Saisissez votre **mot de passe maître de déchiffrement**.
-3. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc` et pré-remplit l'intégralité de la configuration.
-4. Cliquez sur **Déployer** pour reconstruire fidèlement l'instance sur n'importe quel cluster Kubernetes.
+#### Parcours C : Restaurer une instance
+1. Sur la page d'accueil du Wizard, cliquez sur **« Restaurer une instance »** pour ouvrir la page dédiée de reprise.
+2. Choisissez entre le chargement direct d'un fichier `arcia.config.yaml` / `arcia.env` local (**Option A**) ou la récupération depuis votre dépôt Git d'instance privé chiffré (**Option B**).
+3. En Option B, indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`), votre token d'accès PAT et votre **mot de passe maître de déchiffrement**.
+4. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc`, pré-remplit l'intégralité de la configuration et vous permet de redéployer l'instance sur le cluster cible.
 
 ---
 

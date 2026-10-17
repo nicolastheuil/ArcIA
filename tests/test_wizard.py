@@ -489,15 +489,21 @@ llm_gateway:
                 self.assertTrue(any("scripts/deploy.py" in l for l in logs))
 
     def test_homepage_presentation_and_update_center_in_html(self):
-        """Vérifie la présence de la présentation d'accueil et du centre de mise à jour Zero-Downtime."""
+        """Vérifie la page d'accueil épurée (3 options dédiées), le chargement YAML contextuel et le tableau sans retour à la ligne."""
         html = wizard.get_wizard_html_page()
         self.assertIn('id="homepagePresentationHero"', html)
+        self.assertIn('id="cardNewInstance"', html)
         self.assertIn('id="cardUpdateInstance"', html)
+        self.assertIn('id="cardRestoreInstance"', html)
         self.assertIn('id="updateSection"', html)
+        self.assertIn('id="restoreSection"', html)
         self.assertIn('id="updateComponentsBody"', html)
         self.assertIn('id="updateProgressBar"', html)
         self.assertIn("checkOnlineUpdates", html)
         self.assertIn("triggerInstanceUpdate", html)
+        self.assertIn("returnToHome", html)
+        self.assertIn("col-nowrap", html)
+        self.assertIn("white-space: nowrap", html)
 
     def test_check_components_updates_offline_and_manifest_extraction(self):
         """Vérifie l'extraction des versions depuis les manifestes et le tri séquentiel Zero-Downtime."""
