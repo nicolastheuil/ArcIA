@@ -1,6 +1,6 @@
 <p align="left">
   <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
-  <img src="https://img.shields.io/badge/Tests-90_Unit_&_Integration_Checks-10B981?style=flat-square" alt="90 Tests">
+  <img src="https://img.shields.io/badge/Tests-104_Unit_&_Integration_Checks-10B981?style=flat-square" alt="104 Tests">
   <img src="https://img.shields.io/badge/Docs_Validator-100%25_Links_Checked-6BE7DD?style=flat-square&logoColor=050712" alt="Docs Validated">
 </p>
 
@@ -15,7 +15,7 @@ Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et cont
 ## ⚡ Exécution Rapide
 
 ```bash
-# 1. Exécuter les 90 tests unitaires et d'intégration :
+# 1. Exécuter les 104 tests unitaires et d'intégration :
 python -m unittest discover -s tests -v
 
 # 2. Vérifier l'intégrité de 100 % des liens et ancres documentaires :
@@ -28,7 +28,7 @@ python scripts/validate_docs.py
 
 | Fichier de Test | Périmètre Contrôlé |
 |---|---|
-| **[test_wizard.py](test_wizard.py)** | Centre de pilotage [`scripts/wizard.py`](../scripts/wizard.py) : page d'accueil, **vérificateur en ligne des mises à jour**, **séquence Zero-Downtime RollingUpdate**, chiffrement `AES-256-GCM`, audit K8s et dimensionnement VMware. |
+| **[test_wizard.py](test_wizard.py)** | Centre de pilotage [`scripts/wizard.py`](../scripts/wizard.py) : page d'accueil, **3 parcours dédiés** (Installation, Mise à jour, Restauration), chargement YAML contextuel, **vérificateur en direct des versions amont**, **séquence Zero-Downtime RollingUpdate**, tableau sans retour à la ligne, chiffrement `AES-256-GCM`, audit K8s et dimensionnement VMware. *(Détail : [Runbook Quickstart](../docs/runbooks/quickstart.md))* |
 | **[test_deploy.py](test_deploy.py)** | Orchestrateur [`scripts/deploy.py`](../scripts/deploy.py) : validation de `arcia.config.yaml`, synchronisation des ConfigMaps (`sync_service_configmaps`) et simulation `--dry-run`. |
 | **[test_poweruser.py](test_poweruser.py)** | Provisionnement des Pods Hermes dédiés Power Users ([`scripts/arcia_poweruser.py`](../scripts/arcia_poweruser.py)) et gestion des clés virtuelles PAT ([`scripts/arcia_keys.py`](../scripts/arcia_keys.py)) pour les profils `standard` et `poweruser`. |
 | **[test_manifests.py](test_manifests.py)** | Conformité YAML, attribution au namespace `arcia`, cohérence des ports et sondes de santé sur tous les manifestes de [`deploy/manifests/`](../deploy/manifests/README.md). |

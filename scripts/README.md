@@ -16,11 +16,11 @@ Ce dossier regroupe les moteurs d'installation, le centre de mise à jour Zero-D
 
 | Outil | Point d'Entrée Recommandé | Rôle & Fonctionnalités |
 |---|---|---|
-| **Setup & Update Wizard** | **[`.\wizard.ps1`](../wizard.ps1)** / **[`./wizard.sh`](../wizard.sh)**<br/>*(Moteur : [wizard.py](wizard.py) + [wizard_ui/index.html](wizard_ui/index.html))* | Centre de pilotage graphique : présentation de l'architecture, installation guidée, **vérification en ligne des nouvelles versions (`Open-WebUI`, `Hermes`, `LiteLLM`, `Presidio`, `OAuth2`)**, séquence de **mise à jour intelligente Zero-Downtime (`RollingUpdate`)** et restauration Git chiffrée (`AES-256-GCM`). |
-| **Déploiement Headless** | **[Deploy-ArcIA.ps1](Deploy-ArcIA.ps1)** / **[deploy-arcia.sh](deploy-arcia.sh)**<br/>*(Moteur : [deploy.py](deploy.py))* | Orchestrateur CLI universel : valide `arcia.config.yaml`, qualifie le cluster Kubernetes, génère les secrets en mémoire, synchronise à chaud les ConfigMaps (`sync_service_configmaps`) et les skills natives, puis applique les manifestes. |
+| **Setup & Update Wizard** | **[`.\wizard.ps1`](../wizard.ps1)** / **[`./wizard.sh`](../wizard.sh)**<br/>*(Moteur : [wizard.py](wizard.py) + [wizard_ui/index.html](wizard_ui/index.html))* | Centre de pilotage graphique : page d'accueil du projet, **3 parcours dédiés** (`Installer une nouvelle instance`, `Mettre à jour mon instance`, `Restaurer une instance`), chargement contextuel de `arcia.config.yaml`, **vérification en direct des versions amont**, séquence **Zero-Downtime RollingUpdate** et coffre Git chiffré `AES-256-GCM`. *(Détail : [Runbook Quickstart](../docs/runbooks/quickstart.md))* |
+| **Déploiement Headless** | **[Deploy-ArcIA.ps1](Deploy-ArcIA.ps1)** / **[deploy-arcia.sh](deploy-arcia.sh)**<br/>*(Moteur : [deploy.py](deploy.py))* | Orchestrateur CLI universel : valide `arcia.config.yaml`, qualifie le cluster Kubernetes, génère les secrets en mémoire, synchronise à chaud les ConfigMaps (`sync_service_configmaps`) et les skills natives, puis applique les manifestes. *(Détail : [Guide Déploiement Universel](../docs/guides/deploiement-universel.md))* |
 
 ```powershell
-# Lancer le Wizard graphique (Installation, Mise à jour Zero-Downtime ou Restauration) :
+# Lancer le Wizard graphique (3 parcours dédiés : Installation, Mise à jour Zero-Downtime ou Restauration) :
 .\wizard.ps1
 
 # Lancer un déploiement headless (ou une simulation -DryRun) :

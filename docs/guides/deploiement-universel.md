@@ -1,6 +1,15 @@
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/Kubernetes-Déploiement_Universel-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
+  <img src="https://img.shields.io/badge/Setup_Wizard-3_Parcours_Dédiés-6BE7DD?style=flat-square&logoColor=050712" alt="Setup Wizard">
+</p>
+
 # Guide de Déploiement Universel d'ArcIA v0.4 sur Kubernetes
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir d'un **seul et unique fichier de configuration** ou via l'assistant interactif.
+> **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement Universel**
+
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
 
 ---
 
@@ -26,24 +35,33 @@ git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### Étape 2 : Préparer la configuration (ou lancer le Wizard)
+### Étape 2 : Lancer le Centre de Pilotage Graphique (Setup & Update Wizard)
 
-Vous pouvez utiliser l'installeur et centre de mise à jour interactif à la racine du dépôt (qui inclut la présentation d'architecture sur la page d'accueil, la vérification en ligne des nouvelles versions d'*Open-WebUI, Hermes, LiteLLM, Presidio, OAuth2* et la séquence de mise à jour **Zero-Downtime RollingUpdate**) :
+Pour une expérience guidée sans manipulation manuelle de fichiers YAML, lancez le Centre de Pilotage Graphique à la racine du dépôt :
+
 ```powershell
-# Sous Windows PowerShell
+# Sous Windows PowerShell :
 .\wizard.ps1
 ```
 ```bash
-# Sous Linux / macOS
+# Sous Linux / macOS :
 ./wizard.sh
 ```
 
-Ou préparer manuellement le fichier de configuration unique :
+L'interface web locale s'ouvre sur une page d'accueil présentant le projet et vous oriente vers **3 parcours dédiés** (avec chargement contextuel de la configuration `arcia.config.yaml` directement dans la page choisie) :
+* 🚀 **Installer une nouvelle instance** : audit de qualification automatique en 6 volets pour cluster Kubernetes existant (K3s, EKS, AKS, GKE, kubeadm), dimensionnement interactif pour cluster VMware vSphere K3s (avec pool ChromaDB/RAG dédié de `50Gi` à `2Ti`) ou mode Lab Docker local. Bandeau d'import YAML/ENV en haut de page et chiffrement `AES-256-GCM` vers votre dépôt Git privé.
+* 🔄 **Mettre à jour mon instance (Zero-Downtime)** : compare en direct vos manifestes locaux avec les dernières versions officielles amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy*), permet de charger votre fichier YAML cible, et applique une séquence ordonnée de `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes de santé et rollback automatique sans interruption de service.
+* 🛡️ **Restaurer une instance** : reprise d'activité (PRA) immédiate soit depuis une sauvegarde locale `arcia.config.yaml` / `arcia.env` (**Option A**), soit par déchiffrement direct du bundle `instance-secrets.enc` depuis votre dépôt Git privé avec votre mot de passe maître (**Option B**).
+
+> [!TIP]
+> 👉 Pour un pas-à-pas visuel complet du Wizard, consultez le [Runbook Quickstart](../runbooks/quickstart.md).
+
+*(Alternative : Préparation manuelle du fichier `arcia.config.yaml` pour un déploiement headless ou CI-CD)*
 ```bash
-# Sous Linux / macOS
+# Sous Linux / macOS :
 cp arcia.config.yaml.example arcia.config.yaml
 
-# Sous Windows PowerShell
+# Sous Windows PowerShell :
 Copy-Item arcia.config.yaml.example arcia.config.yaml
 ```
 
@@ -149,3 +167,13 @@ Dès que le déploiement est terminé :
    ```bash
    bash scripts/test-validation.sh
    ```
+
+---
+
+## 7. Documentation & Guides Associés
+
+* 🚀 **[Runbook d'Installation & Cycle de Vie (`docs/runbooks/quickstart.md`)](../runbooks/quickstart.md)** — Guide pas-à-pas illustré détaillant les 3 parcours du Setup Wizard et la recette.
+* 🏛️ **[Spécification d'Architecture (`docs/architecture.md`)](../architecture.md)** — Topologie détaillée des Pods, Ingress Traefik et flux réseau.
+* 🛡️ **[Guide Confidentialité Presidio DLP](confidentialite-presidio.md)** — Fonctionnement de la double barrière et rejet fail-closed.
+* 🤖 **[Guide Hermes Agent & Power Users](hermes-agent.md)** — Déploiement des Pods dédiés et gouvernance du runtime.
+* ☸️ **[Guide Infrastructure Kubernetes](infrastructure-k3s.md)** — Stockage partagé CSI, Traefik et Cert-Manager.

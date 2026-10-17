@@ -16,7 +16,7 @@ Ce dossier regroupe les procédures opérationnelles pas-à-pas destinées aux �
 
 | Procédure | Fichier | Objectif Opérationnel |
 |---|---|---|
-| 🚀 **Démarrage Rapide (Quickstart)** | **[quickstart.md](quickstart.md)** | Installation complète via `.\wizard.ps1` ou `./wizard.sh`, mise à jour en ligne Zero-Downtime, création de Pods Power Users (`.\scripts\Spawn-PowerUser.ps1`) et recette. |
+| 🚀 **Démarrage Rapide (Quickstart)** | **[quickstart.md](quickstart.md)** | Installation complète via le Wizard en **3 parcours dédiés** (`.\wizard.ps1` ou `./wizard.sh`), mise à jour en ligne Zero-Downtime, création de Pods Power Users (`.\scripts\Spawn-PowerUser.ps1`) et recette. |
 | 🔍 **Exploitation & Maintenance (MCO)** | **[exploitation.md](exploitation.md)** | Supervision quotidienne des Pods, consultation des journaux, rotation des secrets, gestion des quotas LiteLLM et mises à jour RollingUpdate. |
 | 🔄 **Sauvegarde, Restauration & PRA** | **[sauvegarde-reconstruction.md](sauvegarde-reconstruction.md)** | Sauvegarde chiffrée (`AES-256-GCM`) du coffre d'instance et des volumes persistants (SQLite / ChromaDB / PostgreSQL), et reconstruction sur cluster neuf. |
 

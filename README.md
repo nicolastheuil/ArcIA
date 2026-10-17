@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="docs/architecture.md"><img src="https://img.shields.io/badge/ArcIA-v0.4-1659E4.svg?style=flat-square&logo=cube&logoColor=white" alt="ArcIA Version"></a>
+  <a href="docs/runbooks/quickstart.md"><img src="https://img.shields.io/badge/Setup%20Wizard-3%20Options%20%26%20Zero--Downtime-6BE7DD.svg?style=flat-square&logo=powershell&logoColor=050712" alt="Setup Wizard"></a>
   <a href="docs/guides/deploiement-universel.md"><img src="https://img.shields.io/badge/Kubernetes-Any%20Cluster-326CE5.svg?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
   <a href="docs/guides/portail-webui-entraid.md"><img src="https://img.shields.io/badge/Portail-Open--WebUI-10B981.svg?style=flat-square&logo=chat&logoColor=white" alt="Open-WebUI"></a>
   <a href="docs/guides/hermes-agent.md"><img src="https://img.shields.io/badge/Agent%20Runtime-Hermes%20Agent-1659E4.svg?style=flat-square&logo=openai&logoColor=white" alt="Hermes Agent"></a>
@@ -148,6 +149,11 @@ Son interface web épurée s'ouvre sur une **page d'accueil du projet** (logotyp
 ```bash
 ./wizard.sh           # Linux / macOS (Bash)
 ```
+
+> [!TIP]
+> **📖 Documentation Complète de l'Installeur & du Wizard :**
+> * 🚀 **[Runbook d'Installation & Cycle de Vie (`docs/runbooks/quickstart.md`)](docs/runbooks/quickstart.md)** — Guide pas-à-pas illustré détaillant le parcours des 3 options, le chiffrement des secrets et la qualification du cluster.
+> * ☸️ **[Guide de Déploiement Universel (`docs/guides/deploiement-universel.md`)](docs/guides/deploiement-universel.md)** — Déploiement sur K3s, EKS, AKS, GKE, VMware vSphere ou Docker Lab, avec l'inventaire complet des paramètres.
 
 ---
 

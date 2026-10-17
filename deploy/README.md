@@ -27,7 +27,7 @@ deploy/
 
 | Mode | Cible | Commande de Lancement | Description |
 |---|---|---|---|
-| **1. Assistant Graphique & Updates** | Tout cluster Kubernetes ou Docker Lab | `.\wizard.ps1` / `./wizard.sh` | Interface web complète : configuration guidée, **vérification en ligne des mises à jour et RollingUpdate Zero-Downtime**. |
+| **1. Assistant Graphique & Updates** | Tout cluster Kubernetes ou Docker Lab | `.\wizard.ps1` / `./wizard.sh` | Interface web complète en **3 parcours dédiés** (Installation guidée, **mise à jour Zero-Downtime RollingUpdate**, Restauration chiffrée) avec chargement YAML contextuel. |
 | **2. Déploiement Kubernetes Headless** | Tout cluster Kubernetes (namespace `arcia`) | `.\scripts\Deploy-ArcIA.ps1` / `./scripts/deploy-arcia.sh` | Applique séquentiellement les manifestes de [`deploy/manifests/`](manifests/README.md) et synchronise les ConfigMaps à chaud. |
 | **3. Mode Laboratoire Local** | Poste développeur (Docker Desktop / Engine) | `docker compose -f docker-compose.lab.yml up -d` | Lance rapidement la pile locale avec `litellm-lab.yaml` pour qualifier les modèles et les skills hors cluster. |
 

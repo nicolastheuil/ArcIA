@@ -28,7 +28,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 | Domaine | Besoin Opérationnel | Guide de Référence |
 |---|---|---|
 | **Socle** | Comprendre ArcIA, la séparation socle/instance et l'écosystème | [Plateforme ArcIA](guides/plateforme-arcia.md) |
-| **Déploiement** | Déployer ou mettre à jour ArcIA en Zero-Downtime sur tout cluster K8s | [Déploiement Universel](guides/deploiement-universel.md) |
+| **Déploiement** | Centre de Pilotage Wizard (3 parcours dédiés), audit K8s et déploiement universel | [Déploiement Universel](guides/deploiement-universel.md) |
 | **Infrastructure** | Cluster Kubernetes, stockage CSI, Traefik et Cert-Manager | [Infrastructure Kubernetes](guides/infrastructure-k3s.md) |
 | **Portail Web** | Portail collaborateur Open-WebUI, SSO Entra ID et RAG documentaire | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
 | **Agents & Studio** | Moteur Hermes Agent, Studio Kanban (`:9119`), Gateway (`:8642`) et Pods dédiés Power Users | [Hermes Agent & Power Users](guides/hermes-agent.md) |
@@ -50,7 +50,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 
 | Procédure | Runbook de Référence |
 |---|---|
-| 🚀 **Installation rapide en 2 étapes, Power Users, mises à jour et recette** | [Quickstart Complet](runbooks/quickstart.md) |
+| 🚀 **Installation guidée (Wizard 3 parcours), Power Users, mises à jour Zero-Downtime et recette** | [Quickstart Complet](runbooks/quickstart.md) |
 | 🔍 **Maintenance quotidienne, diagnostic, logs et rotation des secrets** | [Exploitation & Maintenance](runbooks/exploitation.md) |
 | 🔄 **Sauvegarde chiffrée (`AES-256-GCM`), restauration et reconstruction sur cluster neuf** | [Sauvegarde & Reconstruction](runbooks/sauvegarde-reconstruction.md) |
 
