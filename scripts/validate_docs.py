@@ -9,8 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def tracked_paths():
-    return set(subprocess.check_output(
-        ['git', 'ls-files', '-z'], cwd=ROOT).decode('utf-8').split('\0')) - {''}
+    raw = set(subprocess.check_output(
+        ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+        cwd=ROOT).decode('utf-8').split('\0')) - {''}
+    return {p for p in raw if (ROOT / p).exists()}
 
 
 def markdown_paths(paths):

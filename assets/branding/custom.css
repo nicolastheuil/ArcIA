@@ -1,6 +1,6 @@
 /* ==============================================================================
-   ArcIA Enterprise Agentic AI Platform — Charte Graphique Officielle arcITek
-   Palette: Noir profond (#060913), Anthracite card (#0E121C), Cyan arcITek (#6BE7DD)
+   ArcIA Enterprise Agentic AI Platform — Charte Graphique Officielle ArcIA
+   Palette: Noir profond (#060913), Anthracite card (#0E121C), Cyan ArcIA (#6BE7DD)
    Élimination complète du fond gris et du bleu foncé agressif sur le champ de prompt.
    ============================================================================== */
 
@@ -132,7 +132,7 @@ textarea::placeholder, input::placeholder {
   color: #ffffff !important;
 }
 
-/* 6. Boutons d'Action & Validation (Dégradé Officiel arcITek) */
+/* 6. Boutons d'Action & Validation (Dégradé Officiel ArcIA) */
 button[type="submit"], 
 .dark .bg-emerald-600, 
 .dark .bg-emerald-700, 

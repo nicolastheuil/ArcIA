@@ -47,10 +47,13 @@ class TestArcIAWizard(unittest.TestCase):
         cfg = wizard.get_default_config_dict()
         required_sections = [
             "kubernetes", "network", "llm_gateway", "hermes",
-            "presidio", "open_webui", "entra_id_sso", "teams_bot", "omniroute"
+            "presidio", "open_webui", "entra_id_sso", "teams_bot"
         ]
         for section in required_sections:
             self.assertIn(section, cfg, f"Section manquante : {section}")
+
+        self.assertNotIn("omniroute", cfg)
+        self.assertEqual(cfg["llm_gateway"]["default_model"], "simple/auto")
 
         # Vérifier que les composants internes sont activés par défaut
         self.assertTrue(cfg["presidio"]["enabled"])
@@ -58,7 +61,6 @@ class TestArcIAWizard(unittest.TestCase):
         # Vérifier que les composants optionnels sont désactivés par défaut
         self.assertFalse(cfg["entra_id_sso"]["enabled"])
         self.assertFalse(cfg["teams_bot"]["enabled"])
-        self.assertFalse(cfg["omniroute"]["enabled"])
 
     def test_ensure_config_defaults_cleans_placeholders(self):
         """Vérifie que ensure_config_defaults nettoie les placeholders d'exemple."""

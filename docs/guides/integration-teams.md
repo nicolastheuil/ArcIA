@@ -1,4 +1,4 @@
-# Intégration Microsoft Teams — Bot ArcIA
+# Intégration Microsoft Teams — Bot ArcIA (v0.4)
 
 L'adaptateur Microsoft Teams permet d'amener les capacités d'ArcIA directement dans le flux de travail quotidien des équipes sous Microsoft 365 (messages privés 1:1, mentions d'équipe et canaux partagés).
 
@@ -24,9 +24,12 @@ flowchart LR
 
 ---
 
-## 2. Architecture Technique
+## 2. Architecture Technique & Routage Hybride
 
-L'adaptateur est implémenté en Python asynchrone (`aiohttp` + `botbuilder-core`) dans [services/teams/app.py](../../services/teams/app.py) :
+L'adaptateur est implémenté en Python asynchrone (`aiohttp` + `botbuilder-core`) dans [services/teams/app.py](../../services/teams/app.py) et synchronisé automatiquement dans le ConfigMap `teams-bot-code` par `scripts/deploy.py` :
+
+- **Mode Chat Rapide (par défaut)** : Tout message standard envoyé au bot est acheminé vers **LiteLLM Proxy** (`:4000/v1`) sur le profil **`simple/auto`** (avec caviardage DLP Presidio).
+- **Mode Mission Agentique (`/agent`)** : Tout message préfixé par `/agent <mission>` ou `!agent <mission>` est délégué au runtime **Hermes Agent** (`:8642/v1`) sur le profil **`agentic/auto`** pour exécuter une tâche autonome outillée.
 
 ```mermaid
 sequenceDiagram
@@ -35,19 +38,25 @@ sequenceDiagram
     participant Ingress as Ingress Traefik (assistant.example.org)
     participant Adapter as Teams Bot Adapter (:3978)
     participant LiteLLM as LiteLLM Proxy (:4000)
+    participant Hermes as Hermes Agent (:8642)
 
     User->>MS: Envoi du message (DM ou @ArcIA)
     MS->>Ingress: POST /api/teams/messages (Webhook)
     Ingress->>Adapter: Transmission sécurisée (Authorization header)
     Adapter->>Adapter: Nettoyage mention & vérification JWT
-    Adapter->>LiteLLM: POST /v1/chat/completions (model: auto)
-    LiteLLM-->>Adapter: Réponse d'inférence synthétisée
+    alt Commande /agent <mission>
+        Adapter->>Hermes: POST /v1/chat/completions (model: agentic/auto)
+        Hermes-->>Adapter: Résultat de la mission autonome
+    else Message standard
+        Adapter->>LiteLLM: POST /v1/chat/completions (model: simple/auto)
+        LiteLLM-->>Adapter: Réponse d'inférence directe
+    end
     Adapter->>MS: Send Activity (Markdown)
     MS-->>User: Affichage dans Microsoft Teams
 ```
 
 - **Manifeste Kubernetes** : [deploy/manifests/08-teams-bot.yaml](../../deploy/manifests/08-teams-bot.yaml).
-- **Service interne** : `teams-bot-adapter.arcia.svc:3978`.
+- **Service interne** : `teams-bot-adapter.arcia.svc:3978` (sonde de santé `GET /healthz`).
 - **Webhook public** : `https://<VOTRE_FQDN_PUBLIC>/api/teams/messages`.
 
 ---
@@ -74,7 +83,7 @@ Ce parcours ne nécessite aucun abonnement Azure facturé.
      ```text
      https://<VOTRE_FQDN_PUBLIC>/api/teams/messages
      ```
-     *(Exemple : `https://assistant.entreprise.com/api/teams/messages`)*
+     *(Exemple : `https://assistant.example.org/api/teams/messages`)*
    - Cliquez sur **Save**.
 5. *Note* : Le canal Microsoft Teams est activé automatiquement dans ce mode.
 
@@ -161,34 +170,13 @@ Appliquez les secrets sur votre cluster K3s :
 1. **Test immédiat individuel (*Preview*)** :
    - Dans le Portail Développeur Teams, cliquez sur le bouton **Preview in Teams** (en haut à droite).
    - Teams s'ouvre : cliquez sur **Ajouter** (*Add*).
-   - Envoyez un message direct au bot : `Bonjour ArcIA, comment peux-tu m'aider ?`.
-   - ArcIA répond instantanément en Markdown structuré.
+   - Envoyez un message direct au bot : `Bonjour ArcIA, comment peux-tu m'aider ?` (routé vers `simple/auto`).
+   - Envoyez une mission agentique : `/agent Recherche le SIRET de la DINUM et synthétise ses informations` (routé vers Hermes `agentic/auto`).
 2. **Test en canal d'équipe** :
    - Ajoutez le bot dans une équipe de test.
    - Mentionnez-le : `@ArcIA résume-moi la situation`.
-3. **Publication permanente pour toute l'organisation (Résout le besoin de retélécharger)** :
-   
-   > [!IMPORTANT]
-   > **Mode test éphémère (*Sideloading*) vs Catalogue d'entreprise permanent :**
-   > Le bouton *Preview in Teams* ou le chargement manuel dans une équipe est un mode de test local temporaire. Dans ce mode :
-   > - L'application n'apparaît **pas** dans le moteur de recherche de Teams.
-   > - L'application doit être rechargée manuellement à chaque équipe.
-   > - Il est impossible de l'ajouter dans des conversations partagées avec des tiers.
-   >
-   > Pour qu'ArcIA devienne une application **officielle, permanente et cherchable par tous vos collaborateurs** :
-
-   * **Option 1 : Téléversement direct dans le Centre d'Administration Teams (Plus rapide si vous êtes admin)** :
-     1. Rendez-vous sur le **[Centre d'administration Microsoft Teams](https://admin.teams.microsoft.com/)** (`admin.teams.microsoft.com`).
-     2. Allez dans **Applications Teams (*Teams apps*)** > **Gérer les applications (*Manage apps*)**.
-     3. Cliquez sur **+ Charger une nouvelle application (*Upload new app*)** et sélectionnez `assets/teams/arcia-teams-app.zip`.
-     4. L'application est immédiatement approuvée et active au niveau de tout le tenant Microsoft 365.
-
-   * **Option 2 : Soumission depuis le Portail Développeur Teams** :
-     1. Dans le Portail Développeur Teams, ouvrez **ArcIA** > menu de gauche **Publish** > cliquez sur **Publish to your org**.
-     2. Cliquez sur **Submit app**.
-     3. Rendez-vous dans le [Centre d'administration Teams](https://admin.teams.microsoft.com/) > **Gérer les applications** > filtrez sur *En attente de révision (*Pending approval*)* > cliquez sur **ArcIA** puis sur **Publier (*Publish*)**.
-
-   *Une fois publiée au catalogue d'entreprise, `ArcIA` apparaît directement dans la recherche globale Teams pour tous les collaborateurs et peut être ajoutée en 1 clic dans n'importe quel chat ou équipe sans jamais re-télécharger de fichier.*
+3. **Publication permanente au catalogue d'entreprise** :
+   - Téléversez `assets/teams/arcia-teams-app.zip` dans le **[Centre d'administration Microsoft Teams](https://admin.teams.microsoft.com/)** (**Applications Teams > Gérer les applications > + Charger une nouvelle application**) pour le rendre disponible à toute l'organisation.
 
 ---
 

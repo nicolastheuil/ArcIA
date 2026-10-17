@@ -18,7 +18,7 @@ class TestPowerUserSpawner(unittest.TestCase):
 
     def test_email_to_slug_basic(self):
         self.assertEqual(email_to_slug("claire.dubois@entreprise.com"), "claire-dubois")
-        self.assertEqual(email_to_slug("nicolas.theuil@arcitek.fr"), "nicolas-theuil")
+        self.assertEqual(email_to_slug("alice.dupont@example.org"), "alice-dupont")
         self.assertEqual(email_to_slug("jean-pierre.martin@domaine.org"), "jean-pierre-martin")
 
     def test_email_to_slug_special_characters(self):
@@ -105,7 +105,9 @@ Ne fais aucune concession sur la latence.
         self.assertIn("discover_models: false", rendered)
         self.assertIn("agentic/auto", rendered)
         self.assertIn("agentic/free", rendered)
-        self.assertIn("agentic/deepseek-v4.1-flash", rendered)
+        self.assertIn("agentic/expert", rendered)
+        self.assertIn("PRESIDIO_DLP_URL", rendered)
+        self.assertIn("hermes-governance-plugin", rendered)
 
     def test_render_manifest_init_container_config_sync(self):
         rendered = render_manifest(user_email="dev.lead@company.com")

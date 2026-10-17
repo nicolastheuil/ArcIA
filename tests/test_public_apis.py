@@ -19,13 +19,13 @@ class TestPublicApis(unittest.TestCase):
     def test_french_tva_computation(self):
         """Vérifie l'exactitude mathématique du calcul de la TVA intracommunautaire française."""
         # Formule : (12 + 3 * (siren % 97)) % 97
-        # Exemple 1 : SIREN 789315306 -> (12 + 3 * (789315306 % 97)) % 97 = 69 -> FR69789315306
-        tva = public_apis.compute_french_tva("789315306")
-        self.assertEqual(tva, "FR69789315306")
+        # Exemple 1 : SIREN 130025265 -> (12 + 3 * (130025265 % 97)) % 97 = 07 -> FR07130025265
+        tva = public_apis.compute_french_tva("130025265")
+        self.assertEqual(tva, "FR07130025265")
 
         # Exemple 2 : SIREN avec espaces ou ponctuation
-        tva_spaced = public_apis.compute_french_tva("789 315 306")
-        self.assertEqual(tva_spaced, "FR69789315306")
+        tva_spaced = public_apis.compute_french_tva("130 025 265")
+        self.assertEqual(tva_spaced, "FR07130025265")
 
         # Exemple 3 : SIREN invalide
         tva_inv = public_apis.compute_french_tva("12345")

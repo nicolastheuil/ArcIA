@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.3 — Configuration Unique de Déploiement Universel
+# ArcIA v0.4 — Configuration Unique de Déploiement Universel
 # ==============================================================================
 # Ce fichier est le point d'entrée UNIQUE pour déployer la plateforme ArcIA sur
 # N'IMPORTE QUEL cluster Kubernetes (K3s, EKS, AKS, GKE, Minikube, KinD, etc.).
@@ -90,11 +90,13 @@ llm_gateway:
   master_key: "sk-arcia-master-key-change-me-32b"
 
   # Modèle d'entreprise par défaut dans Open-WebUI et Teams :
-  # En v0.3, le catalogue canonique se compose de 3 paliers fixes :
-  # - "arcia/standard"  : rapide, économique, ZDR garantie (défaut)
-  # - "arcia/expert"    : modèles agentiques et raisonnement poussé
-  # - "arcia/reasoning" : analyse critique et résolution complexe
-  default_model: "arcia/standard"
+  # Catalogue canonique v0.4 (5 profils) :
+  # - "simple/free"    : chat direct gratuit via LiteLLM (ZDR)
+  # - "simple/auto"    : chat direct rapide et économique via LiteLLM (ZDR, défaut)
+  # - "agentic/free"   : orchestration agentique Hermes gratuite
+  # - "agentic/auto"   : orchestration agentique Hermes équilibrée
+  # - "agentic/expert" : orchestration agentique Hermes raisonnement avancé (DeepSeek V4.1 Flash)
+  default_model: "simple/auto"
 
   # [OPTIONNEL] Serveur d'inférence LLM local souverain (ex: vLLM on-premise sur GPU interne)
   local_vllm_endpoint: ""
@@ -170,11 +172,3 @@ microsoft365_integration:
   enabled: false
   config_file: "instance/microsoft365.yaml"
 
-# ==============================================================================
-# 10. ROUTEUR MULTI-FOURNISSEURS OMNIROUTE [RETIRÉ EN v0.3]
-# ==============================================================================
-# Conservé désactivé par défaut pour rétro-compatibilité.
-# LiteLLM Proxy (:4000) assure le routage central unifié avec DLP, quotas et budgets.
-omniroute:
-  enabled: false
-  storage_size: "5Gi"

@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.3 — Template d'Instance Dédiée Power User (Hermes Agent sur K8s)
+# ArcIA v0.4 — Template d'Instance Dédiée Power User (Hermes Agent sur K8s)
 # Spawné à la demande : Zéro agent local sur PC, isolation PVC et SOUL propre
 # ==============================================================================
 apiVersion: v1
@@ -42,7 +42,7 @@ data:
         models:
           - agentic/auto
           - agentic/free
-          - agentic/deepseek-v4.1-flash
+          - agentic/expert
     approvals:
       mode: smart
       unattended_mode: approve
@@ -61,8 +61,8 @@ data:
             model: "simple/free"
           agentic/auto:
             model: "simple/auto"
-          agentic/deepseek-v4.1-flash:
-            model: "openrouter/deepseek/deepseek-v4.1-flash"
+          agentic/expert:
+            model: "agentic/expert"
   SOUL.md: |
 {{SOUL_CONTENT_INDENTED}}
   USER.md: |
@@ -158,9 +158,10 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data/.hermes $HOME/.hermes
+          mkdir -p /opt/data/.hermes $HOME/.hermes /opt/data/.ccr_cache
           cp /opt/data/.hermes/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
           [ -f /opt/data/SOUL.md ] && cp /opt/data/SOUL.md $HOME/.hermes/SOUL.md 2>/dev/null || true
+          [ -f /etc/hermes-plugin/plugin.py ] && cp /etc/hermes-plugin/plugin.py /opt/data/.hermes/plugin.py 2>/dev/null || true
           # Patch endpoint health sur api_server
           python3 -c 'p="/opt/hermes/gateway/platforms/api_server.py"; s=open(p).read(); s=s.replace("(\"GET\", \"/health\", self._handle_health),", "(\"GET\", \"/health\", self._handle_health),\n            (\"GET\", \"/\", self._handle_health),"); open(p,"w").write(s)' 2>/dev/null || true
 {{VPN_INIT_INSTALL}}
@@ -201,6 +202,12 @@ spec:
             secretKeyRef:
               name: hermes-user-{{USER_SLUG}}-secret
               key: litellm-pat
+        - name: PRESIDIO_DLP_URL
+          value: "http://presidio-dlp.arcia.svc:8080/sanitize"
+        - name: PRESIDIO_FAIL_CLOSED
+          value: "true"
+        - name: ARCIA_CCR_CACHE_DIR
+          value: "/opt/data/.ccr_cache"
         resources:
           requests:
             cpu: 200m
@@ -223,6 +230,9 @@ spec:
         volumeMounts:
         - name: user-data
           mountPath: /opt/data
+        - name: governance-plugin
+          mountPath: /etc/hermes-plugin
+          readOnly: true
 {{VPN_CONTAINER_VOLUME_MOUNTS}}
       volumes:
       - name: user-data
@@ -231,6 +241,10 @@ spec:
       - name: init-config
         configMap:
           name: hermes-user-{{USER_SLUG}}-config
+      - name: governance-plugin
+        configMap:
+          name: hermes-governance-plugin
+          optional: true
 {{VPN_POD_VOLUMES}}
 ---
 apiVersion: v1

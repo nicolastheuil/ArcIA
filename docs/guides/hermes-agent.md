@@ -1,105 +1,109 @@
-# Hermes Agent — Moteur d'Agents & Orchestration ArcIA (v0.3)
+# Hermes Agent — Moteur d'Agents, Studio & Mode Power User (v0.4)
 
-> **Statut : Implémenté (v0.3)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'exécuter des agents autonomes capables de planifier des tâches complexes, d'utiliser des outils (outils locaux, shell, git, navigateurs), de collaborer et de maintenir un état persistant.
+Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'exécuter des agents autonomes capables de planifier des tâches complexes, d'utiliser des outils (outils locaux, shell, git, recherche web, APIs publiques), de compresser leur contexte (CCR/RTK) et de maintenir un état persistant.
 
 ---
 
-## 1. Fonctionnalités Clés v0.3
+## 1. Fonctionnalités Clés v0.4
 
 - **Hermes Studio Dashboard (port 9119)** :
   - Interface visuelle de pilotage de missions en mode **Kanban**.
-  - Visualisation des réflexions (CoT), appels d'outils et sous-agents.
-  - Protégé par une barrière d'authentification native et ForwardAuth Entra ID.
-- **Hermes Gateway & API Server (port 8642) — Backend Exclusif Open-WebUI** :
+  - Visualisation des réflexions (Chain of Thought), appels d'outils et sous-agents.
+  - Protégé par authentification native et middleware Traefik ForwardAuth Entra ID (`/studio`).
+- **Hermes Gateway & API Server (port 8642) — Moteur des Profils `agentic/*`** :
   - Expose une API standardisée compatible OpenAI (`/v1`).
-  - **Zéro Bypass Open-WebUI** : Open-WebUI se connecte exclusivement sur cette passerelle. Chaque conversation web devient une session agentique autonome avec historique stocké dans `state.db`, mémoire et accès aux skills (outils de recherche web, appels d'APIs publiques).
-  - Expose strictement les 3 modèles canoniques : `arcia/free`, `arcia/auto` (défaut), `arcia/expert`.
-- **Mode Local Power User (N3) via `/v1`** :
-  - Permet aux développeurs d'exécuter Hermes ou leur IDE localement sur leur machine tout en bénéficiant de l'inférence managée, du caviardage DLP et du budget d'entreprise via une clé virtuelle LiteLLM (PAT).
+  - Prend en charge les sessions agentiques d'Open-WebUI (`agentic/free`, `agentic/auto`, `agentic/expert`) ainsi que les missions déléguées depuis Microsoft Teams via la commande `/agent <mission>`.
+  - Chaque conversation agentique dispose d'un historique persistant dans `state.db`, de compétences partagées (`/opt/shared-skills`) et du plugin de gouvernance [services/hermes/plugin.py](../../services/hermes/plugin.py) (Barrière 1 DLP Presidio + compression réversible CCR + RTK).
+- **Double Modalité Power User (N3)** :
+  1. **Pod Hermes Dédié sur Kubernetes** (`/poweruser/<slug>/studio`) via [scripts/arcia_poweruser.py](../../scripts/arcia_poweruser.py).
+  2. **Accès API Direct via `/v1`** pour les IDEs locaux (VS Code, Cursor) et outils CLI via une clé virtuelle LiteLLM nominative (PAT) générée par [scripts/arcia_keys.py](../../scripts/arcia_keys.py).
 - **Persistance Dédiée (PVC 20Gi)** :
-  - Monté sous `/opt/data`. Stocke `state.db` (SQLite WAL) et la mémoire de travail de l'agent.
+  - Monté sous `/opt/data`. Stocke `state.db` (SQLite WAL) et l'espace de travail de l'agent.
 
 ---
 
 ## 2. Configuration & Déploiement
 
-Le déploiement Kubernetes est géré par [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml).
+Le déploiement Kubernetes est géré par [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml). Le plugin [services/hermes/plugin.py](../../services/hermes/plugin.py) est injecté dans le ConfigMap `hermes-governance-plugin` par `scripts/deploy.py`.
 
 ### Configuration Native (`~/.hermes/config.yaml`) :
-Hermes Agent utilise son fichier de configuration officiel projeté via ConfigMap :
-
 ```yaml
 model:
   provider: custom
   base_url: http://litellm-proxy.arcia.svc:4000/v1
-  default: arcia/auto
+  default: simple/auto
   key_env: OPENAI_API_KEY
 agent:
-  auto_approve_safe_commands: true
+  auto_approve_safe_commands: false
   max_iterations: 30
 platforms:
   api_server:
     direct_model_requests: true
-    model_name: "arcia/auto"
+    model_name: "agentic/auto"
     model_routes:
-      arcia/free:
-        model: "arcia/free"
-      arcia/auto:
-        model: "arcia/auto"
-      arcia/expert:
-        model: "arcia/expert"
+      agentic/free:
+        model: "simple/free"
+      agentic/auto:
+        model: "simple/auto"
+      agentic/expert:
+        model: "openrouter/deepseek/deepseek-v4.1-flash"
+      simple/free:
+        model: "simple/free"
+      simple/auto:
+        model: "simple/auto"
 ```
 
 ---
 
 <a id="power-users-spawn-kubernetes"></a>
-## 3. Mode Power User (N3) : Pods Hermes Dédiés sur Kubernetes
+## 3. Mode Power User (N3) : Double Modalité (Pods K8s Dédiés & API `/v1`)
 
-Dans ArcIA v0.3, les Power Users ne déploient **aucun agent local sur leur PC**. Chaque Power User dispose d'une **instance Hermes complète et dédiée directement dans le cluster Kubernetes**, garantissant une étanchéité absolue de son environnement d'exécution, de son système de fichiers et de sa `SOUL.md`.
+ArcIA v0.4 offre aux Power Users (ingénieurs IA, développeurs, experts métier N3) deux modalités complémentaires et gouvernées :
 
-### 3.1 Architecture d'un Pod Power User Dédié
-Chaque instance Power User est provisionnée à partir du gabarit [deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml) et comprend :
-1. **Un PVC Isolé (`hermes-user-<slug>-pvc`)** : Volume persistant `ReadWriteOnce` (défaut 10Gi) montant `/opt/data`. Il contient exclusivement le `state.db` SQLite de l'utilisateur, sa mémoire de travail (`USER.md`, `MEMORY.md`) et ses fichiers créés.
-2. **Une `SOUL.md` Personnalisée** : Injectée via ConfigMap et montée dans le profil. L'utilisateur peut calibrer la posture, le ton et les règles de son agent personnel sans impacter les autres.
-3. **Un Deployment & Service Dédiés** : Exécutant `nousresearch/hermes-agent:latest`, avec accès à son propre **Studio Kanban** (`port 9119`) et sa **Gateway API** (`port 8642`).
-4. **Un Ingress Traefik Sécurisé** : Exposé sur `https://<public_fqdn>/poweruser/<slug>/studio` protégé par authentification forte.
-5. **Jeton d'Inférence Nominatif (PAT)** : Raccordé sur la passerelle centrale LiteLLM avec quota budgétaire mensuel contraint et filtrage DLP Presidio fail-closed.
+### 3.1 Modalité A : Pods Hermes Dédiés sur Kubernetes
+Chaque Power User peut disposer d'une **instance Hermes complète et dédiée directement dans le cluster Kubernetes**, garantissant une étanchéité absolue de son environnement d'exécution, de son système de fichiers et de sa `SOUL.md`.
 
-### 3.2 Commandes d'Exploitation (`scripts/arcia_poweruser.py`)
+Provisionnée à partir du gabarit [deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml), chaque instance comprend :
+1. **Un PVC Isolé (`hermes-user-<slug>-pvc`)** : Volume persistant `ReadWriteOnce` (10Gi) montant `/opt/data`. Il contient exclusivement le `state.db` SQLite de l'utilisateur, sa mémoire de travail et ses fichiers.
+2. **Une `SOUL.md` Personnalisée** : Injectée via ConfigMap et montée dans le profil pour adapter la posture et les règles métier de l'agent.
+3. **Un Deployment & Service Dédiés** : Exécutant `nousresearch/hermes-agent:v0.2.0` avec le plugin DLP + CCR + RTK actif, son propre **Studio Kanban** (`port 9119`) et sa **Gateway API** (`port 8642`).
+4. **Un Ingress Traefik Sécurisé** : Exposé sur `https://<public_fqdn>/poweruser/<slug>/studio` protégé par authentification SSO Entra ID.
+5. **Un Jeton d'Inférence Nominatif (PAT)** : Raccordé sur la passerelle centrale LiteLLM avec quota budgétaire mensuel contraint.
 
-Le script d'orchestration [scripts/arcia_poweruser.py](../../scripts/arcia_poweruser.py) (ou son wrapper PowerShell `scripts/Spawn-PowerUser.ps1`) permet de piloter l'ensemble du cycle de vie :
+#### Commandes d'Exploitation (`scripts/arcia_poweruser.py`)
+Le script d'orchestration [scripts/arcia_poweruser.py](../../scripts/arcia_poweruser.py) (ou son wrapper PowerShell [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1)) pilote le cycle de vie :
 
 ```bash
 # 1. Spawner une nouvelle instance dédiée pour un collaborateur
-python scripts/arcia_poweruser.py spawn claire.dubois@entreprise.com --team finance --job-title "Contrôleuse de Gestion" --manager "Marc Lefèvre"
+python scripts/arcia_poweruser.py spawn claire.dubois@example.org --team finance --job-title "Contrôleuse de Gestion" --manager "Marc Lefèvre"
 
 # 2. Lister les instances Power Users actives dans le cluster
 python scripts/arcia_poweruser.py list
 
 # 3. Mettre en veille un pod inactif (scale=0 pour libérer la RAM tout en conservant le PVC)
-python scripts/arcia_poweruser.py stop claire.dubois@entreprise.com
+python scripts/arcia_poweruser.py stop claire.dubois@example.org
 
 # 4. Réveiller une instance
-python scripts/arcia_poweruser.py start claire.dubois@entreprise.com
+python scripts/arcia_poweruser.py start claire.dubois@example.org
 
 # 5. Supprimer une instance (avec option de conservation du volume)
-python scripts/arcia_poweruser.py destroy claire.dubois@entreprise.com --keep-pvc
+python scripts/arcia_poweruser.py destroy claire.dubois@example.org --keep-pvc
 ```
 
-### 3.3 Avantages Clés
-1. **Zéro Empreinte PC** : Les collaborateurs n'ont aucun outil à installer localement ni configuration complexe d'IDE.
-2. **Isolation de Sécurité Totale** : Étanchéité complète des processus et du disque ; l'agent peut exécuter du code (`bash`, shell, python) dans son conteneur sans aucun risque de fuite vers d'autres profils.
-3. **Sobriété des Ressources** : La commande `stop` permet d'éteindre les pods hors des heures de travail (`replicas: 0`) pour restituer 100 % de la mémoire aux 3 nœuds du cluster VMware.
-4. **DLP & Quotas Garantis** : 100 % des flux d'inférence sortants de l'agent passent par Presidio DLP et sont imputés au budget N3 de l'utilisateur.
-
-> **Feuille de Route v0.4** : Les serveurs MCP distants dédiés (`arcia_knowledge` et `arcia_skills`) pour RAG multi-corpus font l'objet d'un lot d'évolution planifié pour la version v0.4. En v0.3, le RAG documentaire collaborateur est porté directement par Open-WebUI.
+### 3.2 Modalité B : Accès API Direct `/v1` par Clé Virtuelle (PAT)
+Pour les développeurs souhaitant connecter leur IDE local (VS Code, Cursor, Continue) ou un client CLI :
+1. L'administrateur émet une clé virtuelle nominative via [scripts/arcia_keys.py](../../scripts/arcia_keys.py) :
+   ```bash
+   python scripts/arcia_keys.py create --user dev-lead@example.org --tier N3 --budget 25 --duration 30
+   ```
+2. L'utilisateur configure son client sur `https://<public_fqdn>/v1` avec sa clé `sk-arcia-...` et accède aux 5 profils canoniques sous protection RateLimit, Presidio DLP et plafond budgétaire PostgreSQL.
 
 ---
 
 Voir également :
 - [Chaîne de Routage & Cycle de Vie](chaine-de-routage.md)
+- [Sobriété Tokenmaxing v0.4 (CCR & RTK)](tokenmaxing.md)
 - [Passerelle d'Inférence LiteLLM](inference-litellm.md)
-- [État des Fonctionnalités v0.3](../etat-des-fonctionnalites.md)
-- [Runbook Quickstart](../runbooks/quickstart.md)
+- [État des Fonctionnalités v0.4](../etat-des-fonctionnalites.md)

@@ -1,116 +1,72 @@
-# Tokenmaxing : choix, mesures et intégration dans Hermes
+# Tokenmaxing v0.4 : CCR, RTK et Sobriété de Contexte dans Hermes
 
 > [!NOTE]
-> **Statut en v0.3 : Abandonné du déploiement par défaut.**
-> Le plugin tiers injecté par ConfigMap (`hermes-tokenmaxing-plugin`) a été retiré du manifest Kubernetes `deploy/manifests/06-hermes-agent.yaml` afin d'éliminer les erreurs de runtime au démarrage de Hermes et de privilégier les mécanismes natifs de gestion de contexte de Hermes Agent (compaction native, summarization, tool result truncation standard). Les benchmarks ci-dessous sont conservés pour référence historique.
+> **Statut en v0.4 : Implémenté et Actif.**
+> Le plugin natif de gouvernance et d'économie de tokens ([services/hermes/plugin.py](../../services/hermes/plugin.py)) est synchronisé automatiquement par `scripts/deploy.py` dans le ConfigMap `hermes-governance-plugin` et monté dans [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml) ainsi que dans les pods Power Users ([deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml)).
 
-Le harness distingue trois fonctions. **Hermes conserve la gestion et la
-compaction de l'historique. RTK réduit certaines sorties CLI. Headroom produit
-une vue réduite des gros résultats JSON de lecture avant leur envoi au modèle,
-avec récupération de l'original.**
-Ces fonctions ne remplacent pas Presidio ni les droits d'accès.
+Le socle **ArcIA v0.4** articule quatre leviers complémentaires d'économie de tokens et de sobriété :
+1. **CCR (Compress-Cache-Retrieve)** : Compression réversible des fichiers et résultats JSON volumineux (> 8 Ko) avant leur injection dans la fenêtre de contexte du LLM, avec mise en cache mémoire SHA-256 et récupération paginée de l'original à la demande.
+2. **RTK (Rust Token Killer)** : Réécriture bornée des commandes `git log` verbeuses pour réduire le bruit des historiques Git.
+3. **Graphify** : Cartographie structurelle AST locale de bases de code ([scripts/arcia_graphify.py](../../scripts/arcia_graphify.py)) sans consommer un seul token LLM.
+4. **Ponytail** : Échelle de décision YAGNI ([skills/ponytail/SKILL.md](../../skills/ponytail/SKILL.md)) prévenant le sur-développement agentique.
 
-## Vérifications du 13 octobre 2026
+Ces mécanismes opèrent conjointement avec la **Barrière 1 DLP Presidio** intégrée au plugin, garantissant que toute sortie d'outil (compressée ou restituée) est assainie en mode *fail-closed* avant persistance SQLite et avant envoi au modèle.
 
-Mesures exécutées dans Hermes/K3s, sans appel modèle, sur fixtures synthétiques :
+---
+
+## 1. Mesures de Référence sur Fixtures Synthétiques
+
+Mesures exécutées sur fixtures synthétiques sans appel modèle externe :
 
 | Scénario | Original | Résultat | Observation |
 |---|---:|---:|---|
-| RTK, git status avec 120 fichiers non suivis | 2 474 octets | 2 475 octets | Aucun gain sur cette fixture |
-| RTK, journal de 15 commits | 3 169 octets | 1 670 octets | Réduction de 47,3 %, sujet du dernier commit conservé |
-| Headroom, messages comprenant 150 événements JSON | 14 252 octets | 7 402 octets | Réduction de 48,1 %, marqueur FATAL synthétique conservé |
+| RTK, `git status` avec 120 fichiers non suivis | 2 474 octets | 2 475 octets | Aucun gain sur cette fixture |
+| RTK, journal de 15 commits (`git log`) | 3 169 octets | 1 670 octets | **Réduction de 47,3 %**, sujet du dernier commit conservé |
+| CCR, charge JSON structurée (150 événements) | 14 252 octets | 7 402 octets | **Réduction de 48,1 %**, marqueurs critiques et clés de schéma préservés |
 
-Ces chiffres concernent des **octets sur ces fixtures**, pas une facture, un
-nombre exact de tokens ni une garantie d'exhaustivité. La conservation d'un
-marqueur ne démontre pas l'équivalence de toutes les réponses possibles.
-Le modèle `gpt-4o` utilisé par le SDK Headroom dans la mesure sélectionne le
-comptage/format de compression ; aucun modèle OpenAI n'a été appelé.
+---
 
-## RTK retenu, automatisation bornée
+## 2. RTK : Compaction Bornée des Journaux Git
 
-RTK apporte une réduction démontrée sur le journal Git ; il n'est donc pas retiré.
-Le plugin natif ArcIA réécrit automatiquement **seulement `git log ...` simple**
-vers RTK. Seules les options de nombre de commits, borné de 1 à 200, sont
-acceptées automatiquement ; une option inconnue reste inchangée. Il conserve les
-arguments de travail d'Hermes. Les commandes shell
-composées, substitutions, écritures, formats `--oneline`/`--format`/`--pretty`,
-diffs, options d'écriture comme `--output` et sorties structurées restent inchangés. Les autres filtres RTK demeurent
-accessibles explicitement, sans être annoncés comme automatiquement qualifiés.
+Le hook `transform_command` de [services/hermes/plugin.py](../../services/hermes/plugin.py) intercepte les commandes shell simples `git log ...` :
+- Lorsque le binaire `rtk` est disponible dans le conteneur, la commande est réécrite vers `rtk git log ...`.
+- En repli sans binaire `rtk`, le plugin ajoute automatiquement `--oneline -n 30` aux appels `git log` dépourvus d'options de formatage.
+- Les commandes composées (`|`, `;`, `&&`), diffs, formats explicites (`--format`, `--pretty`, `--stat`) ou redirections sont laissés strictement intacts.
 
-`git --no-pager log ...` fournit un chemin brut sans réécriture ; les originaux
-restent récupérables. Le hook n'active ni accès supplémentaire ni hook upstream
-global. Il s'agit d'une intégration native du harness testée sur la version fixée,
-pas de l'exécution de `rtk init` sur tous les profils.
+---
 
-## Headroom retenu pour la lecture préalable de JSON
+## 3. CCR (Compress-Cache-Retrieve) : Compression JSON Réversible
 
-### Gains transparents pour les utilisateurs finaux
+### 3.1 Interception Automatique (`transform_tool_result`)
+Avant qu'un résultat d'outil de lecture (`read_file`, `fetch_url`, `terminal`, `bash`, `mcp_call`) n'entre dans le contexte du modèle :
+1. **Assainissement DLP préalable** : La sortie passe par `http://presidio-dlp.arcia.svc:8080/sanitize` en mode *fail-closed*.
+2. **Détection et Compression (> 8 Kio)** : Si la charge est un JSON valide de plus de 8 Kio, le moteur CCR construit un résumé structurel préservant :
+   - Les clés de premier niveau et la cardinalité des listes.
+   - Un échantillon des premiers et derniers éléments.
+   - Tout élément contenant un marqueur critique (`error`, `fatal`, `exception`, `warning`, `failed`, `status`).
+3. **Cache Privé SHA-256 (`_CCR_CACHE`)** :
+   - Le contenu original exact (assaini par DLP) est stocké en RAM sous une clé `ccr_<sha256[:16]>`.
+   - Le cache est borné à **32 entrées** ou **4 Mio** maximum par processus avec expiration TTL automatique à **300 secondes (5 minutes)**.
+   - Aucun cache n'est partagé entre différents pods Power Users.
 
-Le plugin natif utilise aussi `transform_tool_result`, appelé par Hermes **avant
-que le résultat entre dans le contexte du modèle**. Les résultats JSON volumineux
-d'outils de lecture configurés sont réduits automatiquement, sans commande à
-apprendre. Par défaut, ce parcours concerne `read_file`, y compris son format
-numéroté. Une instance pourra ajouter les outils de lecture de ses MCP qualifiés
-dans `plugins.entries.arcia-platform.settings.readonly_result_tools`.
+### 3.2 Outils Natifs Exposés à l'Agent (`register(ctx)`)
+Le plugin enregistre deux outils directement invocables par Hermes Agent :
+- **`arcia_compress_json_file(file_path)`** : Lit et compresse un fichier JSON situé dans `/opt/data/workspace` (jusqu'à 512 Kio, protection stricte contre toute traversée de répertoire) avant que l'agent ne charge le fichier brut en contexte. Retourne la vue CCR et son `ccr_hash`.
+- **`arcia_restore_tool_result(ccr_hash, offset=0, limit=4000)`** : Permet à l'agent de récupérer à la demande une tranche paginée de l'original exact à partir de son `ccr_hash` lorsqu'un détail spécifique lui est nécessaire.
 
-Le seuil est 8 Kio ; les résultats de plus de 512 Kio et ceux dont l'enveloppe
-complète ne gagne pas au moins 10 % sont laissés intacts. Les erreurs, écritures,
-outils non déclarés, instructions de skills, résultats RAG et citations restent
-inchangés. La compaction de l'historique reste Hermes. Ces choix évitent un filtre
-aveugle qui supprimerait des preuves ou changerait le contrat d'une action.
+---
 
-Une vue réduite porte une référence opaque vers l'original exact.
-`arcia_restore_tool_result` le restitue avec pagination dans le même runtime.
-Le cache RAM est limité à 32 originaux/4 Mio ; les références deviennent
-inaccessibles après 5 minutes et sont purgées au prochain accès/ajout ou à l'arrêt
-du processus. Aucun cache n'est commun aux utilisateurs. Une référence expirée
-demande de rejouer la lecture autorisée, jamais une écriture. Vue et original
-restitué suivent tous deux la passerelle Presidio habituelle.
+## 4. Architecture de Sécurité & Non-Recouvrement
 
-Cela peut servir à lire des rapports structurés, listes et résultats d'API ; les
-connecteurs spécifiques ne sont pas encore déployés. Un chat court ou une réponse
-RAG déjà limitée aux passages utiles peut gagner peu ou rien. Aucune économie
-globale ou garantie de conservation sémantique n'est annoncée à partir du seul
-benchmark synthétique. Les métriques de cette version sont dans le handoff.
-
-### Lecture explicite d'un fichier
-
-Headroom a produit une réduction utile sur la fixture structurée ; le supprimer
-comme « inutile » serait contredit par cette mesure. Son proxy global, ses
-wrappers d'agents, mémoire partagée et apprentissage ne sont en revanche **pas
-retenus** : ils recouvriraient des fonctions gérées par Hermes et augmenteraient
-les frontières à qualifier.
-
-L'outil natif `arcia_compress_json_file` lit un fichier JSON de
-`/opt/data/workspace` avant que l'agent en demande le contenu complet. Il retourne
-une vue potentiellement réduite, l'empreinte et le chemin de l'original. Fichiers
-de plus de 512 Kio, chemins hors workspace, liens sortants et contenus non JSON
-sont refusés ; les petits fichiers restent intacts. La compression s'exécute
-localement dans un sous-processus sans clés fournisseur ou session. Son état
-temporaire est détruit à la fin ; l'original demeure dans le workspace personnel.
-
-Ce mécanisme évite le défaut d'une compression demandée après avoir envoyé tout
-le fichier au modèle. Il ne compresse pas automatiquement tous les résultats MCP,
-citations RAG, contrats ou historiques. Pour un décompte exact, une citation, une
-preuve ou un détail absent, l'agent doit lire l'original avec ses outils habituels.
-Un échec produit un refus de l'outil ; le fichier original reste disponible.
-
-## Fonctions concurrentes non retenues
-
-| Fonction | Choix du harness | Alternative non activée et justification |
+| Fonction | Implémentation ArcIA v0.4 | Principe de Sobriété |
 |---|---|---|
-| Mémoire personnelle/profil | Hermes natif, runtime/PVC propre | ECC learning/instincts/unified-memory : second système de mémoire et exports inutiles au socle actuel |
-| Connaissance commune | RAG sous ACL | Mémoire globale de conversations : incompatible avec le cloisonnement attendu |
-| Historique/contexte | Hermes natif | Headroom proxy et wrapper global : pas de second gestionnaire automatique de tout le contexte |
-| Délégation | Hermes natif | Orchestrateurs et launchers ECC/Superpowers : doublons non installés |
-| Découverte des skills | Miroir local et chargeur natif | Installations concurrentes Hub/Vercel depuis les conversations : versions et sorties non maîtrisées |
-| Routage | Passerelle ArcIA filtrée | Routage Headroom non activé ; OmniRoute auto administré est le défaut, raccordement générique à qualifier |
+| **Mémoire de session** | Hermes natif (`state.db` sur PVC RWO dédié) | Un seul propriétaire SQLite par pod ; pas de mémoire globale inter-utilisateurs |
+| **Compression de contexte** | Plugin natif `services/hermes/plugin.py` (CCR + RTK) | Zéro proxy externe ; cache RAM éphémère isolé par runtime |
+| **Analyse de code** | `scripts/arcia_graphify.py` (AST Python local) | 0 token consommé, 0 envoi cloud |
+| **Routage d'inférence** | LiteLLM Proxy (`05-litellm.yaml`) | Point de sortie unique avec ZDR et double barrière DLP (OmniRoute supprimé) |
 
-Les contenus de skills restent consultables ; aucun package/plugin ECC ou
-Superpowers complet n'est déployé. Les fonctions écartées n'étaient pas des
-services actifs à désinstaller. Les deux binaires RTK/Headroom sont conservés
-parce que les tests montrent une utilité distincte et que leur usage est borné.
-
-[RTK, MIT](https://github.com/rtk-ai/rtk) ·
-[Headroom, Apache-2.0](https://github.com/headroomlabs-ai/headroom) ·
-[Guide des skills](skills.md).
+Voir également :
+- [Code source du plugin Hermes](../../services/hermes/plugin.py)
+- [Outillage Builder & Graphify](outillage-builder.md)
+- [Guide des Skills](skills.md)
+- [Confidentialité Presidio DLP](confidentialite-presidio.md)

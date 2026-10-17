@@ -71,10 +71,10 @@ class TestArcIADLP(unittest.TestCase):
         self.assertEqual(len(res["entities_detected"]), 0)
 
     def test_company_and_location_preserved(self):
-        """Vérifie que les noms d'entreprises et lieux publics (ex: Arcitek, Paris) ne sont PAS caviardés."""
-        prompt = "Donne-moi le SIRET de la société Arcitek à Boulogne-Billancourt ou à Paris."
+        """Vérifie que les noms d'organisations et lieux publics (ex: DINUM, Lyon) ne sont PAS caviardés."""
+        prompt = "Donne-moi le SIRET de l'entité DINUM à Lyon ou à Paris."
         res = sanitize(SanitizeRequest(text=prompt, language="fr"))
-        self.assertIn("Arcitek", res["sanitized_text"])
+        self.assertIn("DINUM", res["sanitized_text"])
         self.assertNotIn("[ARCIA_LOCATION]", res["sanitized_text"])
         self.assertNotIn("[ARCIA_ORGANIZATION]", res["sanitized_text"])
 
@@ -109,6 +109,64 @@ class TestArcIADLP(unittest.TestCase):
             self.assertIn("public_apis.py", res["sanitized_text"])
             self.assertNotIn("URL", res["entities_detected"])
 
+    def test_litellm_analyze_and_anonymize_contract(self):
+        """Vérifie que /analyze détecte les secrets et IP (même avec analyzer NLP actif) et que /anonymize caviarde le texte."""
+        from unittest.mock import patch, MagicMock
+        from app import analyze, anonymize, AnalyzeRequest, AnonymizeRequest
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze.return_value = []
+
+        prompt = "Serveur 10.20.30.40 avec password=MySecretPassword123 et contact alice@example.com"
+        with patch("app.get_analyzer", return_value=mock_analyzer):
+            findings = analyze(AnalyzeRequest(text=prompt, language="fr"))
+            entity_types = {f["entity_type"] for f in findings}
+            self.assertIn("SECRET", entity_types)
+            self.assertIn("IP_ADDRESS", entity_types)
+            self.assertIn("EMAIL_ADDRESS", entity_types)
+
+            anon = anonymize(AnonymizeRequest(text=prompt, analyzer_results=findings))
+            self.assertNotIn("10.20.30.40", anon["text"])
+            self.assertNotIn("MySecretPassword123", anon["text"])
+            self.assertNotIn("alice@example.com", anon["text"])
+
+            # Double-barrière idempotente : repasser le texte déjà caviardé ne le corrompt pas
+            second_pass = anonymize(AnonymizeRequest(text=anon["text"]))
+            self.assertEqual(second_pass["text"], anon["text"])
+
+    def test_hermes_governance_plugin_ccr_and_dlp(self):
+        """Vérifie le fonctionnement du plugin Hermes (CCR réversible, préservation JSON, RTK, et DLP fail-closed)."""
+        import tempfile
+        import json
+        from unittest.mock import patch
+        hermes_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "services", "hermes")
+        if hermes_dir not in sys.path:
+            sys.path.insert(0, hermes_dir)
+        import plugin as hermes_plugin
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.object(hermes_plugin, "get_ccr_cache_dir", return_value=tmpdir):
+                # 1. Test CCR sur une grosse payload JSON (> 8192 bytes)
+                large_items = [{"id": i, "label": f"Item-{i}", "detail": "x" * 120} for i in range(90)]
+                large_json = json.dumps({"results": large_items})
+                compressed = hermes_plugin.compress_large_json(large_json)
+                # Le résultat doit rester du JSON valide pour ne pas casser json.loads() des skills
+                parsed_comp = json.loads(compressed)
+                self.assertIn("_arcia_ccr", parsed_comp)
+                ccr_hash = parsed_comp["_arcia_ccr"]["hash"]
+                self.assertEqual(len(ccr_hash), 12)
+
+                # Récupération intégrale via ccr_retrieve (avec --key results)
+                restored_key = hermes_plugin.ccr_retrieve(ccr_hash, json_key="results")
+                self.assertTrue(restored_key["found"])
+                self.assertEqual(len(restored_key["value"]), 90)
+
+                # 2. Test fail-closed DLP : si Presidio est injoignable et PRESIDIO_FAIL_CLOSED=true -> RuntimeError
+                with patch.object(hermes_plugin, "PRESIDIO_DLP_URL", "http://127.0.0.1:59999/sanitize"), \
+                     patch.object(hermes_plugin, "PRESIDIO_FAIL_CLOSED", True):
+                    with self.assertRaises(RuntimeError):
+                        hermes_plugin.on_pre_llm_call([{"role": "user", "content": "Mon secret sk-12345678901234567890"}])
+
 
 if __name__ == "__main__":
     unittest.main()
+

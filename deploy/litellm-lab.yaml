@@ -1,5 +1,5 @@
 # ==============================================================================
-# Configuration LiteLLM Proxy pour ArcIA v0.3 (Mode Lab / Docker Local)
+# Configuration LiteLLM Proxy pour ArcIA v0.4 (Mode Lab / Docker Local)
 # ==============================================================================
 model_list:
   # 1. simple/free : direct LiteLLM vers OpenRouter Free
@@ -20,8 +20,26 @@ model_list:
         provider:
           zdr: true
 
-  # 3. openrouter/deepseek/deepseek-v4.1-flash : modèle d'inférence pour l'agent
-  - model_name: "openrouter/deepseek/deepseek-v4.1-flash"
+  # 3. agentic/free : profil agentique gratuit via OpenRouter Free (ZDR)
+  - model_name: "agentic/free"
+    litellm_params:
+      model: openrouter/openrouter/free
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          zdr: true
+
+  # 4. agentic/auto : profil agentique standard équilibré via OpenRouter Auto (ZDR)
+  - model_name: "agentic/auto"
+    litellm_params:
+      model: openrouter/auto
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          zdr: true
+
+  # 5. agentic/expert : profil agentique raisonnement avancé via DeepSeek V4.1 Flash (ZDR)
+  - model_name: "agentic/expert"
     litellm_params:
       model: openrouter/deepseek/deepseek-v4.1-flash
       api_key: os.environ/OPENROUTER_API_KEY
@@ -33,6 +51,9 @@ router_settings:
   fallbacks:
     - "simple/free": ["simple/auto"]
     - "simple/auto": ["simple/free"]
+    - "agentic/free": ["agentic/auto"]
+    - "agentic/auto": ["agentic/expert", "simple/auto"]
+    - "agentic/expert": ["agentic/auto", "simple/auto"]
   model_group_alias:
     "openrouter/free":
       model: "simple/free"
@@ -40,29 +61,14 @@ router_settings:
     "openrouter/auto":
       model: "simple/auto"
       hidden: true
-    "openrouter/deepseek-v4.1-flash":
-      model: "openrouter/deepseek/deepseek-v4.1-flash"
-      hidden: true
-    "arcia/free":
-      model: "simple/free"
-      hidden: true
-    "arcia/auto":
-      model: "simple/auto"
-      hidden: true
-    "arcia/expert":
-      model: "openrouter/deepseek/deepseek-v4.1-flash"
-      hidden: true
-    "arcia/standard":
-      model: "simple/auto"
-      hidden: true
-    "arcia/reasoning":
-      model: "openrouter/deepseek/deepseek-v4.1-flash"
+    "openrouter/deepseek/deepseek-v4.1-flash":
+      model: "agentic/expert"
       hidden: true
     "auto":
       model: "simple/auto"
       hidden: true
     "hermes-agent":
-      model: "simple/auto"
+      model: "agentic/auto"
       hidden: true
 
 general_settings:

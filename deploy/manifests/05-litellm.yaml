@@ -1,3 +1,9 @@
+# ==============================================================================
+# ArcIA v0.4 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
+# Catalogue canonique :
+#   - Direct LiteLLM : simple/free, simple/auto
+#   - Moteur Hermes  : agentic/free, agentic/auto, agentic/expert
+# ==============================================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,7 +12,7 @@ metadata:
 data:
   config.yaml: |
     model_list:
-      # 1. simple/free : direct LiteLLM vers OpenRouter Free
+      # 1. simple/free : direct LiteLLM vers OpenRouter Free (0 €)
       - model_name: "simple/free"
         litellm_params:
           model: openrouter/openrouter/free
@@ -15,7 +21,7 @@ data:
             provider:
               zdr: true
 
-      # 2. simple/auto : direct LiteLLM vers OpenRouter Auto
+      # 2. simple/auto : direct LiteLLM vers OpenRouter Auto (Défaut rapide)
       - model_name: "simple/auto"
         litellm_params:
           model: openrouter/auto
@@ -24,10 +30,10 @@ data:
             provider:
               zdr: true
 
-      # 3. openrouter/deepseek/deepseek-v4.1-flash : modèle d'inférence pour l'agent
-      - model_name: "openrouter/deepseek/deepseek-v4.1-flash"
+      # 3. agentic/expert : modèle haute précision pour l'orchestration agentique Hermes
+      - model_name: "agentic/expert"
         litellm_params:
-          model: openrouter/deepseek/deepseek-v4.1-flash
+          model: openrouter/deepseek/deepseek-chat
           api_key: os.environ/OPENROUTER_API_KEY
           extra_body:
             provider:
@@ -35,46 +41,14 @@ data:
 
     router_settings:
       fallbacks:
-        - "simple/free": ["simple/auto"]
         - "simple/auto": ["simple/free"]
+        - "simple/free": ["simple/auto"]
+        - "agentic/expert": ["simple/auto", "simple/free"]
       model_group_alias:
         "agentic/free":
           model: "simple/free"
           hidden: true
         "agentic/auto":
-          model: "simple/auto"
-          hidden: true
-        "agentic/deepseek-v4.1-flash":
-          model: "openrouter/deepseek/deepseek-v4.1-flash"
-          hidden: true
-        "openrouter/free":
-          model: "simple/free"
-          hidden: true
-        "openrouter/auto":
-          model: "simple/auto"
-          hidden: true
-        "openrouter/deepseek-v4.1-flash":
-          model: "openrouter/deepseek/deepseek-v4.1-flash"
-          hidden: true
-        "arcia/free":
-          model: "simple/free"
-          hidden: true
-        "arcia/auto":
-          model: "simple/auto"
-          hidden: true
-        "arcia/expert":
-          model: "openrouter/deepseek/deepseek-v4.1-flash"
-          hidden: true
-        "arcia/standard":
-          model: "simple/auto"
-          hidden: true
-        "arcia/reasoning":
-          model: "openrouter/deepseek/deepseek-v4.1-flash"
-          hidden: true
-        "auto":
-          model: "simple/auto"
-          hidden: true
-        "hermes-agent":
           model: "simple/auto"
           hidden: true
 
@@ -89,7 +63,7 @@ data:
       drop_params: true
 
     guardrails:
-      # Anonymisation universelle obligatoire et fail-closed vers le Cloud
+      # Barrière 2 DLP : Anonymisation universelle obligatoire et fail-closed vers le Cloud
       - guardrail_name: "presidio-guard"
         litellm_params:
           guardrail: presidio
@@ -124,49 +98,46 @@ spec:
         ports:
         - containerPort: 4000
         env:
+        - name: OPENROUTER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: openrouter-key
         - name: LITELLM_MASTER_KEY
           valueFrom:
             secretKeyRef:
               name: litellm-secret
               key: master-key
-        - name: LITELLM_SALT_KEY
-          valueFrom:
-            secretKeyRef:
-              name: litellm-secret
-              key: salt-key
-        - name: LITELLM_DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: litellm-secret
-              key: db-password
         - name: DATABASE_URL
-          value: "postgresql://litellm:$(LITELLM_DB_PASSWORD)@litellm-db.arcia.svc:5432/litellm"
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: database-url
         - name: STORE_MODEL_IN_DB
           value: "True"
-        - name: OPENROUTER_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: enterprise-llm-secret
-              key: openrouter-key
+        - name: PRESIDIO_ANALYZER_API_BASE
+          value: "http://presidio-dlp.arcia.svc:8080"
+        - name: PRESIDIO_ANONYMIZER_API_BASE
+          value: "http://presidio-dlp.arcia.svc:8080"
         resources:
           requests:
-            cpu: 200m
+            cpu: 250m
             memory: 512Mi
           limits:
             cpu: 1000m
             memory: 1536Mi
-        readinessProbe:
-          httpGet:
-            path: /health/readiness
-            port: 4000
-          initialDelaySeconds: 15
-          periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /health/liveness
+            path: /health/liveliness
+            port: 4000
+          initialDelaySeconds: 40
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health/liveliness
             port: 4000
           initialDelaySeconds: 20
-          periodSeconds: 15
+          periodSeconds: 10
         lifecycle:
           postStart:
             exec:
@@ -174,15 +145,25 @@ spec:
               - /bin/sh
               - -c
               - |
-                python3 -c '
-                import urllib.request, json, os, time
-                time.sleep(5)
-                k = os.environ.get("LITELLM_MASTER_KEY")
-                payload = json.dumps({"key": "sk-arcia-openwebui-direct-token", "key_alias": "openwebui-frontend-token", "models": ["simple/free", "simple/auto"]}).encode()
-                req = urllib.request.Request("http://localhost:4000/key/generate", data=payload, headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"})
-                try: urllib.request.urlopen(req)
-                except Exception: pass
-                ' &
+                (
+                  for i in $(seq 1 30); do
+                    if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=2)" 2>/dev/null; then
+                      python3 -c "
+                import os, json, urllib.request
+                master = os.environ.get('LITELLM_MASTER_KEY', '')
+                data = json.dumps({'key': 'sk-arcia-openwebui-direct-token', 'models': ['simple/free', 'simple/auto'], 'key_alias': 'openwebui-direct-simple'}).encode()
+                for ep in ('/key/generate', '/key/update'):
+                    try:
+                        req = urllib.request.Request('http://127.0.0.1:4000' + ep, data=data, headers={'Authorization': 'Bearer ' + master, 'Content-Type': 'application/json'})
+                        urllib.request.urlopen(req, timeout=5)
+                    except Exception:
+                        pass
+                " 2>/dev/null
+                      break
+                    fi
+                    sleep 2
+                  done
+                ) &
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml

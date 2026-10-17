@@ -7,11 +7,11 @@ ArcIA est une plateforme d’IA agentique d’entreprise. Hermes est son moteur 
 ## 1. Capacités et architecture
 
 Les agents utilisent des outils autorisés, consultent une base de compétences et de connecteurs, délèguent des tâches bornées et produisent des réponses ou fichiers vérifiables :
-- **Portail Collaborateur (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes, intégrée au SSO Microsoft Entra ID.
-- **Studio Kanban & Gateway (Hermes Agent)** : Pilotage visuel des missions longues, multi-agents, et connexion native pour l'application de bureau Hermes Desktop.
-- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des modèles souverains managés (`ArcIA-Agentic (auto)`, `ArcIA-Agentic (expert)`), résilience et suivi des quotas.
-- **Gouvernance & Confidentialité (Presidio DLP)** : Caviardage automatique des PII et des secrets d'entreprise avant tout appel vers un LLM externe.
-- **Canal Microsoft Teams** : Bot interactif pour les échanges directs et le travail en équipe.
+- **Portail Collaborateur Hybride (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes (`simple/free`, `simple/auto`) et les sessions agentiques (`agentic/free`, `agentic/auto`, `agentic/expert`), intégrée au SSO Microsoft Entra ID.
+- **Studio Kanban & Gateway (Hermes Agent)** : Pilotage visuel des missions longues, multi-agents, compression de contexte CCR/RTK et connexion native pour l'application de bureau Hermes Desktop.
+- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des 5 profils canoniques, chaînes de fallback, Zéro Rétention de Données (ZDR) et suivi comptable PostgreSQL (`litellm-db`).
+- **Gouvernance & Confidentialité (Presidio DLP)** : Double barrière fail-closed caviardant automatiquement les PII, adresses IP et secrets d'entreprise en amont (Hermes) et en aval (LiteLLM).
+- **Canal Microsoft Teams** : Bot interactif pour les échanges directs (`simple/auto`) et la délégation de missions autonomes (`/agent` → `agentic/auto`).
 
 Le contenu retrouvé est une preuve à citer, jamais une instruction de sécurité. Les services fixent les droits et classifications indépendamment du texte produit par le modèle. Les agents n’obtiennent ni privilège Kubernetes ni autorité implicite d’exécution.
 
@@ -40,7 +40,8 @@ L'accès repose sur l'authentification d'entreprise via Microsoft Entra ID (SSO 
 |---|---|---|
 | **Portail Web** | Accès collaborateurs avec SSO Entra ID ou comptes locaux | Open-WebUI sur port 8080 avec persistance PVC 20Gi |
 | **Studio & Gateway** | Espace de pilotage Kanban et API pour Hermes Desktop | Hermes Studio sur port 9119 et Gateway sur port 8642 avec PVC 20Gi |
-| **Sortie Cloud** | Anonymisation systématique des flux externes | Presidio DLP sur port 8080 devant LiteLLM |
+| **Power Users (N3)** | Pods Hermes dédiés par utilisateur ou accès API `/v1` | PVC 10Gi isolé (`/poweruser/<slug>/studio`) et clés virtuelles PAT |
+| **Sortie Cloud** | Double barrière d'anonymisation systématique des flux externes | Presidio DLP sur port 8080 sollicité par Hermes et LiteLLM |
 | **Canaux Collaboratifs**| Bot Teams en direct message ou mention de canal | Teams Bot Adapter sur port 3978 |
 
 Chaque instance Hermes conserve un propriétaire unique de son état SQLite persistant (`state.db`). Des profils ou sous-agents ne constituent pas une isolation de sécurité.
@@ -49,10 +50,10 @@ Chaque instance Hermes conserve un propriétaire unique de son état SQLite pers
 
 ## 4. Parcours d’une demande
 
-1. **Identification** : L'utilisateur s'identifie via SSO Entra ID sur le portail ou Teams.
-2. **Consultation & Outils** : Hermes ou le portail consulte les compétences requises (skills locales, outils de code, analyse AST Graphify).
-3. **Assainissement DLP** : Toute requête destinée à un modèle cloud externe passe préalablement par Presidio DLP pour caviardage des données sensibles.
-4. **Inférence & Synthèse** : LiteLLM achemine la requête assainie vers le modèle approprié et restitue la réponse.
-5. **Actions Externes** : Toute action sensible extérieure requiert validation explicite selon la politique de gouvernance.
+1. **Identification** : L'utilisateur s'identifie via SSO Entra ID sur le portail ou Teams (ou par PAT sur `/v1`).
+2. **Routage Hybride** : Les demandes simples (`simple/*`) vont directement à LiteLLM ; les missions outillées (`agentic/*` ou `/agent`) sont prises en charge par Hermes Agent.
+3. **Consultation & Sobriété** : Hermes consulte les compétences requises (skills locales, analyse AST Graphify) et compresse les résultats volumineux via CCR/RTK.
+4. **Assainissement DLP** : Toute requête ou sortie d'outil passe par la double barrière Presidio DLP en mode fail-closed.
+5. **Inférence & Synthèse** : LiteLLM achemine la requête assainie vers le modèle approprié avec ZDR forcé et restitue la réponse.
 
 Voir également : [Moteur d'Agents Hermes](hermes-agent.md) · [Inférence LiteLLM](inference-litellm.md) · [Confidentialité Presidio](confidentialite-presidio.md) · [Guide de Déploiement](deploiement-universel.md).

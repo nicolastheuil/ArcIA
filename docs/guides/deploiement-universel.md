@@ -1,6 +1,6 @@
-# Guide de Déploiement Universel d'ArcIA v0.3 sur Kubernetes
+# Guide de Déploiement Universel d'ArcIA v0.4 sur Kubernetes
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.3** sur **n'importe quel cluster Kubernetes** (K3s, EKS, AKS, GKE, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir d'un **seul et unique fichier de configuration** ou via Kustomize.
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (K3s, EKS, AKS, GKE, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir d'un **seul et unique fichier de configuration** ou via Kustomize.
 
 ---
 
@@ -13,7 +13,7 @@ Pour déployer ArcIA, vous devez disposer de :
    - `Cert-Manager` installé si vous souhaitez l'émission automatique des certificats SSL Let's Encrypt.
 2. **L'outil de ligne de commande `kubectl`** configuré avec les droits d'administration sur le cluster.
 3. **Python 3.8+** (utilisé par le moteur de déploiement universel, sans aucune dépendance pip requise).
-4. **Une clé d'API LLM Cloud** (ex: [OpenRouter](https://openrouter.ai/) fournissant l'accès unifié à Claude 3.5/3.7 Sonnet, GPT-4o, DeepSeek-V3).
+4. **Une clé d'API LLM Cloud** (ex: [OpenRouter](https://openrouter.ai/)).
 
 ---
 
@@ -22,7 +22,7 @@ Pour déployer ArcIA, vous devez disposer de :
 ### Étape 1 : Cloner le dépôt
 
 ```bash
-git clone https://github.com/nicolastheuil/ArcIA.git
+git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
@@ -52,14 +52,14 @@ Le fichier est structuré en deux catégories clairement séparées :
 | `kubernetes` | `mode` | Mode d'exécution de kubectl (`local` ou `remote-ssh`) | `"local"` |
 | `kubernetes` | `namespace` | Namespace Kubernetes applicatif | `"arcia"` |
 | `kubernetes` | `storage_class` | StorageClass pour les volumes PVC (laisser `""` pour la classe par défaut) | `""` (ou `"gp3"`, `"local-path"`) |
-| `network` | `public_fqdn` | **FQDN public** pour accéder à l'assistant | `"assistant.votre-entreprise.com"` |
+| `network` | `public_fqdn` | **FQDN public** pour accéder à l'assistant | `"assistant.example.org"` |
 | `network` | `ingress_class` | Contrôleur Ingress (`traefik` ou `nginx`) | `"traefik"` |
 | `network` | `tls_mode` | Mode TLS (`letsencrypt-prod`, `custom-secret`, `disabled`) | `"letsencrypt-prod"` |
-| `network` | `acme_email` | Email de contact Let's Encrypt | `"admin@votre-entreprise.com"` |
+| `network` | `acme_email` | Email de contact Let's Encrypt | `"admin@example.org"` |
 | `llm_gateway` | `openrouter_api_key` | Clé d'API OpenRouter | `"sk-or-v1-..."` |
 | `hermes` | `admin_password` | Mot de passe admin pour Hermes Studio (:9119) | `"MotDePasseFort123"` |
 | `hermes` | `api_token` | Jeton PAT pour Hermes Desktop Gateway (:8642) | `"arcia-pat-secret-key"` |
-| `presidio` | `enabled` | Active le bouclier DLP de caviardage PII et clés | `true` |
+| `presidio` | `enabled` | Active la double barrière DLP de caviardage PII et clés | `true` |
 
 ### B. Éléments OPTIONNELS
 
@@ -67,7 +67,7 @@ Le fichier est structuré en deux catégories clairement séparées :
 |---|---|---|
 | `kubernetes.remote_ssh` | `node_ip`, `ssh_user`, `ssh_port`, `ssh_key` | Paramètres de connexion SSH au nœud maître (si `mode: "remote-ssh"`), incluant le chemin vers la clé privée |
 | `llm_gateway` | `local_vllm_endpoint` | URL d'un serveur GPU souverain on-premise (ex: `http://vllm.corp:8000/v1`) |
-| `entra_id_sso` | `enabled` | Active l'authentification obligatoire Microsoft Entra ID pour `/studio` et `/gateway` |
+| `entra_id_sso` | `enabled` | Active l'authentification obligatoire Microsoft Entra ID pour Open-WebUI et `/studio` |
 | `entra_id_sso` | `tenant_id`, `client_id`, `client_secret`, `cookie_secret` | Identifiants Microsoft Entra ID d'entreprise |
 | `teams_bot` | `enabled` | Active le connecteur Bot Microsoft Teams |
 | `teams_bot` | `app_id`, `app_password`, `system_prompt` | Identifiants Azure Bot Service et prompt système |
@@ -103,26 +103,23 @@ Pour tester la configuration sans l'appliquer :
 ### Alternative Kustomize Déclarative :
 Pour les environnements GitOps (ArgoCD, Flux) ou déploiements natifs :
 ```bash
-# Déploiement production
-kubectl apply -k deploy/overlays/prod
-
-# Déploiement laboratoire local
-kubectl apply -k deploy/overlays/lab
+kubectl apply -k deploy/manifests/
 ```
 
 ---
 
 ## 5. Ce que fait le Script Automatiquement
 
-Le moteur universel de déploiement :
+Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py)) :
 1. **Teste la connectivité** avec le cluster Kubernetes et inspecte les nœuds disponibles.
 2. **Détecte automatiquement la `StorageClass`** par défaut du cluster si aucune n'a été spécifiée.
 3. **Crée le namespace** cible (`arcia`).
-4. **Provisionne les secrets** Kubernetes sécurisés (`arcia-env-secret`, `litellm-secret`, `hermes-gateway-secret`, `presidio-secret`...) directement en mémoire.
-5. **Rend et applique les manifestes** adaptés à votre FQDN et à votre classe d'Ingress (incluant la base relationnelle PostgreSQL 16 `litellm-db` et LiteLLM avec Zero Data Retention).
-6. **Active ou désactive** automatiquement les composants optionnels (Teams Bot, SSO Entra ID) selon votre configuration.
-7. **Surveille le rollout** et la santé de tous les Pods jusqu'à leur mise en service.
-8. **Affiche la synthèse d'accès** avec les URL prêtes à l'emploi.
+4. **Provisionne les secrets** Kubernetes sécurisés (`arcia-env-secret`, `litellm-secret`, `hermes-gateway-secret`, `presidio-secret`...) directement en mémoire via `stdin`.
+5. **Synchronise les ConfigMaps des microservices** (`sync_service_configmaps` : `presidio-code`, `teams-bot-code`, `hermes-governance-plugin`) et des compétences natives (`arcia-native-skills`).
+6. **Rend et applique les manifestes** adaptés à votre FQDN et à votre classe d'Ingress (incluant la base relationnelle PostgreSQL 16 `litellm-db`, LiteLLM avec Zero Data Retention et le middleware SSO `/studio`).
+7. **Active ou désactive** automatiquement les composants optionnels (Teams Bot, SSO Entra ID) selon votre configuration.
+8. **Surveille le rollout** et la santé de tous les Pods jusqu'à leur mise en service.
+9. **Affiche la synthèse d'accès** avec les URL prêtes à l'emploi.
 
 ---
 
@@ -131,16 +128,16 @@ Le moteur universel de déploiement :
 Dès que le déploiement est terminé :
 1. Créez l'enregistrement DNS de type A pour votre FQDN pointant vers l'adresse IP publique de votre Ingress.
 2. Ouvrez votre navigateur sur :
-   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (Inscription publique verrouillée, accès restreint SSO O365 ou comptes locaux créés par l'administrateur, Direct Connections désactivées pour conformité DLP).
+   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (5 profils canoniques `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert`).
    - `https://<public_fqdn>/studio` : Dashboard Kanban multi-agents Hermes.
    - `https://<public_fqdn>/gateway` : Passerelle client lourd Hermes Desktop.
    - `https://<public_fqdn>/v1` : Endpoint d'inférence LiteLLM Proxy pour Power Users (N3).
-3. Générez une clé virtuelle d'entreprise pour un développeur :
+3. Générez une clé virtuelle d'entreprise ou un pod dédié pour un développeur (N3) :
    ```bash
-   python scripts/arcia_keys.py create --user alice --tier N3 --budget 20
+   python scripts/arcia_keys.py create --user alice@example.org --tier N3 --budget 20
+   python scripts/arcia_poweruser.py spawn alice@example.org --team engineering
    ```
 4. Exécutez la suite de recette automatisée :
    ```bash
    bash scripts/test-validation.sh
    ```
-

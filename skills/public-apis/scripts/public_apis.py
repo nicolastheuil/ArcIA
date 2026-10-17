@@ -10,8 +10,8 @@ en cache locale sur disque (TTL 24h) et calcul automatique de la TVA intracommun
 
 Usage :
     python public_apis.py company "entreprise"
-    python public_apis.py company "789315306"
-    python public_apis.py address "696 rue yves kermen boulogne"
+    python public_apis.py company "130025265"
+    python public_apis.py address "20 avenue de segur paris"
     python public_apis.py meteo "Paris"
     python public_apis.py catalog
 """

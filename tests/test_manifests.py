@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Manifest validation test: checks all deploy/manifests/*.yaml files,
-including behavioral consistency, model tiers, and security constraints for v0.3.
+including behavioral consistency, model tiers, and security constraints for v0.4.
 """
 
 import os
@@ -35,20 +35,25 @@ class TestKubernetesManifests(unittest.TestCase):
             self.assertIn("metadata:", content, f"metadata manquant dans {yf}")
 
     def test_litellm_v03_configuration(self):
-        """Vérifie la présence des 3 paliers v0.3, des fallbacks valides et de la sécurité."""
+        """Vérifie la présence des 5 profils canoniques v0.4, des fallbacks valides, du guardrail Presidio et de la sécurité."""
         litellm_path = os.path.join(self.manifests_dir, "05-litellm.yaml")
         with open(litellm_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        self.assertIn("arcia/free", content)
-        self.assertIn("arcia/auto", content)
-        self.assertIn("arcia/expert", content)
-        self.assertIn("arcia/standard", content)
-        self.assertIn("arcia/reasoning", content)
-        # Modèle déprécié retiré
+        self.assertIn("simple/free", content)
+        self.assertIn("simple/auto", content)
+        self.assertIn("agentic/free", content)
+        self.assertIn("agentic/auto", content)
+        self.assertIn("agentic/expert", content)
+        # Modèles dépréciés ou anciens alias retirés
         self.assertNotIn("openrouter/anthropic/claude-3.5-sonnet\n", content)
+        self.assertNotIn("arcia/standard", content)
+        self.assertNotIn("arcia/reasoning", content)
         # Fallbacks bien placés dans router_settings
         self.assertIn("router_settings:\n      fallbacks:", content)
+        # Guardrail Presidio actif
+        self.assertIn("guardrail: presidio", content)
+        self.assertIn("default_on: true", content)
         # Variable d'insécurité supprimée
         self.assertNotIn("LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY", content)
         self.assertIn("LITELLM_MASTER_KEY", content)
@@ -73,7 +78,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "true"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)
         self.assertIn('name: OPENAI_API_BASE_URLS\n          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"', content)
-        self.assertIn('simple/free;simple/auto;agentic/free;agentic/auto;agentic/deepseek-v4.1-flash', content)
+        self.assertIn('simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert', content)
         self.assertIn('name: hermes-gateway-secret\n              key: api-server-key', content)
 
     def test_ingress_v1_rate_limited(self):
@@ -90,7 +95,7 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertNotIn("path: /ui", content)
 
     def test_teams_bot_health_probes(self):
-        """Vérifie que les sondes de Teams Bot ciblent /healthz et non /api/teams/messages."""
+        """Vérifie que les sondes de Teams Bot ciblent /healthz et que le code est monté via ConfigMap teams-bot-code."""
         teams_path = os.path.join(self.manifests_dir, "08-teams-bot.yaml")
         with open(teams_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -98,9 +103,11 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("path: /healthz", content)
         self.assertNotIn("path: /api/teams/messages\n            port: 3978", content)
         self.assertIn("LITELLM_API_KEY", content)
+        self.assertIn("name: teams-bot-code", content)
+        self.assertIn('value: "simple/auto"', content)
 
     def test_hermes_native_config(self):
-        """Vérifie que Hermes utilise ~/.hermes/config.yaml, démarre la gateway, expose model_routes et désactive auto_approve_safe_commands."""
+        """Vérifie que Hermes utilise ~/.hermes/config.yaml, démarre la gateway, expose model_routes et active le plugin de gouvernance DLP/CCR."""
         hermes_path = os.path.join(self.manifests_dir, "06-hermes-agent.yaml")
         with open(hermes_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -117,7 +124,10 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn("model_routes:", content)
         self.assertIn("agentic/auto:", content)
         self.assertIn("agentic/free:", content)
-        self.assertIn("agentic/deepseek-v4.1-flash:", content)
+        self.assertIn("agentic/expert:", content)
+        self.assertIn("PRESIDIO_DLP_URL", content)
+        self.assertIn("PRESIDIO_FAIL_CLOSED", content)
+        self.assertIn("hermes-governance-plugin", content)
         self.assertNotIn("OPENAI_API_BASE", content)
         self.assertNotIn("OPENAI_MODEL_NAME", content)
         self.assertNotIn("arcia_tokenmaxing.py", content)

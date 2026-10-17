@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ArcIA v0.3 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
+ArcIA v0.4 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
 
 Permet de déployer, gérer, suspendre et supprimer des environnements Hermes Agent
 dédiés par utilisateur directement dans le cluster Kubernetes.
@@ -367,7 +367,7 @@ def sync_single_user(slug: str, ns: str = "arcia", fqdn: Optional[str] = None, r
 
     # 2. ConfigMap existant (préserver SOUL.md et USER.md)
     custom_soul = None
-    user_email = f"{slug}@arcitek.fr"
+    user_email = f"{slug}@example.org"
     team = "engineering"
     job_title = "Expert / Ingénieur"
     manager = "Direction Technique"
@@ -437,7 +437,7 @@ try:
         'base_url': 'http://litellm-proxy.arcia.svc:4000/v1',
         'key_env': 'OPENAI_API_KEY',
         'discover_models': False,
-        'models': ['agentic/auto', 'agentic/free', 'agentic/deepseek-v4.1-flash']
+        'models': ['agentic/auto', 'agentic/free', 'agentic/expert']
     }
     with open(cfg_p, 'w') as f: hermes_yaml.safe_dump(c, f)
     with open('/opt/data/config.yaml', 'w') as f: hermes_yaml.safe_dump(c, f)
@@ -543,7 +543,7 @@ def cmd_destroy(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ArcIA v0.3 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
+    parser = argparse.ArgumentParser(description="ArcIA v0.4 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
     parser.add_argument("--namespace", default="arcia", help="Namespace Kubernetes cible")
     parser.add_argument("--fqdn", default=None, help="FQDN public de la plateforme (ex: assistant.entreprise.com)")
 

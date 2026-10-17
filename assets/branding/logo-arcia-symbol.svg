@@ -7,7 +7,7 @@
       <stop offset="100%" stop-color="#050712" />
     </linearGradient>
 
-    <!-- Cyan officiel arcITek (#6BE7DD) -->
+    <!-- Cyan officiel ArcIA (#6BE7DD) -->
     <linearGradient id="arciaCyanFill" x1="80" y1="98" x2="224" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#5AD8CE" />
       <stop offset="100%" stop-color="#6BE7DD" />
@@ -24,7 +24,7 @@
   <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#arciaSquircleBg)" stroke="#1E293B" stroke-width="8" />
   <circle cx="256" cy="256" r="200" fill="url(#arciaSubtleGlow)" />
 
-  <!-- Monogramme officiel "aIA" en Handel Gothic (Charte arcITek) centré -->
+  <!-- Monogramme officiel "aIA" en Handel Gothic centré -->
   <g id="arcia-aIA-monogram" transform="translate(68, 174) scale(1.68)">
     <!-- "a" en Blanc (#F8FAFC) -->
     <path
@@ -32,13 +32,13 @@
       fill="#F8FAFC"
     />
 
-    <!-- "I" en Bleu Cyan arcITek (#6BE7DD) -->
+    <!-- "I" en Bleu Cyan ArcIA (#6BE7DD) -->
     <path
       d="M82.92 97.76 L100.16 0 L121.67 0 L104.43 97.76 Z"
       fill="url(#arciaCyanFill)"
     />
 
-    <!-- "A" en Bleu Cyan arcITek (#6BE7DD) -->
+    <!-- "A" en Bleu Cyan ArcIA (#6BE7DD) -->
     <path
       fill-rule="evenodd"
       clip-rule="evenodd"

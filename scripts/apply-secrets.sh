@@ -6,10 +6,22 @@ source "$ROOT_DIR/secrets/arcia.env"
 
 echo "[*] Création des Secrets Kubernetes dans le namespace arcia..."
 
-# Secret OpenRouter
+# Secret OpenRouter & LiteLLM
+LITELLM_MASTER="${LITELLM_MASTER_KEY:-sk-arcia-master-key-32b}"
+LITELLM_DB_PASS="${LITELLM_POSTGRES_PASSWORD:-arcia-litellm-db-password-32b}"
+LITELLM_DB_URL="postgresql://litellm:${LITELLM_DB_PASS}@litellm-db.arcia.svc:5432/litellm"
+
 kubectl create secret generic enterprise-llm-secret \
   --namespace arcia \
   --from-literal=openrouter-key="$OPENROUTER_API_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create secret generic litellm-secret \
+  --namespace arcia \
+  --from-literal=master-key="$LITELLM_MASTER" \
+  --from-literal=openrouter-key="$OPENROUTER_API_KEY" \
+  --from-literal=db-password="$LITELLM_DB_PASS" \
+  --from-literal=database-url="$LITELLM_DB_URL" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Secret Entra ID (utilisé par Open-WebUI et oauth2-proxy)

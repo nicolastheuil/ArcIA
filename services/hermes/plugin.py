@@ -1,76 +1,362 @@
+#!/usr/bin/env python3
 """
-ArcIA Tokenmaxing Plugin for Hermes Agent
-Compresses shell outputs (e.g. git log) and large JSON data (>8KB) to optimize context window.
-"""
-import os
-import json
-import subprocess
-from typing import Any, Dict
+ArcIA Governance & Tokenmaxing Plugin (v0.4) for Hermes Agent
+=============================================================
+Assure deux fonctions critiques en amont dans le moteur Hermes :
+1. Barrière DLP Presidio Fail-Closed (avant persistance SQLite et envoi LiteLLM).
+2. Économie de tokens (Tokenmaxing v0.4) :
+   - CCR (Compress-Cache-Retrieve) réversible inspiré de Headroom : sauvegarde
+     systématique de l'original par hash SHA-256 dans le cache privé borné et
+     préservation stricte de la structure JSON/AST.
+   - RTK (Rust Token Killer) pour compresser les sorties shell bruyantes (git,
+     kubectl, pytest, docker, npm, cargo).
+   - Orientation Ponytail (échelle YAGNI) et Graphify (AST local 0 token).
 
-MAX_JSON_BYTES = 8192
+Usage CLI (pour récupération CCR par l'agent) :
+    python3 plugin.py retrieve <ccr_hash> [--offset 0] [--limit 100] [--key <json_key>]
+"""
+
+import os
+import sys
+import json
+import time
+import shutil
+import hashlib
+import argparse
+import subprocess
+import urllib.request
+import urllib.error
+from typing import Any, Dict, List, Optional
+
+MAX_JSON_BYTES = int(os.environ.get("ARCIA_MAX_JSON_BYTES", "8192"))
+MAX_SHELL_LINES = int(os.environ.get("ARCIA_MAX_SHELL_LINES", "80"))
+MAX_CCR_FILES = int(os.environ.get("ARCIA_MAX_CCR_FILES", "200"))
+
+PRESIDIO_DLP_URL = os.environ.get(
+    "PRESIDIO_DLP_URL",
+    "http://presidio-dlp.arcia.svc:8080/sanitize"
+)
+PRESIDIO_FAIL_CLOSED = os.environ.get("PRESIDIO_FAIL_CLOSED", "true").lower() in ("true", "1", "yes")
+
+
+def get_ccr_cache_dir() -> str:
+    """Retourne le répertoire de cache CCR privé du pod Hermes."""
+    custom = os.environ.get("ARCIA_CCR_CACHE_DIR")
+    if custom:
+        return custom
+    hermes_home = os.environ.get("HERMES_HOME", "/data/hermes")
+    if os.path.isdir(hermes_home) and os.access(hermes_home, os.W_OK):
+        return os.path.join(hermes_home, ".ccr_cache")
+    return os.path.join(os.environ.get("TEMP", "/tmp"), "arcia_ccr_cache")
+
+
+# -----------------------------------------------------------------------------
+# 1. Cache CCR (Compress-Cache-Retrieve) Réversible et Borné
+# -----------------------------------------------------------------------------
+
+def ccr_store(raw_content: str, kind: str = "text", metadata: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Sauvegarde le contenu original dans le cache CCR par hash SHA-256 (12 caractères)
+    et applique une rotation LRU bornée à MAX_CCR_FILES entrées.
+    """
+    content_bytes = raw_content.encode("utf-8", errors="replace")
+    ccr_hash = hashlib.sha256(content_bytes).hexdigest()[:12]
+    cache_dir = get_ccr_cache_dir()
+    os.makedirs(cache_dir, exist_ok=True)
+
+    entry_path = os.path.join(cache_dir, f"{ccr_hash}.json")
+    payload = {
+        "hash": ccr_hash,
+        "kind": kind,
+        "created_at": time.time(),
+        "size_bytes": len(content_bytes),
+        "metadata": metadata or {},
+        "content": raw_content,
+    }
+    with open(entry_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
+
+    # Rotation LRU si le nombre de fichiers dépasse MAX_CCR_FILES
+    try:
+        files = [
+            os.path.join(cache_dir, fn)
+            for fn in os.listdir(cache_dir)
+            if fn.endswith(".json")
+        ]
+        if len(files) > MAX_CCR_FILES:
+            files.sort(key=lambda p: os.path.getmtime(p))
+            for old_file in files[: len(files) - MAX_CCR_FILES]:
+                try:
+                    os.remove(old_file)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+    return ccr_hash
+
+
+def ccr_retrieve(
+    ccr_hash: str,
+    offset: int = 0,
+    limit: int = 100,
+    json_key: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Récupère le contenu original exact depuis le cache CCR à partir de son hash.
+    Permet la pagination par lignes ou l'extraction d'une clé JSON spécifique.
+    """
+    clean_hash = "".join(c for c in ccr_hash if c.isalnum())[:12]
+    cache_dir = get_ccr_cache_dir()
+    entry_path = os.path.join(cache_dir, f"{clean_hash}.json")
+    if not os.path.isfile(entry_path):
+        return {
+            "found": False,
+            "hash": clean_hash,
+            "error": f"Entrée CCR '{clean_hash}' introuvable ou expirée dans {cache_dir}."
+        }
+
+    with open(entry_path, "r", encoding="utf-8") as f:
+        entry = json.load(f)
+
+    raw_content = entry.get("content", "")
+    if json_key:
+        try:
+            parsed = json.loads(raw_content)
+            if isinstance(parsed, dict) and json_key in parsed:
+                return {
+                    "found": True,
+                    "hash": clean_hash,
+                    "key": json_key,
+                    "value": parsed[json_key]
+                }
+            return {
+                "found": False,
+                "hash": clean_hash,
+                "error": f"Clé '{json_key}' absente de l'objet JSON."
+            }
+        except Exception as e:
+            return {"found": False, "hash": clean_hash, "error": f"Contenu non-JSON: {e}"}
+
+    lines = raw_content.splitlines()
+    sliced = lines[offset: offset + limit] if limit > 0 else lines[offset:]
+    return {
+        "found": True,
+        "hash": clean_hash,
+        "kind": entry.get("kind", "text"),
+        "total_lines": len(lines),
+        "offset": offset,
+        "returned_lines": len(sliced),
+        "content": "\n".join(sliced),
+    }
+
+
+# -----------------------------------------------------------------------------
+# 2. Compression RTK (Shell) & Headroom CCR (JSON / Logs)
+# -----------------------------------------------------------------------------
 
 def compress_shell_output(command: str, output: str) -> str:
-    """Uses RTK if available, or collapses verbose git log output."""
+    """
+    Compresse les sorties de commandes shell bruyantes via RTK (si présent)
+    ou par réduction structurelle avec sauvegarde CCR intégrale.
+    """
     if not output:
         return output
-    
-    # Check if rtk binary is available
-    if os.path.exists("/usr/local/bin/rtk"):
+
+    rtk_bin = shutil.which("rtk") or ("/usr/local/bin/rtk" if os.path.exists("/usr/local/bin/rtk") else None)
+    if rtk_bin and os.access(rtk_bin, os.X_OK):
         try:
             proc = subprocess.run(
-                ["/usr/local/bin/rtk", "compress"],
+                [rtk_bin, "compress"],
                 input=output.encode("utf-8"),
                 capture_output=True,
                 timeout=5
             )
             if proc.returncode == 0 and proc.stdout:
-                return proc.stdout.decode("utf-8")
+                compressed = proc.stdout.decode("utf-8", errors="replace")
+                if len(compressed) < len(output):
+                    ccr_hash = ccr_store(output, kind="shell", metadata={"command": command, "compressor": "rtk"})
+                    return f"{compressed}\n[CCR_HASH: {ccr_hash} | retrieve: python3 /opt/hermes/plugins/plugin.py retrieve {ccr_hash}]"
         except Exception:
             pass
 
-    # Fallback compression for git log
-    if "git log" in command and len(output.splitlines()) > 50:
-        lines = output.splitlines()
-        head = lines[:30]
-        tail = lines[-10:]
-        return "\n".join(head) + f"\n\n[... {len(lines) - 40} lines truncated by ArcIA Tokenmaxing ...]\n\n" + "\n".join(tail)
+    lines = output.splitlines()
+    if len(lines) > MAX_SHELL_LINES:
+        ccr_hash = ccr_store(output, kind="shell", metadata={"command": command, "total_lines": len(lines)})
+        head_count = int(MAX_SHELL_LINES * 0.65)
+        tail_count = MAX_SHELL_LINES - head_count
+        head = "\n".join(lines[:head_count])
+        tail = "\n".join(lines[-tail_count:])
+        omitted = len(lines) - head_count - tail_count
+        return (
+            f"{head}\n\n"
+            f"... [Tokenmaxing CCR: {omitted} lignes compressées | Hash: {ccr_hash} | "
+            f"Récupérer l'original: python3 /opt/hermes/plugins/plugin.py retrieve {ccr_hash} --offset {head_count} --limit 100] ...\n\n"
+            f"{tail}"
+        )
 
     return output
 
+
 def compress_large_json(raw_text: str) -> str:
-    """Collapses large JSON objects exceeding 8KB."""
-    if len(raw_text.encode("utf-8")) <= MAX_JSON_BYTES:
+    """
+    Compresse les payloads JSON dépassant MAX_JSON_BYTES tout en garantissant
+    une sortie 100% JSON valide et la récupération exacte via le cache CCR.
+    """
+    if not raw_text or len(raw_text.encode("utf-8", errors="replace")) <= MAX_JSON_BYTES:
         return raw_text
-    
+
+    # Essayer headroom-ai si disponible et configuré
     try:
-        data = json.loads(raw_text)
-        if isinstance(data, list) and len(data) > 20:
-            sample = data[:10]
-            summary = {
-                "_arcia_tokenmaxing": f"List truncated: showing 10 of {len(data)} items",
-                "sample": sample,
-                "total_items": len(data)
-            }
-            return json.dumps(summary, indent=2)
-        elif isinstance(data, dict):
-            # Keep top-level keys, summarize large nested structures
-            truncated = {}
-            for k, v in data.items():
-                if isinstance(v, (dict, list)) and len(str(v)) > 1024:
-                    truncated[k] = f"[Truncated container: {type(v).__name__} with size {len(v)}]"
-                else:
-                    truncated[k] = v
-            truncated["_arcia_tokenmaxing"] = "Large JSON keys pruned to stay within context budget"
-            return json.dumps(truncated, indent=2)
+        import headroom  # type: ignore
+        if hasattr(headroom, "compress"):
+            ccr_hash = ccr_store(raw_text, kind="json")
+            res = headroom.compress(raw_text)
+            if isinstance(res, str) and len(res) < len(raw_text):
+                return res
     except Exception:
         pass
 
+    try:
+        data = json.loads(raw_text)
+    except Exception:
+        # Si ce n'est pas du JSON valide, compresser comme texte long avec CCR
+        return compress_shell_output("read_text", raw_text)
+
+    ccr_hash = ccr_store(raw_text, kind="json")
+    retrieve_hint = f"python3 /opt/hermes/plugins/plugin.py retrieve {ccr_hash}"
+
+    if isinstance(data, list) and len(data) > 15:
+        summary = {
+            "_arcia_ccr": {
+                "hash": ccr_hash,
+                "status": "compressed_list",
+                "total_items": len(data),
+                "shown_items": 10,
+                "retrieve_cmd": retrieve_hint,
+            },
+            "items_sample": data[:10],
+        }
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+
+    if isinstance(data, dict):
+        compressed_dict: Dict[str, Any] = {
+            "_arcia_ccr": {
+                "hash": ccr_hash,
+                "status": "compressed_object",
+                "total_keys": len(data),
+                "retrieve_cmd": f"{retrieve_hint} --key <nom_cle>",
+            }
+        }
+        for k, v in data.items():
+            serialized_v = json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+            if isinstance(v, list) and len(serialized_v) > 1024:
+                compressed_dict[k] = {
+                    "_ccr_summary": f"list({len(v)} items)",
+                    "sample": v[:3],
+                    "retrieve_key_cmd": f"{retrieve_hint} --key {k}",
+                }
+            elif isinstance(v, dict) and len(serialized_v) > 1024:
+                compressed_dict[k] = {
+                    "_ccr_summary": f"dict({len(v)} keys)",
+                    "keys": list(v.keys())[:15],
+                    "retrieve_key_cmd": f"{retrieve_hint} --key {k}",
+                }
+            elif isinstance(v, str) and len(v) > 1024:
+                compressed_dict[k] = v[:512] + f"... [CCR {ccr_hash}: --key {k}]"
+            else:
+                compressed_dict[k] = v
+        return json.dumps(compressed_dict, indent=2, ensure_ascii=False)
+
     return raw_text
 
+
+# -----------------------------------------------------------------------------
+# 3. Barrière DLP Presidio en Amont (Fail-Closed)
+# -----------------------------------------------------------------------------
+
+def sanitize_via_presidio(text: str, language: str = "fr") -> str:
+    """
+    Appelle le microservice interne Presidio DLP pour assainir un texte
+    avant persistance SQLite ou appel au modèle.
+    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception si Presidio est injoignable.
+    """
+    if not text or not text.strip():
+        return text
+
+    req_body = json.dumps({"text": text, "language": language}).encode("utf-8")
+    req = urllib.request.Request(
+        PRESIDIO_DLP_URL,
+        data=req_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                payload = json.loads(resp.read().decode("utf-8"))
+                return payload.get("sanitized_text", payload.get("text", text))
+            if PRESIDIO_FAIL_CLOSED:
+                raise RuntimeError(f"Presidio DLP returned HTTP {resp.status} (Fail-Closed)")
+    except Exception as exc:
+        if PRESIDIO_FAIL_CLOSED:
+            raise RuntimeError(f"Presidio DLP unreachable or failed in Fail-Closed mode: {exc}") from exc
+    return text
+
+
+# -----------------------------------------------------------------------------
+# 4. Hooks Hermes Agent & CLI
+# -----------------------------------------------------------------------------
+
+def on_pre_llm_call(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Hook Hermes appelé avant l'envoi des messages au LLM (Barrière DLP amont)."""
+    sanitized_messages = []
+    for msg in messages:
+        new_msg = dict(msg)
+        content = new_msg.get("content")
+        if isinstance(content, str) and content.strip():
+            new_msg["content"] = sanitize_via_presidio(content)
+        sanitized_messages.append(new_msg)
+    return sanitized_messages
+
+
 def on_tool_result(tool_name: str, command: str, result: str) -> str:
-    """Hermes hook called on tool execution result."""
-    if tool_name in ["terminal", "bash", "exec"]:
+    """Hook Hermes appelé sur les résultats d'outils (Tokenmaxing RTK + CCR)."""
+    if not result:
+        return result
+    if tool_name in ("terminal", "bash", "exec", "shell"):
         return compress_shell_output(command, result)
-    if tool_name in ["read_file", "fetch_url", "http"]:
+    if tool_name in ("read_file", "fetch_url", "http", "mcp_call"):
         return compress_large_json(result)
     return result
+
+
+def get_system_governance_prompt() -> str:
+    """Orientation injectée dans la session Hermes pour activer Ponytail, Graphify et CCR."""
+    return (
+        "[ArcIA Tokenmaxing v0.4 Actif] "
+        "1) Applique l'échelle de sobriété Ponytail (YAGNI, réutilisation de l'existant). "
+        "2) Pour cartographier un dépôt de code sans consommer de tokens, utilise Graphify (`python3 /opt/arcia/scripts/arcia_graphify.py`). "
+        "3) Lorsqu'une sortie d'outil affiche `[CCR_HASH: <hash>]` ou `_arcia_ccr`, récupère les détails exacts à la demande via `python3 /opt/hermes/plugins/plugin.py retrieve <hash>`."
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(description="ArcIA Governance & Tokenmaxing CCR CLI")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_ret = sub.add_parser("retrieve", help="Récupérer une entrée originale depuis le cache CCR")
+    p_ret.add_argument("hash", help="Hash CCR à 12 caractères")
+    p_ret.add_argument("--offset", type=int, default=0, help="Ligne de départ (défaut: 0)")
+    p_ret.add_argument("--limit", type=int, default=100, help="Nombre maximum de lignes (défaut: 100)")
+    p_ret.add_argument("--key", type=str, default=None, help="Clé JSON spécifique à extraire")
+
+    args = parser.parse_args()
+    if args.cmd == "retrieve":
+        res = ccr_retrieve(args.hash, offset=args.offset, limit=args.limit, json_key=args.key)
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        sys.exit(0 if res.get("found") else 1)
+
+
+if __name__ == "__main__":
+    main()

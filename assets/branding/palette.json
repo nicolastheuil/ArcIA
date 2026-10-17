@@ -1,13 +1,13 @@
 {
-  "name": "ArcIA Visual Identity — Charte Graphique arcITek (Dark Mode)",
-  "organization": "arcITek",
+  "name": "ArcIA Visual Identity — Charte Graphique Officielle (Dark Mode)",
+  "organization": "ArcIA",
   "typography": {
     "logoFont": "Handel Gothic Bold",
     "headingFont": "Montserrat Bold",
     "bodyFont": "Montserrat",
     "fontFamily": "Montserrat, Inter, system-ui, sans-serif"
   },
-  "arcitekCharter": {
+  "arciaCharter": {
     "noir": {
       "hex": "#050712",
       "rgb": "rgb(5, 7, 18)"

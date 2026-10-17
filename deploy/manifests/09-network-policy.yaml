@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.3 — Politiques Réseau Kubernetes (NetworkPolicy Isolation)
+# ArcIA v0.4 — Politiques Réseau Kubernetes (NetworkPolicy Isolation)
 # ==============================================================================
 # Restreint les communications intra-cluster aux seuls flux légitimes et
 # interdit tout contournement du bouclier DLP Presidio et de LiteLLM.

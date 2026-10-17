@@ -40,10 +40,10 @@ La skill **public-apis** fournit un accès **instantané, 100% gratuit, sans cl�
 ## 2. Quand Déclencher cette Skill ? (Règles pour l'Agent)
 
 L'agent doit exécuter le helper `public_apis.py` dès que l'utilisateur pose une question relative à :
-- **Un numéro SIRET ou SIREN** : *"Vérifie le SIRET 78931530600033"*, *"Qui dirige l'entreprise au SIREN 789315306 ?"*.
+- **Un numéro SIRET ou SIREN** : *"Vérifie le SIRET 13002526500013"*, *"Qui dirige l'entité au SIREN 130025265 ?"*.
 - **Le numéro de TVA d'une entreprise** : *"Quel est le numéro de TVA de la société X ?"*.
-- **La vérification d'une société française** : *"Donne-moi les infos officielles sur l'entreprise X"*, *"Est-ce que cette boîte est toujours active ?"*.
-- **Une adresse ou un code postal** : *"Valide l'adresse 696 rue Yves Kermen à Boulogne"*, *"Quelles sont les coordonnées GPS de cette adresse ?"*.
+- **La vérification d'une société française** : *"Donne-moi les infos officielles sur l'entreprise X"*, *"Est-ce que cette société est toujours active ?"*.
+- **Une adresse ou un code postal** : *"Valide l'adresse 20 avenue de Ségur à Paris"*, *"Quelles sont les coordonnées GPS de cette adresse ?"*.
 - **La météo locale** : *"Quel temps fait-il à Lyon aujourd'hui ?"*.
 
 ---
@@ -64,19 +64,19 @@ PYTHON_SCRIPT="/opt/data/skills/public-apis/scripts/public_apis.py"
 ```bash
 python3 $PYTHON_SCRIPT company "<nom_ou_siren_ou_siret>"
 ```
-*Exemple :* `python3 $PYTHON_SCRIPT company "Arcitek"` ou `python3 $PYTHON_SCRIPT company "789315306"`
+*Exemple :* `python3 $PYTHON_SCRIPT company "DINUM"` ou `python3 $PYTHON_SCRIPT company "130025265"`
 
 ### B. Validation & Géocodage d'Adresse (BAN)
 ```bash
 python $PYTHON_SCRIPT address "<adresse_complete>"
 ```
-*Exemple :* `python $PYTHON_SCRIPT address "696 rue yves kermen boulogne"`
+*Exemple :* `python $PYTHON_SCRIPT address "20 avenue de segur paris"`
 
 ### C. Météo Ouverte
 ```bash
 python $PYTHON_SCRIPT meteo "<ville_ou_coordonnees>"
 ```
-*Exemple :* `python $PYTHON_SCRIPT meteo "Boulogne-Billancourt"`
+*Exemple :* `python $PYTHON_SCRIPT meteo "Paris"`
 
 ### D. Consultation du Catalogue des APIs
 ```bash

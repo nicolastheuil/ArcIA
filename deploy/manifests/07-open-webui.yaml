@@ -80,7 +80,7 @@ spec:
         - name: ENABLE_MODEL_FILTER
           value: "true"
         - name: MODEL_FILTER_LIST
-          value: "simple/free;simple/auto;agentic/free;agentic/auto;agentic/deepseek-v4.1-flash"
+          value: "simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert"
         - name: ENABLE_SUBAGENTS
           value: "true"
         - name: ENABLE_DIRECT_CONNECTIONS

@@ -29,9 +29,13 @@ function Invoke-K3sShell {
     pwsh -NoProfile -File (Join-Path $scriptDir 'Invoke-K3s.ps1') -RawShell $ShellCmd
 }
 
-# 1. enterprise-llm-secret
+# 1. enterprise-llm-secret & litellm-secret
 $openRouterKey = $envVars['OPENROUTER_API_KEY']
+$litellmMaster = if ($envVars['LITELLM_MASTER_KEY']) { $envVars['LITELLM_MASTER_KEY'] } else { "sk-arcia-master-$(Get-Random)" }
+$litellmDbPass = if ($envVars['LITELLM_POSTGRES_PASSWORD']) { $envVars['LITELLM_POSTGRES_PASSWORD'] } else { "ArcIA_DB_$(Get-Random)" }
+$litellmDbUrl = "postgresql://litellm:$litellmDbPass@litellm-db.arcia.svc:5432/litellm"
 Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic enterprise-llm-secret --namespace arcia --from-literal=openrouter-key='$openRouterKey' --dry-run=client -o yaml | /usr/local/bin/k3s kubectl apply -f -"
+Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic litellm-secret --namespace arcia --from-literal=master-key='$litellmMaster' --from-literal=openrouter-key='$openRouterKey' --from-literal=db-password='$litellmDbPass' --from-literal=database-url='$litellmDbUrl' --dry-run=client -o yaml | /usr/local/bin/k3s kubectl apply -f -"
 
 # 2. entraid-secret
 $clientId = $envVars['ENTRA_CLIENT_ID']
@@ -55,3 +59,4 @@ $presidioKey = $envVars['PRESIDIO_MASTER_KEY']
 Invoke-K3sShell "/usr/local/bin/k3s kubectl create secret generic presidio-secret --namespace arcia --from-literal=master-key='$presidioKey' --dry-run=client -o yaml | /usr/local/bin/k3s kubectl apply -f -"
 
 Write-Host "[+] Tous les secrets Kubernetes ont été appliqués avec succès."
+

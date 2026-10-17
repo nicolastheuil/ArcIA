@@ -29,14 +29,18 @@ class TestPrivacyBoundary(unittest.TestCase):
                     self._check_pattern_not_in_git(pattern)
 
     def test_synthetic_boundary_checks(self):
-        """Vérifie l'absence de motifs sensibles synthétiques de test."""
+        """Vérifie l'absence de motifs sensibles synthétiques et d'identifiants privés d'instance."""
         synthetic_forbidden = [
             "SECRET_PRIVATE_API_KEY_NEVER_COMMIT",
             "198.51.100.254",
-            "internal.private.corp.example"
+            "internal.private.corp.example",
+            "arcitek",
+            "OpenAI.Codex",
+            "789315306",
+            "yves kermen"
         ]
         for pattern in synthetic_forbidden:
-            self._check_pattern_not_in_git(pattern)
+            self._check_pattern_not_in_git(pattern, case_sensitive=False)
 
 
 if __name__ == "__main__":

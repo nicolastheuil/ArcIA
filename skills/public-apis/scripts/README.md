@@ -11,7 +11,7 @@ Ce dossier contient les scripts autonomes associés à la compétence souveraine
     ```
   * Géocodage et normalisation d'adresses (Base Adresse Nationale - BAN) :
     ```bash
-    python public_apis.py address "696 rue yves kermen boulogne"
+    python public_apis.py address "20 avenue de segur paris"
     ```
   * Données météo souveraines (Open-Meteo) :
     ```bash

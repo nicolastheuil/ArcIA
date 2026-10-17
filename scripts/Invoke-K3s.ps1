@@ -10,16 +10,20 @@ param(
     [switch]$RawShell,
 
     [Parameter(Mandatory=$false)]
-    [string]$Node = $(if ($env:ARCIA_K3S_NODE) { $env:ARCIA_K3S_NODE } else { "127.0.0.1" })
+    [string]$Node = $(if ($env:ARCIA_K3S_NODE) { $env:ARCIA_K3S_NODE } else { "127.0.0.1" }),
+
+    [Parameter(Mandatory=$false)]
+    [string]$User = $(if ($env:ARCIA_K3S_USER) { $env:ARCIA_K3S_USER } elseif ($env:USER) { $env:USER } elseif ($env:USERNAME) { $env:USERNAME.ToLower() } else { "debian" })
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Locate private SSH identity and known_hosts
 $harnessDirs = @(
+    $(if ($env:ARCIA_STATE_ROOT) { $env:ARCIA_STATE_ROOT }),
     (Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'),
-    (Join-Path $env:USERPROFILE 'AppData\Local\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Local\ArcIA-Harness')
-)
+    (Join-Path $env:USERPROFILE '.ssh')
+) | Where-Object { $_ }
 
 $privateRoot = $null
 foreach ($dir in $harnessDirs) {
@@ -57,7 +61,7 @@ $argsList = @(
     '-o', 'HostKeyAlgorithms=ssh-ed25519',
     ("-oUserKnownHostsFile=$known"),
     '-i', $identity,
-    "nicolas@$Node",
+    "$User@$Node",
     $remoteCmd
 )
 

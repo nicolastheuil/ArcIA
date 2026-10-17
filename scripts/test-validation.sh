@@ -1,14 +1,21 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
 echo "=========================================="
-echo "    ArcIA v0.2 Platform Validation Tests   "
+echo "    ArcIA v0.4 Platform Validation Tests   "
 echo "=========================================="
+
+echo -e "\n[0/6] Exécution de la suite de tests unitaires et documentaires :"
+python3 -m unittest discover -s "$ROOT_DIR/tests" -v
+python3 "$ROOT_DIR/scripts/validate_docs.py"
 
 echo -e "\n[1/6] Vérification des Pods Kubernetes :"
 sudo /usr/local/bin/k3s kubectl get pods -n arcia -o wide
 
-echo -e "\n[2/6] Test Presidio DLP Sanitization :"
+echo -e "\n[2/6] Test Presidio DLP Sanitization (/sanitize & /analyze) :"
 PRESIDIO_IP=$(sudo /usr/local/bin/k3s kubectl get svc presidio-dlp -n arcia -o jsonpath='{.spec.clusterIP}')
 PRESIDIO_RES=$(curl -s -X POST "http://${PRESIDIO_IP}:8080/sanitize" \
   -H "Content-Type: application/json" \
@@ -23,20 +30,20 @@ fi
 
 echo -e "\n[3/6] Test LiteLLM Proxy Health :"
 LITELLM_IP=$(sudo /usr/local/bin/k3s kubectl get svc litellm-proxy -n arcia -o jsonpath='{.spec.clusterIP}')
-LITELLM_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${LITELLM_IP}:4000/health/readiness" || true)
-echo "Code HTTP LiteLLM (/health/readiness) : $LITELLM_RES"
+LITELLM_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${LITELLM_IP}:4000/health/liveliness" || true)
+echo "Code HTTP LiteLLM (/health/liveliness) : $LITELLM_RES"
 
 echo -e "\n[4/6] Test Hermes Agent (Studio port 9119 & Gateway port 8642) :"
 HERMES_IP=$(sudo /usr/local/bin/k3s kubectl get svc hermes-studio -n arcia -o jsonpath='{.spec.clusterIP}')
-HERMES_STUDIO_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${HERMES_IP}:9119" || true)
-HERMES_GATEWAY_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${HERMES_IP}:8642" || true)
-echo "Code HTTP Hermes Studio (9119) : $HERMES_STUDIO_RES"
-echo "Code HTTP Hermes Gateway (8642) : $HERMES_GATEWAY_RES"
+HERMES_STUDIO_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${HERMES_IP}:9119/api/health" || true)
+HERMES_GATEWAY_RES=$(curl -s -o /dev/null -w "%{http_code}" "http://${HERMES_IP}:8642/health" || true)
+echo "Code HTTP Hermes Studio (9119/api/health) : $HERMES_STUDIO_RES"
+echo "Code HTTP Hermes Gateway (8642/health) : $HERMES_GATEWAY_RES"
 
 echo -e "\n[5/6] Test Teams Bot Adapter Health :"
 TEAMS_IP=$(sudo /usr/local/bin/k3s kubectl get svc teams-bot-adapter -n arcia -o jsonpath='{.spec.clusterIP}')
-TEAMS_RES=$(curl -s "http://${TEAMS_IP}:3978/health" || true)
-echo "Réponse Teams Bot (/health) : $TEAMS_RES"
+TEAMS_RES=$(curl -s "http://${TEAMS_IP}:3978/healthz" || true)
+echo "Réponse Teams Bot (/healthz) : $TEAMS_RES"
 
 echo -e "\n[6/6] Test Open-WebUI Portal Health :"
 WEBUI_IP=$(sudo /usr/local/bin/k3s kubectl get svc open-webui -n arcia -o jsonpath='{.spec.clusterIP}')
@@ -46,3 +53,4 @@ echo "Code HTTP Open-WebUI (/health) : $WEBUI_RES"
 echo -e "\n=========================================="
 echo "    Validation Terminée avec Succès       "
 echo "=========================================="
+

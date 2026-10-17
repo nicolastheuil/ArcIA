@@ -135,7 +135,8 @@ def parse_env_format(content: str) -> Dict[str, Any]:
         },
         "llm_gateway": {
             "openrouter_api_key": env.get("OPENROUTER_API_KEY", ""),
-            "default_model": env.get("ARCIA_DEFAULT_MODEL", "openrouter/auto"),
+            "master_key": env.get("LITELLM_MASTER_KEY", ""),
+            "default_model": env.get("ARCIA_DEFAULT_MODEL", "simple/auto"),
             "local_vllm_endpoint": env.get("VLLM_INTERNAL_URL", ""),
         },
         "hermes": {
@@ -167,10 +168,6 @@ def parse_env_format(content: str) -> Dict[str, Any]:
         "microsoft365_integration": {
             "enabled": env.get("M365_ENABLED", "false").lower() in ("true", "1", "yes"),
             "config_file": "instance/microsoft365.yaml",
-        },
-        "omniroute": {
-            "enabled": env.get("OMNIROUTE_ENABLED", "false").lower() in ("true", "1", "yes"),
-            "storage_size": env.get("OMNIROUTE_STORAGE_SIZE", "5Gi"),
         }
     }
 
@@ -553,7 +550,32 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
             cm_lines.append(f"    {line}")
 
     runner.apply_manifest("\n".join(cm_lines))
-    log_ok("Identité visuelle ArcIA (monogramme squircle, logos SVG, custom.css et loader.js) injectée dans le cluster.")
+def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) -> None:
+    """Injecte le code source unique de services/ (Presidio DLP, Teams Bot, Hermes Governance Plugin) dans des ConfigMaps Kubernetes."""
+    mappings = [
+        ("presidio-code", "app.py", os.path.join(root_dir, "services", "presidio", "app.py")),
+        ("teams-bot-code", "app.py", os.path.join(root_dir, "services", "teams", "app.py")),
+        ("hermes-governance-plugin", "plugin.py", os.path.join(root_dir, "services", "hermes", "plugin.py")),
+    ]
+    for cm_name, key_name, file_path in mappings:
+        if not os.path.isfile(file_path):
+            log_warn(f"Fichier source introuvable pour ConfigMap '{cm_name}' : {file_path}")
+            continue
+        with open(file_path, "r", encoding="utf-8") as f:
+            code_content = f.read()
+        indented = "\n".join("    " + line for line in code_content.splitlines())
+        cm_yaml = (
+            "apiVersion: v1\n"
+            "kind: ConfigMap\n"
+            "metadata:\n"
+            f"  name: {cm_name}\n"
+            f"  namespace: {namespace}\n"
+            "data:\n"
+            f"  {key_name}: |\n"
+            f"{indented}\n"
+        )
+        runner.apply_manifest(cm_yaml)
+    log_ok("ConfigMaps de code microservices ('presidio-code', 'teams-bot-code', 'hermes-governance-plugin') synchronisés depuis services/.")
 
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
@@ -565,6 +587,13 @@ def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
     context = k8s_cfg.get("context", "")
     namespace = k8s_cfg.get("namespace", "arcia")
     storage_class = k8s_cfg.get("storage_class", "")
+
+    net_cfg = cfg.get("network", {})
+    public_fqdn = net_cfg.get("public_fqdn", "assistant.example.org")
+    tls_mode = net_cfg.get("tls_mode", "letsencrypt-prod")
+    acme_email = net_cfg.get("acme_email", "admin@example.org")
+    ingress_class = net_cfg.get("ingress_class", "traefik")
+    tls_secret_name = net_cfg.get("tls_secret_name", "arcia-tls-cert")
 
     ssh_info = k8s_cfg.get("remote_ssh", {})
     ssh_node = ssh_info.get("node_ip", "127.0.0.1")
@@ -622,7 +651,6 @@ metadata:
     webui_cfg = cfg.get("open_webui", {})
     sso_cfg = cfg.get("entra_id_sso", {})
     teams_cfg = cfg.get("teams_bot", {})
-    omniroute_cfg = cfg.get("omniroute", {})
 
     KNOWN_INSECURE_SECRETS = {
         "sk-arcia-master-key-v03",
@@ -643,7 +671,7 @@ metadata:
         "openrouter-key": openrouter_key
     }))
 
-    # 2. litellm-secret (Master key, DB password, Salt key pour la passerelle d'inférence)
+    # 2. litellm-secret (Master key, OpenRouter key, DB password & URL, Salt key)
     litellm_master = llm_cfg.get("master_key", "")
     if not litellm_master or litellm_master in KNOWN_INSECURE_SECRETS:
         litellm_master = f"sk-arcia-{secrets.token_urlsafe(32)}"
@@ -657,10 +685,14 @@ metadata:
     if not litellm_db_pass or litellm_db_pass in KNOWN_INSECURE_SECRETS:
         litellm_db_pass = f"ArcIA_DB_{secrets.token_urlsafe(24)}"
 
+    litellm_db_url = f"postgresql://litellm:{litellm_db_pass}@litellm-db.{namespace}.svc:5432/litellm"
+
     runner.apply_manifest(make_secret_manifest("litellm-secret", namespace, {
         "master-key": litellm_master,
         "salt-key": litellm_salt,
-        "db-password": litellm_db_pass
+        "db-password": litellm_db_pass,
+        "openrouter-key": openrouter_key,
+        "database-url": litellm_db_url
     }))
 
     # 3. hermes-gateway-secret
@@ -712,6 +744,10 @@ metadata:
     log_step(4, total_steps, "Déploiement des microservices du socle ArcIA")
 
     manifests_dir = os.path.join(root_dir, "deploy", "manifests")
+
+    # A0. Synchronisation des ConfigMaps de code microservices depuis services/
+    log_info(" -> Synchronisation des ConfigMaps de code microservices (services/)...")
+    sync_service_configmaps(runner, namespace, root_dir)
 
     # A. Presidio DLP
     log_info(" -> Déploiement de Presidio DLP (03-presidio.yaml)...")
@@ -784,34 +820,11 @@ metadata:
     else:
         log_info(" -> [Optionnel Ignoré] Authentification SSO Entra ID désactivée.")
 
-    if omniroute_cfg.get("enabled"):
-        omni_path = os.path.join(manifests_dir, "09-omniroute.yaml")
-        if os.path.isfile(omni_path):
-            log_info(" -> [Optionnel Activé] Déploiement d'OmniRoute (09-omniroute.yaml)...")
-            with open(omni_path, "r", encoding="utf-8") as f:
-                omni_yaml = f.read()
-            storage_size = omniroute_cfg.get("storage_size", "5Gi")
-            omni_yaml = omni_yaml.replace("storage: 5Gi", f"storage: {storage_size}")
-            if storage_class:
-                omni_yaml = omni_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-            runner.apply_manifest(adapt_manifest_namespace(omni_yaml, namespace))
-        else:
-            log_info(" -> [v0.3 Note] OmniRoute est retiré en v0.3 au profit du routage unifié LiteLLM.")
-    else:
-        log_info(" -> [Optionnel Ignoré] Routeur OmniRoute désactivé (retiré en v0.3).")
-
     # F. Synchronisation Automatique des Compétences & Outils (Skills)
     log_info(" -> [Automatique] Synchronisation des compétences natives (Ponytail, Graphify, Public-APIs)...")
     sync_native_skills(runner, namespace, root_dir)
 
-    # G. Synchronisation Programmée Hebdomadaire des Compétences Externes
-    skills_cron_path = os.path.join(manifests_dir, "10-skills-sync-cronjob.yaml")
-    if os.path.isfile(skills_cron_path):
-        with open(skills_cron_path, "r", encoding="utf-8") as f:
-            runner.apply_manifest(adapt_manifest_namespace(f.read(), namespace))
-        log_ok("CronJob 'arcia-skills-sync' déployé pour la mise à jour hebdomadaire.")
-
-    # H. Politiques Réseau d'Isolation (NetworkPolicies)
+    # G. Politiques Réseau d'Isolation (NetworkPolicies)
     netpol_path = os.path.join(manifests_dir, "09-network-policy.yaml")
     if os.path.isfile(netpol_path):
         log_info(" -> [Sécurité Réseau] Déploiement des NetworkPolicies d'isolation (09-network-policy.yaml)...")
@@ -821,12 +834,6 @@ metadata:
 
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
-    net_cfg = cfg.get("network", {})
-    public_fqdn = net_cfg.get("public_fqdn", "assistant.example.org")
-    tls_mode = net_cfg.get("tls_mode", "letsencrypt-prod")
-    acme_email = net_cfg.get("acme_email", "admin@example.org")
-    ingress_class = net_cfg.get("ingress_class", "traefik")
-    tls_secret_name = net_cfg.get("tls_secret_name", "arcia-tls-cert")
 
     # Vérification et initialisation sécurisée du secret TLS si absent
     rc_tls, _, _ = runner.run(["get", "secret", tls_secret_name, f"-n={namespace}"])
@@ -890,6 +897,7 @@ spec:
               number: 3978"""
 
     oauth_path_block = ""
+    studio_middlewares = f"{namespace}-studio-prefix@kubernetescrd,{namespace}-studio-stripprefix@kubernetescrd"
     if sso_cfg.get("enabled"):
         oauth_path_block = """      - path: /oauth2
         pathType: Prefix
@@ -898,6 +906,7 @@ spec:
             name: oauth2-proxy
             port:
               number: 4180"""
+        studio_middlewares = f"{namespace}-entra-id-auth@kubernetescrd,{studio_middlewares}"
 
     rendered_ingress = f"""# 1. Ingress Public (Open-WebUI, OAuth2, Teams)
 apiVersion: networking.k8s.io/v1
@@ -952,7 +961,7 @@ spec:
             port:
               number: 4000
 ---
-# 3. Ingress Studio (Hermes Studio Dashboard — Authentification native admin/password)
+# 3. Ingress Studio (Hermes Studio Dashboard)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -960,7 +969,7 @@ metadata:
   namespace: {namespace}
   annotations:
 {ingress_annotations}
-    traefik.ingress.kubernetes.io/router.middlewares: {namespace}-studio-prefix@kubernetescrd,{namespace}-studio-stripprefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {studio_middlewares}
 spec:
   tls:
   - hosts:
@@ -1055,8 +1064,6 @@ spec:
         deployments_to_check.append("teams-bot-adapter")
     if sso_cfg.get("enabled"):
         deployments_to_check.append("oauth2-proxy")
-    if omniroute_cfg.get("enabled"):
-        deployments_to_check.append("omniroute")
 
     # Vérification préalable de la base LiteLLM
     log_info(" -> Attente du démarrage de la base PostgreSQL LiteLLM...")
@@ -1097,9 +1104,6 @@ spec:
     print(f"  * {C_BOLD}Hermes Desktop Gateway (WebSocket)     :{C_RESET} https://{public_fqdn}/gateway")
     if teams_cfg.get("enabled"):
         print(f"  * {C_BOLD}Webhook Microsoft Teams             :{C_RESET} https://{public_fqdn}/api/teams/messages")
-    if omniroute_cfg.get("enabled"):
-        print(f"  * {C_BOLD}OmniRoute API interne               :{C_RESET} http://omniroute.{namespace}.svc.cluster.local:20128/v1")
-        print(f"  * {C_BOLD}OmniRoute Portail LAN (:20129)      :{C_RESET} http://omniroute.{namespace}.svc.cluster.local:20129")
 
 
     print(f"\n{C_BOLD}Identifiants et Secrets Sécurisés :{C_RESET}")

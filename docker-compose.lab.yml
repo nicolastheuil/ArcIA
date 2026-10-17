@@ -34,7 +34,9 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminArcIA2026!}
       - DEFAULT_USER_ROLE=user
       - BYPASS_MODEL_ACCESS_CONTROL=false
-      - DEFAULT_MODELS=arcia/standard
+      - ENABLE_MODEL_FILTER=true
+      - MODEL_FILTER_LIST=simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert
+      - DEFAULT_MODELS=simple/auto
       - ENABLE_DIRECT_CONNECTIONS=false
     volumes:
       - arcia_webui_data:/app/backend/data

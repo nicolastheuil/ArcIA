@@ -1,139 +1,8 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: teams-bot-code
-  namespace: arcia
-data:
-  app.py: |
-    """
-    ArcIA Microsoft Teams Bot Adapter
-    Integrates Microsoft Teams (DM 1:1 and @ArcIA channel mentions) with LiteLLM / Hermes runtime.
-    """
-    import os
-    import sys
-    import logging
-    from aiohttp import web
-    from botbuilder.core import (
-        BotFrameworkAdapter,
-        BotFrameworkAdapterSettings,
-        TurnContext,
-    )
-    from botbuilder.schema import Activity, ActivityTypes
-    import aiohttp
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("arcia-teams-bot")
-
-    APP_ID = os.environ.get("MICROSOFT_APP_ID", "")
-    APP_PASSWORD = os.environ.get("MICROSOFT_APP_PASSWORD", "")
-    LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm-proxy.arcia.svc:4000/v1")
-    LITELLM_API_KEY = os.environ.get("LITELLM_API_KEY", "")
-
-    SETTINGS = BotFrameworkAdapterSettings(APP_ID, APP_PASSWORD)
-    ADAPTER = BotFrameworkAdapter(SETTINGS)
-
-    async def call_litellm(user_message: str, user_name: str = "Collaborateur") -> str:
-        """Dispatches user prompt to LiteLLM arcia/standard model (protected by Presidio DLP)."""
-        try:
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "model": "arcia/standard",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. "
-                                "Réponds de façon synthétique, professionnelle et structurée en Markdown."
-                            )
-                        },
-                        {"role": "user", "content": f"Message de {user_name}: {user_message}"}
-                    ]
-                }
-                headers = {"Content-Type": "application/json"}
-                if LITELLM_API_KEY:
-                    headers["Authorization"] = f"Bearer {LITELLM_API_KEY}"
-                headers["X-OpenWebUI-User-Email"] = f"{user_name.lower().replace(' ', '.')}@teams.local"
-
-                async with session.post(f"{LITELLM_URL}/chat/completions", json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=45)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return data["choices"][0]["message"]["content"]
-                    else:
-                        err_text = await resp.text()
-                        logger.error("LiteLLM returned %s: %s", resp.status, err_text)
-                        return "⚠️ **ArcIA :** Erreur de communication avec la passerelle d'inférence d'entreprise."
-        except Exception as e:
-            logger.error("Error calling LiteLLM: %s", e)
-            return "⚠️ **ArcIA :** La passerelle d'inférence est temporairement indisponible."
-
-    async def on_turn(turn_context: TurnContext):
-        """Processes incoming Teams message activities."""
-        activity = turn_context.activity
-
-        if activity.type == ActivityTypes.message:
-            text = activity.text or ""
-            clean_text = text.replace("@ArcIA", "").strip()
-            user_name = activity.from_property.name if activity.from_property else "Collaborateur"
-            
-            logger.info("Received message from %s (length: %d chars)", user_name, len(clean_text))
-            reply_content = await call_litellm(clean_text, user_name)
-            
-            reply = Activity(type=ActivityTypes.message, text=reply_content)
-            await turn_context.send_activity(reply)
-
-        elif activity.type == ActivityTypes.conversation_update:
-            if activity.members_added:
-                for member in activity.members_added:
-                    if member.id != activity.recipient.id:
-                        welcome = (
-                            "👋 **Bienvenue sur ArcIA !**\n\n"
-                            "Je suis votre assistant IA agentique souverain. "
-                            "Vous pouvez me poser des questions directement ici en DM ou me mentionner avec `@ArcIA` dans vos canaux d'équipe."
-                        )
-                        await turn_context.send_activity(Activity(type=ActivityTypes.message, text=welcome))
-
-    async def messages(request: web.Request) -> web.Response:
-        """Webhook endpoint for Microsoft Bot Framework."""
-        if "application/json" in request.headers.get("Content-Type", ""):
-            body = await request.json()
-        else:
-            return web.Response(status=415)
-
-        activity = Activity().deserialize(body)
-        auth_header = request.headers.get("Authorization", "")
-
-        try:
-            response = await ADAPTER.process_activity(activity, auth_header, on_turn)
-            if response:
-                return web.json_response(data=response.body, status=response.status)
-            return web.Response(status=200)
-        except Exception as e:
-            logger.error("Exception in messages handler: %s", e)
-            return web.Response(status=500, text="Internal Bot Framework Error")
-
-    async def health(request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "service": "teams-bot-adapter", "version": "0.3.0"})
-
-    async def messages_info(request: web.Request) -> web.Response:
-        """Informational endpoint for GET requests on the webhook URL (e.g. browser navigation or health probes)."""
-        return web.json_response({
-            "status": "active",
-            "service": "arcia-teams-bot-adapter",
-            "endpoint": "/api/teams/messages",
-            "message": "Microsoft Teams Bot Framework Webhook Endpoint. Send HTTP POST with Bot Framework Activity payload."
-        })
-
-    app = web.Application()
-    app.router.add_post("/api/teams/messages", messages)
-    app.router.add_get("/api/teams/messages", messages_info)
-    app.router.add_get("/", health)
-    app.router.add_get("/health", health)
-    app.router.add_get("/healthz", health)
-
-    if __name__ == "__main__":
-        web.run_app(app, host="0.0.0.0", port=3978)
-
----
+# ==============================================================================
+# ArcIA v0.4 — Microsoft Teams Bot Adapter
+# Code source unique : services/teams/app.py (injecté via ConfigMap teams-bot-code
+# par scripts/deploy.py ou kubectl apply -k deploy/manifests)
+# ==============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -172,11 +41,20 @@ spec:
               key: app-password
         - name: LITELLM_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
+        - name: HERMES_URL
+          value: "http://hermes-studio.arcia.svc:8642/v1"
+        - name: TEAMS_DEFAULT_MODEL
+          value: "simple/auto"
         - name: LITELLM_API_KEY
           valueFrom:
             secretKeyRef:
               name: litellm-secret
               key: master-key
+        - name: HERMES_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hermes-gateway-secret
+              key: api-server-key
         ports:
         - containerPort: 3978
           name: http

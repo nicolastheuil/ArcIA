@@ -47,7 +47,7 @@ flowchart LR
 ### 1. Recherche & Vérification d'Entreprise
 Recherche par nom d'entreprise, numéro SIREN (9 chiffres) ou numéro SIRET (14 chiffres) :
 ```bash
-python skills/public-apis/scripts/public_apis.py company "789315306"
+python skills/public-apis/scripts/public_apis.py company "130025265"
 ```
 *Résultat produit :*
 - Nom complet et raison sociale officielle
@@ -62,13 +62,13 @@ python skills/public-apis/scripts/public_apis.py company "789315306"
 ### 2. Validation & Géocodage d'Adresse (Base Adresse Nationale)
 Normalise une adresse postale et en extrait les coordonnées GPS précises :
 ```bash
-python skills/public-apis/scripts/public_apis.py address "696 rue yves kermen boulogne"
+python skills/public-apis/scripts/public_apis.py address "20 avenue de segur paris"
 ```
 
 ### 3. Météo Ouverte
 Récupère les conditions courantes et prévisions à partir d'une commune ou de coordonnées GPS :
 ```bash
-python skills/public-apis/scripts/public_apis.py meteo "Boulogne-Billancourt"
+python skills/public-apis/scripts/public_apis.py meteo "Paris"
 ```
 
 ### 4. Consultation du Catalogue

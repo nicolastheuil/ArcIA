@@ -4,10 +4,8 @@ Add-Type -AssemblyName System.Security
 function Get-ArcIAStateCandidates {
     $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
     $candidates=@($primary)
-    $packages=Join-Path $env:USERPROFILE 'AppData\Local\Packages'
-    if(Test-Path -LiteralPath $packages){
-        $candidates+=@(Get-ChildItem -LiteralPath $packages -Directory -Filter '*Codex*' |
-            ForEach-Object {Join-Path $_.FullName 'LocalCache\Local\ArcIA-Harness'})
+    if($env:ARCIA_STATE_ROOT){
+        $candidates+=@($env:ARCIA_STATE_ROOT)
     }
     return @($candidates|Select-Object -Unique)
 }
@@ -88,7 +86,7 @@ function Get-ArcIAStateRoot {
             }catch{}finally{$value=$null}
         }
     }
-    # Windows paths are case insensitive, including MSIX aliases of one state.
+    # Windows paths are case insensitive.
     $unique=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $valid=@($valid|Where-Object {$unique.Add([IO.Path]::GetFullPath($_).TrimEnd('\'))})
     if($valid.Count -gt 1){
@@ -127,15 +125,8 @@ namespace ArcIAProtectedPath {
 }
 
 function Get-ArcIAPrivateRoot {
-    # MSIX redirects Codex's LOCALAPPDATA writes into its package LocalCache.
-    # A normal Windows terminal must discover that same protected directory.
     $primary=Join-Path $env:LOCALAPPDATA 'ArcIA-Harness'
-    $candidates=@($primary)
-    $packages=Join-Path $env:USERPROFILE 'AppData\Local\Packages'
-    if(Test-Path -LiteralPath $packages){
-        $candidates+=@(Get-ChildItem -LiteralPath $packages -Directory -Filter '*Codex*' |
-            ForEach-Object {Join-Path $_.FullName 'LocalCache\Local\ArcIA-Harness'})
-    }
+    $candidates=@(Get-ArcIAStateCandidates)
     $valid=@()
     foreach($candidate in ($candidates|Select-Object -Unique)){
         $pilotPath=Join-Path $candidate 'pilot-credentials.dpapi'

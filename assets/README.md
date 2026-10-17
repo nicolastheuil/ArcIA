@@ -14,7 +14,7 @@ assets/
 ## Sous-Dossiers
 
 ### 1. [branding/](branding/)
-Contient les fichiers vectoriels SVG officiels d'ArcIA et d'Arcitek :
+Contient les fichiers vectoriels SVG officiels d'ArcIA :
 * `logo-arcia-dark.svg` / `logo-arcia-light.svg` : Logos complets avec typographie pour thèmes sombre et clair.
 * `logo-arcia-symbol.svg` : Symbole seul (icône carrée réutilisable en favicon ou avatar).
 * `banner-github-dark.svg` : Bannière d'en-tête pour le README GitHub et les portails d'accueil.

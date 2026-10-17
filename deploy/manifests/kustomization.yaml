@@ -15,4 +15,3 @@ resources:
   - 07-open-webui.yaml
   - 08-teams-bot.yaml
   - 09-network-policy.yaml
-  - 10-skills-sync-cronjob.yaml

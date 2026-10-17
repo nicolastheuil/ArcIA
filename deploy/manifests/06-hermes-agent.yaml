@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.3 — Hermes Agent Runtime & Studio Dashboard
+# ArcIA v0.4 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
 # ==============================================================================
 apiVersion: v1
 kind: ConfigMap
@@ -20,9 +20,9 @@ data:
         key_env: OPENAI_API_KEY
         discover_models: false
         models:
-          - agentic/auto
           - agentic/free
-          - agentic/deepseek-v4.1-flash
+          - agentic/auto
+          - agentic/expert
     approvals:
       mode: smart
       unattended_mode: approve
@@ -41,8 +41,8 @@ data:
             model: "simple/free"
           agentic/auto:
             model: "simple/auto"
-          agentic/deepseek-v4.1-flash:
-            model: "openrouter/deepseek/deepseek-v4.1-flash"
+          agentic/expert:
+            model: "agentic/expert"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -82,9 +82,13 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data/.hermes /opt/data/skills/public-apis/scripts /opt/data/skills/ponytail /opt/data/skills/graphify /opt/data/shared-skills/arcia/ponytail /opt/data/shared-skills/arcia/graphify /opt/data/shared-skills/arcia/public-apis/scripts
+          mkdir -p /opt/data/.hermes /opt/data/.ccr_cache /opt/data/bin /opt/data/plugins /opt/data/skills/public-apis/scripts /opt/data/skills/ponytail /opt/data/skills/graphify /opt/data/shared-skills/arcia/ponytail /opt/data/shared-skills/arcia/graphify /opt/data/shared-skills/arcia/public-apis/scripts
           cp /etc/hermes/config.yaml /opt/data/config.yaml
           cp /etc/hermes/config.yaml /opt/data/.hermes/config.yaml
+          if [ -f /opt/governance-plugin-cm/plugin.py ]; then
+            cp /opt/governance-plugin-cm/plugin.py /opt/data/plugins/plugin.py
+            chmod +x /opt/data/plugins/plugin.py
+          fi
           if [ -d /opt/native-skills-cm ]; then
             [ -f /opt/native-skills-cm/ponytail-skill.md ] && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/skills/ponytail/SKILL.md && cp /opt/native-skills-cm/ponytail-skill.md /opt/data/shared-skills/arcia/ponytail/SKILL.md
             [ -f /opt/native-skills-cm/graphify-skill.md ] && cp /opt/native-skills-cm/graphify-skill.md /opt/data/skills/graphify/SKILL.md && cp /opt/native-skills-cm/graphify-skill.md /opt/data/shared-skills/arcia/graphify/SKILL.md
@@ -102,6 +106,8 @@ spec:
           mountPath: /etc/hermes
         - name: native-skills
           mountPath: /opt/native-skills-cm
+        - name: governance-plugin
+          mountPath: /opt/governance-plugin-cm
       containers:
       - name: hermes
         image: nousresearch/hermes-agent:latest
@@ -110,8 +116,13 @@ spec:
         - /bin/sh
         - -c
         - |
-          mkdir -p /opt/data/.hermes $HOME/.hermes /opt/data/skills
+          mkdir -p /opt/data/.hermes $HOME/.hermes /opt/data/skills /opt/hermes/plugins $HOME/.hermes/plugins/arcia_governance
           cp /opt/data/config.yaml $HOME/.hermes/config.yaml 2>/dev/null || true
+          if [ -f /opt/governance-plugin-cm/plugin.py ]; then
+            cp /opt/governance-plugin-cm/plugin.py /opt/hermes/plugins/plugin.py 2>/dev/null || true
+            cp /opt/governance-plugin-cm/plugin.py $HOME/.hermes/plugins/arcia_governance/plugin.py 2>/dev/null || true
+            chmod +x /opt/hermes/plugins/plugin.py $HOME/.hermes/plugins/arcia_governance/plugin.py 2>/dev/null || true
+          fi
           mkdir -p /opt/shared-skills/arcia 2>/dev/null || true
           ln -sfn /opt/data/skills/public-apis /opt/shared-skills/arcia/public-apis 2>/dev/null || true
           ln -sfn /opt/data/skills/ponytail /opt/shared-skills/arcia/ponytail 2>/dev/null || true
@@ -140,6 +151,12 @@ spec:
               key: api-server-key
         - name: HERMES_HOME
           value: "/opt/data"
+        - name: ARCIA_CCR_CACHE_DIR
+          value: "/opt/data/.ccr_cache"
+        - name: PRESIDIO_DLP_URL
+          value: "http://presidio-dlp.arcia.svc:8080/sanitize"
+        - name: PRESIDIO_FAIL_CLOSED
+          value: "true"
         - name: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
           value: "admin"
         - name: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
@@ -181,6 +198,9 @@ spec:
         volumeMounts:
         - name: user-state
           mountPath: /opt/data
+        - name: governance-plugin
+          mountPath: /opt/governance-plugin-cm
+          readOnly: true
       volumes:
       - name: user-state
         persistentVolumeClaim:
@@ -191,6 +211,10 @@ spec:
       - name: native-skills
         configMap:
           name: arcia-native-skills
+          optional: true
+      - name: governance-plugin
+        configMap:
+          name: hermes-governance-plugin
           optional: true
 ---
 apiVersion: v1
