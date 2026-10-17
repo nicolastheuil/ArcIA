@@ -1,20 +1,20 @@
-# Infrastructure K3s, Stockage & Déploiement
+# Infrastructure Kubernetes, Stockage & Déploiement
 
-ArcIA est déployé sur un cluster Kubernetes K3s haute disponibilité hébergé sur des machines virtuelles VMware sous Debian.
+ArcIA est conçu pour être déployé sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s sur VMware/Debian, kubeadm) ou en local via Docker Compose.
 
 ---
 
 ## 1. Cibles d'Hébergement & Déploiement
 
-Le Setup Wizard ArcIA ([scripts/wizard.py](../../scripts/wizard.py)) et le moteur universel ([scripts/deploy.py](../../scripts/deploy.py)) supportent trois modes d'infrastructure adaptés aux différents contextes d'entreprise :
+L'installeur interactif (`.\wizard.ps1` / `./wizard.sh`) et le moteur universel (`.\scripts\Deploy-ArcIA.ps1` / `./scripts/deploy-arcia.sh`) supportent trois modes d'infrastructure adaptés aux différents contextes d'entreprise :
 
-1. **Cluster K3s sur VMware vSphere / ESXi** : Déploiement sur 3 machines virtuelles Debian K3s avec stockage partagé CSI.
-2. **Cluster Kubernetes Existant** : Déploiement sur une infrastructure K8s déjà qualifiée et auditée en 6 points.
+1. **Cluster Kubernetes Existant (EKS, AKS, GKE, K3s, kubeadm...)** : Déploiement sur n'importe quelle infrastructure Kubernetes `>= 1.28` auditée automatiquement en 6 points.
+2. **Cluster K3s sur VMware vSphere / ESXi** : Déploiement sur machines virtuelles avec stockage partagé CSI.
 3. **Mode Lab Local (Docker Compose)** : Déploiement immédiat mono-poste sans Kubernetes pour test, démo et développement ([docker-compose.lab.yml](../../docker-compose.lab.yml)).
 
 ---
 
-## 2. Dimensionnement Matériel par Tranche d'Utilisateurs (VMware)
+## 2. Dimensionnement Matériel par Tranche d'Utilisateurs
 
 Pour garantir la réactivité d'Open-WebUI, du proxy LiteLLM, du filtre Presidio DLP et des agents autonomes Hermes, l'infrastructure doit être dimensionnée selon l'effectif actif, **en intégrant spécifiquement l'espace requis pour le RAG (Retrieval-Augmented Generation)** :
 
@@ -25,14 +25,14 @@ Le RAG d'entreprise sous Open-WebUI requiert du stockage pour :
 3. **La base vectorielle ChromaDB** : Embeddings denses avec index **HNSW** (Hierarchical Navigable Small World) assurant des recherches de similarité cosinus en moins de 10 ms.
 4. **Le cache local d'inférence et d'embeddings** : Poids des modèles d'embedding et SQLite `webui.db` pour l'historique et les citations.
 
-### Matrice de Dimensionnement (OS, K3s, Hermes et RAG Dédié)
+### Matrice de Dimensionnement (Cluster, Hermes et RAG Dédié)
 
 | Tranche d'utilisateurs | Type de Déploiement | Nœuds | CPU / RAM / Disque par VM | Ressources Totales | Espace Dédié RAG & Vecteurs | PVC `open-webui-pvc` | Recommandation |
 |---|---|---|---|---|---|---|---|
-| **Jusqu'à 20 utilisateurs** | Pilote / Équipe restreinte | 1 VM All-in-One | 4 vCPU, 8 Go RAM, 100 Go SSD | 4 vCPU, 8 Go RAM, 100 Go SSD | **20 Go à 50 Go dédiés** (~10 000 pages, base ChromaDB) | `20Gi` / `50Gi` | Test rapide et qualification fonctionnelle |
-| **Jusqu'à 100 utilisateurs** | PME / Département métier | 3 VMs K3s HA (etcd) | 4 vCPU, 16 Go RAM, 150 Go SSD | 12 vCPU, 48 Go RAM, 450 Go SSD | **200 Go dédiés** (~100 000 pages, base HNSW inter-services) | `200Gi` | **Configuration de référence recommandée** |
-| **Jusqu'à 500 utilisateurs** | Entreprise / Multi-filiales | 5 VMs (3 Masters + 2 Workers) | Masters : 4 vCPU / 16 Go / 100 Go<br>Workers : 8 vCPU / 32 Go / 250 Go | 28 vCPU, 112 Go RAM, 1,25 To SSD | **600 Go dédiés** (~500 000 pages, multi-collections) | `600Gi` | Haute disponibilité, RAG hybride et charge continue |
-| **Plus de 500 utilisateurs** | Grande Entreprise / Groupe | 7+ VMs (3 Masters + 4+ Workers) | Masters : 8 vCPU / 32 Go / 200 Go<br>Workers : 16 vCPU / 64 Go / 500 Go | 88+ vCPU, 352+ Go RAM, 3,5 To SSD | **2 To à 5 To dédiés** (Millions de documents, index distribué) | `2Ti` | Déploiement extensible, support vGPU |
+| **Jusqu'à 20 utilisateurs** | Pilote / Équipe restreinte | 1 Nœud All-in-One | 4 vCPU, 8 Go RAM, 100 Go SSD | 4 vCPU, 8 Go RAM, 100 Go SSD | **20 Go à 50 Go dédiés** (~10 000 pages, base ChromaDB) | `20Gi` / `50Gi` | Test rapide et qualification fonctionnelle |
+| **Jusqu'à 100 utilisateurs** | PME / Département métier | 3 Nœuds HA | 4 vCPU, 16 Go RAM, 150 Go SSD | 12 vCPU, 48 Go RAM, 450 Go SSD | **200 Go dédiés** (~100 000 pages, base HNSW inter-services) | `200Gi` | **Configuration de référence recommandée** |
+| **Jusqu'à 500 utilisateurs** | Entreprise / Multi-filiales | 5 Nœuds (3 Masters + 2 Workers) | Masters : 4 vCPU / 16 Go / 100 Go<br>Workers : 8 vCPU / 32 Go / 250 Go | 28 vCPU, 112 Go RAM, 1,25 To SSD | **600 Go dédiés** (~500 000 pages, multi-collections) | `600Gi` | Haute disponibilité, RAG hybride et charge continue |
+| **Plus de 500 utilisateurs** | Grande Entreprise / Groupe | 7+ Nœuds (3 Masters + 4+ Workers) | Masters : 8 vCPU / 32 Go / 200 Go<br>Workers : 16 vCPU / 64 Go / 500 Go | 88+ vCPU, 352+ Go RAM, 3,5 To SSD | **2 To à 5 To dédiés** (Millions de documents, index distribué) | `2Ti` | Déploiement extensible, support vGPU |
 
 ---
 
@@ -59,27 +59,22 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 
 ---
 
-## 5. Topologie de Référence K3s
+## 5. Topologie de Référence & Volumes Persistants
 
-- **Nœuds du Cluster (Exemple)** :
-  - `node-01` (`192.168.1.11`) : Control-plane / etcd / worker
-  - `node-02` (`192.168.1.12`) : Control-plane / etcd / worker
-  - `node-03` (`192.168.1.13`) : Control-plane / etcd / worker
 - **Namespace Dédié** : `arcia` (Namespace applicatif unifié pour tous les services).
 - **Stockage Persistant** :
   - Mode d'accès : `ReadWriteOnce` (RWO).
-  - Volumes créés par défaut :
-    - `open-webui-pvc` : `20Gi`
-    - `hermes-user-pvc` : `20Gi`
-    - `litellm-db-pvc` : `10Gi`
-    - `hermes-user-<slug>-pvc` (par Power User N3) : `10Gi`
+  - Volumes créés :
+    - `open-webui-pvc` : `20Gi` (extensible selon tranche RAG)
+    - `hermes-user-pvc` : `20Gi` (instance Hermes partagée)
+    - `litellm-db-pvc` : `10Gi` (base PostgreSQL 16)
+    - `hermes-user-<slug>-pvc` (par Power User dédié) : `10Gi`
 
 ---
 
 ## 6. Ingress & Certificats TLS Automatiques
 
-1. **Contrôleur d'Ingress Traefik** :
-   - Installé dans `kube-system` avec ses Custom Resource Definitions (CRDs).
+1. **Contrôleur d'Ingress (Traefik ou NGINX)** :
    - Route les flux HTTP (`80`) et HTTPS (`443`).
    - Gère les middlewares (`entra-id-auth` via `oauth2-proxy` et `litellm-ratelimit` sur `/v1`).
 2. **Cert-Manager & Let's Encrypt** :
@@ -93,9 +88,13 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 
 Les opérations sur le cluster sont entièrement outillées dans le dossier `scripts/` :
 
-- **Exécution à distance** :
+- **Exécution de commandes Kubernetes** :
   ```powershell
   .\scripts\Invoke-K3s.ps1 "get pods -n arcia -o wide"
+  ```
+- **Provisionnement d'un Pod Power User dédié** :
+  ```powershell
+  .\scripts\Spawn-PowerUser.ps1 prenom.nom@example.org -Team engineering
   ```
 - **Injection et mise à jour des Secrets** :
   ```powershell

@@ -17,9 +17,9 @@ L’[architecture](architecture.md) est la source de vérité technique unique d
 |---|---|
 | Comprendre ArcIA, les instances et le partage | [Plateforme](guides/plateforme-arcia.md) |
 | Déployer ArcIA sur n'importe quel cluster Kubernetes | [Déploiement universel](guides/deploiement-universel.md) |
-| Infrastructure, stockage CSI, Traefik et Cert-Manager | [Infrastructure K3s](guides/infrastructure-k3s.md) |
+| Infrastructure Kubernetes, stockage CSI, Traefik et Cert-Manager | [Infrastructure Kubernetes](guides/infrastructure-k3s.md) |
 | Portail conversationnel, SSO Entra ID et gouvernance | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
-| Moteur d'agents, Studio Kanban, Gateway Desktop et Mode Power User (N3) | [Hermes Agent](guides/hermes-agent.md) |
+| Moteur d'agents, Studio Kanban, Gateway Desktop et Pods dédiés Power Users | [Hermes Agent](guides/hermes-agent.md) |
 | Chaîne de routage hybride, 5 profils canoniques et cycle de vie d'un prompt | [Chaîne de Routage IA](guides/chaine-de-routage.md) |
 | Passerelle LLM, routage auto, fallbacks et clés virtuelles | [Inférence LiteLLM](guides/inference-litellm.md) |
 | Double barrière de caviardage automatique des secrets et des PII | [Confidentialité Presidio DLP](guides/confidentialite-presidio.md) |
@@ -36,7 +36,7 @@ L’[architecture](architecture.md) est la source de vérité technique unique d
 
 | Procédure | Référence |
 |---|---|
-| Déploiement en 2 étapes, clés LiteLLM, usage et recette | [Quickstart complet](runbooks/quickstart.md) |
+| Déploiement en 2 étapes, Power Users, usage et recette | [Quickstart complet](runbooks/quickstart.md) |
 | Maintenance quotidienne, diagnostic, logs et validation | [Exploitation & Maintenance](runbooks/exploitation.md) |
 | Sauvegarder, restaurer et reconstruire | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md) |
 
@@ -45,4 +45,3 @@ L’[architecture](architecture.md) est la source de vérité technique unique d
 L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé. Les états de reprise, secrets et configurations particulières d'une instance appartiennent à son dépôt privé d'instance.
 
 **Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué à une cible désignée ; **vérifié** : scénario exécuté et preuve consignée.
-Une CI synthétique ne qualifie pas une reconstruction VMware neuve.

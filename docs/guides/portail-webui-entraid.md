@@ -2,7 +2,7 @@
 
 > **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation. Elle offre une expérience moderne et ergonomique pour dialoguer avec les modèles directs et les agents d'entreprise, sous une gouvernance d'accès strictement verrouillée.
+Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation (Utilisateurs Standards et Power Users). Elle offre une expérience moderne et ergonomique pour dialoguer avec les modèles directs (`simple/*`) et les agents autonomes (`agentic/*`), sous une gouvernance d'accès strictement verrouillée.
 
 ---
 
@@ -14,8 +14,8 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
   - **Modes d'accès autorisés exclusivement** :
     1. **Authentification SSO Microsoft 365 / Entra ID** (`ENABLE_OAUTH_SIGNUP=true`) pour les collaborateurs du tenant d'entreprise.
     2. **Comptes locaux créés manuellement par l'administrateur** via le panneau de gestion des utilisateurs.
-  - `DEFAULT_USER_ROLE=user` : Rôle par défaut fixé en utilisateur standard (`user`). Tout collaborateur authentifié via Microsoft 365 / Entra ID ou compte local créé par l'admin accède directement aux fonctionnalités collaborateur N1/N2 autorisées.
-  - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès strict par rôle et niveau d'autonomie (N1 Collaborateur, N2 Expert, N3 Power User).
+  - `DEFAULT_USER_ROLE=user` : Rôle par défaut fixé en utilisateur standard (`user`). Tout collaborateur authentifié via Microsoft 365 / Entra ID ou compte local créé par l'admin accède directement aux profils `simple/*` et `agentic/*`.
+  - `BYPASS_MODEL_ACCESS_CONTROL=false` : Contrôle d'accès aux modèles activé.
   - `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` : Fusion transparente et automatique des comptes SSO Microsoft Entra ID avec les comptes existants partageant la même adresse email vérifiée au sein du tenant d'organisation.
 
 - **Double Raccordement Hybride (LiteLLM Direct + Hermes Agent)** :

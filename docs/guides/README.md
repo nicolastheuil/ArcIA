@@ -10,7 +10,7 @@ Ce dossier regroupe les 15 guides thématiques détaillant chaque brique de l'ar
 * [versions-officielles.md](versions-officielles.md) : Matrice des images Docker, versions logicielles et ports officiels déployés.
 
 ### 2. Moteur d'Agents & Outillage
-* [hermes-agent.md](hermes-agent.md) : Moteur d'exécution Hermes Agent, Studio Kanban (port 9119), Gateway Desktop (port 8642) et double modalité Power Users (N3).
+* [hermes-agent.md](hermes-agent.md) : Moteur d'exécution Hermes Agent, Studio Kanban (port 9119), Gateway Desktop (port 8642) et pods dédiés Power Users (`.\scripts\Spawn-PowerUser.ps1`).
 * [skills.md](skills.md) : Catalogue des compétences partagées, recherche locale et moteur de chargement.
 * [tokenmaxing.md](tokenmaxing.md) : Compression réversible CCR (cache SHA-256), RTK et sobriété de contexte active en v0.4.
 * [outillage-builder.md](outillage-builder.md) : Outils natifs de sobriété logicielle (Ponytail, analyseur Graphify AST et veille Public-APIs).
@@ -26,5 +26,5 @@ Ce dossier regroupe les 15 guides thématiques détaillant chaque brique de l'ar
 * [integration-teams.md](integration-teams.md) : Adaptateur bot interactif pour Microsoft Teams (`simple/auto` et commande `/agent`).
 
 ### 5. Infrastructure & Exploitation
-* [deploiement-universel.md](deploiement-universel.md) : Moteur de déploiement universel `deploy.py`, synchronisation des ConfigMaps et fichier de configuration.
-* [infrastructure-k3s.md](infrastructure-k3s.md) : Déploiement K3s sur 3 VM VMware, gestion du stockage CSI persistant et Ingress Traefik.
+* [deploiement-universel.md](deploiement-universel.md) : Moteur de déploiement universel, synchronisation des ConfigMaps et fichier de configuration.
+* [infrastructure-k3s.md](infrastructure-k3s.md) : Déploiement sur cluster Kubernetes (K3s, EKS, AKS, GKE, VMware), gestion du stockage CSI persistant et Ingress.

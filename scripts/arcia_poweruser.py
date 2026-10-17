@@ -81,7 +81,7 @@ def run_kubectl(cmd_args: List[str], input_data: Optional[str] = None) -> subpro
 
 
 def generate_litellm_pat(user_email: str, team: str = "engineering", max_budget: float = 200.0) -> str:
-    """Génère un jeton PAT nominatif N3 pour le Power User."""
+    """Génère un jeton PAT nominatif pour le Power User."""
     # Tente d'appeler l'API LiteLLM interne ou génère un token cryptographique de format conforme
     # En environnement de spawn K8s, génère un jeton conforme
     token_suffix = secrets.token_urlsafe(32)

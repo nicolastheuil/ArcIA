@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ArcIA v0.4 — Gestionnaire des Clés Virtuelles et Budgets LiteLLM (PAT Power Users)
+ArcIA v0.4 — Gestionnaire des Clés Virtuelles et Budgets LiteLLM (PAT)
 Permet d'émettre, renouveler, lister et révoquer les clés d'API nominatives
-pour les collaborateurs et power users (N1, N2, N3).
+pour les Utilisateurs Standards et les Power Users.
 """
 
 import sys
@@ -15,21 +15,18 @@ import urllib.error
 DEFAULT_LITELLM_URL = os.environ.get("LITELLM_URL", "http://localhost:4000")
 DEFAULT_MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
 
+ALL_CANONICAL_MODELS = ["simple/free", "simple/auto", "agentic/free", "agentic/auto", "agentic/expert"]
+
 AUTONOMY_LEVELS = {
-    "N1": {
-        "models": ["simple/free", "simple/auto"],
-        "max_budget": 10.0,
-        "description": "Collaborateur standard (chat direct simple/free et simple/auto)"
-    },
-    "N2": {
-        "models": ["simple/free", "simple/auto", "agentic/free", "agentic/auto"],
+    "standard": {
+        "models": ALL_CANONICAL_MODELS,
         "max_budget": 50.0,
-        "description": "Expert métier (chat direct + orchestration agentique standard)"
+        "description": "Utilisateur Standard (Open-WebUI Simple + Agentic)"
     },
-    "N3": {
-        "models": ["simple/free", "simple/auto", "agentic/free", "agentic/auto", "agentic/expert"],
+    "poweruser": {
+        "models": ALL_CANONICAL_MODELS,
         "max_budget": 200.0,
-        "description": "Power user / Ingénieur IA (tous modèles, raisonnement expert, accès /v1)"
+        "description": "Power User (Open-WebUI Simple + Agentic + Pod Hermes dédié)"
     }
 }
 
@@ -58,12 +55,12 @@ def _make_request(url: str, master_key: str, method: str = "GET", data: dict = N
         sys.exit(1)
 
 
-def create_key(user_email: str, autonomy_level: str, team: str = "engineering",
+def create_key(user_email: str, autonomy_level: str = "poweruser", team: str = "engineering",
                duration: str = "90d", max_budget: float = None,
                base_url: str = DEFAULT_LITELLM_URL,
                master_key: str = DEFAULT_MASTER_KEY):
     """Génère une clé virtuelle nominative LiteLLM avec budget et modèles contraints."""
-    level_info = AUTONOMY_LEVELS.get(autonomy_level, AUTONOMY_LEVELS["N3"])
+    level_info = AUTONOMY_LEVELS.get(autonomy_level, AUTONOMY_LEVELS["poweruser"])
     effective_budget = float(max_budget) if max_budget is not None else level_info["max_budget"]
     payload = {
         "user_id": user_email,
@@ -73,17 +70,17 @@ def create_key(user_email: str, autonomy_level: str, team: str = "engineering",
         "budget_duration": "30d",
         "duration": duration,
         "metadata": {
-            "autonomy_level": autonomy_level,
+            "profile": autonomy_level,
             "created_by": "arcia-keys-cli",
             "user_email": user_email
         }
     }
-    print(f"[*] Génération de la clé virtuelle pour {user_email} (Niveau: {autonomy_level}, Budget: {effective_budget} $ / 30j)...")
+    print(f"[*] Génération de la clé virtuelle pour {user_email} (Profil: {autonomy_level}, Budget: {effective_budget} $ / 30j)...")
     res = _make_request(f"{base_url}/key/generate", master_key, method="POST", data=payload)
     key = res.get("key", "")
     print(f"\n[+] Clé nominative générée avec succès :")
     print(f"    Utilisateur : {user_email}")
-    print(f"    Niveau      : {autonomy_level} ({level_info['description']})")
+    print(f"    Profil      : {autonomy_level} ({level_info['description']})")
     print(f"    Modèles     : {', '.join(level_info['models'])}")
     print(f"    Budget Max  : {effective_budget} $ / 30 jours (LiteLLM USD)")
     print(f"    Clé d'API   : {key}\n")
@@ -119,10 +116,10 @@ def delete_key(key_alias: str, base_url: str = DEFAULT_LITELLM_URL, master_key: 
 
 
 def _add_create_arguments(subparser):
-    subparser.add_argument("email", nargs="?", default=None, help="Adresse email professionnelle (ex: prenom.nom@entreprise.com)")
+    subparser.add_argument("email", nargs="?", default=None, help="Adresse email professionnelle (ex: prenom.nom@example.org)")
     subparser.add_argument("--user", dest="user_opt", default=None, help="Adresse email professionnelle")
-    subparser.add_argument("--tier", "--level", dest="level", choices=["N1", "N2", "N3"], default="N3", help="Niveau d'autonomie (N1, N2, N3)")
-    subparser.add_argument("--budget", type=float, default=None, help="Plafond budgétaire mensuel USD (remplace le défaut du palier)")
+    subparser.add_argument("--profile", "--tier", "--level", dest="level", choices=["standard", "poweruser"], default="poweruser", help="Profil utilisateur (standard ou poweruser)")
+    subparser.add_argument("--budget", type=float, default=None, help="Plafond budgétaire mensuel USD")
     subparser.add_argument("--team", default="engineering", help="Nom de l'équipe (ex: engineering, support, marketing)")
     subparser.add_argument("--duration", default="90d", help="Durée de validité de la clé (ex: 30d, 90d)")
 

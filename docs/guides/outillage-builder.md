@@ -13,16 +13,17 @@ Ce guide décrit l'outillage intégré, les extensions et les compétences agent
 | **ArcIA Graphify** | Script d'analyse AST local | [scripts/arcia_graphify.py](../../scripts/arcia_graphify.py) | Cartographie structurelle de codebase, graphes de dépendances déterministes (0 token, 0 fuite) |
 | **Ponytail** | Skill de sobriété logicielle | [skills/ponytail/SKILL.md](../../skills/ponytail/SKILL.md) | Échelle de décision YAGNI, prévention du sur-développement et de l'over-engineering |
 | **Public-APIs** | Skill de gouvernance d'APIs | [skills/public-apis/SKILL.md](../../skills/public-apis/SKILL.md) | Référentiel de veille et règles de sécurisation des intégrations d'APIs externes |
-| **Gestion des Clés PAT** | CLI de gestion | [scripts/arcia_keys.py](../../scripts/arcia_keys.py) | Émission de clés virtuelles LiteLLM et quotas pour power users N3 |
+| **Spawner Power Users** | Orchestrateur K8s | [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) | Provisionnement de pods Hermes dédiés (PVC 10Gi + `SOUL.md`) pour les Power Users |
+| **Gestion des Clés PAT** | CLI de gestion | [scripts/arcia_keys.py](../../scripts/arcia_keys.py) | Émission de clés virtuelles LiteLLM et quotas budgétaires |
 
 ---
 
 ## 2. Tokenmaxing et Sobriété de Contexte
 
 Le plugin natif ArcIA ([services/hermes/plugin.py](../../services/hermes/plugin.py)) intercepte et optimise automatiquement les flux d'entrée d'Hermes :
-1. **Réécriture `git log`** : Simplifie les sorties verbeuses vers un format concis sans impacter les paramètres métier.
-2. **Compression JSON Headroom (`arcia_compress_json_file`)** : Les fichiers JSON volumineux du workspace sont réduits de plus de 40% avant présentation au modèle, tout en conservant l'original paginable via `arcia_restore_tool_result`.
-3. **Économie de Tokens & Respect DLP** : Les tokens économisés réduisent l'empreinte carbone et la facture API, tout en restant strictement contrôlés par Presidio DLP avant sortie cloud.
+1. **Réécriture `git log` (RTK)** : Simplifie les sorties verbeuses vers un format concis sans impacter les paramètres métier.
+2. **Compression JSON CCR (`arcia_compress_json_file`)** : Les fichiers et sorties JSON volumineuses (> 8 Ko) sont réduits avant présentation au modèle, tout en conservant l'original paginable en mémoire via `arcia_restore_tool_result`.
+3. **Économie de Tokens & Respect DLP** : Les tokens économisés réduisent l'empreinte carbone et la facture API, tout en restant strictement contrôlés par la double barrière Presidio DLP avant sortie cloud.
 
 ---
 

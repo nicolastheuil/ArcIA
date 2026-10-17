@@ -17,21 +17,22 @@ Dans ArcIA v0.4, la chaîne de routage répond à **cinq principes directeurs st
    - **Open-WebUI** dispose d'un double raccordement (`OPENAI_API_BASE_URLS`) vers **LiteLLM** (`:4000/v1`) pour les discussions rapides sans surcharge agentique (`simple/free`, `simple/auto`), et vers **Hermes Agent** (`:8642/v1`) pour les sessions autonomes outillées (`agentic/free`, `agentic/auto`, `agentic/expert`).
    - **Microsoft Teams Bot** utilise `simple/auto` par défaut pour les échanges rapides en canal/DM, et délègue les commandes `/agent <mission>` au runtime Hermes (`agentic/auto`).
 4. **Catalogue Unifié à 5 Profils Canoniques** : Les collaborateurs disposent de 5 profils explicites (`simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert`), avec Zéro Rétention de Données (`zdr: true`) et suppression transparente des paramètres non supportés (`drop_params: true`).
-5. **Gouvernance et Autonomie Nominative (N1, N2, N3)** : Suivi comptable et budgétaire stocké en base PostgreSQL (`litellm-db`). Les Power Users N3 bénéficient à la fois de pods Hermes dédiés sur Kubernetes (`/poweruser/<slug>/studio`) et d'un accès API direct via `/v1` protégé par clé virtuelle (PAT).
+5. **Deux Profils Utilisateurs Clairs** :
+   - **Utilisateurs Standards** : Accès à Open-WebUI (Simple + Agentic) et au bot Microsoft Teams.
+   - **Power Users** : Accès à Open-WebUI (Simple + Agentic) **+ une instance Hermes en Pod dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionnée via `.\scripts\Spawn-PowerUser.ps1`.
 
 ```mermaid
 flowchart TD
-    subgraph Clients ["👥 Points d'Entrée Utilisateurs (N1, N2, N3)"]
-        UserWeb["Collaborateur Web (Open-WebUI N1/N2)"]
-        UserTeams["Collaborateur Teams (Teams Bot N1/N2)"]
-        PowerUser["Power User N3 (Pod dédié K8s ou IDE /v1)"]
+    subgraph Clients ["👥 Profils Utilisateurs"]
+        UserStd["Utilisateur Standard (Open-WebUI Simple + Agentic & Teams)"]
+        PowerUser["Power User (Open-WebUI + Pod Hermes dédié K8s)"]
     end
 
-    subgraph SecurityGate ["🛡️ Périmètre Souverain ArcIA (Cluster K3s)"]
+    subgraph SecurityGate ["🛡️ Périmètre Souverain ArcIA (Cluster Kubernetes)"]
         WebUIGate["Open-WebUI (:8080)<br/>• Catalogue 5 profils canoniques<br/>• Connexions directes désactivées"]
         TeamsGate["Teams Bot Adapter (:3978)<br/>• Chat rapide simple/auto<br/>• Commande /agent vers Hermes"]
         HermesAgent["Hermes Agent Runtime (:8642)<br/>• Sessions agentic/* & outils<br/>• Plugin DLP + CCR + RTK"]
-        IngressGate["Ingress Traefik (:443)<br/>• Routeur public /<br/>• Passerelle API /v1 + RateLimit"]
+        HermesPU["Pods Hermes Power Users<br/>• /poweruser/slug/studio<br/>• PVC 10Gi & SOUL.md dédiés"]
         LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Pivot central d'inférence<br/>• Fallbacks, ZDR & Quotas"]
         PresidioGate["Presidio DLP (:8080)<br/>• Double Barrière Fail-Closed<br/>• Caviardage Secrets, IP & PII"]
         LiteLLMDB[("LiteLLM DB PostgreSQL (:5432)<br/>• Clés virtuelles nominatives<br/>• Budgets et traçabilité spend")]
@@ -42,10 +43,10 @@ flowchart TD
         ExtTools["Outils & APIs Externes<br/>(API Recherche, Données Publiques SIRET...)"]
     end
 
-    UserWeb -->|Session OIDC Entra ID| WebUIGate
-    UserTeams -->|Message Teams| TeamsGate
-    PowerUser -->|Appel API /v1 + PAT| IngressGate
-    IngressGate -->|Requête authentifiée| LiteLLMGate
+    UserStd -->|Session OIDC Entra ID| WebUIGate
+    UserStd -->|Message Teams| TeamsGate
+    PowerUser -->|Session OIDC Entra ID| WebUIGate
+    PowerUser -->|Studio dédié /poweruser/slug| HermesPU
 
     WebUIGate -->|Chat Direct simple/* :4000| LiteLLMGate
     WebUIGate -->|Session Agentique agentic/* :8642| HermesAgent
@@ -55,6 +56,8 @@ flowchart TD
     HermesAgent -->|Barrière 1 DLP /sanitize| PresidioGate
     HermesAgent -->|Inférence LLM :4000| LiteLLMGate
     HermesAgent -->|Exécution d'outils HTTPS :443| ExtTools
+    HermesPU -->|Barrière 1 DLP /sanitize| PresidioGate
+    HermesPU -->|Inférence LLM :4000| LiteLLMGate
 
     LiteLLMGate <--> LiteLLMDB
     LiteLLMGate -->|Barrière 2 DLP /analyze + /anonymize| PresidioGate
@@ -87,17 +90,16 @@ Pour assurer la continuité des scripts et des configurations historiques, les a
 
 ---
 
-## 3. Matrice des Niveaux d'Autonomie (Power Users & Collaborateurs)
+## 3. Profils Utilisateurs (Utilisateurs Standards & Power Users)
 
-| Critère | N1 — Collaborateur | N2 — Expert Métier | N3 — Power User |
-|---|---|---|---|
-| **Canaux d'accès** | Open-WebUI, Microsoft Teams | Open-WebUI (+ Outils & RAG), Teams (`/agent`) | Pod Hermes dédié (`/poweruser/<slug>/studio`), IDE `/v1` |
-| **Profils accessibles** | `simple/free`, `simple/auto`, `agentic/free` | `simple/*`, `agentic/free`, `agentic/auto` | Les 5 profils canoniques + `openrouter/*` |
-| **Moteur d'exécution** | LiteLLM direct ou Hermes Agent | LiteLLM direct ou Hermes Agent | Pod Hermes dédié K8s (PVC 10Gi) ou API `/v1` |
-| **Identité & Auth** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID (OIDC) | SSO Entra ID + **Clé virtuelle LiteLLM nominative (PAT)** |
-| **Gouvernance Budgétaire** | Budget partagé par équipe | Budget partagé d'équipe + alerte 80% | Budget individuel mensuel plafonné (en €) |
-| **Couverture DLP** | Double barrière fail-closed | Double barrière fail-closed | Double barrière fail-closed |
-| **Outils d'Administration** | SSO automatique | SSO automatique | `scripts/arcia_poweruser.py` & `scripts/arcia_keys.py` |
+| Critère | Utilisateur Standard | Power User |
+|---|---|---|
+| **Canaux d'accès** | **Open-WebUI** (`/`) + **Microsoft Teams** (`simple/auto` & `/agent`) | **Open-WebUI** (`/`) + **Pod Hermes dédié** (`/poweruser/<slug>/studio`) |
+| **Modèles accessibles** | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` |
+| **Moteur d'exécution** | LiteLLM direct (`simple/*`) et Hermes partagé (`agentic/*`) | LiteLLM direct, Hermes partagé **+ Pod Hermes dédié K8s (PVC 10Gi, `SOUL.md`)** |
+| **Identité & Auth** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID + Jeton PAT nominatif |
+| **Couverture DLP** | Double barrière fail-closed | Double barrière fail-closed |
+| **Provisionnement** | Automatique via SSO Entra ID | `.\scripts\Spawn-PowerUser.ps1 <email>` |
 
 ---
 
@@ -155,8 +157,8 @@ L'ajout d'un modèle dans ArcIA v0.4 s'effectue selon qu'il s'agit d'un modèle 
 
 ### Étape 1 : Déclarer le modèle amont dans LiteLLM
 Deux méthodes sont possibles pour enregistrer le modèle dans LiteLLM :
-1. **Via l'interface graphique LiteLLM (VIP K3s port 30400)** :
-   - Connectez-vous sur `http://<VIP_K3S>:30400/ui/` avec la Master Key du secret `litellm-secret`.
+1. **Via l'interface graphique LiteLLM (port 30400)** :
+   - Connectez-vous sur `http://<NOEUD_K8S>:30400/ui/` avec la Master Key du secret `litellm-secret`.
    - Rendez-vous dans **Models + Endpoints** > **+ Add Model**.
    - Définissez le **Model Name** et le **LiteLLM Model Name** amont (ex: `openrouter/google/gemini-2.5-pro`).
    - Activez `drop_params: true`, le guardrail `presidio` et le forçage ZDR (`extra_body: {"provider": {"zdr": true}}`).

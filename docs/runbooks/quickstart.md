@@ -1,14 +1,14 @@
 # Quickstart ArcIA v0.4
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme souveraine d'entreprise **ArcIA v0.4** sur votre cluster Kubernetes K3s.
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.4** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
 ## 1. Prérequis
 
 Pour déployer ArcIA, vous devez disposer de :
-1. **Un cluster Kubernetes opérationnel** (K3s recommandé, Kubernetes 1.28+) :
-   - Contrôleur d'Ingress Traefik installé.
+1. **Un cluster Kubernetes opérationnel** (EKS, AKS, GKE, K3s, kubeadm, Kubernetes 1.28+) :
+   - Contrôleur d'Ingress (Traefik ou NGINX) installé.
    - Cert-Manager pour l'émission automatique des certificats SSL/TLS Let's Encrypt.
    - Une `StorageClass` provisionnant des volumes persistants (PVC).
 2. **Outil CLI `kubectl`** configuré avec les droits d'administration sur le cluster.
@@ -28,17 +28,15 @@ cd ArcIA
 
 ### Étape 2 : Lancer le Setup Wizard Graphique
 
-Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez le Wizard interactif :
+Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez le Wizard interactif depuis la racine du dépôt :
 
+```powershell
+# Sous Windows (PowerShell) :
+.\wizard.ps1
+```
 ```bash
 # Sous Linux / macOS :
 ./wizard.sh
-
-# Sous Windows (PowerShell) :
-.\wizard.ps1
-
-# Ou avec Python directement :
-python scripts/wizard.py
 ```
 
 Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wizard_ui/index.html](../../scripts/wizard_ui/index.html)) s'ouvre dans votre navigateur et vous propose deux parcours :
@@ -50,12 +48,12 @@ Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wiz
    - Définissez un **mot de passe maître de chiffrement** : tous les secrets d'instance (`instance-secrets.enc`) sont chiffrés en **AES-256-GCM** (dérivation PBKDF2 100 000 itérations) avant d'être sauvegardés sur votre Git privé. Le dépôt racine ArcIA reste ainsi 100% générique et inviolable.
 2. **Cible & Infrastructure d'Hébergement** :
    Le Wizard propose trois cibles d'hébergement selon vos besoins :
+   - **Connexion à un environnement Kubernetes existant (EKS, AKS, GKE, K3s, kubeadm...)** :
+     - Connexion via contexte `kubeconfig` local ou accès SSH distant.
+     - **Audit de qualification exhaustif en 6 volets** avant déploiement (API Server, version >= 1.28, capacité CPU/RAM des nœuds, contrôleur Ingress, Cert-Manager CRD, StorageClass CSI dynamique, droits RBAC).
    - **Cluster K3s sur VMware (vCenter / ESXi)** :
      - Dimensionnement matériel interactif par tranche d'utilisateurs avec **espace RAG & base vectorielle ChromaDB dédié** (`50Gi` à `2Ti`).
      - Test de connectivité TLS/vSphere intégré en un clic.
-   - **Connexion à un environnement Kubernetes existant** :
-     - Connexion via contexte `kubeconfig` local ou accès SSH distant.
-     - **Audit de qualification exhaustif en 6 volets** avant déploiement (API Server, version >= 1.28, capacité CPU/RAM des nœuds, contrôleur Ingress, Cert-Manager CRD, StorageClass CSI dynamique, droits RBAC).
    - **Déploiement local sur ce poste avec Docker (Mode Lab)** :
      - Démarrage instantané via Docker Compose ([docker-compose.lab.yml](../../docker-compose.lab.yml)) sans cluster Kubernetes.
      - Détection en direct du daemon Docker Engine et accès immédiat sur `http://localhost:3000`.
@@ -88,7 +86,7 @@ Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
    .\scripts\Deploy-ArcIA.ps1
 
    # Déploiement sous Linux / Bash
-   bash scripts/deploy-arcia.sh
+   ./scripts/deploy-arcia.sh
    ```
 
 ---
@@ -110,7 +108,7 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
    .\scripts\Apply-Secrets.ps1
 
    # Sous Linux
-   bash scripts/apply-secrets.sh
+   ./scripts/apply-secrets.sh
    ```
 4. Redémarrez la passerelle LiteLLM pour prise en compte immédiate :
    ```powershell
@@ -133,7 +131,7 @@ Toutes les requêtes sortant vers des modèles cloud bénéficient de :
 
 ---
 
-## 4. Portail Open-WebUI, SSO Entra ID & Accès Power Users (N3)
+## 4. Portail Open-WebUI, SSO Entra ID & Pods Dédiés Power Users
 
 ### Accès au Portail Web & Configuration SSO Entra ID
 
@@ -146,18 +144,14 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
     - `https://<public_fqdn>/oauth2/callback` *(Callback OAuth2-Proxy pour Hermes Studio `/studio`)*
 - **Sans SSO (Mode local)** : Le premier compte créé devient le compte administrateur d'Open-WebUI (`ENABLE_SIGNUP=false` verrouille ensuite toute auto-inscription publique).
 
-### Double Modalité Power Users (Niveau N3)
+### Utilisateurs Standards vs Power Users
 
-1. **Modalité A : Pod Hermes Dédié sur Kubernetes (`/poweruser/<slug>/studio`)** :
-   ```bash
-   python scripts/arcia_poweruser.py spawn dev-lead@example.org --team engineering
-   ```
-   Crée un pod Hermes isolé avec PVC `10Gi`, `SOUL.md` personnalisée et Studio Kanban dédié.
-2. **Modalité B : Clé Virtuelle (PAT) sur `/v1` pour IDEs locaux** :
-   ```bash
-   python scripts/arcia_keys.py create --user dev-lead@example.org --tier N3 --budget 25 --duration 30
-   ```
-   Configurez votre IDE (Cursor, VS Code) sur `https://<public_fqdn>/v1` avec la clé `sk-arcia-...` générée et les profils `simple/auto` ou `agentic/expert`.
+- **Utilisateurs Standards** : Accèdent directement à Open-WebUI (profils `simple/*` et `agentic/*`) ainsi qu'au bot Microsoft Teams.
+- **Power Users** : En plus d'Open-WebUI (`simple/*` + `agentic/*`), chaque Power User dispose d'un **Pod Hermes dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionné via [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) :
+  ```powershell
+  .\scripts\Spawn-PowerUser.ps1 dev-lead@example.org -Team engineering
+  ```
+  Cette commande crée un pod Hermes isolé avec un PVC `10Gi` dédié, une `SOUL.md` personnalisée et un Studio Kanban personnel.
 
 ---
 
@@ -178,7 +172,7 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
      app_id: "VOTRE-APP-ID-AZURE-BOT"
      app_password: "VOTRE-SECRET-AZURE-BOT"
    ```
-2. Redéployez la plateforme avec `.\scripts\Deploy-ArcIA.ps1` ou `python scripts/deploy.py`.
+2. Redéployez la plateforme avec `.\scripts\Deploy-ArcIA.ps1` ou `./scripts/deploy-arcia.sh`.
 3. Côté Azure Bot Service, définissez le Webhook de messagerie sur :
    `https://<public_fqdn>/api/teams/messages`
 4. Les collaborateurs discutent en direct (`simple/auto`) ou lancent une mission agentique via `/agent <mission>` (`agentic/auto`).

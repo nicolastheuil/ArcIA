@@ -1,6 +1,6 @@
 # Manifests Kubernetes — ArcIA v0.4 (Namespace unifié `arcia`)
 
-Ce dossier regroupe les manifests Kubernetes ordonnés pour déployer l'intégralité de la plateforme ArcIA v0.4 sur un cluster K3s. Tous les services sont déployés dans le namespace unifié `arcia`.
+Ce dossier regroupe les manifests Kubernetes ordonnés pour déployer l'intégralité de la plateforme ArcIA v0.4 sur n'importe quel cluster Kubernetes. Tous les services sont déployés dans le namespace unifié `arcia`.
 
 ## Ordre d'Application & Cartographie des Manifests
 
@@ -8,7 +8,7 @@ Les manifests sont préfixés de `00` à `09` pour garantir un déploiement dét
 
 | N° | Fichier | Composants Déployés | Description & Ports |
 |:---:|---|---|---|
-| **00** | [00-traefik-chart.yaml](00-traefik-chart.yaml) | `HelmChartConfig` (K3s Traefik) | Configuration de l'Ingress Controller Traefik embarqué dans K3s. |
+| **00** | [00-traefik-chart.yaml](00-traefik-chart.yaml) | `HelmChartConfig` (Traefik) | Configuration de l'Ingress Controller Traefik. |
 | **01** | [01-cert-manager-issuer.yaml](01-cert-manager-issuer.yaml) | `ClusterIssuer` (Let's Encrypt) | Émission automatique des certificats TLS via HTTP-01. |
 | **02** | [02-oauth2-proxy.yaml](02-oauth2-proxy.yaml) | `Deployment`, `Service`, `Middleware` | Passerelle d'authentification SSO OpenID Connect (OIDC) avec Microsoft Entra ID (`/oauth2/auth`, port 4180). |
 | **03** | [03-presidio.yaml](03-presidio.yaml) | `Deployment`, `Service` | Bouclier DLP souverain fail-closed (secrets, IP, PII fr+en) monté depuis le ConfigMap `presidio-code` (port 8080). |
@@ -19,13 +19,16 @@ Les manifests sont préfixés de `00` à `09` pour garantir un déploiement dét
 | **07** | [07-open-webui.yaml](07-open-webui.yaml) | `Deployment`, `Service`, `PVC` | Portail web conversationnel hybride (`simple/*` & `agentic/*`), verrouillage strict (SSO O365 / création locale manuelle uniquement, signup et BYOK désactivés, port 8080). |
 | **08** | [08-teams-bot.yaml](08-teams-bot.yaml) | `Deployment`, `Service` | Adaptateur bot Microsoft Teams monté depuis le ConfigMap `teams-bot-code`, connecté à `simple/auto` et `/agent` → Hermes `agentic/auto` (port 3978). |
 | **09** | [09-network-policy.yaml](09-network-policy.yaml) | `NetworkPolicy` | Isolation réseau intra-namespace (Default DenyAll, flux stricts inter-pods et bouclier DLP étanche). |
-| **N3** | [templates/hermes-poweruser.template.yaml](templates/hermes-poweruser.template.yaml) | `Deployment`, `Service`, `PVC`, `Ingress` | Gabarit de provisionnement à la demande des pods Hermes dédiés pour Power Users N3 (`scripts/arcia_poweruser.py`). |
+| **PU** | [templates/hermes-poweruser.template.yaml](templates/hermes-poweruser.template.yaml) | `Deployment`, `Service`, `PVC`, `Ingress` | Gabarit de provisionnement à la demande des pods Hermes dédiés pour Power Users (`.\scripts\Spawn-PowerUser.ps1`). |
 
 ## Application Manuelle ou Automatisée
 
-* **Via le script de déploiement (Recommandé)** :
+* **Via les scripts de déploiement (Recommandé)** :
+  ```powershell
+  .\scripts\Deploy-ArcIA.ps1
+  ```
   ```bash
-  python scripts/deploy.py --config arcia.config.yaml
+  ./scripts/deploy-arcia.sh
   ```
 * **Application Kustomize déclarative** :
   ```bash

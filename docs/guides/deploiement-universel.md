@@ -1,6 +1,6 @@
 # Guide de Déploiement Universel d'ArcIA v0.4 sur Kubernetes
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (K3s, EKS, AKS, GKE, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir d'un **seul et unique fichier de configuration** ou via Kustomize.
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir d'un **seul et unique fichier de configuration** ou via l'assistant interactif.
 
 ---
 
@@ -26,9 +26,19 @@ git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### Étape 2 : Préparer le fichier de configuration unique
+### Étape 2 : Préparer la configuration (ou lancer le Wizard)
 
-Copiez le gabarit d'exemple :
+Vous pouvez utiliser l'installeur interactif à la racine du dépôt :
+```powershell
+# Sous Windows PowerShell
+.\wizard.ps1
+```
+```bash
+# Sous Linux / macOS
+./wizard.sh
+```
+
+Ou préparer manuellement le fichier de configuration unique :
 ```bash
 # Sous Linux / macOS
 cp arcia.config.yaml.example arcia.config.yaml
@@ -123,7 +133,7 @@ Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py
 
 ---
 
-## 6. Vérification & Validation
+## 6. Vérification & Provisionnement Power Users
 
 Dès que le déploiement est terminé :
 1. Créez l'enregistrement DNS de type A pour votre FQDN pointant vers l'adresse IP publique de votre Ingress.
@@ -131,11 +141,9 @@ Dès que le déploiement est terminé :
    - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (5 profils canoniques `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert`).
    - `https://<public_fqdn>/studio` : Dashboard Kanban multi-agents Hermes.
    - `https://<public_fqdn>/gateway` : Passerelle client lourd Hermes Desktop.
-   - `https://<public_fqdn>/v1` : Endpoint d'inférence LiteLLM Proxy pour Power Users (N3).
-3. Générez une clé virtuelle d'entreprise ou un pod dédié pour un développeur (N3) :
-   ```bash
-   python scripts/arcia_keys.py create --user alice@example.org --tier N3 --budget 20
-   python scripts/arcia_poweruser.py spawn alice@example.org --team engineering
+3. Déployez un pod Hermes dédié pour un Power User :
+   ```powershell
+   .\scripts\Spawn-PowerUser.ps1 alice@example.org -Team engineering
    ```
 4. Exécutez la suite de recette automatisée :
    ```bash

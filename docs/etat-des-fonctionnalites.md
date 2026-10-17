@@ -1,14 +1,14 @@
-# ArcIA v0.4 — État Réel des Fonctionnalités & Traçabilité de l'Audit
+# ArcIA v0.4 — État Réel des Fonctionnalités & Traçabilité
 
-Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique v0.2 et consigne leur statut officiel dans la version **v0.4**.
+Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique initial et consigne leur statut officiel dans la version **v0.4**.
 
-La documentation d'ArcIA respecte désormais une stricte transparence entre l'existant prouvé par le code et les cibles futures.
+La documentation d'ArcIA respecte une stricte transparence entre l'existant prouvé par le code et les cibles futures.
 
 ---
 
-## Tableau de Traçabilité des 25 Écarts de l'Audit v0.2
+## Tableau de Traçabilité Technique
 
-| # | Constat Audit v0.2 | Statut v0.4 | Correction / Implémentation effective dans le code |
+| # | Constat Initial | Statut v0.4 | Implémentation effective dans le code |
 |:---:|---|:---:|---|
 | **1** | « Aucun prompt ne part vers un LLM sans caviardage » contredit par le BYOK direct | **Résolu (v0.4)** | `ENABLE_DIRECT_CONNECTIONS=false` dans Open-WebUI. 100 % des requêtes passent obligatoirement par Presidio DLP (double barrière Hermes + LiteLLM). |
 | **2** | « DLP Presidio Active » mais Presidio non initialisé (échec `AnalyzerEngine()`) | **Résolu (v0.4)** | `NlpEngineProvider` configuré avec modèles spaCy `fr` et `en`. Endpoints `/sanitize`, `/analyze`, `/anonymize` et `/healthz` opérationnels. |
@@ -28,23 +28,22 @@ La documentation d'ArcIA respecte désormais une stricte transparence entre l'ex
 | **16**| `hermes serve` lançant un dashboard headless au lieu de la Gateway API | **Résolu (v0.4)** | Séparation propre : `hermes dashboard` sur port 9119 pour Studio, `hermes gateway` pour l'API et WebSocket (port 8642). |
 | **17**| « Hermes Studio » confondu avec un projet tiers | **Clarifié (v0.4)** | Studio documenté comme le tableau de bord officiel `hermes dashboard`. |
 | **18**| Plugin Tokenmaxing non chargeable (pas de `register(ctx)`) | **Résolu (v0.4)** | `services/hermes/plugin.py` implémente `register(ctx)` avec double barrière DLP fail-closed, compression réversible CCR (cache SHA-256 + `arcia_restore_tool_result`) et compaction RTK `git log`. |
-| **19**| Mode power user local `/v1` + PAT et pods dédiés non harmonisés | **Résolu (v0.4)** | Double modalité N3 active : route `/v1` exposée avec RateLimit + PAT (`scripts/arcia_keys.py`) ET pods Hermes dédiés sur K8s (`scripts/arcia_poweruser.py`). |
+| **19**| Mode Power User et pods dédiés non harmonisés | **Résolu (v0.4)** | Simplification en 2 profils (Utilisateurs Standards & Power Users) avec pods Hermes dédiés sur K8s (`.\scripts\Spawn-PowerUser.ps1`) et accès `/v1` (`scripts/arcia_keys.py`). |
 | **20**| Serveurs MCP `arcia_knowledge` et ChromaDB 50Gi dédiés absents | **Cible (v0.5)** | RAG embarqué dans Open-WebUI en v0.4. Les connecteurs MCP dédiés sont planifiés pour la v0.5. |
 | **21**| Synchronisation non contrôlée de skills externes en tâche de fond | **Résolu (v0.4)** | Suppression du CronJob automatique. Synchronisation contrôlée via `scripts/Sync-Skills.ps1` / `skills/sync-skills.sh` et compétences natives montées par ConfigMap. |
 | **22**| Duplication du code Python entre `services/` et les ConfigMaps K8s | **Résolu (v0.4)** | Source unique dans `services/*/app.py` et `plugin.py`, synchronisée automatiquement en ConfigMaps par `scripts/deploy.py` (`sync_service_configmaps`). |
 | **23**| Versions officielles annoncées mais images flottantes (`:main`, `:latest`) | **Résolu (v0.4)** | Versions épinglées avec tags stables (`berriai/litellm:main-v1.61.16`, `open-webui:v0.5.10`, `hermes-agent:v0.2.0`, `postgres:16-alpine`). |
-| **24**| « Cluster K3s HA » annoncé alors que les pods sont en réplique 1 et RWO | **Clarifié (v0.4)** | Qualification HA identifiée comme cible d'infrastructure VMware. Le harness documente un déploiement mono-réplique résilient par état SQLite. |
+| **24**| « Cluster K3s HA » annoncé alors que les pods sont en réplique 1 et RWO | **Clarifié (v0.4)** | Déploiement compatible avec n'importe quel cluster Kubernetes, avec un propriétaire unique par état SQLite (`state.db`). |
 | **25**| « Tests DLP » ne testant pas le comportement réel | **Résolu (v0.4)** | Suite de 87 tests unitaires (`tests/test_dlp.py`, `test_manifests.py`, `test_deploy.py`, `test_poweruser.py`, `test_privacy.py`, `test_wizard.py`, `test_public_apis.py`). |
 
 ---
 
-## Niveaux d'Autonomie v0.4 (Power Users & Collaborateurs)
+## Profils Utilisateurs v0.4
 
-| Niveau | Profil | Canaux Autorisés | Modèles | Quota / Budget | Contrôle DLP |
-|---|---|---|---|---|---|
-| **N1** | Collaborateur | Open-WebUI, Microsoft Teams | `simple/free`, `simple/auto`, `agentic/free` | Budget d'équipe partagé | Double barrière DLP obligatoire |
-| **N2** | Expert Métier | Open-WebUI (+ Outils & RAG), Teams (`/agent`) | `simple/*`, `agentic/free`, `agentic/auto` | Budget d'équipe avec alerte 80 % | Double barrière DLP obligatoire |
-| **N3** | Power User / Dev | Pod Hermes dédié (`/poweruser/<slug>/studio`), IDE `/v1` | Les 5 profils (`simple/*`, `agentic/*` dont `agentic/expert`) | Budget individuel nominatif | Double barrière DLP obligatoire |
+| Profil | Environnements & Canaux | Modèles Disponibles | Isolation & Persistance | Contrôle DLP |
+|---|---|---|---|---|
+| **Utilisateur Standard** | Open-WebUI (`/`) + Microsoft Teams | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | Sessions Open-WebUI & Hermes partagé | Double barrière DLP obligatoire |
+| **Power User** | Open-WebUI (`/`) + Pod Hermes dédié (`/poweruser/<slug>/studio`) | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | Pod K8s isolé + PVC 10Gi + `SOUL.md` propre | Double barrière DLP obligatoire |
 
 ---
 
