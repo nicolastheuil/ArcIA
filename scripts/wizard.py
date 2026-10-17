@@ -1113,7 +1113,8 @@ def get_default_config_dict() -> Dict[str, Any]:
             "enabled": False,
             "app_id": "",
             "app_password": "",
-            "system_prompt": "Tu es ArcIA, l'assistant d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."
+            "tenant_id": "",
+            "system_prompt": "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."
         },
         "microsoft365_integration": {
             "enabled": False,
@@ -1242,7 +1243,8 @@ teams_bot:
   enabled: {bstr(teams.get('enabled', False))}
   app_id: {qstr(teams.get('app_id', ''))}
   app_password: {qstr(teams.get('app_password', ''))}
-  system_prompt: {qstr(teams.get('system_prompt', "Tu es ArcIA, l'assistant d'entreprise."))}
+  tenant_id: {qstr(teams.get('tenant_id', ''))}
+  system_prompt: {qstr(teams.get('system_prompt', "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."))}
 
 # 9. Intégration Microsoft 365
 microsoft365_integration:
@@ -1278,6 +1280,8 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
                 if teams.get("enabled"):
                     f.write(f"TEAMS_BOT_APP_ID={teams.get('app_id', '')}\n")
                     f.write(f"TEAMS_BOT_APP_PASSWORD={teams.get('app_password', '')}\n")
+                    if teams.get("tenant_id"):
+                        f.write(f"TEAMS_BOT_TENANT_ID={teams.get('tenant_id', '')}\n")
         except Exception:
             pass
 

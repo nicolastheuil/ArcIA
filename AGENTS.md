@@ -75,7 +75,7 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 - Reporter toute correction manuelle dans Git avant livraison.
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - **Contrôles obligatoires avant toute livraison ou commit** :
-  1. **Suite de tests unitaires & DLP** : `python -m unittest discover -s tests -v` (101 tests passants).
+  1. **Suite de tests unitaires & DLP** : `python -m unittest discover -s tests -v` (104 tests passants).
   2. **Validation documentaire exhaustive** : `python scripts/validate_docs.py` (vérification de 100 % des liens et ancres internes sans erreur).
   3. **Validation syntaxique des scripts** : PowerShell (`scripts/*.ps1`) et Bash (`bash -n scripts/*.sh`).
   4. **Simulation de déploiement (Dry-Run)** : `python scripts/deploy.py --config ci.config.yaml --dry-run` ou `.\scripts\Deploy-ArcIA.ps1 -DryRun`.

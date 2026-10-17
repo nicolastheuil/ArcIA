@@ -143,7 +143,7 @@ def build_teams_package(
     if app_id:
         manifest_data["id"] = app_id
     elif manifest_data.get("id") in ("", "00000000-0000-0000-0000-000000000000"):
-        manifest_data["id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, fqdn or "assistant.example.org"))
+        manifest_data["id"] = str(uuid.uuid5(uuid.NAMESPACE_DNS, domain or "assistant.example.org"))
 
     if no_bot:
         manifest_data.pop("bots", None)

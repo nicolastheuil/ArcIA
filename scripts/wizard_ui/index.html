@@ -1147,6 +1147,10 @@
               <label class="form-label">App Password <span style="color:var(--accent-cyan);">*</span></label>
               <input type="password" id="teams_password" class="form-control" placeholder="Mot de passe Azure Bot">
             </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">Tenant ID <span style="color:var(--text-muted);font-weight:normal;">(Single-Tenant)</span></label>
+              <input type="text" id="teams_tenantid" class="form-control" placeholder="GUID Tenant (laisser vide si Multi-Tenant)">
+            </div>
           </div>
 
           <div class="form-group">
@@ -1812,6 +1816,7 @@
       setChecked("teams_enabled", !!teams.enabled);
       setVal("teams_appid", teams.app_id || "");
       setVal("teams_password", teams.app_password || "");
+      setVal("teams_tenantid", teams.tenant_id || "");
       if (teams.system_prompt) {
         setVal("teams_prompt", teams.system_prompt);
       }
@@ -1902,6 +1907,7 @@
           enabled: document.getElementById("teams_enabled").checked,
           app_id: document.getElementById("teams_appid").value.trim(),
           app_password: document.getElementById("teams_password").value.trim(),
+          tenant_id: document.getElementById("teams_tenantid").value.trim(),
           system_prompt: document.getElementById("teams_prompt").value.trim()
         },
         microsoft365_integration: {

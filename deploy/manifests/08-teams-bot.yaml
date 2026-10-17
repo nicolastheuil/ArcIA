@@ -17,6 +17,8 @@ spec:
     metadata:
       labels:
         app: teams-bot-adapter
+      annotations:
+        checksum/teams-bot-code: "default"
     spec:
       containers:
       - name: adapter
@@ -39,12 +41,20 @@ spec:
             secretKeyRef:
               name: teams-bot-secret
               key: app-password
+        - name: MICROSOFT_APP_TENANT_ID
+          valueFrom:
+            secretKeyRef:
+              name: teams-bot-secret
+              key: tenant-id
+              optional: true
         - name: LITELLM_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: HERMES_URL
           value: "http://hermes-studio.arcia.svc:8642/v1"
         - name: TEAMS_DEFAULT_MODEL
           value: "simple/auto"
+        - name: TEAMS_SYSTEM_PROMPT
+          value: "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."
         - name: LITELLM_API_KEY
           valueFrom:
             secretKeyRef:
@@ -69,14 +79,16 @@ spec:
           httpGet:
             path: /healthz
             port: 3978
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 10
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /healthz
             port: 3978
-          initialDelaySeconds: 20
+          initialDelaySeconds: 45
           periodSeconds: 15
+          failureThreshold: 3
         volumeMounts:
         - name: code
           mountPath: /app

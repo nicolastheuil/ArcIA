@@ -143,6 +143,76 @@ class TestTeamsAppPackage(unittest.TestCase):
         errors = validate_manifest(deprecated_types)
         self.assertTrue(any("supportedChannelTypes" in e for e in errors))
 
+    def test_build_teams_package_default_id_with_domain(self):
+        """Vérifie que build_teams_package génère un GUID déterministe avec le domaine sans lever de NameError sur fqdn."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_zip = Path(tmpdir) / "domain-app.zip"
+            # Manifeste sans ID prédéfini
+            tmp_manifest = Path(tmpdir) / "manifest.json"
+            with open(self.manifest_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            data["id"] = "00000000-0000-0000-0000-000000000000"
+            with open(tmp_manifest, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+
+            build_teams_package(
+                manifest_path=tmp_manifest,
+                icons_dir=self.assets_dir,
+                output_zip=tmp_zip,
+                domain="assistant.example.org",
+                bot_id="11111111-2222-3333-4444-555555555555",
+            )
+            self.assertTrue(tmp_zip.is_file())
+            with zipfile.ZipFile(tmp_zip, "r") as zf:
+                result_manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
+                self.assertNotEqual(result_manifest["id"], "00000000-0000-0000-0000-000000000000")
+                self.assertIn("assistant.example.org", result_manifest.get("validDomains", []))
+
+    def test_teams_app_text_cleaning_and_sanitization(self):
+        """Vérifie le nettoyage du texte Teams (HTML, XML <at>, espaces) et des emails utilisateurs."""
+        import sys
+        from unittest.mock import MagicMock
+        for mod in ['aiohttp', 'botbuilder', 'botbuilder.core', 'botbuilder.schema', 'botframework', 'botframework.connector', 'botframework.connector.auth']:
+            if mod not in sys.modules:
+                sys.modules[mod] = MagicMock()
+
+        from services.teams.app import clean_user_text, sanitize_user_email
+
+        # 1. Nettoyage XML Teams
+        raw1 = "<p><at>ArcIA</at> /hermes analyse les logs</p>"
+        self.assertEqual(clean_user_text(raw1), "/hermes analyse les logs")
+
+        raw2 = '<at id="28:8afbf35c-fe46-4918-aafe-b2a8c85f7adc">ArcIA</at> aide'
+        self.assertEqual(clean_user_text(raw2), "aide")
+
+        raw3 = "  @ArcIA   bonjour   "
+        self.assertEqual(clean_user_text(raw3), "bonjour")
+
+        # 2. Normalisation des emails pour l'en-tête HTTP
+        self.assertEqual(sanitize_user_email("Nicolas THEUIL"), "nicolas.theuil@teams.local")
+        self.assertEqual(sanitize_user_email("Clément Élodie"), "clement.elodie@teams.local")
+        self.assertEqual(sanitize_user_email("Matthieu et Raphaël"), "matthieu.et.raphael@teams.local")
+        self.assertEqual(sanitize_user_email(""), "collaborateur@teams.local")
+
+    def test_teams_manifest_and_network_policy_alignment(self):
+        """Vérifie que les manifestes 08-teams-bot.yaml et 09-network-policy.yaml sont cohérents pour Teams Bot."""
+        manifest_path = self.project_root / "deploy" / "manifests" / "08-teams-bot.yaml"
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("checksum/teams-bot-code", content)
+        self.assertIn("MICROSOFT_APP_TENANT_ID", content)
+        self.assertIn("TEAMS_SYSTEM_PROMPT", content)
+        self.assertIn("initialDelaySeconds: 30", content)
+
+        netpol_path = self.project_root / "deploy" / "manifests" / "09-network-policy.yaml"
+        with open(netpol_path, "r", encoding="utf-8") as f:
+            netpol_content = f.read()
+
+        self.assertIn("teams-bot-adapter", netpol_content)
+        # Vérifie que hermes autorise teams-bot-adapter et que teams-bot-adapter peut contacter hermes-agent (8642)
+        self.assertIn("port: 8642", netpol_content)
+
 
 if __name__ == "__main__":
     unittest.main()

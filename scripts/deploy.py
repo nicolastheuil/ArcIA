@@ -13,6 +13,7 @@ import re
 import json
 import time
 import secrets
+import hashlib
 import argparse
 import subprocess
 from typing import Dict, Any, Optional, List, Tuple
@@ -163,7 +164,8 @@ def parse_env_format(content: str) -> Dict[str, Any]:
             "enabled": env.get("TEAMS_BOT_ENABLED", "false").lower() in ("true", "1", "yes"),
             "app_id": env.get("TEAMS_BOT_APP_ID", ""),
             "app_password": env.get("TEAMS_BOT_APP_PASSWORD", ""),
-            "system_prompt": env.get("TEAMS_SYSTEM_PROMPT", "Tu es ArcIA, l'assistant d'entreprise."),
+            "tenant_id": env.get("TEAMS_BOT_TENANT_ID", env.get("ENTRA_TENANT_ID", "")),
+            "system_prompt": env.get("TEAMS_SYSTEM_PROMPT", "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."),
         },
         "microsoft365_integration": {
             "enabled": env.get("M365_ENABLED", "false").lower() in ("true", "1", "yes"),
@@ -550,19 +552,21 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
             cm_lines.append(f"    {line}")
 
     runner.apply_manifest("\n".join(cm_lines))
-def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) -> None:
+def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) -> Dict[str, str]:
     """Injecte le code source unique de services/ (Presidio DLP, Teams Bot, Hermes Governance Plugin) dans des ConfigMaps Kubernetes."""
     mappings = [
         ("presidio-code", "app.py", os.path.join(root_dir, "services", "presidio", "app.py")),
         ("teams-bot-code", "app.py", os.path.join(root_dir, "services", "teams", "app.py")),
         ("hermes-governance-plugin", "plugin.py", os.path.join(root_dir, "services", "hermes", "plugin.py")),
     ]
+    checksums: Dict[str, str] = {}
     for cm_name, key_name, file_path in mappings:
         if not os.path.isfile(file_path):
             log_warn(f"Fichier source introuvable pour ConfigMap '{cm_name}' : {file_path}")
             continue
         with open(file_path, "r", encoding="utf-8") as f:
             code_content = f.read()
+        checksums[cm_name] = hashlib.sha256(code_content.encode("utf-8")).hexdigest()[:16]
         indented = "\n".join("    " + line for line in code_content.splitlines())
         cm_yaml = (
             "apiVersion: v1\n"
@@ -576,6 +580,7 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
         )
         runner.apply_manifest(cm_yaml)
     log_ok("ConfigMaps de code microservices ('presidio-code', 'teams-bot-code', 'hermes-governance-plugin') synchronisés depuis services/.")
+    return checksums
 
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
@@ -733,9 +738,11 @@ metadata:
 
     # 6. teams-bot-secret (si bot actif)
     if teams_cfg.get("enabled"):
+        bot_tenant_id = str(teams_cfg.get("tenant_id") or sso_cfg.get("tenant_id") or "").strip()
         runner.apply_manifest(make_secret_manifest("teams-bot-secret", namespace, {
             "app-id": teams_cfg.get("app_id", ""),
-            "app-password": teams_cfg.get("app_password", "")
+            "app-password": teams_cfg.get("app_password", ""),
+            "tenant-id": bot_tenant_id
         }))
 
     log_ok("Tous les secrets Kubernetes sont provisionnés de façon déclarative et sécurisée.")
@@ -747,7 +754,7 @@ metadata:
 
     # A0. Synchronisation des ConfigMaps de code microservices depuis services/
     log_info(" -> Synchronisation des ConfigMaps de code microservices (services/)...")
-    sync_service_configmaps(runner, namespace, root_dir)
+    code_checksums = sync_service_configmaps(runner, namespace, root_dir)
 
     # A. Presidio DLP
     log_info(" -> Déploiement de Presidio DLP (03-presidio.yaml)...")
@@ -806,8 +813,10 @@ metadata:
         teams_path = os.path.join(manifests_dir, "08-teams-bot.yaml")
         with open(teams_path, "r", encoding="utf-8") as f:
             teams_yaml = f.read()
-            prompt = teams_cfg.get("system_prompt", "Tu es ArcIA, l'assistant d'entreprise.")
+            prompt = teams_cfg.get("system_prompt", "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown.")
             teams_yaml = re.sub(r'value: "Tu es ArcIA.*?"', f'value: "{prompt}"', teams_yaml)
+            teams_hash = code_checksums.get("teams-bot-code", "v04")
+            teams_yaml = teams_yaml.replace('checksum/teams-bot-code: "default"', f'checksum/teams-bot-code: "{teams_hash}"')
             runner.apply_manifest(adapt_manifest_namespace(teams_yaml, namespace))
     else:
         log_info(" -> [Optionnel Ignoré] Adaptateur Microsoft Teams désactivé.")

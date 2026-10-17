@@ -150,12 +150,15 @@ teams_bot:
   enabled: true
   app_id: "VOTRE-BOT-ID-GUID"
   app_password: "VOTRE-CLIENT-SECRET"
+  # Optionnel : obligatoire uniquement si le bot Azure a été créé en 'Single Tenant'
+  tenant_id: "VOTRE-TENANT-ID-GUID"
 ```
 
 ### Option B : Via variables d'environnement (`.env` ou secrets Kubernetes)
 ```bash
 TEAMS_BOT_APP_ID="VOTRE-BOT-ID-GUID"
 TEAMS_BOT_APP_PASSWORD="VOTRE-CLIENT-SECRET"
+TEAMS_BOT_TENANT_ID="VOTRE-TENANT-ID-GUID" # Optionnel si Single Tenant
 ```
 
 Appliquez les secrets sur votre cluster K3s :
@@ -170,8 +173,9 @@ Appliquez les secrets sur votre cluster K3s :
 1. **Test immédiat individuel (*Preview*)** :
    - Dans le Portail Développeur Teams, cliquez sur le bouton **Preview in Teams** (en haut à droite).
    - Teams s'ouvre : cliquez sur **Ajouter** (*Add*).
+   - Envoyez `aide` pour vérifier la réponse immédiate du bot sans consommation de jeton.
    - Envoyez un message direct au bot : `Bonjour ArcIA, comment peux-tu m'aider ?` (routé vers `simple/auto`).
-   - Envoyez une mission agentique : `/agent Recherche le SIRET de la DINUM et synthétise ses informations` (routé vers Hermes `agentic/auto`).
+   - Envoyez une mission agentique : `/agent Recherche le SIRET de la DINUM et synthétise ses informations` ou `/hermes ...` (routé vers Hermes `agentic/auto`).
 2. **Test en canal d'équipe** :
    - Ajoutez le bot dans une équipe de test.
    - Mentionnez-le : `@ArcIA résume-moi la situation`.
@@ -180,10 +184,19 @@ Appliquez les secrets sur votre cluster K3s :
 
 ---
 
-## 8. Dépannage & Erreurs Courantes
+## 8. Dépannage & Diagnostic Systématique
 
-| Symptôme | Cause | Solution |
+Si le bot ne répond pas lorsque vous lui écrivez dans Teams, suivez cette grille de diagnostic méthodique en 4 points :
+
+| Point de Contrôle | Ce qu'il faut vérifier | Action corrective |
+| :--- | :--- | :--- |
+| **1. Endpoint Webhook dans Azure / Dev Portal** | Dans Azure Bot (*Configuration > Messaging endpoint*) ou Developer Portal (*Bot management*), l'URL doit être strictement `https://<VOTRE_FQDN_PUBLIC>/api/teams/messages`. | Corrigez l'URL. L'adaptateur ArcIA tolère désormais avec ou sans slash de fin (`/api/teams/messages` et `/api/teams/messages/`). |
+| **2. Canal Teams Activé dans Azure** | Si créé via Azure Portal (*Parcours B*), le canal Teams n'est pas activé par défaut. Dans **Canaux (*Channels*)**, le canal Microsoft Teams doit afficher le statut **En cours d'exécution (*Running*)**. | Cliquez sur **Canaux > Microsoft Teams**, acceptez les conditions d'utilisation et enregistrez. |
+| **3. Mode Single-Tenant vs Multi-Tenant** | Si le bot Azure est configuré en `Single Tenant`, Microsoft signe les jetons JWT avec l'émetteur `https://sts.windows.net/<TENANT_ID>/`. | Renseignez votre GUID de Tenant dans `teams_bot.tenant_id` (ou `TEAMS_BOT_TENANT_ID`). L'adaptateur ArcIA l'injectera dans `AuthenticationConfiguration`. |
+| **4. Redémarrage du Pod après mise à jour** | Sous Kubernetes, modifier un ConfigMap ne redémarre pas automatiquement le processus Python en mémoire. | Le harness intègre désormais une annotation `checksum/teams-bot-code` qui déclenche automatiquement un `RollingUpdate` zéro-downtime à chaque déploiement. |
+
+| Erreur spécifique | Cause | Solution |
 | :--- | :--- | :--- |
 | **« Bot non valide : Veuillez vérifier que le bot est enregistré et que le canal Teams est activé »** | Vous avez tenté d'importer le ZIP avant de créer le bot, ou avec un Bot ID inexistant. | Suivez l'**Étape 1** pour créer le bot dans *Bot management*, puis régénérez le ZIP avec votre vrai Bot ID (Étape 2). |
-| **Le bot ne répond pas dans Teams** | L'adaptateur ne reçoit pas les messages ou rejette l'authentification. | 1. Vérifiez que l'URL du Webhook (`https://<FQDN>/api/teams/messages`) est accessible publiquement avec un certificat TLS valide.<br/>2. Vérifiez que `TEAMS_BOT_APP_ID` et `TEAMS_BOT_APP_PASSWORD` correspondent exactement au bot. |
-| **Erreur HTTP 401 sur le webhook** | Le mot de passe client (`TEAMS_BOT_APP_PASSWORD`) est expiré ou incorrect. | Régénérez un secret client dans *Bot management > Client secrets* et mettez à jour ArcIA. |
+| **Erreur HTTP 401 / 500 sur le webhook** | Le mot de passe client (`TEAMS_BOT_APP_PASSWORD`) est expiré, incorrect ou le tenant ne correspond pas. | Régénérez un secret client dans *Bot management > Client secrets* ou vérifiez `tenant_id`. |
+| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.4 (routage double `/api/teams/messages` et `/api/teams/messages/`). |

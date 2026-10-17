@@ -162,6 +162,10 @@ teams_bot:
   app_id: "00000000-0000-0000-0000-000000000000"
   app_password: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
+  # [Optionnel] Tenant ID (GUID) requis si le bot Azure a été créé en mode 'Single Tenant'
+  # Si omis, le bot fonctionne en mode 'Multi Tenant' (ou hérite de entra_id_sso.tenant_id si actif).
+  tenant_id: ""
+
   # Prompt système injecté pour personnaliser le comportement du Bot Teams
   system_prompt: "Tu es ArcIA, l'assistant et orchestrateur agentique d'entreprise. Réponds de façon synthétique, professionnelle et structurée en Markdown."
 
