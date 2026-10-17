@@ -242,7 +242,11 @@ async def health(request: web.Request) -> web.Response:
 
 
 app = web.Application()
-# Routes sans et avec slash de fin pour tolérer les variations de configuration Azure Bot Service
+# Routes universelles Teams (/api/messages) et spécifiques ArcIA (/api/teams/messages)
+app.router.add_post("/api/messages", messages)
+app.router.add_post("/api/messages/", messages)
+app.router.add_get("/api/messages", messages_info)
+app.router.add_get("/api/messages/", messages_info)
 app.router.add_post("/api/teams/messages", messages)
 app.router.add_post("/api/teams/messages/", messages)
 app.router.add_get("/api/teams/messages", messages_info)

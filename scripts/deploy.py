@@ -12,6 +12,7 @@ import sys
 import re
 import json
 import time
+import base64
 import secrets
 import hashlib
 import argparse
@@ -318,9 +319,16 @@ class K8sRunner:
             raise ValueError(f"Mode d'exécution inconnu : {self.mode}")
 
     def apply_manifest(self, manifest_yaml: str) -> None:
-        """Applique un manifeste YAML via stdin."""
+        """Applique un manifeste YAML via stdin (avec fallback replace en cas de conflit de schéma StrategicMerge)."""
         rc, out, err = self.run(["apply", "-f", "-"], stdin_input=manifest_yaml)
         if rc != 0:
+            combined = (err or "") + "\n" + (out or "")
+            if any(k in combined for k in ("may not be specified when", "field is immutable", "conflict")):
+                # En cas de transition de type sur une clé env (ex: value <-> valueFrom) ou conflit de schéma,
+                # kubectl replace remplace directement les spécifications sans fusion conflictuelle
+                rc_rep, out_rep, err_rep = self.run(["replace", "-f", "-"], stdin_input=manifest_yaml)
+                if rc_rep == 0:
+                    return
             raise RuntimeError(f"Échec de l'application du manifeste :\n{err or out}")
 
 # -----------------------------------------------------------------------------
@@ -670,6 +678,15 @@ metadata:
         "arcia-presidio-master-key"
     }
 
+    def _get_existing_cluster_secret(secret_name: str, key_name: str) -> Optional[str]:
+        try:
+            rc_s, out_s, _ = runner.run(["get", "secret", secret_name, f"-n={namespace}", "-o", f"jsonpath={{.data.{key_name}}}"])
+            if rc_s == 0 and out_s.strip():
+                return base64.b64decode(out_s.strip()).decode("utf-8")
+        except Exception:
+            pass
+        return None
+
     # 1. enterprise-llm-secret
     openrouter_key = llm_cfg.get("openrouter_api_key", "")
     runner.apply_manifest(make_secret_manifest("enterprise-llm-secret", namespace, {
@@ -679,16 +696,16 @@ metadata:
     # 2. litellm-secret (Master key, OpenRouter key, DB password & URL, Salt key)
     litellm_master = llm_cfg.get("master_key", "")
     if not litellm_master or litellm_master in KNOWN_INSECURE_SECRETS:
-        litellm_master = f"sk-arcia-{secrets.token_urlsafe(32)}"
-        log_info(" -> Génération automatique d'une Master Key LiteLLM cryptographiquement sécurisée.")
+        litellm_master = _get_existing_cluster_secret("litellm-secret", "master-key") or f"sk-arcia-{secrets.token_urlsafe(32)}"
+        log_info(" -> Génération ou préservation de la Master Key LiteLLM.")
 
     litellm_salt = llm_cfg.get("salt_key", "")
     if not litellm_salt or litellm_salt in KNOWN_INSECURE_SECRETS:
-        litellm_salt = secrets.token_hex(16)
+        litellm_salt = _get_existing_cluster_secret("litellm-secret", "salt-key") or secrets.token_hex(16)
 
     litellm_db_pass = llm_cfg.get("db_password", "")
     if not litellm_db_pass or litellm_db_pass in KNOWN_INSECURE_SECRETS:
-        litellm_db_pass = f"ArcIA_DB_{secrets.token_urlsafe(24)}"
+        litellm_db_pass = _get_existing_cluster_secret("litellm-secret", "db-password") or f"ArcIA_DB_{secrets.token_urlsafe(24)}"
 
     litellm_db_url = f"postgresql://litellm:{litellm_db_pass}@litellm-db.{namespace}.svc:5432/litellm"
 
@@ -703,10 +720,10 @@ metadata:
     # 3. hermes-gateway-secret
     hermes_key = hermes_cfg.get("api_token", "")
     if not hermes_key or hermes_key in KNOWN_INSECURE_SECRETS:
-        hermes_key = f"arcia-pat-{secrets.token_urlsafe(24)}"
+        hermes_key = _get_existing_cluster_secret("hermes-gateway-secret", "api-server-key") or f"arcia-pat-{secrets.token_urlsafe(24)}"
     hermes_pass = hermes_cfg.get("admin_password", "")
     if not hermes_pass or hermes_pass in KNOWN_INSECURE_SECRETS:
-        hermes_pass = secrets.token_urlsafe(16)
+        hermes_pass = _get_existing_cluster_secret("hermes-gateway-secret", "admin-password") or secrets.token_urlsafe(16)
 
     runner.apply_manifest(make_secret_manifest("hermes-gateway-secret", namespace, {
         "api-server-key": hermes_key,
@@ -716,7 +733,7 @@ metadata:
     # 4. presidio-secret
     presidio_key = presidio_cfg.get("master_key", "")
     if not presidio_key or presidio_key in KNOWN_INSECURE_SECRETS:
-        presidio_key = f"arcia-presidio-{secrets.token_urlsafe(24)}"
+        presidio_key = _get_existing_cluster_secret("presidio-secret", "master-key") or f"arcia-presidio-{secrets.token_urlsafe(24)}"
     runner.apply_manifest(make_secret_manifest("presidio-secret", namespace, {
         "master-key": presidio_key
     }))
@@ -897,7 +914,14 @@ spec:
     # Construction dynamique des routes Ingress
     teams_path_block = ""
     if teams_cfg.get("enabled"):
-        teams_path_block = """      - path: /api/teams/messages
+        teams_path_block = """      - path: /api/messages
+        pathType: Prefix
+        backend:
+          service:
+            name: teams-bot-adapter
+            port:
+              number: 3978
+      - path: /api/teams/messages
         pathType: Prefix
         backend:
           service:

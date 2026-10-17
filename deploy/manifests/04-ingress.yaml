@@ -23,6 +23,13 @@ spec:
             name: oauth2-proxy
             port:
               number: 4180
+      - path: /api/messages
+        pathType: Prefix
+        backend:
+          service:
+            name: teams-bot-adapter
+            port:
+              number: 3978
       - path: /api/teams/messages
         pathType: Prefix
         backend:

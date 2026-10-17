@@ -40,17 +40,24 @@ spec:
           limits:
             cpu: 1000m
             memory: 1536Mi
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 30
         readinessProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 45
+          initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 15
           periodSeconds: 20
         volumeMounts:
         - name: code

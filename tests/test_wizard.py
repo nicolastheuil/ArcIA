@@ -534,6 +534,44 @@ llm_gateway:
                 self.assertEqual(phase["status"], "done")
 
 
+    def test_microservices_image_bump_protection(self):
+        """Vérifie que les microservices internes ne sont pas marqués comme bumpables et ne sont pas altérés."""
+        res = wizard.check_components_updates(check_online=False)
+        components_map = {c["id"]: c for c in res["components"]}
+        self.assertFalse(components_map["presidio-dlp"]["is_bumpable_image"])
+        self.assertFalse(components_map["teams-bot"]["is_bumpable_image"])
+        self.assertFalse(components_map["arcia-core"]["is_bumpable_image"])
+        self.assertTrue(components_map["litellm-proxy"]["is_bumpable_image"])
+        self.assertTrue(components_map["open-webui"]["is_bumpable_image"])
+
+        # Vérifier que update_manifest_image_tag protège formellement les manifests python:3.11-slim
+        self.assertIsNone(wizard.update_manifest_image_tag("deploy/manifests/03-presidio.yaml", "2.2.364"))
+        self.assertIsNone(wizard.update_manifest_image_tag("deploy/manifests/08-teams-bot.yaml", "4.17.1"))
+
+    def test_repair_corrupted_manifest_images(self):
+        """Vérifie que repair_corrupted_manifest_images restaure python:3.11-slim si un tag upstream a été injecté."""
+        presidio_path = os.path.join(self.root_dir, "deploy", "manifests", "03-presidio.yaml")
+        with open(presidio_path, "r", encoding="utf-8") as f:
+            original_content = f.read()
+
+        try:
+            # Simuler une corruption par un ancien wizard
+            corrupted = original_content.replace("python:3.11-slim", "python:2.2.364")
+            with open(presidio_path, "w", encoding="utf-8") as f:
+                f.write(corrupted)
+
+            repaired = wizard.repair_corrupted_manifest_images()
+            self.assertIn("deploy/manifests/03-presidio.yaml", repaired)
+
+            with open(presidio_path, "r", encoding="utf-8") as f:
+                restored = f.read()
+            self.assertIn("image: python:3.11-slim", restored)
+            self.assertNotIn("python:2.2.364", restored)
+        finally:
+            with open(presidio_path, "w", encoding="utf-8") as f:
+                f.write(original_content)
+
+
 if __name__ == "__main__":
     unittest.main()
 

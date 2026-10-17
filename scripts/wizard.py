@@ -1519,6 +1519,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v0.4",
         "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
         "wave": 1,
+        "is_bumpable_image": False,
         "description": "Code source des microservices (Presidio DLP, Plugin Gouvernance/CCR Hermes, Bot Teams), branding et skills natives (Ponytail, Graphify, Public-APIs)."
     },
     {
@@ -1533,6 +1534,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "2.2.354",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 2,
+        "is_bumpable_image": False,
         "description": "Double barrière de détection et caviardage des secrets, adresses IP et données personnelles (PII fr/en) en mode fail-closed."
     },
     {
@@ -1547,6 +1549,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v7.6.0",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /ping",
         "wave": 2,
+        "is_bumpable_image": True,
         "description": "Passerelle d'authentification OpenID Connect (ForwardAuth Traefik) protégeant les accès collaborateurs et studios."
     },
     {
@@ -1561,6 +1564,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v1.72.6-stable",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health/liveliness",
         "wave": 3,
+        "is_bumpable_image": True,
         "description": "Passerelle universelle exposant les 5 profils canoniques (simple/* & agentic/*), ZDR forcé, quotas PostgreSQL et guardrail Presidio."
     },
     {
@@ -1575,6 +1579,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v0.2.0",
         "strategy": "Mise à jour atomique + Préservation verrou SQLite state.db + Sync Power Users",
         "wave": 4,
+        "is_bumpable_image": True,
         "description": "Moteur d'agents autonomes, Studio Kanban (:9119), Gateway API/WS (:8642) et pods dédiés des Power Users sur Kubernetes."
     },
     {
@@ -1589,6 +1594,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v4.16.0",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 4,
+        "is_bumpable_image": False,
         "description": "Passerelle Bot Framework pour Microsoft Teams (réponses rapides simple/auto et délégation /agent vers Hermes)."
     },
     {
@@ -1603,6 +1609,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "default_version": "v0.5.10",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health",
         "wave": 5,
+        "is_bumpable_image": True,
         "description": "Portail web conversationnel d'entreprise avec RAG ChromaDB, SSO Entra ID et double raccordement simple/* et agentic/*."
     }
 ]
@@ -1746,6 +1753,7 @@ def check_components_updates(check_online: bool = True) -> Dict[str, Any]:
             "strategy": comp["strategy"],
             "wave": comp["wave"],
             "order": comp["wave"],
+            "is_bumpable_image": comp.get("is_bumpable_image", True),
             "description": comp["description"]
         }
 
@@ -1829,10 +1837,45 @@ def get_initial_update_phases() -> List[Dict[str, Any]]:
         }
     ]
 
+def repair_corrupted_manifest_images() -> List[str]:
+    """Répare automatiquement les manifestes altérés par d'anciennes versions (ex: python:2.2.364 ou python:4.17.1)."""
+    repaired_files = []
+    presidio_path = os.path.join(ROOT_DIR, "deploy", "manifests", "03-presidio.yaml")
+    if os.path.isfile(presidio_path):
+        try:
+            with open(presidio_path, "r", encoding="utf-8") as f:
+                c = f.read()
+            if re.search(r'^\s*image:\s*python:(?:2\.|[^\s#]*2\.2)', c, re.MULTILINE):
+                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.11-slim', c, flags=re.MULTILINE)
+                with open(presidio_path, "w", encoding="utf-8") as f:
+                    f.write(repaired)
+                repaired_files.append("deploy/manifests/03-presidio.yaml")
+        except Exception:
+            pass
+
+    teams_path = os.path.join(ROOT_DIR, "deploy", "manifests", "08-teams-bot.yaml")
+    if os.path.isfile(teams_path):
+        try:
+            with open(teams_path, "r", encoding="utf-8") as f:
+                c = f.read()
+            if re.search(r'^\s*image:\s*python:(?:4\.|[^\s#]*4\.1)', c, re.MULTILINE):
+                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.11-slim', c, flags=re.MULTILINE)
+                with open(teams_path, "w", encoding="utf-8") as f:
+                    f.write(repaired)
+                repaired_files.append("deploy/manifests/08-teams-bot.yaml")
+        except Exception:
+            pass
+    return repaired_files
+
 def update_manifest_image_tag(manifest_rel_path: str, new_tag: str) -> Optional[str]:
     """Met à jour proprement le tag d'image dans un manifeste Kubernetes si demandé."""
     if not manifest_rel_path or not manifest_rel_path.endswith(".yaml") or not new_tag:
         return None
+    # Protection formelle : les microservices internes reposent sur python:3.11-slim
+    # Leurs versions logicielles upstream ne doivent JAMAIS écraser l'image Python du conteneur.
+    if any(m in manifest_rel_path for m in ("03-presidio.yaml", "08-teams-bot.yaml")):
+        return None
+
     full_path = os.path.join(ROOT_DIR, manifest_rel_path.replace("/", os.sep))
     if not os.path.isfile(full_path):
         return None
@@ -1844,8 +1887,16 @@ def update_manifest_image_tag(manifest_rel_path: str, new_tag: str) -> Optional[
             prefix = match.group(1)
             img_full = match.group(2)
             base_repo = img_full.split("@")[0].split(":")[0]
-            if "berriai/litellm" in base_repo and not new_tag.startswith("main-"):
-                final_tag = f"main-{new_tag}"
+            # Protection absolue : ne jamais altérer l'interpréteur Python standard
+            if base_repo in ("python", "library/python") or base_repo.endswith("/python"):
+                return match.group(0)
+
+            if "berriai/litellm" in base_repo:
+                # Si le tag commence par v (ex: v1.105.1) ou main-, respecter le tag direct
+                if new_tag.startswith("main-") or new_tag.startswith("v"):
+                    final_tag = new_tag
+                else:
+                    final_tag = f"main-{new_tag}"
             else:
                 final_tag = new_tag
             return f"{prefix}{base_repo}:{final_tag}"
@@ -1949,10 +2000,19 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
         # PHASE 2 : Hot-Sync ConfigMaps, Skills & Manifestes
         # =====================================================================
         _set_update_phase(1, "running", "\n[PHASE 2/6] Synchronisation à chaud des ConfigMaps, Skills et tags d'images...")
+        repaired = repair_corrupted_manifest_images()
+        for r_file in repaired:
+            _append_update_log(f"[INFO] Réparation automatique du manifeste '{r_file}' vers l'image python:3.11-slim.")
+
         if bump_image_tags and last_update_check_cache.get("components"):
             for comp_info in last_update_check_cache["components"]:
                 cid = comp_info["id"]
                 if cid in selected_components and comp_info.get("update_available"):
+                    # Protection stricte : les microservices internes sur python:3.11-slim ne bumpent pas leur image
+                    if not comp_info.get("is_bumpable_image", True) or cid in ("presidio-dlp", "teams-bot", "arcia-core"):
+                        _append_update_log(f"[INFO] {comp_info['name']} : microservice interne (code synchronisé via ConfigMap, image python:3.11-slim préservée).")
+                        continue
+
                     new_tag = comp_info.get("raw_latest_tag") or comp_info.get("latest_version")
                     if dry_run:
                         _append_update_log(f"[INFO] [Dry-Run] Mise à jour du tag d'image pour {comp_info['name']} -> {new_tag} ({comp_info['manifest']})")
@@ -2027,7 +2087,7 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             # Déclencher un rollout restart propre pour prendre en compte les ConfigMaps actualisés et la nouvelle image
             runner.run(["rollout", "restart", f"deployment/{dep_name}", f"-n={namespace}"])
             _append_update_log(f"[INFO] Attente de la sonde de disponibilité (readinessProbe) pour '{dep_name}'...")
-            rc_ro, out_ro, err_ro = runner.run(["rollout", "status", f"deployment/{dep_name}", f"-n={namespace}", "--timeout=180s"])
+            rc_ro, out_ro, err_ro = runner.run(["rollout", "status", f"deployment/{dep_name}", f"-n={namespace}", "--timeout=360s"])
             if rc_ro == 0:
                 _append_update_log(f"[OK] '{dep_name}' mis à jour avec succès sans aucune interruption de service.")
                 with update_lock:
