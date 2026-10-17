@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ArcIADenyListConfig",
+  "description": "Schéma de validation des Deny-Lists et termes confidentiels propres à une instance ArcIA.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "organization": {
+      "type": "string",
+      "description": "Identifiant de l'organisation pour traçabilité (optionnel)."
+    },
+    "entities": {
+      "type": "object",
+      "description": "Dictionnaire des catégories d'entités sensibles et de leurs termes associés.",
+      "properties": {
+        "CLIENT_PROJECT": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Noms de projets, noms de code ou clients à pseudonymiser."
+        },
+        "INTERNAL_HOSTNAME": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Noms d'hôtes, VM, hyperviseurs ou ressources internes spécifiques."
+        },
+        "FORBIDDEN_TERMS": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Termes confidentiels génériques à caviarder impérativement."
+        }
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "required": ["entities"],
+  "additionalProperties": false
+}

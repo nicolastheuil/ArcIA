@@ -66,10 +66,11 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
   👉 *Détail complet :* [Guide Inférence LiteLLM](docs/guides/inference-litellm.md) · [Guide Chaîne de Routage](docs/guides/chaine-de-routage.md)
 
 ### 🛡️ 4. Gouvernance, Double Barrière DLP & Sécurité
-* **Double Barrière Presidio DLP (port 8080)** :
-  * **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance (`services/hermes/plugin.py`) caviarde les prompts et résultats d'outils via `/sanitize` *avant* écriture dans `state.db` et *avant* appel LLM.
-  * **Barrière 2 (Aval — LiteLLM Proxy)** : Guardrail systématique en interception pré-inférence (`pre_call`, `default_on: true`) via `/analyze` et `/anonymize` pour tous les flux directs (`simple/*`, Teams, `/v1`).
-* **Mode Fail-Closed & ZDR** : En cas d'indisponibilité du module DLP, la requête est bloquée net. La Zéro Rétention de Données (`zdr: true`) est forcée sur OpenRouter.  
+* **Double Barrière Presidio DLP Durcie en 4 Couches (port 8080)** :
+  * **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance (`services/hermes/plugin.py`) filtre et pseudonymise via `/sanitize` *avant* écriture dans `state.db` et *avant* appel LLM, avec ré-hydratation inverse transparente (`/deanonymize`).
+  * **Barrière 2 (Aval — LiteLLM Proxy)** : Guardrail natif obligatoire en interception pré-inférence (`pre_call`, `default_on: true`) via `/analyze` et `/anonymize` pour 100 % des flux traversant la passerelle (`simple/*`, Teams, `/v1`).
+  * **4 Couches On-Premise CPU** : Couche 1 Déterministe (rejet fail-closed 422 sur clés PEM/SSH et kubeconfig, infra CIDR/MAC/FQDN), Couche 2 NER & Deny-Lists dynamiques (`FR_NIR`, `FR_SIRET`), Couche 3 Pseudonymisation cohérente réversible via Stateful Vault éphémère in-memory (0 écriture disque), Couche 4 Relais LiteLLM verrouillé en Zero Data Retention (`zdr: true`, `data_collection: deny`, `allow_fallbacks: false`).
+* **Mode Fail-Closed & ZDR Forcé** : En cas d'indisponibilité ou d'erreur DLP, la requête est immédiatement bloquée net.  
   👉 *Détail complet :* [Guide Confidentialité Presidio DLP](docs/guides/confidentialite-presidio.md) · [Politique de Sécurité](docs/guides/securite.md)
 
 ### 🗜️ 5. Sobriété Tokenmaxing & Outillage

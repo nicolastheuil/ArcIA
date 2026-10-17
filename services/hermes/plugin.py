@@ -272,19 +272,31 @@ def compress_large_json(raw_text: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# 3. Barrière DLP Presidio en Amont (Fail-Closed)
+# -----------------------------------------------------------------------------
+# 3. Barrière DLP Presidio en Amont (Fail-Closed & Pseudonymisation Réversible)
 # -----------------------------------------------------------------------------
 
-def sanitize_via_presidio(text: str, language: str = "fr") -> str:
+PRESIDIO_DEANONYMIZE_URL = os.environ.get(
+    "PRESIDIO_DEANONYMIZE_URL",
+    PRESIDIO_DLP_URL.replace("/sanitize", "/deanonymize")
+)
+
+
+def sanitize_via_presidio(text: str, language: str = "fr", session_id: Optional[str] = None) -> str:
     """
     Appelle le microservice interne Presidio DLP pour assainir un texte
     avant persistance SQLite ou appel au modèle.
-    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception si Presidio est injoignable.
+    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception si Presidio est injoignable
+    ou rejette un dump de secret brut (HTTP 422).
     """
     if not text or not text.strip():
         return text
 
-    req_body = json.dumps({"text": text, "language": language}).encode("utf-8")
+    payload = {"text": text, "language": language}
+    if session_id:
+        payload["session_id"] = session_id
+
+    req_body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         PRESIDIO_DLP_URL,
         data=req_body,
@@ -294,13 +306,44 @@ def sanitize_via_presidio(text: str, language: str = "fr") -> str:
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
             if resp.status == 200:
-                payload = json.loads(resp.read().decode("utf-8"))
-                return payload.get("sanitized_text", payload.get("text", text))
+                resp_data = json.loads(resp.read().decode("utf-8"))
+                return resp_data.get("sanitized_text", resp_data.get("text", text))
             if PRESIDIO_FAIL_CLOSED:
                 raise RuntimeError(f"Presidio DLP returned HTTP {resp.status} (Fail-Closed)")
+    except urllib.error.HTTPError as http_err:
+        err_msg = http_err.read().decode("utf-8", errors="replace")
+        if http_err.code == 422:
+            raise RuntimeError(f"Presidio DLP Fail-Closed [422 Rejet de secret brut] : {err_msg}")
+        if PRESIDIO_FAIL_CLOSED:
+            raise RuntimeError(f"Presidio DLP HTTP {http_err.code} Fail-Closed : {err_msg}")
     except Exception as exc:
         if PRESIDIO_FAIL_CLOSED:
             raise RuntimeError(f"Presidio DLP unreachable or failed in Fail-Closed mode: {exc}") from exc
+    return text
+
+
+def deanonymize_via_presidio(text: str, session_id: Optional[str] = None) -> str:
+    """
+    Ré-hydrate la réponse générée par le LLM en remplaçant les jetons [TYPE_01]
+    par leurs valeurs originales depuis le Vault éphémère de session.
+    """
+    if not text or not text.strip() or not session_id:
+        return text
+
+    req_body = json.dumps({"text": text, "session_id": session_id}).encode("utf-8")
+    req = urllib.request.Request(
+        PRESIDIO_DEANONYMIZE_URL,
+        data=req_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                resp_data = json.loads(resp.read().decode("utf-8"))
+                return resp_data.get("text", text)
+    except Exception:
+        pass
     return text
 
 
@@ -308,16 +351,21 @@ def sanitize_via_presidio(text: str, language: str = "fr") -> str:
 # 4. Hooks Hermes Agent & CLI
 # -----------------------------------------------------------------------------
 
-def on_pre_llm_call(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def on_pre_llm_call(messages: List[Dict[str, Any]], session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Hook Hermes appelé avant l'envoi des messages au LLM (Barrière DLP amont)."""
     sanitized_messages = []
     for msg in messages:
         new_msg = dict(msg)
         content = new_msg.get("content")
         if isinstance(content, str) and content.strip():
-            new_msg["content"] = sanitize_via_presidio(content)
+            new_msg["content"] = sanitize_via_presidio(content, session_id=session_id)
         sanitized_messages.append(new_msg)
     return sanitized_messages
+
+
+def on_post_llm_response(response_text: str, session_id: Optional[str] = None) -> str:
+    """Hook Hermes appelé sur la réponse du LLM pour ré-hydrater les jetons réversibles."""
+    return deanonymize_via_presidio(response_text, session_id=session_id)
 
 
 def on_tool_result(tool_name: str, command: str, result: str) -> str:
@@ -351,11 +399,19 @@ def main():
     p_ret.add_argument("--limit", type=int, default=100, help="Nombre maximum de lignes (défaut: 100)")
     p_ret.add_argument("--key", type=str, default=None, help="Clé JSON spécifique à extraire")
 
+    p_dean = sub.add_parser("deanonymize", help="Ré-hydrater un texte avec jetons depuis le Vault Presidio")
+    p_dean.add_argument("text", help="Texte contenant des jetons [TYPE_01]")
+    p_dean.add_argument("--session-id", required=True, help="Identifiant de session du Vault")
+
     args = parser.parse_args()
     if args.cmd == "retrieve":
         res = ccr_retrieve(args.hash, offset=args.offset, limit=args.limit, json_key=args.key)
         print(json.dumps(res, indent=2, ensure_ascii=False))
         sys.exit(0 if res.get("found") else 1)
+    elif args.cmd == "deanonymize":
+        res = deanonymize_via_presidio(args.text, session_id=args.session_id)
+        print(res)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

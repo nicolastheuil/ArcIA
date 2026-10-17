@@ -19,7 +19,9 @@ data:
           api_key: os.environ/OPENROUTER_API_KEY
           extra_body:
             provider:
+              data_collection: "deny"
               zdr: true
+              allow_fallbacks: false
 
       # 2. simple/auto : direct LiteLLM vers OpenRouter Auto (Défaut rapide)
       - model_name: "simple/auto"
@@ -28,7 +30,9 @@ data:
           api_key: os.environ/OPENROUTER_API_KEY
           extra_body:
             provider:
+              data_collection: "deny"
               zdr: true
+              allow_fallbacks: false
 
       # 3. agentic/expert : modèle haute précision pour l'orchestration agentique Hermes
       - model_name: "agentic/expert"
@@ -37,7 +41,9 @@ data:
           api_key: os.environ/OPENROUTER_API_KEY
           extra_body:
             provider:
+              data_collection: "deny"
               zdr: true
+              allow_fallbacks: false
 
     router_settings:
       fallbacks:

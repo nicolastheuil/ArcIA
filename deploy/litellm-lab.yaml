@@ -9,7 +9,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
+          data_collection: "deny"
           zdr: true
+          allow_fallbacks: false
 
   # 2. simple/auto : direct LiteLLM vers OpenRouter Auto
   - model_name: "simple/auto"
@@ -18,7 +20,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
+          data_collection: "deny"
           zdr: true
+          allow_fallbacks: false
 
   # 3. agentic/free : profil agentique gratuit via OpenRouter Free (ZDR)
   - model_name: "agentic/free"
@@ -27,7 +31,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
+          data_collection: "deny"
           zdr: true
+          allow_fallbacks: false
 
   # 4. agentic/auto : profil agentique standard équilibré via OpenRouter Auto (ZDR)
   - model_name: "agentic/auto"
@@ -36,7 +42,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
+          data_collection: "deny"
           zdr: true
+          allow_fallbacks: false
 
   # 5. agentic/expert : profil agentique raisonnement avancé via DeepSeek V4.1 Flash (ZDR)
   - model_name: "agentic/expert"
@@ -45,7 +53,9 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
       extra_body:
         provider:
+          data_collection: "deny"
           zdr: true
+          allow_fallbacks: false
 
 router_settings:
   fallbacks:

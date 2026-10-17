@@ -119,33 +119,40 @@ sequenceDiagram
     Front->>Hermes: POST /v1/chat/completions (model="agentic/auto")
     
     Note over Hermes: Barrière 1 DLP (Plugin Amont)<br/>Avant persistance state.db
-    Hermes->>DLP: POST /sanitize
-    DLP-->>Hermes: Prompt assaini
-    
-    Hermes->>Gateway: POST /v1/chat/completions (model="simple/auto")
-    Gateway->>DLP: Barrière 2 DLP : POST /analyze + POST /anonymize
-    alt Presidio DLP indisponible (Fail-Closed)
-        Gateway-->>Hermes: HTTP 503 Guardrail Unavailable
-        Hermes-->>Front: Requête bloquée par sécurité DLP
-    else Analyse réussie
-        DLP-->>Gateway: Prompt vérifié
-        Gateway->>Cloud: POST /v1/chat/completions (ZDR forcé)
-        Cloud-->>Gateway: Réponse / Tool Call (ex: appel public-apis)
-        Gateway-->>Hermes: Réponse intermédiaire
+    Hermes->>DLP: POST /sanitize (Pseudonymisation cohérente [TYPE_01])
+    alt Détection Clé Privée / Kubeconfig brut
+        DLP-->>Hermes: HTTP 422 Fail-Closed (Blocage immédiat)
+        Hermes-->>Front: Erreur explicite (Traitement local requis)
+    else Assainissement réussi
+        DLP-->>Hermes: Prompt assaini [IPV4_01, HOST_01...] + Session ID
         
-        opt Appel d'Outil Autonome & CCR Tokenmaxing
-            Hermes->>Hermes: Exécution skill local ou API (HTTPS :443)
-            Hermes->>Hermes: Compression CCR (> 8 Ko JSON) + Cache SHA-256
-            Hermes->>DLP: POST /sanitize (Assainissement sortie d'outil)
-            Hermes->>Gateway: Inférence finale avec résultat d'outil
-            Gateway->>Cloud: Synthèse
-            Cloud-->>Gateway: Réponse finale
-            Gateway-->>Hermes: Réponse finale
+        Hermes->>Gateway: POST /v1/chat/completions (model="simple/auto")
+        Gateway->>DLP: Barrière 2 DLP : POST /analyze + POST /anonymize
+        alt Presidio DLP indisponible (Fail-Closed)
+            Gateway-->>Hermes: HTTP 503 Guardrail Unavailable
+            Hermes-->>Front: Requête bloquée par sécurité DLP
+        else Analyse réussie
+            DLP-->>Gateway: Prompt vérifié
+            Gateway->>Cloud: POST /v1/chat/completions (ZDR forcé : data_collection=deny)
+            Cloud-->>Gateway: Réponse / Tool Call (avec jetons [TYPE_01])
+            Gateway-->>Hermes: Réponse intermédiaire
+            
+            opt Appel d'Outil Autonome & CCR Tokenmaxing
+                Hermes->>Hermes: Exécution skill local ou API (HTTPS :443)
+                Hermes->>Hermes: Compression CCR (> 8 Ko JSON) + Cache SHA-256
+                Hermes->>DLP: POST /sanitize (Assainissement sortie d'outil)
+                Hermes->>Gateway: Inférence finale avec résultat d'outil
+                Gateway->>Cloud: Synthèse
+                Cloud-->>Gateway: Réponse finale
+                Gateway-->>Hermes: Réponse finale (jetons [TYPE_01])
+            end
+            
+            Hermes->>DLP: POST /deanonymize (Ré-hydratation des jetons depuis le Vault éphémère)
+            DLP-->>Hermes: Réponse ré-hydratée en clair
+            Hermes->>Hermes: Persistance de la session assainie dans state.db
+            Hermes-->>Front: Réponse finale claire streaming/texte
+            Front-->>User: Affichage dans l'interface
         end
-        
-        Hermes->>Hermes: Persistance de la session dans state.db
-        Hermes-->>Front: Réponse finale streaming/texte
-        Front-->>User: Affichage dans l'interface
     end
 ```
 

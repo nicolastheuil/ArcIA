@@ -1,0 +1,22 @@
+{
+  "$schema": "../schemas/arcia-deny-list.schema.json",
+  "version": "1.0",
+  "organization": "SyntheticDemoOrg",
+  "entities": {
+    "CLIENT_PROJECT": [
+      "ProjectZeus",
+      "ProjetPegase",
+      "FalconCore"
+    ],
+    "INTERNAL_HOSTNAME": [
+      "vm-esxi-prod01",
+      "san-storage-vault01",
+      "k3s-master-node01"
+    ],
+    "FORBIDDEN_TERMS": [
+      "ConfidentielDefense",
+      "TopSecretProjetAlpha",
+      "StrictementConfidentiel"
+    ]
+  }
+}
