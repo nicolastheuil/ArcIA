@@ -81,62 +81,36 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 
 ---
 
+<a id="-architecture-globale"></a>
 ## 🏛️ Architecture Globale (Vue Macro-Concepts)
 
-Plutôt qu'un empilement d'outils disparates, **ArcIA** structure le flux de chaque requête autour de **5 grands blocs fonctionnels** garantissant souveraineté, sécurité DLP et maîtrise des coûts :
+Plutôt qu'un empilement technique complexe, **ArcIA** s'articule autour de **5 macro-concepts** qui structurent le parcours de chaque requête :
 
 ```mermaid
 flowchart LR
-    subgraph Users ["1. 👥 Utilisateurs & Canaux"]
-        direction TB
-        U1["Utilisateurs Standards<br/>(Portail Web & Microsoft Teams)"]
-        U2["Power Users<br/>(Portail Web + Studio Dédié)"]
-    end
+    U["👥 1. Utilisateurs & Canaux<br/>• Utilisateurs Standards<br/>• Power Users (Pod dédié)<br/>• Web & Microsoft Teams"]
+    P["🔐 2. Portail & SSO<br/>• Open-WebUI (Chat & RAG)<br/>• SSO Microsoft Entra ID"]
+    A["🤖 3. Orchestration Agentique<br/>• Hermes Agent & Studio<br/>• Skills (Graphify, Ponytail)<br/>• Compression CCR / RTK"]
+    D["🛡️ 4. Gouvernance & DLP<br/>• Double Barrière Presidio<br/>• Anonymisation PII Fail-Closed"]
+    L["🧠 5. Passerelle & Modèles IA<br/>• LiteLLM Proxy (Quotas & ZDR)<br/>• Cloud OpenRouter / GPU Local"]
 
-    subgraph Access ["2. 🔐 Accès & Portail Unifié"]
-        direction TB
-        SSO["SSO Microsoft Entra ID<br/>(TLS & ForwardAuth)"]
-        WebUI["Portail Open-WebUI<br/>(RAG Documentaire & Chat)"]
-    end
+    U ==> P
+    P ==>|"Mode Simple (Direct)"| D
+    P ==>|"Mode Agentic (Missions)"| A
+    A ==> D
+    D ==> L
 
-    subgraph Orchestration ["3. 🤖 Orchestration Agentique"]
-        direction TB
-        HermesShared["Hermes Agent Partagé<br/>(Missions & Outils)"]
-        HermesDedicated["Pods Hermes Dédiés<br/>(Isolés par Power User)"]
-        Skills["Skills & Tokenmaxing<br/>(Graphify AST, Ponytail, CCR)"]
-    end
-
-    subgraph Shield ["4. 🛡️ Gouvernance & DLP"]
-        direction TB
-        Presidio["Double Barrière Presidio<br/>(Anonymisation PII Fail-Closed)"]
-        Audit["Quotas, Budgets & ZDR<br/>(Zéro Rétention Cloud)"]
-    end
-
-    subgraph Inference ["5. 🧠 Passerelle & Modèles IA"]
-        direction TB
-        LiteLLM["LiteLLM Proxy<br/>(5 Profils : simple/* & agentic/*)"]
-        Models["Modèles Cloud (OpenRouter)<br/>ou GPU Local (vLLM)"]
-    end
-
-    Users ==> Access
-    Access ==>|"Flux Directs (simple/*)"| Shield
-    Access ==>|"Missions (agentic/*)"| Orchestration
-    Orchestration <==> Skills
-    Orchestration ==> Shield
-    Shield ==> Inference
-    LiteLLM ==> Models
-
-    style Users fill:#0C2762,stroke:#1659E4,stroke-width:2px,color:#F8FAFC
-    style Access fill:#0F172A,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
-    style Orchestration fill:#0C2762,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
-    style Shield fill:#1E1B4B,stroke:#FA7B4E,stroke-width:2px,color:#F8FAFC
-    style Inference fill:#0F172A,stroke:#F1C557,stroke-width:2px,color:#F8FAFC
+    style U fill:#0C2762,stroke:#1659E4,stroke-width:2px,color:#F8FAFC
+    style P fill:#0F172A,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
+    style A fill:#0C2762,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
+    style D fill:#1E1B4B,stroke:#FA7B4E,stroke-width:2px,color:#F8FAFC
+    style L fill:#0F172A,stroke:#F1C557,stroke-width:2px,color:#F8FAFC
 ```
 
 > [!TIP]
-> **📐 Schémas Techniques Détaillés (Pods, Ports, Flux Réseau & Séquences DLP) :**
-> Pour consulter les diagrammes d'infrastructure bas niveau (topologie Kubernetes, ports internes, règles d'Ingress Traefik et séquences d'appels Presidio/LiteLLM), rendez-vous dans la documentation technique :
-> * 🏛️ **[Spécification d'Architecture Complète (`docs/architecture.md`)](docs/architecture.md)** — Topologie des Pods, StatefulSets, volumes PVC et flux réseau détaillés.
+> **📐 Schémas Techniques Détaillés dans `docs/` (Pods, Ports, Flux Réseau & Séquences DLP) :**
+> Pour consulter les diagrammes d'infrastructure complets (topologie Kubernetes, ports internes, règles d'Ingress Traefik et séquences d'appels Presidio/LiteLLM) :
+> * 🏛️ **[Spécification d'Architecture Complète (`docs/architecture.md`)](docs/architecture.md)** — Topologie détaillée des Pods, StatefulSets, volumes PVC et flux réseau.
 > * 🔀 **[Chaîne de Routage & Matrice des Flux (`docs/guides/chaine-de-routage.md`)](docs/guides/chaine-de-routage.md)** — Arbres de décision et diagrammes de séquence de bout en bout.
 
 ---
@@ -152,6 +126,7 @@ flowchart LR
 
 ---
 
+<a id="-démarrage-rapide"></a>
 ## 🚀 Démarrage Rapide & Mise à Jour Zero-Downtime
 
 ArcIA se déploie et se met à jour sur n'importe quel cluster Kubernetes (EKS, AKS, GKE, K3s, kubeadm) ou en mode laboratoire Docker local via son **Centre de Pilotage Graphique (Setup Wizard)**.

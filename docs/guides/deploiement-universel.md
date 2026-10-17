@@ -28,7 +28,7 @@ cd ArcIA
 
 ### Étape 2 : Préparer la configuration (ou lancer le Wizard)
 
-Vous pouvez utiliser l'installeur interactif à la racine du dépôt :
+Vous pouvez utiliser l'installeur et centre de mise à jour interactif à la racine du dépôt (qui inclut la présentation d'architecture sur la page d'accueil, la vérification en ligne des nouvelles versions d'*Open-WebUI, Hermes, LiteLLM, Presidio, OAuth2* et la séquence de mise à jour **Zero-Downtime RollingUpdate**) :
 ```powershell
 # Sous Windows PowerShell
 .\wizard.ps1

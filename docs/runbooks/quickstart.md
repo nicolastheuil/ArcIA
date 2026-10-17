@@ -64,7 +64,13 @@ Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wiz
 7. **Auto-configuration intégrale** : Presidio DLP (double barrière), Open-WebUI, LiteLLM (avec base PostgreSQL 16), le plugin CCR/RTK (`services/hermes/plugin.py`) et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
 8. **Déploiement & Sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
 
-#### Parcours B : Restaurer une instance existante
+#### Parcours B : Mettre à jour l'instance en ligne (Zero-Downtime)
+1. Sur la page d'accueil du Wizard, cliquez sur **« ⬆️ Mettre à jour l'instance (Zero-Downtime) »** (ou sur le bouton `⬆️ Mises à jour` dans l'en-tête).
+2. Le Wizard interroge en direct les dépôts officiels amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy, Teams Bot, ArcIA Core & Skills*) et compare avec les versions de vos manifestes locaux.
+3. Sélectionnez les composants souhaités et lancez la séquence (ou testez-la via **Simuler la séquence (Dry-Run)**).
+4. L'orchestrateur exécute les **6 phases séquentielles** en `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes `readinessProbe` et rollback automatique (`kubectl rollout undo`) en cas d'anomalie, sans aucune coupure de service.
+
+#### Parcours C : Restaurer une instance existante
 1. Indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`) et votre token d'accès.
 2. Saisissez votre **mot de passe maître de déchiffrement**.
 3. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc` et pré-remplit l'intégralité de la configuration.
