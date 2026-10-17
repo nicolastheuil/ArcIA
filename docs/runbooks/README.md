@@ -1,19 +1,32 @@
-# Runbooks d'Exploitation & Guides Opérationnels — ArcIA
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
+  <img src="https://img.shields.io/badge/Runbooks-Exploitation_&_PRA-FA7B4E?style=flat-square" alt="Runbooks">
+</p>
 
-Ce dossier contient les procédures d'exploitation pas-à-pas pour installer, administrer, surveiller et restaurer la plateforme ArcIA en environnement réel.
+# 🛠️ Runbooks d'Exploitation & Procédures Opérationnelles — ArcIA
 
-## Sommaire des Runbooks
+> **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **Runbooks Opérationnels**
 
-| Procédure | Fichier | Objectif |
+Ce dossier regroupe les procédures opérationnelles pas-à-pas destinées aux équipes DevOps, SRE et administrateurs pour installer, mettre à jour sans interruption de service, superviser et restaurer une instance **ArcIA**.
+
+---
+
+## 📋 Sommaire des Runbooks
+
+| Procédure | Fichier | Objectif Opérationnel |
 |---|---|---|
-| **Démarrage Rapide (Quickstart)** | [quickstart.md](quickstart.md) | Guide d'installation complet en 3 étapes : prérequis VMware/Debian, assistant de configuration interactif et premier déploiement vérifié. |
-| **Exploitation & Maintenance Quotidienne** | [exploitation.md](exploitation.md) | Diagnostics des services, consultation des logs, rotation des secrets et gestion des mises à jour des composants. |
-| **Sauvegarde, Restauration & Reconstruction** | [sauvegarde-reconstruction.md](sauvegarde-reconstruction.md) | Sauvegarde chiffrée des volumes persistants (PVCs SQLite/ChromaDB), reprise d'activité après sinistre et reconstruction sur cluster neuf. |
+| 🚀 **Démarrage Rapide (Quickstart)** | **[quickstart.md](quickstart.md)** | Installation complète via `.\wizard.ps1` ou `./wizard.sh`, mise à jour en ligne Zero-Downtime, création de Pods Power Users (`.\scripts\Spawn-PowerUser.ps1`) et recette. |
+| 🔍 **Exploitation & Maintenance (MCO)** | **[exploitation.md](exploitation.md)** | Supervision quotidienne des Pods, consultation des journaux, rotation des secrets, gestion des quotas LiteLLM et mises à jour RollingUpdate. |
+| 🔄 **Sauvegarde, Restauration & PRA** | **[sauvegarde-reconstruction.md](sauvegarde-reconstruction.md)** | Sauvegarde chiffrée (`AES-256-GCM`) du coffre d'instance et des volumes persistants (SQLite / ChromaDB / PostgreSQL), et reconstruction sur cluster neuf. |
 
-## Règle de Qualification des Déploiements
+---
 
-Conformément à la charte d'ingénierie ArcIA :
-* **Proposé** : cible décidée dans les spécifications.
-* **Codé** : scripts et manifests validés dans Git.
-* **Déployé** : appliqué avec succès sur le cluster cible.
-* **Vérifié** : recette fonctionnelle exécutée et journalisée.
+## 🛡️ Règle de Qualification des Opérations
+
+> [!IMPORTANT]
+> Conformément à la charte d'ingénierie ArcIA ([`AGENTS.md`](../../AGENTS.md)), tout état rapporté en exploitation distingue strictement :
+> * **Proposé** : cible décidée dans les spécifications.
+> * **Codé** : scripts et manifestes validés dans Git et couverts par les tests unitaires.
+> * **Déployé** : appliqué avec succès sur le cluster cible.
+> * **Vérifié** : recette fonctionnelle exécutée et contrôles de santé validés de bout en bout.

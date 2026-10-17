@@ -138,6 +138,38 @@
     .recap-card-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); color: white; border: 1px solid var(--border-color); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
     .recap-card-btn:hover { background: var(--accent-blue); }
 
+    /* Homepage Presentation Hero & 4 Pillars */
+    .hero-presentation { background: linear-gradient(135deg, rgba(22, 89, 228, 0.14) 0%, rgba(12, 39, 98, 0.35) 55%, rgba(107, 231, 221, 0.08) 100%); border: 1px solid rgba(107, 231, 221, 0.28); border-radius: 14px; padding: 24px 26px; margin-bottom: 26px; position: relative; overflow: hidden; }
+    .hero-top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .hero-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent-cyan); background: rgba(107, 231, 221, 0.12); border: 1px solid rgba(107, 231, 221, 0.3); padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; }
+    .hero-headline { font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: -0.4px; margin-bottom: 6px; }
+    .hero-lead { font-size: 13.5px; color: #cbd5e1; line-height: 1.6; max-width: 780px; }
+    .pillars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 16px; }
+    .pillar-card { background: rgba(10, 15, 29, 0.68); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 10px; padding: 14px; transition: border-color 0.2s, transform 0.2s; }
+    .pillar-card:hover { border-color: rgba(107, 231, 221, 0.45); transform: translateY(-1px); }
+    .pillar-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .pillar-desc { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+    .journey-flow-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(148, 163, 184, 0.16); font-size: 12px; color: #cbd5e1; }
+    .journey-step-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 20px; padding: 4px 12px; font-weight: 600; }
+
+    /* Zero-Downtime Update Center */
+    .update-panel { background: rgba(8, 13, 26, 0.85); border: 1px solid var(--accent-cyan); border-radius: 12px; padding: 24px; margin-top: 22px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); }
+    .update-table-wrap { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 10px; margin: 16px 0; background: rgba(5, 8, 17, 0.7); }
+    .update-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .update-table th { text-align: left; padding: 12px 14px; background: rgba(30, 41, 59, 0.6); color: #cbd5e1; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); }
+    .update-table td { padding: 12px 14px; border-bottom: 1px solid rgba(30, 41, 59, 0.6); vertical-align: middle; }
+    .update-table tr:last-child td { border-bottom: none; }
+    .update-table tr:hover td { background: rgba(107, 231, 221, 0.04); }
+    .version-pill { font-family: monospace; font-size: 12px; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(148, 163, 184, 0.2); color: #e2e8f0; }
+    .version-pill.latest { background: rgba(107, 231, 221, 0.12); border-color: rgba(107, 231, 221, 0.35); color: var(--accent-cyan); font-weight: 700; }
+    .update-progress-track { width: 100%; height: 12px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 999px; overflow: hidden; margin: 10px 0 16px 0; }
+    .update-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #1659e4, #6be7dd, #10b981); transition: width 0.35s ease; border-radius: 999px; }
+    .phase-pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .phase-node { background: rgba(15, 23, 42, 0.85); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; font-size: 12px; transition: all 0.2s; }
+    .phase-node.running { border-color: var(--accent-cyan); background: rgba(107, 231, 221, 0.1); box-shadow: 0 0 12px rgba(107, 231, 221, 0.2); }
+    .phase-node.completed { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+    .phase-node.error { border-color: var(--danger); background: rgba(239, 68, 68, 0.12); }
+
     .screen { display: none; }
     .screen.active { display: block; animation: fadeIn 0.3s ease; }
 
@@ -159,11 +191,12 @@
       </div>
       <div>
         <div class="brand-title">ArcIA Enterprise Setup Wizard</div>
-        <div class="brand-subtitle">Gestionnaire de Déploiement & Restauration d'Instance v0.4</div>
+        <div class="brand-subtitle">Gestionnaire de Déploiement, Mise à Jour Zero-Downtime & Restauration v0.4</div>
       </div>
     </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
+    <div style="display: flex; gap: 10px; align-items: center;">
       <span id="instanceModeBadge" class="header-badge">Chargement...</span>
+      <button class="btn btn-test" style="padding: 6px 12px; font-size: 12px;" onclick="openUpdateCenter()">⬆️ Mises à jour</button>
       <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="triggerYamlUpload()">📂 Importer YAML</button>
       <input type="file" id="yamlFileInput" accept=".yaml,.yml,.env" style="display:none;" onchange="handleYamlFileSelect(event)">
       <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="saveConfigOnly()">💾 Enregistrer localement</button>
@@ -177,8 +210,8 @@
       <div class="stepper-title">Étapes d'installation</div>
       <div class="step-item active" onclick="goToStep(1)">
         <div class="step-icon">1</div>
-        <div class="step-label">🚀 Mode & Démarrage</div>
-        <div class="step-tag required">Choix</div>
+        <div class="step-label">🏛️ Accueil, Mode & Updates</div>
+        <div class="step-tag required">Accueil</div>
       </div>
       <div class="step-item" onclick="goToStep(2)">
         <div class="step-icon">2</div>
@@ -230,45 +263,189 @@
     <!-- Main Content Area -->
     <main class="content-area">
       
-      <!-- SCREEN 1: Choix de Mode (Nouvelle Instance vs Restaurer vs Importer YAML) -->
+      <!-- SCREEN 1: Présentation Globale, Choix de Parcours & Mise à Jour Zero-Downtime -->
       <section id="step1" class="screen active card">
-        <div class="screen-header">
-          <h2 class="screen-title">Bienvenue dans l'assistant ArcIA</h2>
-          <p class="screen-desc">Choisissez votre parcours : installez une nouvelle instance avec sauvegarde Git chiffrée, restaurez une instance existante, ou préremplissez la configuration depuis un fichier YAML.</p>
+        
+        <!-- PRÉSENTATION CLAIRE SUR LA HOMEPAGE DU WIZARD -->
+        <div id="homepagePresentationHero" class="hero-presentation">
+          <div class="hero-top-row">
+            <div>
+              <div class="hero-kicker">✨ Plateforme IA Agentique d'Entreprise • ArcIA v0.4</div>
+              <h2 class="hero-headline">Bienvenue dans le centre de pilotage ArcIA</h2>
+              <p class="hero-lead">
+                Avant de remplir les formulaires techniques, voici comment s'articule votre plateforme : <strong>ArcIA</strong> assemble un portail collaborateur unifié (<em>Open-WebUI</em>), un moteur d'agents autonomes (<em>Hermes Agent</em>), un bouclier d'anonymisation DLP local (<em>Microsoft Presidio</em>) et une passerelle d'inférence hybride (<em>LiteLLM</em>) sur n'importe quel cluster Kubernetes ou Docker Lab.
+              </p>
+            </div>
+          </div>
+
+          <div class="pillars-grid">
+            <div class="pillar-card">
+              <div class="pillar-title">👥 2 Profils Clés sans Friction</div>
+              <div class="pillar-desc">
+                <strong>Utilisateurs Standards</strong> (modes <code>Simple</code> &amp; <code>Agentic</code> partagés) et <strong>Power Users</strong> disposant en plus d'un Pod Hermes dédié isolé (<code>ReadWriteOnce</code>).
+              </div>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-title">🛡️ Bouclier DLP &amp; SSO</div>
+              <div class="pillar-desc">
+                Filtrage PII local obligatoire via <strong>Microsoft Presidio</strong> avant tout appel LLM externe et authentification <strong>Entra ID (OAuth2)</strong>.
+              </div>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-title">🧠 Routage Hybride &amp; Skills</div>
+              <div class="pillar-desc">
+                Passerelle <strong>LiteLLM</strong> (Cloud OpenRouter + GPU local vLLM) enrichie d'office avec <em>Graphify</em> (GraphRAG AST) et <em>Ponytail</em>.
+              </div>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-title">⬆️ Updates Zero-Downtime</div>
+              <div class="pillar-desc">
+                Vérification en ligne des versions amont et mise à jour séquentielle <code>RollingUpdate</code> sans coupure avec rollback automatique.
+              </div>
+            </div>
+          </div>
+
+          <div class="journey-flow-bar">
+            <span style="font-weight:700; color:var(--accent-cyan);">Comment fonctionne cet assistant :</span>
+            <span class="journey-step-pill">1️⃣ Choisissez votre parcours ci-dessous</span>
+            <span>→</span>
+            <span class="journey-step-pill">2️⃣ Auditez ou vérifiez les composants en ligne</span>
+            <span>→</span>
+            <span class="journey-step-pill">3️⃣ Déployez ou mettez à jour sans coupure de service</span>
+          </div>
+        </div>
+
+        <div class="screen-header" style="margin-bottom: 14px;">
+          <h3 class="screen-title" style="font-size: 19px;">Choisissez votre opération</h3>
+          <p class="screen-desc">Sélectionnez l'un des 4 parcours ci-dessous pour configurer une nouvelle instance, vérifier et appliquer les mises à jour en ligne, ou restaurer un coffre Git chiffré.</p>
         </div>
 
         <div class="mode-cards-grid">
           <!-- Option A : Nouvelle Instance -->
           <div id="cardNewInstance" class="mode-card selected" onclick="selectSetupMode('new')">
-            <span class="mode-card-badge" style="background:rgba(0,210,255,0.2); color:var(--accent-cyan);">Recommandé</span>
+            <span class="mode-card-badge" style="background:rgba(0,210,255,0.2); color:var(--accent-cyan);">Installation</span>
             <div class="mode-card-icon">🚀</div>
             <div class="mode-card-title">Installer une nouvelle instance</div>
             <div class="mode-card-desc">
-              Déploie le socle ArcIA sur votre cluster Kubernetes et initialise automatiquement votre dépôt Git d'instance privé chiffré (GitHub / GitLab).
+              Parcours guidé étape par étape (Étapes 2 à 10) : configurez votre cible Kubernetes ou Docker Lab, vos clés LLM et votre sauvegarde Git chiffrée.
             </div>
-            <button class="btn btn-primary" onclick="selectSetupMode('new'); goToStep(2);">Configurer la nouvelle instance →</button>
+            <button class="btn btn-primary" onclick="event.stopPropagation(); selectSetupMode('new'); goToStep(2);">Démarrer la configuration (Étape 2) →</button>
           </div>
 
-          <!-- Option B : Restaurer Instance -->
+          <!-- Option B : Mettre à jour l'instance (Zero-Downtime) -->
+          <div id="cardUpdateInstance" class="mode-card" onclick="selectSetupMode('update')">
+            <span class="mode-card-badge" style="background:rgba(250,123,78,0.22); color:#fa7b4e;">Zero-Downtime</span>
+            <div class="mode-card-icon">⬆️</div>
+            <div class="mode-card-title">Mettre à jour l'instance</div>
+            <div class="mode-card-desc">
+              Vérifie en ligne les nouvelles versions (<strong>Open-WebUI, Hermes, LiteLLM, Presidio, OAuth2</strong>) et orchestre une mise à jour séquentielle sans interruption de service.
+            </div>
+            <button class="btn btn-secondary" style="border-color:rgba(107,231,221,0.45); color:var(--accent-cyan);" onclick="event.stopPropagation(); selectSetupMode('update'); checkOnlineUpdates(true);">Vérifier les mises à jour en ligne ↓</button>
+          </div>
+
+          <!-- Option C : Restaurer Instance -->
           <div id="cardRestoreInstance" class="mode-card" onclick="selectSetupMode('restore')">
-            <span class="mode-card-badge" style="background:rgba(16,185,129,0.2); color:var(--success);">Reprise</span>
+            <span class="mode-card-badge" style="background:rgba(16,185,129,0.2); color:var(--success);">Reprise PRA</span>
             <div class="mode-card-icon">🔄</div>
             <div class="mode-card-title">Restaurer une instance existante</div>
             <div class="mode-card-desc">
-              Récupère la configuration et les secrets depuis un dépôt Git d'instance privé, déchiffre les données avec votre mot de passe et déploie le cluster.
+              Récupère la configuration et les secrets depuis un dépôt Git d'instance privé, déchiffre les données (<code>AES-256-GCM</code>) et redéploie le cluster.
             </div>
-            <button class="btn btn-secondary" onclick="selectSetupMode('restore')">Ouvrir l'outil de restauration ↓</button>
+            <button class="btn btn-secondary" onclick="event.stopPropagation(); selectSetupMode('restore')">Ouvrir l'outil de restauration ↓</button>
           </div>
 
-          <!-- Option C : Préremplir depuis Fichier YAML -->
+          <!-- Option D : Préremplir depuis Fichier YAML -->
           <div id="cardUploadYaml" class="mode-card" onclick="triggerYamlUpload()">
-            <span class="mode-card-badge" style="background:rgba(255,184,0,0.2); color:var(--accent-yellow);">Fichier Local</span>
+            <span class="mode-card-badge" style="background:rgba(241,197,87,0.2); color:#f1c557;">Fichier Local</span>
             <div class="mode-card-icon">📂</div>
             <div class="mode-card-title">Préremplir depuis un fichier YAML</div>
             <div class="mode-card-desc">
               Chargez votre fichier <code>arcia.config.yaml</code> ou <code>arcia.env</code> existant pour renseigner automatiquement toutes les étapes du Wizard.
             </div>
             <button class="btn btn-secondary" onclick="event.stopPropagation(); triggerYamlUpload();">Sélectionner un fichier YAML...</button>
+          </div>
+        </div>
+
+        <!-- CENTRE DE MISE À JOUR INTELLIGENTE ZERO-DOWNTIME (affiché si mode update sélectionné) -->
+        <div id="updateSection" class="update-panel" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:19px; color:var(--accent-cyan); display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                <span>⬆️ Centre de Mise à Jour Intelligente de l'Instance (Zero-Downtime)</span>
+              </h3>
+              <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+                Interroge en direct les dépôts officiels amont (GitHub Releases / Tags) de chaque brique d'ArcIA et applique une séquence <strong>RollingUpdate (maxUnavailable=0, maxSurge=1)</strong> avec vérification des sondes de santé et rollback automatique en cas d'anomalie.
+              </p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <span id="updateSummaryBadge" class="header-badge">Prêt à vérifier</span>
+              <button id="btnCheckUpdates" class="btn btn-test" onclick="checkOnlineUpdates(true)">🔍 Vérifier en ligne maintenant</button>
+            </div>
+          </div>
+
+          <div class="alert-box alert-info" style="margin-bottom:14px;">
+            <span style="font-size:18px;">⚡</span>
+            <div style="font-size:12.5px;">
+              <strong>Ordre séquentiel intelligent sans coupure :</strong>
+              <code>1. Pre-flight Cluster</code> → <code>2. ConfigMaps &amp; Skills</code> → <code>3. Socle DLP Presidio &amp; OAuth2</code> → <code>4. Passerelle LiteLLM</code> → <code>5. Hermes Agent &amp; Pods Power Users</code> → <code>6. Portail Open-WebUI &amp; Recette</code>. Les connexions actives sont drainées proprement avant bascule.
+            </div>
+          </div>
+
+          <!-- Tableau des composants vérifiés en ligne -->
+          <div class="update-table-wrap">
+            <table class="update-table">
+              <thead>
+                <tr>
+                  <th style="width:42px;"><input type="checkbox" id="chkAllComponents" checked onchange="toggleAllUpdateComponents(this.checked)"></th>
+                  <th>Composant &amp; Rôle</th>
+                  <th>Ordre RollingUpdate</th>
+                  <th>Version Installée (Manifeste)</th>
+                  <th>Dernière Version en Ligne</th>
+                  <th>Statut</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="updateComponentsBody">
+                <tr>
+                  <td colspan="7" style="text-align:center; color:var(--text-muted); padding:24px;">
+                    Cliquez sur <strong>« Vérifier en ligne maintenant »</strong> pour comparer vos manifestes locaux avec les dernières versions amont.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button id="btnStartUpdate" class="btn btn-primary" onclick="triggerInstanceUpdate(false)">
+                🚀 Lancer la séquence de mise à jour (Zero-Downtime)
+              </button>
+              <button id="btnDryRunUpdate" class="btn btn-secondary" onclick="triggerInstanceUpdate(true)">
+                🧪 Simuler la séquence (Dry-Run)
+              </button>
+            </div>
+            <div style="font-size:12px; color:var(--text-muted);" id="updateLastCheckedText"></div>
+          </div>
+
+          <!-- Suivi visuel de la progression et des 6 phases -->
+          <div id="updateProgressWrapper" style="display:none; margin-top:22px; padding-top:18px; border-top:1px solid var(--border-color);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span id="updateProgressLabel" style="font-size:13px; font-weight:700; color:var(--accent-cyan);">Initialisation de la séquence...</span>
+              <span id="updateProgressPercent" style="font-size:14px; font-weight:800; color:#f8fafc;">0%</span>
+            </div>
+            <div class="update-progress-track">
+              <div id="updateProgressBar" class="update-progress-fill" style="width:0%;"></div>
+            </div>
+
+            <div id="updatePhasesGrid" class="phase-pipeline"></div>
+
+            <div style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Journal temps réel du RollingUpdate :</span>
+              <span id="updateRunStatusBadge" class="header-badge">En attente</span>
+            </div>
+            <div id="updateTerminalConsole" class="terminal-box" style="height:260px;">
+              <div class="log-line">Prêt à démarrer la séquence de mise à jour Zero-Downtime.</div>
+            </div>
           </div>
         </div>
 
@@ -1123,11 +1300,287 @@
       }
     }
 
+    let updatePollingInterval = null;
+    let cachedUpdateComponents = [];
+
     function selectSetupMode(mode) {
       selectedSetupMode = mode;
-      document.getElementById("cardNewInstance").classList.toggle("selected", mode === "new");
-      document.getElementById("cardRestoreInstance").classList.toggle("selected", mode === "restore");
-      document.getElementById("restoreSection").style.display = (mode === "restore") ? "block" : "none";
+      const cardNew = document.getElementById("cardNewInstance");
+      const cardUpdate = document.getElementById("cardUpdateInstance");
+      const cardRestore = document.getElementById("cardRestoreInstance");
+      if (cardNew) cardNew.classList.toggle("selected", mode === "new");
+      if (cardUpdate) cardUpdate.classList.toggle("selected", mode === "update");
+      if (cardRestore) cardRestore.classList.toggle("selected", mode === "restore");
+
+      const restoreSec = document.getElementById("restoreSection");
+      const updateSec = document.getElementById("updateSection");
+      if (restoreSec) restoreSec.style.display = (mode === "restore") ? "block" : "none";
+      if (updateSec) updateSec.style.display = (mode === "update") ? "block" : "none";
+
+      if (mode === "update" && cachedUpdateComponents.length === 0) {
+        checkOnlineUpdates(true);
+      }
+    }
+
+    function openUpdateCenter() {
+      goToStep(1);
+      selectSetupMode("update");
+      const updateSec = document.getElementById("updateSection");
+      if (updateSec) {
+        updateSec.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    async function checkOnlineUpdates(checkOnline = true) {
+      const btn = document.getElementById("btnCheckUpdates");
+      const badge = document.getElementById("updateSummaryBadge");
+      const tbody = document.getElementById("updateComponentsBody");
+      const lastChecked = document.getElementById("updateLastCheckedText");
+
+      if (btn) btn.disabled = true;
+      if (badge) {
+        badge.textContent = "⏳ Interrogation des dépôts amont...";
+        badge.style.color = "var(--accent-cyan)";
+        badge.style.borderColor = "var(--accent-cyan)";
+      }
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:center; color:var(--accent-cyan); padding:24px;">
+              ⏳ Vérification en ligne des versions amont (Open-WebUI, Hermes Agent, LiteLLM, Presidio DLP, OAuth2-Proxy, ArcIA Core)...
+            </td>
+          </tr>
+        `;
+      }
+
+      try {
+        const res = await fetch("/api/updates/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ check_online: checkOnline })
+        });
+        const data = await res.json();
+        cachedUpdateComponents = data.components || [];
+        renderUpdateComponentsTable(cachedUpdateComponents);
+
+        const count = data.updates_available_count || 0;
+        if (badge) {
+          if (count > 0) {
+            badge.textContent = `⬆️ ${count} mise(s) à jour disponible(s)`;
+            badge.style.color = "#fa7b4e";
+            badge.style.borderColor = "#fa7b4e";
+          } else {
+            badge.textContent = "✅ Tous les composants sont à jour";
+            badge.style.color = "var(--success)";
+            badge.style.borderColor = "var(--success)";
+          }
+        }
+        if (lastChecked && data.checked_at) {
+          lastChecked.textContent = `Dernière vérification : ${data.checked_at} • Stratégie : ${data.strategy || "RollingUpdate Zero-Downtime"}`;
+        }
+      } catch (err) {
+        if (badge) {
+          badge.textContent = "⚠️ Erreur vérification";
+          badge.style.color = "var(--warning)";
+        }
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; color:var(--danger); padding:20px;">
+                ❌ Impossible d'interroger le moteur de mise à jour : ${escapeHtml(err.message)}
+              </td>
+            </tr>
+          `;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function renderUpdateComponentsTable(components) {
+      const tbody = document.getElementById("updateComponentsBody");
+      if (!tbody) return;
+
+      if (!components || components.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">
+              Aucun composant détecté.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = components.map(c => {
+        const isUpdate = !!c.update_available;
+        const statusHtml = isUpdate
+          ? `<span class="audit-badge warn" style="background:rgba(250,123,78,0.2); color:#fa7b4e; border-color:rgba(250,123,78,0.45);">⬆️ Mise à jour dispo</span>`
+          : `<span class="audit-badge ok">✅ À jour (${escapeHtml(c.source || "manifest")})</span>`;
+
+        const releaseLink = c.release_url
+          ? `<a href="${escapeHtml(c.release_url)}" target="_blank" class="doc-link" style="font-size:12px;">Changelog ↗</a>`
+          : `<span style="color:var(--text-muted); font-size:12px;">Interne</span>`;
+
+        return `
+          <tr>
+            <td>
+              <input type="checkbox" class="chk-update-component" value="${escapeHtml(c.id)}" checked>
+            </td>
+            <td>
+              <div style="font-weight:700; color:#f8fafc;">${escapeHtml(c.name)}</div>
+              <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(c.description || "")}</div>
+            </td>
+            <td>
+              <span class="version-pill">#${c.order || 1} • ${escapeHtml(c.category || "Core")}</span>
+            </td>
+            <td>
+              <span class="version-pill">${escapeHtml(c.current_version || "unknown")}</span>
+            </td>
+            <td>
+              <span class="version-pill latest">${escapeHtml(c.latest_version || c.current_version || "unknown")}</span>
+            </td>
+            <td>${statusHtml}</td>
+            <td>${releaseLink}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function toggleAllUpdateComponents(checked) {
+      document.querySelectorAll(".chk-update-component").forEach(cb => {
+        cb.checked = !!checked;
+      });
+    }
+
+    function renderUpdatePhases(phases) {
+      const grid = document.getElementById("updatePhasesGrid");
+      if (!grid || !phases) return;
+
+      grid.innerHTML = phases.map(p => {
+        const isDone = (p.status === "completed" || p.status === "done");
+        let icon = "⏳";
+        if (p.status === "running") icon = "🔄";
+        else if (isDone) icon = "✅";
+        else if (p.status === "error") icon = "❌";
+
+        const clsStatus = isDone ? "completed" : (p.status || "pending");
+        return `
+          <div class="phase-node ${escapeHtml(clsStatus)}">
+            <div style="font-weight:700; color:#f8fafc; margin-bottom:3px; display:flex; align-items:center; gap:6px;">
+              <span>${icon}</span>
+              <span>${escapeHtml(p.title)}</span>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); line-height:1.35;">
+              ${escapeHtml(p.detail || "")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function triggerInstanceUpdate(dryRun = false) {
+      const selected = Array.from(document.querySelectorAll(".chk-update-component:checked")).map(cb => cb.value);
+      if (selected.length === 0) {
+        alert("Veuillez sélectionner au moins un composant à mettre à jour ou réconcilier.");
+        return;
+      }
+
+      const wrapper = document.getElementById("updateProgressWrapper");
+      const term = document.getElementById("updateTerminalConsole");
+      const statusBadge = document.getElementById("updateRunStatusBadge");
+      const btnStart = document.getElementById("btnStartUpdate");
+      const btnDry = document.getElementById("btnDryRunUpdate");
+
+      if (wrapper) wrapper.style.display = "block";
+      if (term) term.innerHTML = `<div class="log-line log-cyan">[INFO] Initialisation de la séquence Zero-Downtime (${selected.length} composants)...</div>`;
+      if (statusBadge) {
+        statusBadge.textContent = dryRun ? "Simulation en cours..." : "RollingUpdate en cours...";
+        statusBadge.style.color = "var(--accent-cyan)";
+        statusBadge.style.borderColor = "var(--accent-cyan)";
+      }
+      if (btnStart) btnStart.disabled = true;
+      if (btnDry) btnDry.disabled = true;
+
+      try {
+        const res = await fetch("/api/updates/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            components: selected,
+            dry_run: dryRun,
+            update_manifests: true,
+            config: collectFormData()
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          startUpdatePolling();
+        } else {
+          if (term) term.innerHTML += `<div class="log-line log-red">[ERROR] ${escapeHtml(data.error || "Impossible de démarrer la mise à jour.")}</div>`;
+          if (btnStart) btnStart.disabled = false;
+          if (btnDry) btnDry.disabled = false;
+        }
+      } catch (err) {
+        if (term) term.innerHTML += `<div class="log-line log-red">[ERROR] Erreur réseau : ${escapeHtml(err.message)}</div>`;
+        if (btnStart) btnStart.disabled = false;
+        if (btnDry) btnDry.disabled = false;
+      }
+    }
+
+    function startUpdatePolling() {
+      if (updatePollingInterval) clearInterval(updatePollingInterval);
+      updatePollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch("/api/updates/status");
+          const state = await res.json();
+
+          const bar = document.getElementById("updateProgressBar");
+          const pct = document.getElementById("updateProgressPercent");
+          const lbl = document.getElementById("updateProgressLabel");
+          const term = document.getElementById("updateTerminalConsole");
+          const badge = document.getElementById("updateRunStatusBadge");
+          const btnStart = document.getElementById("btnStartUpdate");
+          const btnDry = document.getElementById("btnDryRunUpdate");
+
+          const progress = state.progress || 0;
+          if (bar) bar.style.width = `${progress}%`;
+          if (pct) pct.textContent = `${progress}%`;
+          if (lbl && state.current_step_label) lbl.textContent = state.current_step_label;
+
+          if (state.phases) {
+            renderUpdatePhases(state.phases);
+          }
+
+          if (term && state.logs && state.logs.length > 0) {
+            term.innerHTML = state.logs.map(l => formatAnsiLine(l)).join("");
+            term.scrollTop = term.scrollHeight;
+          }
+
+          if (state.status === "success") {
+            clearInterval(updatePollingInterval);
+            if (badge) {
+              badge.textContent = "✅ Mise à jour Zero-Downtime réussie";
+              badge.style.color = "var(--success)";
+              badge.style.borderColor = "var(--success)";
+            }
+            if (btnStart) btnStart.disabled = false;
+            if (btnDry) btnDry.disabled = false;
+            checkOnlineUpdates(false);
+          } else if (state.status === "error") {
+            clearInterval(updatePollingInterval);
+            if (badge) {
+              badge.textContent = "❌ Échec / Rollback appliqué";
+              badge.style.color = "var(--danger)";
+              badge.style.borderColor = "var(--danger)";
+            }
+            if (btnStart) btnStart.disabled = false;
+            if (btnDry) btnDry.disabled = false;
+          }
+        } catch (err) {
+          console.error("Erreur polling mise à jour:", err);
+        }
+      }, 800);
     }
 
     async function executeInstanceRestore() {

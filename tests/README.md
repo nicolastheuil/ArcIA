@@ -1,26 +1,45 @@
-# Suite de Tests Automatisés — ArcIA
+<p align="left">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Tests-90_Unit_&_Integration_Checks-10B981?style=flat-square" alt="90 Tests">
+  <img src="https://img.shields.io/badge/Docs_Validator-100%25_Links_Checked-6BE7DD?style=flat-square&logoColor=050712" alt="Docs Validated">
+</p>
 
-Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de frontière de sécurité de la plateforme ArcIA.
+# 🧪 Suite de Tests Automatisés & Qualification — ArcIA
 
-## Exécution des Tests
+> **[🏠 Accueil ArcIA](../README.md)** › **Tests (`tests/`)**
 
-Pour exécuter l'ensemble de la suite de tests :
+Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.4**.
+
+---
+
+## ⚡ Exécution Rapide
+
 ```bash
+# 1. Exécuter les 90 tests unitaires et d'intégration :
 python -m unittest discover -s tests -v
+
+# 2. Vérifier l'intégrité de 100 % des liens et ancres documentaires :
+python scripts/validate_docs.py
 ```
 
-## Cartographie des Modules de Test
+---
+
+## 🗂️ Cartographie des Suites de Tests
 
 | Fichier de Test | Périmètre Contrôlé |
 |---|---|
-| **[test_deploy.py](test_deploy.py)** | Valide le moteur de déploiement universel `scripts/deploy.py` : analyse des arguments CLI, parsing de `arcia.config.yaml`, vérification des prérequis et exécution en mode simulation (`--dry-run`). |
-| **[test_manifests.py](test_manifests.py)** | Vérifie la syntaxe, la structure YAML, les labels, l'attribution au namespace unifié `arcia` et la cohérence des ports dans tous les manifests de [deploy/manifests/](../deploy/manifests/README.md). |
-| **[test_privacy.py](test_privacy.py)** | Valide la frontière de confidentialité souveraine et le service Presidio DLP (`services/presidio/`) : détection des secrets, clés `sk-...`, jetons GitHub, tokens Bearer, adresses IP et PII. |
-| **[test_wizard.py](test_wizard.py)** | Teste la logique de l'assistant interactif `scripts/wizard.py` : dimensionnement VMware/K3s (tiers 20, 100, 300, 1000 utilisateurs), validation des secrets et configuration. |
-| **[test_skills.py](test_skills.py)** | Contrôle la conformité des compétences du catalogue (`skills/`) : présence des fichiers `SKILL.md`, limites de taille et absence de scripts exécutables non autorisés. |
-| **[test_graphify.py](test_graphify.py)** | Teste l'analyseur AST Python `scripts/arcia_graphify.py` et la génération déterministe du rapport GraphRAG. |
-| **[test_public_apis.py](test_public_apis.py)** | Vérifie le client `skills/public-apis/scripts/public_apis.py` : formatage SIREN/SIRET, calcul de clé TVA intracommunautaire et cache local. |
+| **[test_wizard.py](test_wizard.py)** | Centre de pilotage [`scripts/wizard.py`](../scripts/wizard.py) : page d'accueil, **vérificateur en ligne des mises à jour**, **séquence Zero-Downtime RollingUpdate**, chiffrement `AES-256-GCM`, audit K8s et dimensionnement VMware. |
+| **[test_deploy.py](test_deploy.py)** | Orchestrateur [`scripts/deploy.py`](../scripts/deploy.py) : validation de `arcia.config.yaml`, synchronisation des ConfigMaps (`sync_service_configmaps`) et simulation `--dry-run`. |
+| **[test_poweruser.py](test_poweruser.py)** | Provisionnement des Pods Hermes dédiés Power Users ([`scripts/arcia_poweruser.py`](../scripts/arcia_poweruser.py)) et gestion des clés virtuelles PAT ([`scripts/arcia_keys.py`](../scripts/arcia_keys.py)) pour les profils `standard` et `poweruser`. |
+| **[test_manifests.py](test_manifests.py)** | Conformité YAML, attribution au namespace `arcia`, cohérence des ports et sondes de santé sur tous les manifestes de [`deploy/manifests/`](../deploy/manifests/README.md). |
+| **[test_dlp.py](test_dlp.py)** & **[test_privacy.py](test_privacy.py)** | Bouclier DLP Microsoft Presidio ([`services/presidio/app.py`](../services/presidio/app.py)) et plugin de gouvernance Hermes ([`services/hermes/plugin.py`](../services/hermes/plugin.py)) : détection des secrets (`sk-...`, `ghp_...`, `AKIA...`), adresses IP, PII (`fr`/`en`) et CCR. |
+| **[test_teams_app.py](test_teams_app.py)** | Adaptateur Bot Microsoft Teams ([`services/teams/app.py`](../services/teams/app.py)) et validité du package [`assets/teams/manifest.json`](../assets/teams/manifest.json). |
+| **[test_skills.py](test_skills.py)** | Conformité structurelle du catalogue [`skills/`](../skills/README.md) et absence d'exécutables non autorisés. |
+| **[test_graphify.py](test_graphify.py)** | Analyseur AST déterministe [`scripts/arcia_graphify.py`](../scripts/arcia_graphify.py) et génération du rapport GraphRAG local. |
+| **[test_public_apis.py](test_public_apis.py)** | Passerelle Open Data [`skills/public-apis/scripts/public_apis.py`](../skills/public-apis/scripts/public_apis.py) : SIREN/SIRET, calcul de clé TVA intracommunautaire et cache local. |
 
-## Intégration Continue (CI)
+---
 
-Cette suite de tests est automatiquement exécutée à chaque commit et pull request via le workflow GitHub Actions [.github/workflows/validate.yml](../.github/WORKFLOWS.md).
+## 🔄 Intégration Continue (GitHub Actions)
+
+Cette suite est exécutée automatiquement à chaque commit et Pull Request via le pipeline CI documenté dans [`.github/WORKFLOWS.md`](../.github/WORKFLOWS.md).

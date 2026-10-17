@@ -1,40 +1,50 @@
-# Gestion des Secrets & Variables d'Environnement — ArcIA
+<p align="left">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Secrets-AES--256--GCM_&_K8s_Secrets-FA7B4E?style=flat-square" alt="Secrets">
+  <img src="https://img.shields.io/badge/Git_Safety-Zero_Plaintext-10B981?style=flat-square" alt="Zero Plaintext">
+</p>
 
-Ce dossier contient les modèles de configuration des secrets d'entreprise pour la plateforme ArcIA.
+# 🔐 Gestion des Secrets & Variables d'Environnement — ArcIA
+
+> **[🏠 Accueil ArcIA](../README.md)** › **Secrets (`secrets/`)**
+
+Ce dossier contient le modèle de configuration des secrets d'entreprise pour la plateforme **ArcIA**.
 
 > [!CAUTION]
-> **Règle absolue de sécurité ArcIA** : Aucun secret en clair, mot de passe, jeton API, certificat privé ou fichier `.env` réel ne doit jamais être commité dans ce dépôt Git. Seuls les fichiers de modèles (`*.template`) sont versionnés.
+> **Règle absolue de sécurité ArcIA** : Aucun secret en clair, mot de passe, jeton API, certificat privé ou fichier `.env` réel ne doit jamais être commité dans le socle public. Seuls les fichiers modèles (`*.template`) sont versionnés ici ; les secrets d'une instance sont chiffrés (`AES-256-GCM`) dans son dépôt d'instance privé.
 
-## Contenu
+---
 
-* **[arcia.env.template](arcia.env.template)** : Fichier modèle recensant l'intégralité des variables d'environnement secrètes nécessaires au fonctionnement d'ArcIA.
+## 📋 Modèle et Variables Requises (`arcia.env.template`)
 
-## Variables Clés Requises
+Le fichier **[arcia.env.template](arcia.env.template)** recense l'ensemble des variables secrètes injectées dans les objets `Secret` Kubernetes :
 
-1. **Inférence & Fournisseurs Cloud** :
-   * `LITELLM_MASTER_KEY` : Clé d'administration pour la passerelle LiteLLM.
-   * `OPENROUTER_API_KEY` : Clé d'accès à l'agrégateur de modèles souverains et cloud.
-2. **Authentification SSO Microsoft Entra ID** :
-   * `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` : Identifiants de l'App Registration Azure AD.
-   * `OAUTH2_PROXY_COOKIE_SECRET` : Clé de chiffrement des cookies de session SSO.
-3. **Moteur d'Agents Hermes** :
-   * `HERMES_API_SERVER_KEY` : Jeton Personal Access Token (PAT) d'entreprise pour la Gateway (:8642) et Hermes Desktop.
-   * `HERMES_ADMIN_PASSWORD` : Mot de passe du compte administrateur Hermes Studio (:9119).
-4. **Intégration Microsoft Teams** :
-   * `TEAMS_APP_ID` / `TEAMS_APP_PASSWORD` : Identifiants du bot Azure Bot Framework.
+| Domaine | Variables Principales | Usage |
+|---|---|---|
+| **1. Passerelle LLM** | `LITELLM_MASTER_KEY`, `OPENROUTER_API_KEY` | Clé maître LiteLLM Proxy (`:4000`) et accès aux modèles Cloud (`zdr: true`). |
+| **2. SSO Entra ID** | `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OAUTH2_PROXY_COOKIE_SECRET` | Authentification OpenID Connect via `oauth2-proxy` (`:4180`). |
+| **3. Hermes Agent** | `HERMES_API_SERVER_KEY`, `HERMES_ADMIN_PASSWORD` | Jeton PAT de la Gateway (`:8642`) et mot de passe admin de Hermes Studio (`:9119`). |
+| **4. Microsoft Teams** | `TEAMS_APP_ID`, `TEAMS_APP_PASSWORD` | Authentification des webhooks signés par Azure Bot Service (`:3978`). |
 
-## Cycle d'Application des Secrets
+---
 
-1. Copier le modèle hors Git (ou laisser l'assistant `wizard.py` le générer) :
+## ⚡ Cycle d'Injection dans Kubernetes
+
+1. **Via le Setup Wizard (Recommandé)** :
+   ```powershell
+   .\wizard.ps1
+   ```
+   *(Génère automatiquement les jetons cryptographiques et chiffre le bundle d'instance).*
+2. **Manuellement en CLI** :
    ```bash
    cp secrets/arcia.env.template secrets/arcia.env
    ```
-2. Compléter les valeurs réelles dans `secrets/arcia.env` (protégé par `.gitignore`).
-3. Appliquer les secrets dans le cluster Kubernetes :
+   Puis appliquez les secrets sur le cluster :
+   ```powershell
+   # Windows PowerShell :
+   .\scripts\Apply-Secrets.ps1
+   ```
    ```bash
    # Linux / macOS :
    ./scripts/apply-secrets.sh
-   # Windows PowerShell :
-   ./scripts/Apply-Secrets.ps1
    ```
-4. Les scripts injectent automatiquement les objets Kubernetes `Secret` dans le namespace `arcia`.

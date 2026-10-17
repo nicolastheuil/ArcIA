@@ -1,47 +1,69 @@
-# Documentation d’ArcIA
+<p align="left">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Documentation-Hub_Central-6BE7DD?style=flat-square&logoColor=050712" alt="Documentation Hub">
+  <img src="https://img.shields.io/badge/Liens_Vérifiés-validate__docs.py-10B981?style=flat-square" alt="Liens Vérifiés">
+</p>
 
-Le [README principal](../README.md) donne la vue synthétique du projet.
-L’[architecture](architecture.md) est la source de vérité technique unique du socle générique. Les documents ci-dessous sont les références complètes, regroupées par fonction.
+# 📖 Centre de Documentation — ArcIA
 
-## Architecture et cadrage
+> **[🏠 Accueil ArcIA](../README.md)** › **Documentation**
 
-| Document | Portée |
+Bienvenue dans la base documentaire officielle de la plateforme **ArcIA**.
+Le [README principal](../README.md) offre une vue synthétique des macro-concepts, tandis que la spécification d’[Architecture](architecture.md) constitue la **source de vérité technique unique** du socle générique.
+
+---
+
+## 🏛️ 1. Architecture & Cadrage
+
+| Document | Portée & Contenu |
 |---|---|
-| [Architecture](architecture.md) | Composants, routage hybride, réseau, stockage, flux et carte du code |
-| [État des fonctionnalités](etat-des-fonctionnalites.md) | Tableau de bord de traçabilité v0.4 et durcissements de sécurité |
-| [AGENTS.md](../AGENTS.md) | Instructions d'ingénierie et règles de développement |
+| 📐 **[Architecture Technique](architecture.md)** | Topologie Kubernetes complète, schémas détaillés des Pods/Services, routage hybride, stockage CSI et carte du code |
+| 📊 **[État des Fonctionnalités](etat-des-fonctionnalites.md)** | Tableau de bord de traçabilité v0.4, matrice de qualification et durcissements de sécurité |
+| 🤖 **[Charte d'Ingénierie (`AGENTS.md`)](../AGENTS.md)** | Règles d'architecture, séparation socle générique / dépôt d'instance et exigences de qualification |
 
-## Guides fonctionnels
+---
 
-| Besoin | Référence complète |
-|---|---|
-| Comprendre ArcIA, les instances et le partage | [Plateforme](guides/plateforme-arcia.md) |
-| Déployer ArcIA sur n'importe quel cluster Kubernetes | [Déploiement universel](guides/deploiement-universel.md) |
-| Infrastructure Kubernetes, stockage CSI, Traefik et Cert-Manager | [Infrastructure Kubernetes](guides/infrastructure-k3s.md) |
-| Portail conversationnel, SSO Entra ID et gouvernance | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
-| Moteur d'agents, Studio Kanban, Gateway Desktop et Pods dédiés Power Users | [Hermes Agent](guides/hermes-agent.md) |
-| Chaîne de routage hybride, 5 profils canoniques et cycle de vie d'un prompt | [Chaîne de Routage IA](guides/chaine-de-routage.md) |
-| Passerelle LLM, routage auto, fallbacks et clés virtuelles | [Inférence LiteLLM](guides/inference-litellm.md) |
-| Double barrière de caviardage automatique des secrets et des PII | [Confidentialité Presidio DLP](guides/confidentialite-presidio.md) |
-| Bot conversationnel Microsoft Teams (`simple/auto` et `/agent`) | [Intégration Teams](guides/integration-teams.md) |
-| Frontières de sécurité et protection des données | [Politique de sécurité](guides/securite.md) |
-| Découvrir et maintenir les compétences | [Skills](guides/skills.md) |
-| Compression réversible CCR, RTK et économie de tokens | [Tokenmaxing](guides/tokenmaxing.md) |
-| Analyse AST Graphify, Ponytail et Public-APIs | [Outillage Builder & Sobriété](guides/outillage-builder.md) |
-| Ajouter une source vivante ou un outil | [Connecteurs MCP](guides/connecteurs-mcp.md) |
-| Vérifier versions, images et support | [Versions](guides/versions-officielles.md) |
+## 📘 2. Guides Fonctionnels & Techniques
+
+| Domaine | Besoin Opérationnel | Guide de Référence |
+|---|---|---|
+| **Socle** | Comprendre ArcIA, la séparation socle/instance et l'écosystème | [Plateforme ArcIA](guides/plateforme-arcia.md) |
+| **Déploiement** | Déployer ou mettre à jour ArcIA en Zero-Downtime sur tout cluster K8s | [Déploiement Universel](guides/deploiement-universel.md) |
+| **Infrastructure** | Cluster Kubernetes, stockage CSI, Traefik et Cert-Manager | [Infrastructure Kubernetes](guides/infrastructure-k3s.md) |
+| **Portail Web** | Portail collaborateur Open-WebUI, SSO Entra ID et RAG documentaire | [Portail Open-WebUI & Entra ID](guides/portail-webui-entraid.md) |
+| **Agents & Studio** | Moteur Hermes Agent, Studio Kanban (`:9119`), Gateway (`:8642`) et Pods dédiés Power Users | [Hermes Agent & Power Users](guides/hermes-agent.md) |
+| **Routage IA** | Chaîne de routage hybride (`simple/*` & `agentic/*`) et cycle de vie d'un prompt | [Chaîne de Routage IA](guides/chaine-de-routage.md) |
+| **Passerelle LLM** | Proxy LiteLLM, routage auto, fallbacks, ZDR et clés virtuelles PAT | [Inférence LiteLLM](guides/inference-litellm.md) |
+| **Bouclier DLP** | Double barrière de caviardage automatique des secrets et PII (Presidio) | [Confidentialité Presidio DLP](guides/confidentialite-presidio.md) |
+| **Microsoft 365** | Bot conversationnel Microsoft Teams (`simple/auto` et commande `/agent`) | [Intégration Microsoft Teams](guides/integration-teams.md) |
+| **Sécurité** | Frontières réseau (`NetworkPolicy`), chiffrement et gouvernance RSSI | [Politique de Sécurité](guides/securite.md) |
+| **Compétences** | Découvrir, synchroniser et maintenir le catalogue de compétences | [Catalogue de Skills](guides/skills.md) |
+| **Sobriété** | Compression réversible CCR, RTK et économie de tokens | [Tokenmaxing & CCR](guides/tokenmaxing.md) |
+| **Outillage Code** | Analyse AST locale Graphify, sobriété Ponytail et Public-APIs | [Outillage Builder & Sobriété](guides/outillage-builder.md) |
+| **Connecteurs** | Ajouter une source vivante ou un serveur d'outils standardisé | [Connecteurs MCP](guides/connecteurs-mcp.md) |
+| **Référentiel** | Vérifier les versions logicielles, images Docker et ports officiels | [Versions Officielles](guides/versions-officielles.md) |
+
+---
 
 <a id="exploitation"></a>
-## Exploitation
+## 🛠️ 3. Runbooks d'Exploitation (MCO & PRA)
 
-| Procédure | Référence |
+| Procédure | Runbook de Référence |
 |---|---|
-| Déploiement en 2 étapes, Power Users, usage et recette | [Quickstart complet](runbooks/quickstart.md) |
-| Maintenance quotidienne, diagnostic, logs et validation | [Exploitation & Maintenance](runbooks/exploitation.md) |
-| Sauvegarder, restaurer et reconstruire | [Sauvegarde/reconstruction](runbooks/sauvegarde-reconstruction.md) |
+| 🚀 **Installation rapide en 2 étapes, Power Users, mises à jour et recette** | [Quickstart Complet](runbooks/quickstart.md) |
+| 🔍 **Maintenance quotidienne, diagnostic, logs et rotation des secrets** | [Exploitation & Maintenance](runbooks/exploitation.md) |
+| 🔄 **Sauvegarde chiffrée (`AES-256-GCM`), restauration et reconstruction sur cluster neuf** | [Sauvegarde & Reconstruction](runbooks/sauvegarde-reconstruction.md) |
 
-## Pilotage et preuves
+---
 
-L’[architecture](architecture.md) constitue la source de vérité technique unique du socle déployé. Les états de reprise, secrets et configurations particulières d'une instance appartiennent à son dépôt privé d'instance.
+## ✅ 4. Gouvernance Documentaire & Preuves
 
-**Proposé** : cible décidée ; **codé** : artefact présent ; **déployé** : appliqué à une cible désignée ; **vérifié** : scénario exécuté et preuve consignée.
+> [!NOTE]
+> **Séparation Socle Générique / Dépôt d'Instance :**
+> Le dépôt `ArcIA` porte uniquement le socle générique. Les secrets, domaines et états de reprise propres à une organisation appartiennent à son dépôt d'instance privé chiffré.
+>
+> **Niveaux de qualification :**
+> * **Proposé** : cible décidée en conception.
+> * **Codé** : artefact présent et testé unitairement dans Git.
+> * **Déployé** : appliqué sur une cible désignée.
+> * **Vérifié** : scénario exécuté de bout en bout avec preuve consignée.

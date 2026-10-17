@@ -1,33 +1,27 @@
-# Ressources Graphiques & Visuelles — ArcIA
+<p align="left">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Design_System-ArcIA_Brand_Kit-6BE7DD?style=flat-square&logoColor=050712" alt="Brand Kit">
+</p>
 
-Ce dossier regroupe l'ensemble des éléments graphiques, identités visuelles, icônes d'application et manifests de distribution pour la plateforme ArcIA.
+# 🎨 Ressources Graphiques, Identité Visuelle & Packages — ArcIA
 
-## Structure du Dossier
+> **[🏠 Accueil ArcIA](../README.md)** › **Assets (`assets/`)**
 
-```
+Ce dossier centralise la charte graphique officielle d'**ArcIA**, les ressources de l'installateur et les packages d'application pour **Microsoft Teams**.
+
+---
+
+## 📂 Structure des Ressources
+
+```text
 assets/
-├── branding/     # Identité de marque, logos SVG (light/dark) et palette de couleurs officielle
-├── installer/    # Icônes (.ico) et images de l'assistant d'installation (wizard Inno Setup / web)
-└── teams/        # Icônes officielle (color & outline) et manifest pour l'application Microsoft Teams
+├── branding/     # Identité visuelle vectorielle (SVG dark/light, bannière GitHub) et palette.json
+├── installer/    # Icônes (.ico), bandeaux graphiques et script Inno Setup
+└── teams/        # Icônes officielles (192x192 / 32x32), manifest.json et archives .zip Teams
 ```
 
-## Sous-Dossiers
-
-### 1. [branding/](branding/)
-Contient les fichiers vectoriels SVG officiels d'ArcIA :
-* `logo-arcia-dark.svg` / `logo-arcia-light.svg` : Logos complets avec typographie pour thèmes sombre et clair.
-* `logo-arcia-symbol.svg` : Symbole seul (icône carrée réutilisable en favicon ou avatar).
-* `banner-github-dark.svg` : Bannière d'en-tête pour le README GitHub et les portails d'accueil.
-* `palette.json` : Définition des codes couleurs officiels (couleurs primaires, accents cyan/vert, arrières-plans sombres).
-
-### 2. [installer/](installer/)
-Contient les ressources destinées aux assistants d'installation et installateurs Windows/Linux :
-* `app.ico` : Icône de bureau multi-résolutions.
-* `wizard-header.bmp` / `wizard-side.bmp` : Bandeaux graphiques pour l'installateur Inno Setup.
-* `installer-sample.iss` : Modèle de script de compilation Inno Setup.
-
-### 3. [teams/](teams/)
-Contient le package d'intégration officiel pour Microsoft Teams :
-* `manifest.json` : Manifeste d'application Teams définissant les capacités du bot conversationnel, les permissions d'interaction (DM et mentions de canal), et les liens de support.
-* `color.png` (192x192) : Icône en couleur pleine pour le catalogue d'applications Teams.
-* `outline.png` (32x32) : Icône filaire monochrome pour la barre latérale Teams.
+| Sous-Dossier | Contenu Principal | Rôle |
+|---|---|---|
+| 🎨 **[branding/](branding/README.md)** | `banner-github-dark.svg`, `logo-arcia-dark.svg`, `logo-arcia-light.svg`, `logo-arcia-symbol.svg`, `palette.json` | Identité visuelle officielle injectée dans Open-WebUI (`arcia-webui-branding`), le Setup Wizard et la documentation. |
+| 💿 **[installer/](installer/README.md)** | `app.ico`, `wizard-header.bmp`, `wizard-side.bmp`, `installer-sample.iss` | Ressources visuelles et script de packaging pour les exécutables d'installation Windows. |
+| 💬 **[teams/](teams/README.md)** | `manifest.json`, `color.png`, `outline.png`, `arcia-teams-ui.zip`, `arcia-teams-app.zip` | Package officiel de l'application ArcIA pour le Portail Développeur Microsoft Teams. |

@@ -1,11 +1,23 @@
-# Identité Visuelle & Logos — ArcIA
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🎨_Assets-Design_System-0C2762?style=flat-square" alt="Assets"></a>
+  <img src="https://img.shields.io/badge/Palette-%231659E4_•_%236BE7DD_•_%230C2762-6BE7DD?style=flat-square&logoColor=050712" alt="Palette">
+</p>
 
-Ce dossier contient les fichiers vectoriels officiels de l'identité visuelle d'ArcIA.
+# ✨ Identité Visuelle & Charte Graphique — ArcIA
 
-## Fichiers Disponibles
+> **[🏠 Accueil ArcIA](../../README.md)** › **[🎨 Assets](../README.md)** › **Branding (`assets/branding/`)**
 
-* `logo-arcia-dark.svg` : Logo principal ArcIA optimisé pour fonds sombres.
-* `logo-arcia-light.svg` : Logo principal ArcIA optimisé pour fonds clairs.
-* `logo-arcia-symbol.svg` : Symbole seul (icône carrée de l'IA agentique).
-* `banner-github-dark.svg` : Bannière de présentation grand format pour GitHub et documentation.
-* `palette.json` : Définition JSON des codes hexadécimaux et variables CSS de la charte graphique.
+Ce dossier regroupe les vecteurs officiels SVG et la définition chromatique de la marque **ArcIA**.
+
+---
+
+## 🖼️ Fichiers Vectoriels & Palette
+
+| Fichier | Format | Usage |
+|---|---|---|
+| **[banner-github-dark.svg](banner-github-dark.svg)** | SVG Vectoriel | Bannière principale grand format du dépôt GitHub et des portails d'accueil. |
+| **[logo-arcia-dark.svg](logo-arcia-dark.svg)** | SVG Vectoriel | Logo complet optimisé pour les interfaces sombres (Setup Wizard, Open-WebUI Dark). |
+| **[logo-arcia-light.svg](logo-arcia-light.svg)** | SVG Vectoriel | Logo complet optimisé pour les fonds clairs et documents imprimables. |
+| **[logo-arcia-symbol.svg](logo-arcia-symbol.svg)** | SVG Vectoriel | Monogramme carré utilisé comme favicon et avatar d'agent. |
+| **[palette.json](palette.json)** | JSON | Codes hexadécimaux officiels : Royal Blue (`#1659E4`), Cyan (`#6BE7DD`), Deep Navy (`#0C2762`), Coral (`#FA7B4E`), Gold (`#F1C557`). |

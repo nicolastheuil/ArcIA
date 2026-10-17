@@ -1,22 +1,34 @@
-# Service Adaptateur Bot Microsoft Teams — ArcIA
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🧩_Services-Microservices-0C2762?style=flat-square" alt="Services"></a>
+  <img src="https://img.shields.io/badge/Canal-Microsoft_Teams_Bot-5B5FC7?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Bot">
+</p>
 
-Ce dossier contient l'adaptateur de bot conversationnel pour **Microsoft Teams**, développé avec le SDK Bot Framework de Microsoft et `aiohttp`.
+# 💬 Service Adaptateur Bot Microsoft Teams — ArcIA
 
-## Contenu
+> **[🏠 Accueil ArcIA](../../README.md)** › **[🧩 Microservices](../README.md)** › **Teams Bot (`services/teams/`)**
 
-* **[app.py](app.py)** : Serveur asynchrone écoutant sur le port 3978 (synchronisé dans le ConfigMap `teams-bot-code` par `scripts/deploy.py`) :
-  * `POST /api/teams/messages` : Valide les requêtes entrantes signées par Azure Bot Framework via `MICROSOFT_APP_ID` et `MICROSOFT_APP_PASSWORD`.
-  * Supporte les conversations privées (1:1 direct messages) et les mentions d'équipe (`@ArcIA`).
-  * **Routage Hybride** :
-    * Les messages standards sont acheminés vers la passerelle d'inférence LiteLLM sur le profil **`simple/auto`**.
-    * Les messages préfixés par `/agent <mission>` (ou `!agent <mission>`) sont délégués au runtime Hermes Agent (`:8642/v1`) sur le profil **`agentic/auto`**.
-  * `GET /healthz` (et alias `GET /health`) : Sonde de disponibilité HTTP 200 pour Kubernetes.
-* **[Dockerfile](Dockerfile)** : Image Docker autonome Python 3.11 avec `botbuilder-core`, `aiohttp` et `httpx`.
+Ce dossier contient l'adaptateur conversationnel permettant aux collaborateurs d'interagir avec **ArcIA** directement depuis **Microsoft Teams** (en message direct 1:1 ou en canal d'équipe via `@ArcIA`), construit avec le SDK Microsoft Bot Framework et `aiohttp`.
 
-## Déploiement & Configuration
+---
 
-Le service est déployé via [deploy/manifests/08-teams-bot.yaml](../../deploy/manifests/08-teams-bot.yaml) et exposé par l'Ingress Traefik sur `/api/teams/messages`.
+## 🔀 Fonctionnement & Routage Hybride (`app.py`)
 
-Pour plus de détails :
-* [Guide d'Intégration Microsoft Teams](../../docs/guides/integration-teams.md)
-* [Manifeste d'application Teams](../../assets/teams/manifest.json)
+Le serveur asynchrone **[app.py](app.py)** (port `:3978`, synchronisé dans le ConfigMap `teams-bot-code`) et son **[Dockerfile](Dockerfile)** assurent :
+
+| Route / Commande | Profil Cible | Comportement |
+|---|---|---|
+| **Message standard** *(DM ou `@ArcIA`)* | **`simple/auto`** *(LiteLLM `:4000/v1`)* | Réponse rapide et synthétique via la passerelle d'inférence protégée par le bouclier DLP Presidio. |
+| **`/agent <mission>`** *(ou `!agent <mission>`)* | **`agentic/auto`** *(Hermes `:8642/v1`)* | Délègue une mission multi-étapes outillée au moteur d'agents autonomes Hermes Agent. |
+| **`POST /api/teams/messages`** | Webhook Azure Bot | Authentifie les jetons JWT signés par Azure Bot Service via `MICROSOFT_APP_ID` et `MICROSOFT_APP_PASSWORD`. |
+| **`GET /healthz`** *(et `/health`)* | Sondes Kubernetes | Sonde HTTP 200 garantissant les mises à jour `RollingUpdate` sans perte de messages. |
+
+---
+
+## ☸️ Déploiement & Package Teams
+
+Le service est déployé via [`deploy/manifests/08-teams-bot.yaml`](../../deploy/manifests/08-teams-bot.yaml) et exposé par l'Ingress HTTPS sur `/api/teams/messages`.
+
+### 🔗 Références Associées
+* 📘 [Guide d'Intégration Microsoft Teams](../../docs/guides/integration-teams.md)
+* 📦 [Manifeste Officiel de l'Application Teams (`assets/teams/manifest.json`)](../../assets/teams/manifest.json)

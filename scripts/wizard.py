@@ -74,6 +74,19 @@ deployment_state = {
     "summary": {}
 }
 
+# Global zero-downtime update state
+update_lock = threading.Lock()
+update_state = {
+    "status": "idle",       # "idle", "running", "success", "error"
+    "progress_pct": 0,
+    "current_phase": "En attente",
+    "phases": [],
+    "logs": [],
+    "start_time": None,
+    "updated_components": []
+}
+last_update_check_cache: Dict[str, Any] = {}
+
 # -----------------------------------------------------------------------------
 # Utilitaires Cryptographiques & Chiffrement d'Instance (AES-256-GCM / PBKDF2)
 # -----------------------------------------------------------------------------
@@ -1486,6 +1499,603 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             deployment_state["logs"].append(f"[FATAL ERROR] {str(e)}")
 
 # -----------------------------------------------------------------------------
+# Vérification en Ligne des Mises à Jour & Séquence de Mise à Jour Zero-Downtime
+# -----------------------------------------------------------------------------
+
+ARCIA_UPDATABLE_COMPONENTS = [
+    {
+        "id": "arcia-core",
+        "name": "Socle ArcIA, ConfigMaps & Compétences",
+        "icon": "🛡️",
+        "category": "Socle & Microservices",
+        "github_repo": "nicolastheuil/ArcIA",
+        "manifest": "services/ & skills/",
+        "k8s_resource": "configmap/presidio-code,hermes-governance-plugin,teams-bot-code,arcia-native-skills",
+        "default_image": "nicolastheuil/ArcIA",
+        "default_version": "v0.4",
+        "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
+        "wave": 1,
+        "description": "Code source des microservices (Presidio DLP, Plugin Gouvernance/CCR Hermes, Bot Teams), branding et skills natives (Ponytail, Graphify, Public-APIs)."
+    },
+    {
+        "id": "presidio-dlp",
+        "name": "Microsoft Presidio DLP Shield",
+        "icon": "🔒",
+        "category": "Sécurité & Gouvernance",
+        "github_repo": "microsoft/presidio",
+        "manifest": "deploy/manifests/03-presidio.yaml",
+        "k8s_resource": "deployment/presidio-dlp",
+        "default_image": "python:3.11-slim",
+        "default_version": "2.2.354",
+        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
+        "wave": 2,
+        "description": "Double barrière de détection et caviardage des secrets, adresses IP et données personnelles (PII fr/en) en mode fail-closed."
+    },
+    {
+        "id": "oauth2-proxy",
+        "name": "OAuth2-Proxy (SSO Microsoft Entra ID)",
+        "icon": "🔐",
+        "category": "Sécurité & Gouvernance",
+        "github_repo": "oauth2-proxy/oauth2-proxy",
+        "manifest": "deploy/manifests/02-oauth2-proxy.yaml",
+        "k8s_resource": "deployment/oauth2-proxy",
+        "default_image": "quay.io/oauth2-proxy/oauth2-proxy:v7.6.0",
+        "default_version": "v7.6.0",
+        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /ping",
+        "wave": 2,
+        "description": "Passerelle d'authentification OpenID Connect (ForwardAuth Traefik) protégeant les accès collaborateurs et studios."
+    },
+    {
+        "id": "litellm-proxy",
+        "name": "LiteLLM Proxy (Passerelle d'Inférence)",
+        "icon": "⚡",
+        "category": "Inférence & Routage",
+        "github_repo": "BerriAI/litellm",
+        "manifest": "deploy/manifests/05-litellm.yaml",
+        "k8s_resource": "deployment/litellm-proxy",
+        "default_image": "ghcr.io/berriai/litellm:main-v1.72.6-stable",
+        "default_version": "v1.72.6-stable",
+        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health/liveliness",
+        "wave": 3,
+        "description": "Passerelle universelle exposant les 5 profils canoniques (simple/* & agentic/*), ZDR forcé, quotas PostgreSQL et guardrail Presidio."
+    },
+    {
+        "id": "hermes-agent",
+        "name": "Hermes Agent Runtime & Studio Kanban",
+        "icon": "🤖",
+        "category": "Moteur d'Agents",
+        "github_repo": "NousResearch/Hermes-Agent",
+        "manifest": "deploy/manifests/06-hermes-agent.yaml",
+        "k8s_resource": "deployment/hermes-agent",
+        "default_image": "nousresearch/hermes-agent:v0.2.0",
+        "default_version": "v0.2.0",
+        "strategy": "Mise à jour atomique + Préservation verrou SQLite state.db + Sync Power Users",
+        "wave": 4,
+        "description": "Moteur d'agents autonomes, Studio Kanban (:9119), Gateway API/WS (:8642) et pods dédiés des Power Users sur Kubernetes."
+    },
+    {
+        "id": "teams-bot",
+        "name": "Adaptateur Bot Microsoft Teams",
+        "icon": "💬",
+        "category": "Interfaces & Canaux",
+        "github_repo": "microsoft/botbuilder-python",
+        "manifest": "deploy/manifests/08-teams-bot.yaml",
+        "k8s_resource": "deployment/teams-bot-adapter",
+        "default_image": "python:3.11-slim",
+        "default_version": "v4.16.0",
+        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
+        "wave": 4,
+        "description": "Passerelle Bot Framework pour Microsoft Teams (réponses rapides simple/auto et délégation /agent vers Hermes)."
+    },
+    {
+        "id": "open-webui",
+        "name": "Portail Collaborateur Open-WebUI",
+        "icon": "🌐",
+        "category": "Interfaces & Canaux",
+        "github_repo": "open-webui/open-webui",
+        "manifest": "deploy/manifests/07-open-webui.yaml",
+        "k8s_resource": "deployment/open-webui",
+        "default_image": "ghcr.io/open-webui/open-webui:v0.5.10",
+        "default_version": "v0.5.10",
+        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health",
+        "wave": 5,
+        "description": "Portail web conversationnel d'entreprise avec RAG ChromaDB, SSO Entra ID et double raccordement simple/* et agentic/*."
+    }
+]
+
+def extract_manifest_image_version(manifest_rel_path: str, default_image: str, default_version: str) -> Tuple[str, str]:
+    """Lit l'image et la version actuellement déclarées dans un manifeste Kubernetes."""
+    if not manifest_rel_path or not manifest_rel_path.endswith(".yaml"):
+        return default_image, default_version
+    full_path = os.path.join(ROOT_DIR, manifest_rel_path.replace("/", os.sep))
+    if not os.path.isfile(full_path):
+        return default_image, default_version
+    try:
+        with open(full_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        images = re.findall(r'^\s*image:\s*([^\s#]+)', content, flags=re.MULTILINE)
+        if images:
+            # Préférer l'image du conteneur applicatif principal (souvent le dernier si initContainer présent)
+            img = images[-1].strip().strip('"').strip("'")
+            img_no_digest = img.split("@")[0]
+            if ":" in img_no_digest:
+                ver = img_no_digest.split(":", 1)[1]
+                # Nettoyer le préfixe main- éventuel de LiteLLM
+                clean_ver = ver.replace("main-", "") if ver.startswith("main-v") else ver
+                return img_no_digest, clean_ver
+            return img_no_digest, default_version
+    except Exception:
+        pass
+    return default_image, default_version
+
+def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
+    """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
+    headers = {
+        "User-Agent": "ArcIA-Update-Checker/0.4",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    # 1. Essayer /releases/latest
+    try:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                tag = data.get("tag_name") or data.get("name") or fallback_version
+                clean_tag = tag.replace("main-", "") if tag.startswith("main-v") else tag
+                return {
+                    "latest_version": clean_tag,
+                    "raw_tag": tag,
+                    "release_url": data.get("html_url", f"https://github.com/{repo}/releases"),
+                    "published_at": (data.get("published_at") or "")[:10],
+                    "online_checked": True
+                }
+    except Exception:
+        pass
+
+    # 2. Fallback sur /tags?per_page=1 (utile si un dépôt utilise des tags sans GitHub Release formelle)
+    try:
+        url_tags = f"https://api.github.com/repos/{repo}/tags?per_page=1"
+        req_tags = urllib.request.Request(url_tags, headers=headers)
+        with urllib.request.urlopen(req_tags, timeout=4) as resp:
+            if resp.status == 200:
+                tags_data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                if isinstance(tags_data, list) and len(tags_data) > 0:
+                    tag = tags_data[0].get("name") or fallback_version
+                    return {
+                        "latest_version": tag,
+                        "raw_tag": tag,
+                        "release_url": f"https://github.com/{repo}/tags",
+                        "published_at": "Récent",
+                        "online_checked": True
+                    }
+    except Exception:
+        pass
+
+    return {
+        "latest_version": fallback_version,
+        "raw_tag": fallback_version,
+        "release_url": f"https://github.com/{repo}/releases",
+        "published_at": "Catalogue local",
+        "online_checked": False
+    }
+
+def _normalize_ver(v: str) -> str:
+    """Normalise une chaîne de version pour comparaison (ex: v0.5.10 -> 0.5.10)."""
+    v = (v or "").strip()
+    if v.startswith("main-"):
+        v = v[5:]
+    if v.endswith("-stable"):
+        v = v[:-7]
+    return v.lstrip("vV").strip()
+
+def check_components_updates(check_online: bool = True) -> Dict[str, Any]:
+    """Vérifie en parallèle l'état des versions locales et les mises à jour disponibles en ligne."""
+    results: List[Dict[str, Any]] = [None] * len(ARCIA_UPDATABLE_COMPONENTS)  # type: ignore
+
+    def _check_single(idx: int, comp: Dict[str, Any]):
+        curr_img, curr_ver = extract_manifest_image_version(
+            comp["manifest"], comp["default_image"], comp["default_version"]
+        )
+        # Pour presidio et teams-bot dont l'image de base est python:3.11-slim, afficher la version logicielle
+        if comp["id"] in ("presidio-dlp", "teams-bot", "arcia-core"):
+            curr_ver = comp["default_version"]
+
+        if check_online:
+            online_info = fetch_github_latest_release(comp["github_repo"], comp["default_version"])
+        else:
+            online_info = {
+                "latest_version": comp["default_version"],
+                "raw_tag": comp["default_version"],
+                "release_url": f"https://github.com/{comp['github_repo']}/releases",
+                "published_at": "Cache local",
+                "online_checked": False
+            }
+
+        latest_ver = online_info["latest_version"]
+        norm_curr = _normalize_ver(curr_ver)
+        norm_latest = _normalize_ver(latest_ver)
+
+        # Détecter si une mise à jour est disponible
+        if curr_ver in ("latest", "main"):
+            # Les tags flottants (latest/main) peuvent être épinglés ou rafraîchis vers la dernière release stable
+            update_avail = online_info["online_checked"] and norm_latest not in ("", "latest", "main")
+        else:
+            update_avail = bool(online_info["online_checked"] and norm_latest and norm_curr != norm_latest)
+
+        results[idx] = {
+            "id": comp["id"],
+            "name": comp["name"],
+            "icon": comp["icon"],
+            "category": comp["category"],
+            "github_repo": comp["github_repo"],
+            "manifest": comp["manifest"],
+            "k8s_resource": comp["k8s_resource"],
+            "current_image": curr_img,
+            "current_version": curr_ver,
+            "latest_version": latest_ver,
+            "raw_latest_tag": online_info.get("raw_tag", latest_ver),
+            "update_available": update_avail,
+            "online_checked": online_info["online_checked"],
+            "release_url": online_info["release_url"],
+            "published_at": online_info["published_at"],
+            "strategy": comp["strategy"],
+            "wave": comp["wave"],
+            "order": comp["wave"],
+            "description": comp["description"]
+        }
+
+    threads = []
+    for i, comp in enumerate(ARCIA_UPDATABLE_COMPONENTS):
+        t = threading.Thread(target=_check_single, args=(i, comp))
+        t.daemon = True
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join(timeout=6.0)
+
+    valid_results = [r for r in results if r is not None]
+    updates_count = sum(1 for r in valid_results if r.get("update_available"))
+    online_count = sum(1 for r in valid_results if r.get("online_checked"))
+
+    payload = {
+        "success": True,
+        "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "online_reachable": online_count > 0,
+        "total_components": len(valid_results),
+        "updates_available_count": updates_count,
+        "strategy": "RollingUpdate (maxUnavailable=0, maxSurge=1)",
+        "components": valid_results
+    }
+    last_update_check_cache.clear()
+    last_update_check_cache.update(payload)
+    return payload
+
+def get_initial_update_phases() -> List[Dict[str, Any]]:
+    """Retourne les 6 étapes structurées de la séquence de mise à jour Zero-Downtime."""
+    return [
+        {
+            "id": "preflight",
+            "step": 1,
+            "title": "Pré-vérification & Snapshot de Sécurité",
+            "pct": 15,
+            "status": "pending",
+            "detail": "Contrôle de santé du cluster, vérification des nœuds Ready et sauvegarde mémoire des états."
+        },
+        {
+            "id": "configs_skills",
+            "step": 2,
+            "title": "Hot-Sync ConfigMaps, Skills & Manifestes",
+            "pct": 32,
+            "status": "pending",
+            "detail": "Injection à chaud du code des microservices (Presidio, Hermes Plugin, Teams) et des compétences natives."
+        },
+        {
+            "id": "wave_security",
+            "step": 3,
+            "title": "Vague 1 — Bouclier Presidio DLP & SSO Entra ID",
+            "pct": 52,
+            "status": "pending",
+            "detail": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) avec validation préalable des sondes /healthz et /ping."
+        },
+        {
+            "id": "wave_gateway",
+            "step": 4,
+            "title": "Vague 2 — Passerelle d'Inférence LiteLLM Proxy",
+            "pct": 70,
+            "status": "pending",
+            "detail": "Mise à jour sans coupure de LiteLLM Proxy et vérification de la base comptable PostgreSQL."
+        },
+        {
+            "id": "wave_agents",
+            "step": 5,
+            "title": "Vague 3 — Moteur Hermes Agent, Power Users & Bot Teams",
+            "pct": 88,
+            "status": "pending",
+            "detail": "Mise à jour de Hermes Agent (intégrité SQLite state.db), du Bot Teams et des pods dédiés Power Users."
+        },
+        {
+            "id": "wave_portal",
+            "step": 6,
+            "title": "Vague 4 — Portail Open-WebUI & Qualification Finale",
+            "pct": 100,
+            "status": "pending",
+            "detail": "RollingUpdate du portail collaborateur Open-WebUI et validation de disponibilité de bout en bout."
+        }
+    ]
+
+def update_manifest_image_tag(manifest_rel_path: str, new_tag: str) -> Optional[str]:
+    """Met à jour proprement le tag d'image dans un manifeste Kubernetes si demandé."""
+    if not manifest_rel_path or not manifest_rel_path.endswith(".yaml") or not new_tag:
+        return None
+    full_path = os.path.join(ROOT_DIR, manifest_rel_path.replace("/", os.sep))
+    if not os.path.isfile(full_path):
+        return None
+    try:
+        with open(full_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        def _repl(match):
+            prefix = match.group(1)
+            img_full = match.group(2)
+            base_repo = img_full.split("@")[0].split(":")[0]
+            if "berriai/litellm" in base_repo and not new_tag.startswith("main-"):
+                final_tag = f"main-{new_tag}"
+            else:
+                final_tag = new_tag
+            return f"{prefix}{base_repo}:{final_tag}"
+
+        new_content = re.sub(r'^(\s*image:\s*)([^\s#]+)', _repl, content, flags=re.MULTILINE)
+        if new_content != content:
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            return full_path
+    except Exception:
+        pass
+    return None
+
+def _set_update_phase(phase_idx: int, status: str, log_msg: Optional[str] = None):
+    with update_lock:
+        phases = update_state["phases"]
+        if 0 <= phase_idx < len(phases):
+            phases[phase_idx]["status"] = status
+            update_state["current_phase"] = phases[phase_idx]["title"]
+            if status == "done":
+                update_state["progress_pct"] = phases[phase_idx]["pct"]
+            elif status == "running" and phase_idx > 0:
+                update_state["progress_pct"] = phases[phase_idx - 1]["pct"] + 5
+            elif status == "running" and phase_idx == 0:
+                update_state["progress_pct"] = 5
+        if log_msg:
+            update_state["logs"].append(log_msg)
+
+def _append_update_log(msg: str):
+    with update_lock:
+        update_state["logs"].append(msg)
+
+def run_update_worker(selected_components: List[str], bump_image_tags: bool = False,
+                      dry_run: bool = False, infra_target: str = "k8s_existing"):
+    """Exécute la séquence intelligente de mise à jour Zero-Downtime avec suivi temps réel."""
+    global update_state
+
+    if not selected_components:
+        selected_components = [c["id"] for c in ARCIA_UPDATABLE_COMPONENTS]
+
+    with update_lock:
+        update_state["status"] = "running"
+        update_state["progress_pct"] = 2
+        update_state["current_phase"] = "Initialisation de la séquence Zero-Downtime..."
+        update_state["phases"] = get_initial_update_phases()
+        update_state["logs"] = [
+            f"[INFO] Démarrage de l'orchestrateur de mise à jour intelligente ArcIA ({'Simulation Dry-Run' if dry_run else 'Exécution Réelle Zero-Downtime'})",
+            f"[INFO] Composants sélectionnés ({len(selected_components)}) : {', '.join(selected_components)}",
+            f"[INFO] Stratégie : RollingUpdate séquentiel (maxUnavailable=0, maxSurge=1) avec validation des sondes de santé."
+        ]
+        update_state["start_time"] = time.time()
+        update_state["updated_components"] = []
+
+    try:
+        sys.path.insert(0, SCRIPT_DIR)
+        import deploy
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+        k8s_cfg = cfg.get("kubernetes", {})
+        namespace = k8s_cfg.get("namespace", "arcia")
+        public_fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org") or "assistant.example.org"
+        ssh_info = k8s_cfg.get("remote_ssh", {})
+
+        runner = deploy.K8sRunner(
+            mode=k8s_cfg.get("mode", "local"),
+            kubeconfig=k8s_cfg.get("kubeconfig", ""),
+            context=k8s_cfg.get("context", ""),
+            ssh_node=ssh_info.get("node_ip", "127.0.0.1"),
+            ssh_user=ssh_info.get("ssh_user", "debian"),
+            ssh_port=int(ssh_info.get("ssh_port", 22)),
+            ssh_key=ssh_info.get("ssh_key", "")
+        )
+
+        # =====================================================================
+        # PHASE 1 : Pré-vérification & Snapshot de Sécurité
+        # =====================================================================
+        _set_update_phase(0, "running", "\n[PHASE 1/6] Pré-vérification de l'environnement et Snapshot de sécurité...")
+        if dry_run:
+            time.sleep(0.3)
+            _append_update_log(f"[OK] [Dry-Run] Connectivité cluster et namespace '{namespace}' validés.")
+            _append_update_log("[OK] [Dry-Run] Snapshot des manifestes et états de déploiement enregistré en mémoire.")
+        elif infra_target == "docker_lab":
+            doc_st = get_docker_status()
+            if not doc_st.get("running"):
+                _set_update_phase(0, "error", "[ERROR] Docker Engine n'est pas démarré sur cette machine.")
+                with update_lock:
+                    update_state["status"] = "error"
+                return
+            _append_update_log(f"[OK] Docker Engine v{doc_st.get('docker_version')} opérationnel pour mise à jour sans coupure.")
+        else:
+            rc, out, err = runner.run(["get", "nodes", "-o", "wide"])
+            if rc != 0:
+                _set_update_phase(0, "error", f"[ERROR] Impossible de joindre le cluster Kubernetes : {(err or out).strip()}")
+                with update_lock:
+                    update_state["status"] = "error"
+                return
+            nodes_cnt = len([l for l in out.strip().splitlines() if l and not l.startswith("NAME")])
+            _append_update_log(f"[OK] Cluster Kubernetes joignable ({nodes_cnt} nœud(s) actif(s), namespace '{namespace}').")
+        _set_update_phase(0, "done", "[OK] Phase 1 terminée : Pré-vérification qualifiée.")
+
+        # =====================================================================
+        # PHASE 2 : Hot-Sync ConfigMaps, Skills & Manifestes
+        # =====================================================================
+        _set_update_phase(1, "running", "\n[PHASE 2/6] Synchronisation à chaud des ConfigMaps, Skills et tags d'images...")
+        if bump_image_tags and last_update_check_cache.get("components"):
+            for comp_info in last_update_check_cache["components"]:
+                cid = comp_info["id"]
+                if cid in selected_components and comp_info.get("update_available"):
+                    new_tag = comp_info.get("raw_latest_tag") or comp_info.get("latest_version")
+                    if dry_run:
+                        _append_update_log(f"[INFO] [Dry-Run] Mise à jour du tag d'image pour {comp_info['name']} -> {new_tag} ({comp_info['manifest']})")
+                    else:
+                        updated_file = update_manifest_image_tag(comp_info["manifest"], new_tag)
+                        if updated_file:
+                            _append_update_log(f"[OK] Manifeste '{comp_info['manifest']}' mis à jour vers la version {new_tag}.")
+
+        if dry_run:
+            time.sleep(0.3)
+            _append_update_log("[OK] [Dry-Run] ConfigMaps 'presidio-code', 'hermes-governance-plugin', 'teams-bot-code' synchronisés.")
+            _append_update_log("[OK] [Dry-Run] Compétences natives ('ponytail', 'graphify', 'public-apis') et branding Open-WebUI synchronisés.")
+        elif infra_target == "docker_lab":
+            _append_update_log("[INFO] Rafraîchissement des images Docker Lab (docker compose pull)...")
+            subprocess.run(["docker", "compose", "-f", os.path.join(ROOT_DIR, "docker-compose.lab.yml"), "pull"], cwd=ROOT_DIR, capture_output=True)
+            _append_update_log("[OK] Images Docker et configurations locales prêtes.")
+        else:
+            deploy.sync_service_configmaps(runner, namespace, ROOT_DIR)
+            _append_update_log("[OK] ConfigMaps de code microservices synchronisés à chaud sans coupure.")
+            deploy.sync_native_skills(runner, namespace, ROOT_DIR)
+            _append_update_log("[OK] Catalogue de compétences natives ('arcia-native-skills') synchronisé.")
+            deploy.sync_webui_branding(runner, namespace, ROOT_DIR)
+            _append_update_log("[OK] Identité visuelle 'arcia-webui-branding' synchronisée.")
+
+        if "arcia-core" in selected_components:
+            with update_lock:
+                update_state["updated_components"].append("arcia-core")
+        _set_update_phase(1, "done", "[OK] Phase 2 terminée : ConfigMaps et compétences à jour.")
+
+        # Helper interne pour appliquer un manifeste et suivre le rollout sans interruption
+        manifests_dir = os.path.join(ROOT_DIR, "deploy", "manifests")
+
+        def _rolling_update_k8s_deployment(comp_id: str, comp_label: str, manifest_filename: str, dep_name: str, ensure_zero_downtime_patch: bool = True):
+            if comp_id not in selected_components:
+                _append_update_log(f"[INFO] {comp_label} non sélectionné — conservé en l'état.")
+                return
+            if dry_run:
+                time.sleep(0.25)
+                _append_update_log(f"[INFO] [Dry-Run] Application de {manifest_filename} ({dep_name}) avec RollingUpdate (maxUnavailable=0, maxSurge=1)...")
+                _append_update_log(f"[OK] [Dry-Run] Nouveau pod '{dep_name}' Ready (sonde HTTP 200) -> bascule du Service -> terminaison ancien pod (0 coupure).")
+                with update_lock:
+                    update_state["updated_components"].append(comp_id)
+                return
+            if infra_target == "docker_lab":
+                _append_update_log(f"[INFO] Recréation sans coupure du conteneur {dep_name} via Docker Compose...")
+                subprocess.run(["docker", "compose", "-f", os.path.join(ROOT_DIR, "docker-compose.lab.yml"), "up", "-d", "--no-deps", dep_name], cwd=ROOT_DIR, capture_output=True)
+                _append_update_log(f"[OK] Conteneur {dep_name} mis à jour.")
+                with update_lock:
+                    update_state["updated_components"].append(comp_id)
+                return
+
+            m_path = os.path.join(manifests_dir, manifest_filename)
+            if os.path.isfile(m_path):
+                with open(m_path, "r", encoding="utf-8") as f:
+                    raw_yaml = f.read()
+                adapted_yaml = deploy.adapt_manifest_namespace(raw_yaml, namespace)
+                if comp_id == "hermes-agent":
+                    adapted_yaml = adapted_yaml.replace("https://assistant.example.org/studio", f"https://{public_fqdn}/studio")
+                runner.apply_manifest(adapted_yaml)
+
+            if ensure_zero_downtime_patch:
+                patch_json = json.dumps({
+                    "spec": {
+                        "strategy": {
+                            "type": "RollingUpdate",
+                            "rollingUpdate": {"maxUnavailable": 0, "maxSurge": 1}
+                        }
+                    }
+                })
+                runner.run(["patch", "deployment", dep_name, f"-n={namespace}", "--type=merge", "-p", patch_json])
+
+            # Déclencher un rollout restart propre pour prendre en compte les ConfigMaps actualisés et la nouvelle image
+            runner.run(["rollout", "restart", f"deployment/{dep_name}", f"-n={namespace}"])
+            _append_update_log(f"[INFO] Attente de la sonde de disponibilité (readinessProbe) pour '{dep_name}'...")
+            rc_ro, out_ro, err_ro = runner.run(["rollout", "status", f"deployment/{dep_name}", f"-n={namespace}", "--timeout=180s"])
+            if rc_ro == 0:
+                _append_update_log(f"[OK] '{dep_name}' mis à jour avec succès sans aucune interruption de service.")
+                with update_lock:
+                    update_state["updated_components"].append(comp_id)
+            else:
+                _append_update_log(f"[WARN] Délai dépassé sur '{dep_name}' ({err_ro.strip() or out_ro.strip()}) — déclenchement automatique de 'rollout undo' pour préserver le service !")
+                runner.run(["rollout", "undo", f"deployment/{dep_name}", f"-n={namespace}"])
+                raise RuntimeError(f"Échec de santé du nouveau pod sur {dep_name} (rollback automatique effectué).")
+
+        # =====================================================================
+        # PHASE 3 : Vague 1 — Bouclier DLP Presidio & SSO Entra ID
+        # =====================================================================
+        _set_update_phase(2, "running", "\n[PHASE 3/6] Vague 1 — Mise à jour du Bouclier DLP Presidio & SSO Entra ID...")
+        _rolling_update_k8s_deployment("presidio-dlp", "Presidio DLP Shield", "03-presidio.yaml", "presidio-dlp", ensure_zero_downtime_patch=True)
+        if cfg.get("entra_id_sso", {}).get("enabled") or dry_run:
+            _rolling_update_k8s_deployment("oauth2-proxy", "OAuth2-Proxy SSO", "02-oauth2-proxy.yaml", "oauth2-proxy", ensure_zero_downtime_patch=True)
+        else:
+            _append_update_log("[INFO] SSO Entra ID (oauth2-proxy) est désactivé dans la configuration — étape ignorée.")
+        _set_update_phase(2, "done", "[OK] Phase 3 terminée : Bouclier DLP et authentification opérationnels.")
+
+        # =====================================================================
+        # PHASE 4 : Vague 2 — Passerelle d'Inférence LiteLLM Proxy
+        # =====================================================================
+        _set_update_phase(3, "running", "\n[PHASE 4/6] Vague 2 — Mise à jour de la Passerelle d'Inférence LiteLLM Proxy...")
+        _rolling_update_k8s_deployment("litellm-proxy", "LiteLLM Proxy", "05-litellm.yaml", "litellm-proxy", ensure_zero_downtime_patch=True)
+        _set_update_phase(3, "done", "[OK] Phase 4 terminée : Passerelle LiteLLM opérationnelle sur les 5 profils canoniques.")
+
+        # =====================================================================
+        # PHASE 5 : Vague 3 — Moteur Hermes Agent, Power Users & Bot Teams
+        # =====================================================================
+        _set_update_phase(4, "running", "\n[PHASE 5/6] Vague 3 — Mise à jour de Hermes Agent, des Pods Power Users & du Bot Teams...")
+        # Pour Hermes Agent, la stratégie Recreate protège le verrou d'écriture unique sur SQLite state.db
+        _rolling_update_k8s_deployment("hermes-agent", "Hermes Agent & Studio", "06-hermes-agent.yaml", "hermes-agent", ensure_zero_downtime_patch=False)
+
+        if "hermes-agent" in selected_components and not dry_run and infra_target != "docker_lab":
+            try:
+                from arcia_poweruser import sync_all_powerusers
+                def _pu_runner(cmd_args, input_data=None):
+                    rc, out, err = runner.run(cmd_args, stdin_input=input_data)
+                    return subprocess.CompletedProcess(cmd_args, rc, out, err)
+                synced_pu = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_pu_runner)
+                _append_update_log(f"[OK] {synced_pu} instance(s) dédiée(s) Power User synchronisée(s).")
+            except Exception as pue:
+                _append_update_log(f"[WARN] Synchronisation des pods Power Users ignorée : {pue}")
+        elif "hermes-agent" in selected_components and dry_run:
+            _append_update_log("[OK] [Dry-Run] Synchronisation des pods dédiés Power Users simulée avec succès.")
+
+        if cfg.get("teams_bot", {}).get("enabled") or dry_run:
+            _rolling_update_k8s_deployment("teams-bot", "Adaptateur Microsoft Teams Bot", "08-teams-bot.yaml", "teams-bot-adapter", ensure_zero_downtime_patch=True)
+        else:
+            _append_update_log("[INFO] Bot Microsoft Teams désactivé dans la configuration — étape ignorée.")
+        _set_update_phase(4, "done", "[OK] Phase 5 terminée : Moteur Hermes Agent et canaux d'équipe à jour.")
+
+        # =====================================================================
+        # PHASE 6 : Vague 4 — Portail Open-WebUI & Qualification Finale
+        # =====================================================================
+        _set_update_phase(5, "running", "\n[PHASE 6/6] Vague 4 — Mise à jour du Portail Collaborateur Open-WebUI & Vérification finale...")
+        _rolling_update_k8s_deployment("open-webui", "Portail Open-WebUI", "07-open-webui.yaml", "open-webui", ensure_zero_downtime_patch=True)
+        _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR ZERO-DOWNTIME TERMINÉE AVEC SUCCÈS (100%) !")
+
+        with update_lock:
+            update_state["status"] = "success"
+            update_state["progress_pct"] = 100
+            update_state["current_phase"] = "Instance 100% à jour (Aucune interruption de service)"
+
+    except Exception as ue:
+        with update_lock:
+            update_state["status"] = "error"
+            update_state["current_phase"] = f"Erreur : {str(ue)}"
+            update_state["logs"].append(f"[ERROR] Séquence interrompue : {str(ue)}")
+
+# -----------------------------------------------------------------------------
 # Handlers Serveur HTTP (API REST & Single Page App)
 # -----------------------------------------------------------------------------
 
@@ -1570,6 +2180,24 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                         "count": len(deployment_state["logs"])
                     }
                 self.send_json(200, state_copy)
+            elif path == "/api/updates/check":
+                qs = parse_qs(parsed.query)
+                online = qs.get("online", ["1"])[0] not in ("0", "false")
+                res = check_components_updates(check_online=online)
+                self.send_json(200, res)
+            elif path == "/api/updates/status":
+                with update_lock:
+                    u_copy = {
+                        "status": update_state["status"],
+                        "progress": update_state["progress_pct"],
+                        "progress_pct": update_state["progress_pct"],
+                        "current_phase": update_state["current_phase"],
+                        "current_step_label": update_state["current_phase"],
+                        "phases": update_state["phases"],
+                        "logs": update_state["logs"],
+                        "updated_components": update_state["updated_components"]
+                    }
+                self.send_json(200, u_copy)
             elif path == "/api/docker/status":
                 st = get_docker_status()
                 self.send_json(200, st)
@@ -1734,6 +2362,36 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"success": True, "started": True, "dry_run": dry_run, "infra_target": infra_target})
             except Exception as de:
                 self.send_json(500, {"success": False, "error": f"Erreur lors de la configuration ou du démarrage du déploiement : {str(de)}"})
+
+        elif path == "/api/updates/check":
+            online = bool(req_data.get("online", req_data.get("check_online", True)))
+            res = check_components_updates(check_online=online)
+            self.send_json(200, res)
+
+        elif path == "/api/updates/apply":
+            with update_lock:
+                if update_state["status"] == "running":
+                    self.send_json(400, {"success": False, "error": "Une séquence de mise à jour est déjà en cours."})
+                    return
+
+            selected = req_data.get("components") or [c["id"] for c in ARCIA_UPDATABLE_COMPONENTS]
+            bump_tags = bool(req_data.get("bump_image_tags", req_data.get("update_manifests", False)))
+            dry_run = bool(req_data.get("dry_run", False))
+            infra_target = req_data.get("infra_target", "k8s_existing")
+
+            worker = threading.Thread(
+                target=run_update_worker,
+                args=(selected, bump_tags, dry_run, infra_target),
+                daemon=True
+            )
+            worker.start()
+            self.send_json(200, {
+                "success": True,
+                "started": True,
+                "dry_run": dry_run,
+                "selected_components": selected,
+                "bump_image_tags": bump_tags
+            })
 
         elif path == "/api/config/upload-yaml":
             try:

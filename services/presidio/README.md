@@ -1,21 +1,35 @@
-# Service Presidio DLP Sanitizer — ArcIA
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🧩_Services-Microservices-0C2762?style=flat-square" alt="Services"></a>
+  <img src="https://img.shields.io/badge/DLP_Shield-Microsoft_Presidio-FA7B4E?style=flat-square" alt="Presidio DLP">
+</p>
 
-Ce dossier contient l'implémentation de référence de la passerelle de détection et de caviardage de données sensibles **Presidio DLP**, développée avec FastAPI et Microsoft Presidio (`fr_core_news_sm` + `en_core_web_sm`).
+# 🛡️ Service Presidio DLP Sanitizer — ArcIA
 
-## Contenu
+> **[🏠 Accueil ArcIA](../../README.md)** › **[🧩 Microservices](../README.md)** › **Presidio DLP (`services/presidio/`)**
 
-* **[app.py](app.py)** : Application FastAPI constituant la source unique du microservice (synchronisée dans le ConfigMap `presidio-code` par `scripts/deploy.py`) :
-  * `POST /sanitize` (et alias `POST /v1/sanitize`) : Analyse le texte soumis, identifie les secrets techniques (`sk-...`, `ghp_...`, `AKIA...`, tokens Bearer, clés PEM, mots de passe), adresses IPv4 et données personnelles (emails, téléphones, IBAN, cartes bancaires, entités NLP), et renvoie le texte caviardé (`[SECRET_REMOVED]`, `[ARCIA_<TYPE>_n]`).
-  * `POST /analyze` : Retourne la liste structurée des entités détectées (offsets, types, scores) pour le guardrail LiteLLM.
-  * `POST /anonymize` : Anonymise un texte à partir des résultats d'analyse pour le guardrail `pre_call` LiteLLM.
-  * `GET /healthz` (et alias `GET /health`) : Contrôle de disponibilité utilisé par les probes Kubernetes.
-* **[Dockerfile](Dockerfile)** : Image Docker autonome incluant Python 3.11, Presidio Analyzer/Anonymizer et les modèles spaCy français et anglais.
+Ce dossier contient l'implémentation de référence du bouclier de détection et d'anonymisation de données sensibles **Presidio DLP**, propulsé par FastAPI, Microsoft Presidio et spaCy (`fr_core_news_sm` + `en_core_web_sm`).
 
-## Intégration Double Barrière dans la Chaîne d'Inférence
+---
 
-1. **Barrière 1 (Amont — Hermes Agent)** : [services/hermes/plugin.py](../hermes/plugin.py) appelle `POST /sanitize` en mode *fail-closed* avant toute sauvegarde SQLite et tout appel LLM.
-2. **Barrière 2 (Aval — LiteLLM Proxy)** : [deploy/manifests/05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) exécute le guardrail `presidio` (`pre_call`, `default_on: true`) via `/analyze` et `/anonymize`.
+## 🔌 Endpoints API Exposés (`app.py`)
 
-Pour plus d'informations :
-* [Guide Confidentialité Presidio DLP](../../docs/guides/confidentialite-presidio.md)
-* [Manifeste Kubernetes 03-presidio.yaml](../../deploy/manifests/03-presidio.yaml)
+Le fichier **[app.py](app.py)** constitue la source unique du microservice (synchronisée à chaud dans le ConfigMap `presidio-code`) et [Dockerfile](Dockerfile) définit l'image autonome :
+
+| Endpoint HTTP | Consommateur Principal | Fonctionnement |
+|---|---|---|
+| `POST /sanitize`<br/>*(et `/v1/sanitize`)* | **Barrière 1 (Hermes Agent)** | Détecte et remplace les secrets techniques (`sk-...`, `ghp_...`, `AKIA...`, tokens Bearer, clés PEM), adresses IPv4 et PII (`fr`/`en` : emails, téléphones, IBAN, CB, personnes) par des balises neutres (`[SECRET_REMOVED]`, `[ARCIA_<TYPE>_n]`). |
+| `POST /analyze` | **Barrière 2 (LiteLLM Proxy)** | Retourne la liste structurée des entités détectées (offsets, types, scores de confiance) pour le guardrail `pre_call`. |
+| `POST /anonymize` | **Barrière 2 (LiteLLM Proxy)** | Anonymise le texte à partir des résultats d'analyse avant départ vers les fournisseurs LLM Cloud. |
+| `GET /healthz`<br/>*(et `/health`)* | **Sondes Kubernetes** | Contrôle de disponibilité utilisé par les `readinessProbe` et `livenessProbe` lors des RollingUpdates Zero-Downtime. |
+
+---
+
+## 🔒 Architecture « Double Barrière » Fail-Closed
+
+1. **Barrière 1 (Amont — Hermes Agent)** : [`services/hermes/plugin.py`](../hermes/plugin.py) invoque `POST /sanitize` en mode *fail-closed* avant toute persistance SQLite (`state.db`) et tout appel LLM.
+2. **Barrière 2 (Aval — LiteLLM Proxy)** : [`deploy/manifests/05-litellm.yaml`](../../deploy/manifests/05-litellm.yaml) applique le guardrail `presidio` (`pre_call`, `default_on: true`) sur l'ensemble des flux directs (`simple/*`, Teams, `/v1`).
+
+### 🔗 Références Associées
+* 🛡️ [Guide Confidentialité Presidio DLP](../../docs/guides/confidentialite-presidio.md)
+* 📦 [Manifeste Kubernetes `03-presidio.yaml`](../../deploy/manifests/03-presidio.yaml)

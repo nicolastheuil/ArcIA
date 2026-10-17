@@ -488,6 +488,46 @@ llm_gateway:
                 self.assertTrue(any("k8s_existing" in l for l in logs))
                 self.assertTrue(any("scripts/deploy.py" in l for l in logs))
 
+    def test_homepage_presentation_and_update_center_in_html(self):
+        """Vérifie la présence de la présentation d'accueil et du centre de mise à jour Zero-Downtime."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn('id="homepagePresentationHero"', html)
+        self.assertIn('id="cardUpdateInstance"', html)
+        self.assertIn('id="updateSection"', html)
+        self.assertIn('id="updateComponentsBody"', html)
+        self.assertIn('id="updateProgressBar"', html)
+        self.assertIn("checkOnlineUpdates", html)
+        self.assertIn("triggerInstanceUpdate", html)
+
+    def test_check_components_updates_offline_and_manifest_extraction(self):
+        """Vérifie l'extraction des versions depuis les manifestes et le tri séquentiel Zero-Downtime."""
+        res = wizard.check_components_updates(check_online=False)
+        self.assertTrue(res["success"])
+        self.assertEqual(len(res["components"]), 7)
+        orders = [c["order"] for c in res["components"]]
+        self.assertEqual(orders, sorted(orders))
+        comp_ids = [c["id"] for c in res["components"]]
+        self.assertIn("open-webui", comp_ids)
+        self.assertIn("hermes-agent", comp_ids)
+        self.assertIn("litellm-proxy", comp_ids)
+        self.assertIn("presidio-dlp", comp_ids)
+        self.assertIn("oauth2-proxy", comp_ids)
+
+    def test_run_update_worker_dry_run_sequence(self):
+        """Vérifie que la séquence de mise à jour Zero-Downtime (Dry-Run) parcourt les 6 phases jusqu'à 100%."""
+        wizard.run_update_worker(
+            selected_components=["arcia-core", "presidio-dlp", "litellm-proxy", "hermes-agent", "open-webui"],
+            bump_image_tags=False,
+            dry_run=True,
+        )
+        with wizard.update_lock:
+            self.assertEqual(wizard.update_state["status"], "success")
+            self.assertEqual(wizard.update_state["progress_pct"], 100)
+            self.assertEqual(len(wizard.update_state["phases"]), 6)
+            for phase in wizard.update_state["phases"]:
+                self.assertEqual(phase["status"], "done")
+
 
 if __name__ == "__main__":
     unittest.main()
+

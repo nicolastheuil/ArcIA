@@ -1,104 +1,83 @@
-# Catalogue de Compétences (Skills) d'ArcIA
+<p align="left">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Skills-Catalogue_Souverain-6BE7DD?style=flat-square&logoColor=050712" alt="Catalogue Skills">
+  <img src="https://img.shields.io/badge/Air--Gapped-Compatible-10B981?style=flat-square" alt="Air-Gapped">
+</p>
 
-Ce document détaille l'architecture, l'inventaire, le cycle d'installation et les procédures de mise à jour des compétences partagées (**Skills**) utilisées par le moteur d'agents autonomes **Hermes Agent** au sein de la plateforme ArcIA.
+# 🧠 Catalogue de Compétences (Skills) — ArcIA
+
+> **[🏠 Accueil ArcIA](../README.md)** › **Compétences (`skills/`)**
+
+Ce document détaille l'architecture, l'inventaire qualifié, le cycle d'installation et la synchronisation des compétences partagées (**Skills**) utilisées par le moteur d'agents autonomes **Hermes Agent** au sein de la plateforme **ArcIA**.
 
 ---
 
-## 1. Qu'est-ce qu'une "Skill" dans ArcIA ?
+## 1. Qu'est-ce qu'une « Skill » dans ArcIA ?
 
-Dans ArcIA et Hermes Agent, une **Skill** est une **procédure opérationnelle standardisée rédigée en Markdown** (`SKILL.md`). Elle formalise un savoir-faire méthodique pour le LLM :
-- Des étapes séquentielles de raisonnement et d'exécution.
-- Des critères stricts de vérification et de contrôle qualité.
-- Des modèles de structures de fichiers ou de code attendus.
-- Des garde-fous pour éviter les pièges classiques ou la sur-ingénierie.
+Dans ArcIA et Hermes Agent, une **Skill** est une **procédure opérationnelle standardisée rédigée en Markdown** (`SKILL.md`). Elle formalise un savoir-faire méthodique pour l'agent :
+* Des étapes séquentielles de raisonnement, d'analyse et d'exécution.
+* Des critères stricts de vérification et de contrôle qualité.
+* Des garde-fous pour éviter les pièges classiques ou la sur-ingénierie.
 
 > [!IMPORTANT]
 > **Ce qu'une Skill N'EST PAS :**
-> - Une skill **n'est pas un binaire, un script autonome ou un démon** tournant en tâche de fond.
-> - Une skill **ne confère aucun privilège de sécurité ou droit réseau**.
-> - Lire une skill ne fait qu'injecter des instructions dans le contexte conversationnel d'Hermes. Toute action concrète (création de fichier, exécution de commande, requête HTTP) reste soumise aux outils déclarés de l'agent, à la double barrière DLP Presidio et aux NetworkPolicies de Kubernetes.
+> * Une skill **n'est pas un démon** tournant en tâche de fond ni un octroi de droits supplémentaires.
+> * Lire une skill injecte uniquement une méthodologie dans le contexte d'Hermes. Toute action concrète (création de fichier, exécution de commande, requête HTTP) demeure soumise à la **double barrière DLP Presidio** et aux **NetworkPolicies Kubernetes**.
 
 ---
 
-## 2. Inventaire Exhaustif des Projets & Ce qui est Réellement Utilisé
+## 2. Inventaire des Compétences Natives & Communautaires Qualifiées
 
-Lors de la conception d'ArcIA, plusieurs référentiels et projets ouverts ont été qualifiés. Voici exactement ce qui est retenu, ce qui est neutralisé et pourquoi :
-
-| Projet / Dépôt | Ce que le projet propose à l'origine | Ce qu'ArcIA utilise réellement | Ce qu'ArcIA neutralise / rejette | Rôle dans ArcIA |
+| Projet / Répertoire | Ce que le projet propose à l'origine | Ce qu'ArcIA utilise réellement | Ce qu'ArcIA neutralise / rejette | Rôle dans ArcIA |
 |---|---|---|---|---|
-| **Everything Claude Code (ECC)**<br>`affaan-m/everything-claude-code` | 311+ fiches de méthodes dev, revue, refactoring, mémoires locales, instincts, hooks shell. | **Les ~311 fiches méthodologiques `SKILL.md`** canoniques (architecture, TDD, patterns React/Python/Go, débogage). | Rejet des scripts d'installation shell, des hooks automatiques, et des systèmes de mémoire locale non persistés. | Référentiel de méthodologies de développement logiciel et de revue de code. |
-| **Superpowers**<br>`obra/superpowers` | 15 compétences de discipline logicielle par Jesse Vincent (TDD strict, 2-stage review, subagent delegation). | **Les 15 fiches de discipline `SKILL.md`**, décrivant la décomposition rigoureuse des tâches et la validation avant commit. | Rejet de l'orchestrateur de pack et des wrappers de terminaux qui tenteraient de bypasser le moteur Hermes. | Discipline de travail pour les agents : petits commits atomiques, TDD et diagnostic de cause racine. |
-| **Vercel Labs Skills CLI**<br>`vercel-labs/skills` | Outil en ligne de commande (`npx skills`) permettant de chercher (`find`), installer (`add`) et actualiser (`update`) des compétences depuis GitHub. | **Le binaire CLI `skills`** servant d'outil d'import et de maintenance pour l'administrateur. | Rejet du téléchargement à la volée pendant les sessions utilisateurs. Aucun appel vers GitHub n'est fait lors d'un chat. | Outillage de packaging et de gestion du cycle de vie des compétences. |
-| **Vercel AI SDK Skills**<br>`vercel/ai-sdk` | Patterns d'ingénierie IA : streaming d'UI, function calling, génération d'objets structurés, multimodalité. | **Fiches de conception d'interfaces agentiques et de structuration JSON** pour les modèles avancés. | Aucun SDK runtime supplémentaire n'est déployé sur K3s ; seules les fiches de prompts sont lues. | Optimisation de l'interfaçage avec Open-WebUI et LiteLLM. |
-| **Anthropic Quickstarts**<br>`anthropics/anthropic-quickstarts` | Guides officiels Anthropic pour l'orchestration multi-agents, réflexion (Chain of Thought), évaluation. | **Guides de prompt engineering et protocoles de réflexion** pour les modèles de raisonnement. | Pas de serveurs d'exemples ni d'applications démo installés. | Meilleures pratiques de guidage pour les modèles de pointe. |
-| **Ponytail (ArcIA Natif)**<br>[`skills/ponytail/`](ponytail/README.md) | Compétence native ArcIA développée pour la sobriété logicielle et la prévention de l'over-engineering. | **L'échelle de décision YAGNI** (*Decision Ladder*) imposée aux agents avant toute écriture de code. | Aucune dépendance externe (100% natif ArcIA). | Économie de tokens, code minimaliste, réutilisation de l'existant. |
-| **ArcIA Graphify (Natif)**<br>[`skills/graphify/`](graphify/README.md) | Cartographie structurelle AST de bases de code et GraphRAG déterministe local sans LLM. | **Fiche opérationnelle couplée au script `scripts/arcia_graphify.py`**, générant graphes de dépendances et `GRAPH_REPORT.md`. | Zéro token d'inférence consommé, zéro fuite de code vers le cloud. | Compréhension globale d'architectures complexes par les agents. |
-| **Public-APIs (Natif)**<br>[`skills/public-apis/`](public-apis/README.md) | Référentiel et passerelle souveraine d'APIs publiques ouvertes (Entreprises, SIRENE, BAN, Météo). | **Passerelle Python standard autonome (`scripts/public_apis.py`) avec cache 24h et calcul TVA**. | Rejet des requêtes sortantes non homologuées ou non filtrées. | Vérification instantanée et certifiée de données d'entreprises et adresses. |
+| **Ponytail (ArcIA Natif)**<br/>[`skills/ponytail/`](ponytail/README.md) | Compétence native ArcIA pour la sobriété logicielle et l'anti-overengineering. | **L'échelle de décision YAGNI** (*Decision Ladder*) en 7 échelons avant toute écriture de code. | Aucune dépendance externe (100 % natif ArcIA). | Économie de tokens, code minimaliste, réutilisation de la stdlib. |
+| **Graphify (ArcIA Natif)**<br/>[`skills/graphify/`](graphify/README.md) | Cartographie structurelle AST de bases de code et GraphRAG déterministe local. | **Fiche couplée à [`scripts/arcia_graphify.py`](../scripts/arcia_graphify.py)** générant `graph.json` et `GRAPH_REPORT.md`. | 0 token d'inférence consommé, 0 fuite de code vers le cloud. | Compréhension instantanée d'architectures complexes. |
+| **Public-APIs (ArcIA Natif)**<br/>[`skills/public-apis/`](public-apis/README.md) | Passerelle souveraine d'APIs publiques ouvertes (INSEE SIRENE, BAN, Météo). | **Passerelle Python stdlib (`scripts/public_apis.py`) avec cache 24h et calcul TVA**. | Rejet des requêtes sortantes non homologuées. | Vérification certifiée de sociétés (SIRET/TVA) et adresses. |
+| **Everything Claude Code (ECC)**<br/>`affaan-m/everything-claude-code` | 311+ fiches de méthodes dev, revue, refactoring, hooks shell. | **Les fiches méthodologiques `SKILL.md`** canoniques (architecture, TDD, patterns). | Rejet des hooks shell automatiques et scripts non audités. | Référentiel de patterns de développement et de revue. |
+| **Superpowers**<br/>`obra/superpowers` | 15 compétences de discipline logicielle (TDD strict, revue 2-étapes). | **Les 15 fiches de discipline `SKILL.md`** (décomposition et validation avant commit). | Rejet des wrappers de terminaux externes. | Discipline TDD et diagnostic de cause racine. |
+| **Vercel Labs & AI SDK**<br/>`vercel-labs/skills` · `vercel/ai-sdk` | Outillage CLI `npx skills` et patterns d'ingénierie IA. | **Outil d'import admin et fiches de structuration JSON/UI**. | Aucun téléchargement à la volée pendant les chats utilisateurs. | Packaging et patterns d'interfaces agentiques. |
+| **Anthropic Quickstarts**<br/>`anthropics/anthropic-quickstarts` | Guides officiels d'orchestration multi-agents et Chain-of-Thought. | **Guides de prompt engineering et protocoles de réflexion**. | Pas de serveurs démo installés. | Guidage optimal des modèles de raisonnement. |
 
 ---
 
-## 3. À Quel Moment les Skills sont-elles Installées ? (Timeline & Cycle de Vie)
-
-L'installation des skills s'effectue en deux temps bien distincts garantissant à la fois la **souveraineté immédiate** (mode déconnecté) et la **richesse fonctionnelle** :
+## 3. Cycle de Vie & Synchronisation vers Kubernetes
 
 ```mermaid
-flowchart TD
-    subgraph S1["Étape 1 : Déploiement Initial (deploy.py / wizard.py)"]
-        A["1. Dépôt Git ArcIA"] -->|"ConfigMap arcia-native-skills"| B["Kubernetes Namespace 'arcia'"]
-        A -->|"Copie locale /var/data/arcia/shared-skills/arcia"| C["Volume Partagé Cluster"]
-        B --> D["Pod Hermes Agent démarre"]
-        C -->|"Montage /opt/shared-skills (readOnly: true)"| D
-        D --> E["✅ Compétences Natives Opérationnelles Immédiatement (Ponytail, Graphify, Public-APIs)"]
+flowchart LR
+    subgraph Native ["1. Déploiement / RollingUpdate (deploy.py & wizard.py)"]
+        Git["Dépôt ArcIA (skills/)"] -->|"ConfigMap arcia-native-skills"| K8s["Namespace K8s 'arcia'"]
+        K8s -->|"Montage /opt/shared-skills (RO)"| Hermes["Pods Hermes Agent & Power Users"]
     end
 
-    subgraph S2["Étape 2 : Catalogues Communautaires (sync-skills.sh / Sync-Skills.ps1)"]
-        F["Script sync-skills"] -->|"npx skills add / git clone"| G["Téléchargement & Vérification intégrité"]
-        G -->|"Écriture dans /var/data/arcia/shared-skills/"| C
-        C --> H["📚 Compétences indexées dans /opt/shared-skills (ecc, superpowers, vercel, anthropics)"]
-        H --> I["Recherche locale instantanée (0 appel externe lors des chats)"]
+    subgraph Community ["2. Synchronisation Catalogue (Sync-Skills.ps1 / sync-skills.sh)"]
+        Sync["Script Sync-Skills"] -->|"Vérification intégrité"| SharedVol["Volume /var/data/arcia/shared-skills"]
+        SharedVol --> Hermes
     end
+
+    style Native fill:#0C2762,stroke:#1659E4,stroke-width:2px,color:#F8FAFC
+    style Community fill:#0F172A,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
 ```
 
-### Étape 1 : Immédiatement au déploiement (`deploy.py` / Setup Wizard)
-1. Le manifeste Kubernetes [deploy/manifests/06-hermes-agent.yaml](../deploy/manifests/06-hermes-agent.yaml) monte le ConfigMap `arcia-native-skills` ainsi que le volume partagé `/var/data/arcia/shared-skills` en lecture seule (`/opt/shared-skills`).
-2. La fonction `sync_native_skills()` dans `deploy.py` crée automatiquement le ConfigMap Kubernetes `arcia-native-skills` et copie les répertoires de `skills/` vers `/var/data/arcia/shared-skills/arcia/`.
-3. **Résultat** : Dès que le pod Hermes Agent atteint l'état `Running`, les compétences souveraines ArcIA (**Ponytail**, **Graphify**, **Public-APIs**) sont immédiatement actives et consultables, même dans un environnement totalement déconnecté d'Internet (*air-gapped*).
+### Étape 1 : Activation native dès le déploiement (`deploy.py` / Setup Wizard)
+Le manifeste [`deploy/manifests/06-hermes-agent.yaml`](../deploy/manifests/06-hermes-agent.yaml) monte le ConfigMap `arcia-native-skills` ainsi que `/var/data/arcia/shared-skills` en lecture seule (`/opt/shared-skills`). Dès le démarrage du Pod, **Ponytail**, **Graphify** et **Public-APIs** sont immédiatement actifs, même en environnement **100 % déconnecté (*air-gapped*)**.
 
-### Étape 2 : Provisionnement des catalogues communautaires
-1. L'administrateur exécute [skills/sync-skills.sh](sync-skills.sh) ou [scripts/Sync-Skills.ps1](../scripts/Sync-Skills.ps1).
-2. Ce script télécharge et indexe les compétences validées dans `/var/data/arcia/shared-skills/`.
-3. Hermes Agent indexe ces compétences localement. **Aucun appel réseau vers GitHub n'est réalisé lorsque les utilisateurs discutent avec l'agent**.
-
----
-
-## 4. Comment les Garder à Jour ?
-
-Deux stratégies maîtrisées sont disponibles selon la politique de gouvernance de votre entreprise (les synchronisations non supervisées par CronJob ayant été retirées en v0.4 pour éviter toute dérive de prompt non validée) :
-
-### Stratégie A : Mise à jour Manuelle à la Demande (Recommandée en Production)
-```bash
-# Sous Linux / K3s :
-bash skills/sync-skills.sh --update
-
+### Étape 2 : Mise à jour à la demande (sans appel externe pendant les chats)
+```powershell
 # Sous Windows (PowerShell) :
 .\scripts\Sync-Skills.ps1 -Update
-```
-Le script actualise les dépôts en vérifiant les modifications et regénère le catalogue local.
 
-### Stratégie B : Mode Souverain / Air-Gapped (100% Déconnecté)
-Pour les environnements bancaires, défense ou santé sans accès Internet sortant :
-- Les compétences nécessaires sont committées directement dans le dépôt Git ou copiées manuellement dans `/var/data/arcia/shared-skills/`.
-- La synchronisation externe est désactivée (`--offline` ou `-LocalOnly`).
-- Aucun flux réseau sortant n'est sollicité.
+# Mode 100 % local / Air-Gapped :
+.\scripts\Sync-Skills.ps1 -LocalOnly
+```
+```bash
+# Sous Linux / macOS :
+bash skills/sync-skills.sh --update
+```
 
 ---
 
-## 5. Comment Ajouter une Compétence Métier Propre à Votre Entreprise ?
+## 4. Ajouter une Compétence Métier Propre à Votre Organisation
 
-1. Créez un nouveau sous-répertoire dans `skills/` (ex: `skills/regles-architecture-interne/`).
-2. Rédigez le fichier `SKILL.md` avec l'en-tête YAML (`name`, `description`, `author`, `version`).
-3. Exécutez la synchronisation :
-   ```powershell
-   .\scripts\Sync-Skills.ps1 -LocalOnly
-   ```
-4. Hermes Agent découvrira et appliquera automatiquement votre compétence dès la session suivante.
+1. Créez un sous-dossier dans `skills/` (ou dans votre dépôt d'instance privé).
+2. Rédigez un fichier `SKILL.md` avec son en-tête YAML (`name`, `description`, `version`).
+3. Lancez `.\scripts\Sync-Skills.ps1 -LocalOnly` (ou déclenchez la mise à jour Zero-Downtime dans `.\wizard.ps1`).

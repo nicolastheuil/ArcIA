@@ -1,29 +1,38 @@
-# Package d'Application Microsoft Teams — ArcIA
+<p align="left">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🎨_Assets-Design_System-0C2762?style=flat-square" alt="Assets"></a>
+  <img src="https://img.shields.io/badge/Teams_App-Manifest_v1.25-5B5FC7?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Manifest">
+</p>
 
-Ce dossier regroupe le manifeste, les icônes et les archives `.zip` prêtes à l'emploi nécessaires à l'importation et au déploiement du bot ArcIA dans Microsoft Teams.
+# 💬 Package d'Application Microsoft Teams — ArcIA
 
-## Fichiers Disponibles
+> **[🏠 Accueil ArcIA](../../README.md)** › **[🎨 Assets](../README.md)** › **Microsoft Teams (`assets/teams/`)**
 
-* `arcia-teams-ui.zip` : **Archive prête à être importée sans pré-enregistrement** dans [dev.teams.microsoft.com](https://dev.teams.microsoft.com/apps). Ne déclenche aucun appel de validation Bot Framework au moment de l'import, et permet d'associer le bot ensuite via l'interface.
-* `arcia-teams-app.zip` : **Archive complète avec bot déclaré**. Nécessite que le Bot ID soit déjà enregistré chez Microsoft (Azure Bot ou Teams Developer Portal) et que le canal Teams soit actif.
-* `manifest.json` : Manifeste officiel de l'application Teams (schéma v1.25, `supportsChannelFeatures: tier1`, permissions, descriptions et commandes d'assistance).
-* `color.png` : Icône carrée couleur 192x192 px requise par le catalogue d'applications Teams.
-* `outline.png` : Icône transparente monochrome 32x32 px pour la barre latérale gauche de Teams.
+Ce dossier regroupe le manifeste, les icônes réglementaires et les archives `.zip` prêtes à l'emploi pour déployer le bot **ArcIA** dans **Microsoft Teams**.
 
-## Importation dans dev.teams
+---
 
-### Méthode 1 : Import direct (Recommandée si le bot n'est pas encore créé dans Azure)
-1. Rendez-vous sur le **[Portail Développeur Microsoft Teams](https://dev.teams.microsoft.com/apps)**.
-2. Cliquez sur **Importer une application** (*Import app*).
-3. Sélectionnez le fichier `assets/teams/arcia-teams-ui.zip`.
-4. L'application est importée instantanément avec tous ses logos et métadonnées.
-5. Dans l'onglet **App features** > **Bot**, cliquez pour lier votre bot ou en créer un nouveau en 1 clic.
+## 📦 Fichiers du Package
 
-### Méthode 2 : Import avec Bot ID pré-enregistré
-1. Enregistrez votre bot dans *Tools > Bot management* (ou sur le portail Azure).
-2. Vérifiez que le canal **Microsoft Teams** est bien activé (statut *Running*).
-3. Injectez votre `BotId` :
-   ```powershell
-   .\scripts\Package-TeamsApp.ps1 -BotId "VOTRE-APP-ID-GUID"
-   ```
-4. Importez `assets/teams/arcia-teams-app.zip` dans le portail développeur.
+| Fichier | Dimensions / Format | Rôle |
+|---|---|---|
+| **`arcia-teams-ui.zip`** | Archive ZIP | **Import immédiat sans pré-enregistrement** dans `dev.teams.microsoft.com` (association du Bot ID a posteriori en 1 clic). |
+| **`arcia-teams-app.zip`** | Archive ZIP | **Package complet avec Bot déclaré** (généré par `.\scripts\Package-TeamsApp.ps1`). |
+| **[manifest.json](manifest.json)** | JSON (Schéma v1.25) | Manifeste officiel déclarant les portées (`personal`, `team`, `groupChat`) et commandes (`/agent`). |
+| **[color.png](color.png)** | PNG `192x192` px | Icône couleur officielle pour le catalogue d'applications Microsoft Teams. |
+| **[outline.png](outline.png)** | PNG `32x32` px | Icône monochrome transparente pour la barre latérale Teams. |
+
+---
+
+## 🚀 Procédure d'Importation dans Microsoft Teams
+
+### Option A : Import direct dans le Portail Développeur (Sans Bot pré-créé)
+1. Ouvrez le **[Portail Développeur Microsoft Teams](https://dev.teams.microsoft.com/apps)** et cliquez sur **Importer une application**.
+2. Sélectionnez `assets/teams/arcia-teams-ui.zip`.
+3. Dans **App features › Bot**, liez ou créez votre bot Azure en 1 clic.
+
+### Option B : Empaquetage automatisé avec votre `BotId`
+```powershell
+.\scripts\Package-TeamsApp.ps1 -BotId "VOTRE-APP-ID-GUID"
+```
+Puis importez `assets/teams/arcia-teams-app.zip` dans votre catalogue d'entreprise.

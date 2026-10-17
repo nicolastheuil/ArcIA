@@ -81,73 +81,63 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 
 ---
 
-## 🏛️ Architecture Globale
+## 🏛️ Architecture Globale (Vue Macro-Concepts)
 
-Tous les services sont déployés dans le namespace Kubernetes unifié `arcia`, sécurisés par Ingress et Cert-Manager TLS :
+Plutôt qu'un empilement d'outils disparates, **ArcIA** structure le flux de chaque requête autour de **5 grands blocs fonctionnels** garantissant souveraineté, sécurité DLP et maîtrise des coûts :
 
 ```mermaid
-flowchart TD
-    subgraph Clients ["👥 Utilisateurs"]
-        StdUser["Utilisateur Standard<br/>(Open-WebUI Simple + Agentic & Teams)"]
-        PowerUser["Power User<br/>(Open-WebUI + Pod Hermes dédié K8s)"]
-        HermesDesk["Hermes Studio<br/>(Kanban :9119 via SSO)"]
+flowchart LR
+    subgraph Users ["1. 👥 Utilisateurs & Canaux"]
+        direction TB
+        U1["Utilisateurs Standards<br/>(Portail Web & Microsoft Teams)"]
+        U2["Power Users<br/>(Portail Web + Studio Dédié)"]
     end
 
-    subgraph IngressLayer ["🌐 Périmètre d'Ingress HTTPS (assistant.example.org)"]
-        Traefik["Ingress Controller<br/>(Cert-Manager TLS)"]
-        ForwardAuth["ForwardAuth Middleware<br/>(OAuth2-Proxy / Microsoft Entra ID)"]
-        RateLimit["Middleware RateLimit (/v1)"]
+    subgraph Access ["2. 🔐 Accès & Portail Unifié"]
+        direction TB
+        SSO["SSO Microsoft Entra ID<br/>(TLS & ForwardAuth)"]
+        WebUI["Portail Open-WebUI<br/>(RAG Documentaire & Chat)"]
     end
 
-    subgraph ArcIANamespace ["☸️ Cluster Kubernetes — Namespace : arcia"]
-        WebUI["Open-WebUI (:8080)<br/>Portail Hybride simple/* & agentic/*"]
-        TeamsBot["Teams Bot Adapter (:3978)<br/>simple/auto & /agent -> Hermes"]
-        HermesAgent["Hermes Agent (:9119 & :8642)<br/>Plugin DLP + CCR + RTK (PVC 20Gi)"]
-        HermesPU["Pods Hermes Power Users<br/>(/poweruser/slug/studio + PVC 10Gi)"]
-        PresidioDLP["Presidio DLP (:8080)<br/>Double Barrière Fail-Closed"]
-        LiteLLM["LiteLLM Proxy (:4000)<br/>5 Profils Canoniques, ZDR & Quotas"]
-        LiteLLMDB[("LiteLLM DB PostgreSQL (:5432)<br/>Clés Virtuelles, Teams & Budgets")]
+    subgraph Orchestration ["3. 🤖 Orchestration Agentique"]
+        direction TB
+        HermesShared["Hermes Agent Partagé<br/>(Missions & Outils)"]
+        HermesDedicated["Pods Hermes Dédiés<br/>(Isolés par Power User)"]
+        Skills["Skills & Tokenmaxing<br/>(Graphify AST, Ponytail, CCR)"]
     end
 
-    subgraph CloudLayer ["☁️ Services Cloud Sécurisés"]
-        OpenRouter["OpenRouter API<br/>(ZDR forcé : Free, Auto, DeepSeek V4.1 Flash)"]
-        EntraID["Microsoft Entra ID<br/>(SSO & MFA d'Entreprise)"]
-        AzureBot["Azure Bot Service<br/>(Passerelle Microsoft 365)"]
+    subgraph Shield ["4. 🛡️ Gouvernance & DLP"]
+        direction TB
+        Presidio["Double Barrière Presidio<br/>(Anonymisation PII Fail-Closed)"]
+        Audit["Quotas, Budgets & ZDR<br/>(Zéro Rétention Cloud)"]
     end
 
-    StdUser -->|HTTPS /| Traefik
-    PowerUser -->|HTTPS /poweruser/slug/studio| Traefik
-    HermesDesk -->|HTTPS /studio| Traefik
-    StdUser -->|Activité Teams| AzureBot
-    AzureBot -->|POST /api/teams/messages| Traefik
+    subgraph Inference ["5. 🧠 Passerelle & Modèles IA"]
+        direction TB
+        LiteLLM["LiteLLM Proxy<br/>(5 Profils : simple/* & agentic/*)"]
+        Models["Modèles Cloud (OpenRouter)<br/>ou GPU Local (vLLM)"]
+    end
 
-    Traefik --> ForwardAuth
-    ForwardAuth -.->|Validation OIDC| EntraID
-    ForwardAuth -->|Accès Autorisé /studio| HermesAgent
-    ForwardAuth -->|Accès Autorisé /poweruser/slug| HermesPU
+    Users ==> Access
+    Access ==>|"Flux Directs (simple/*)"| Shield
+    Access ==>|"Missions (agentic/*)"| Orchestration
+    Orchestration <==> Skills
+    Orchestration ==> Shield
+    Shield ==> Inference
+    LiteLLM ==> Models
 
-    Traefik --> RateLimit
-    RateLimit -->|Appels API /v1| LiteLLM
-
-    Traefik -->|Accès Portail /| WebUI
-    Traefik -->|Bypass Webhook Signé| TeamsBot
-
-    WebUI -->|Chat Direct simple/* :4000| LiteLLM
-    WebUI -->|Session Agentique agentic/* :8642| HermesAgent
-    TeamsBot -->|Chat simple/auto :4000| LiteLLM
-    TeamsBot -->|Commande /agent :8642| HermesAgent
-
-    HermesAgent -->|Barrière 1 DLP /sanitize| PresidioDLP
-    HermesAgent -->|Inférence Agentique :4000| LiteLLM
-    HermesPU -->|Barrière 1 DLP /sanitize| PresidioDLP
-    HermesPU -->|Inférence Agentique :4000| LiteLLM
-
-    LiteLLM <--> LiteLLMDB
-    LiteLLM -->|Barrière 2 DLP /analyze + /anonymize| PresidioDLP
-    LiteLLM -->|Appel Modèle Sécurisé ZDR| OpenRouter
+    style Users fill:#0C2762,stroke:#1659E4,stroke-width:2px,color:#F8FAFC
+    style Access fill:#0F172A,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
+    style Orchestration fill:#0C2762,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
+    style Shield fill:#1E1B4B,stroke:#FA7B4E,stroke-width:2px,color:#F8FAFC
+    style Inference fill:#0F172A,stroke:#F1C557,stroke-width:2px,color:#F8FAFC
 ```
 
-👉 *Spécification d'architecture détaillée :* [docs/architecture.md](docs/architecture.md)
+> [!TIP]
+> **📐 Schémas Techniques Détaillés (Pods, Ports, Flux Réseau & Séquences DLP) :**
+> Pour consulter les diagrammes d'infrastructure bas niveau (topologie Kubernetes, ports internes, règles d'Ingress Traefik et séquences d'appels Presidio/LiteLLM), rendez-vous dans la documentation technique :
+> * 🏛️ **[Spécification d'Architecture Complète (`docs/architecture.md`)](docs/architecture.md)** — Topologie des Pods, StatefulSets, volumes PVC et flux réseau détaillés.
+> * 🔀 **[Chaîne de Routage & Matrice des Flux (`docs/guides/chaine-de-routage.md`)](docs/guides/chaine-de-routage.md)** — Arbres de décision et diagrammes de séquence de bout en bout.
 
 ---
 
@@ -162,9 +152,9 @@ flowchart TD
 
 ---
 
-## 🚀 Démarrage Rapide
+## 🚀 Démarrage Rapide & Mise à Jour Zero-Downtime
 
-ArcIA se déploie sur n'importe quel cluster Kubernetes (EKS, AKS, GKE, K3s, kubeadm) ou en mode laboratoire Docker local via l'assistant interactif.
+ArcIA se déploie et se met à jour sur n'importe quel cluster Kubernetes (EKS, AKS, GKE, K3s, kubeadm) ou en mode laboratoire Docker local via son **Centre de Pilotage Graphique (Setup Wizard)**.
 
 ### 1. Cloner le dépôt
 ```bash
@@ -172,7 +162,13 @@ git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### 2. Lancer l'installeur interactif (Setup Wizard)
+### 2. Lancer l'assistant graphique (Installation, Mise à jour en ligne & Restauration)
+Dès la page d'accueil, le Wizard vous présente l'architecture et vous propose **4 parcours** :
+* 🚀 **Installer une nouvelle instance** (configuration guidée + sauvegarde Git chiffrée `AES-256-GCM`).
+* ⬆️ **Mettre à jour l'instance (Zero-Downtime)** : vérifie en ligne les nouvelles versions de chaque composant (*Open-WebUI, Hermes Agent, LiteLLM, Presidio DLP, OAuth2-Proxy*) et exécute une séquence `RollingUpdate (maxUnavailable=0, maxSurge=1)` sans coupure avec barre de progression et rollback automatique.
+* 🔄 **Restaurer une instance existante** depuis votre dépôt Git privé chiffré.
+* 📂 **Préremplir depuis un fichier YAML** (`arcia.config.yaml`).
+
 ```powershell
 # Sous Windows (PowerShell) :
 .\wizard.ps1
