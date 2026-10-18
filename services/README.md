@@ -16,7 +16,7 @@ Ce dossier regroupe le code source de référence et les `Dockerfile` des micros
 
 > [!TIP]
 > Chaque microservice possède **une seule source de vérité** dans ce dossier (`app.py` / `plugin.py`).
-> Lors d'un déploiement ou d'une mise à jour Zero-Downtime via `.\wizard.ps1` ou `.\scripts\Deploy-ArcIA.ps1`, la fonction `sync_service_configmaps` ([`scripts/deploy.py`](../scripts/deploy.py)) injecte automatiquement ces fichiers dans les ConfigMaps Kubernetes (`presidio-code`, `teams-bot-code`, `hermes-governance-plugin`) montés par les Pods de [`deploy/manifests/`](../deploy/manifests/README.md).
+> Lors d'un déploiement ou d'une mise à jour Zero-Downtime via `.\wizard.ps1` ou `.\scripts\Deploy-ArcIA.ps1`, la fonction `sync_service_configmaps` ([`scripts/deploy.py`](../scripts/deploy.py)) injecte automatiquement ces fichiers dans les ConfigMaps Kubernetes (`presidio-code`, `teams-bot-code`, `hermes-governance-plugin`, `litellm-error-handler`) montés par les Pods de [`deploy/manifests/`](../deploy/manifests/README.md).
 
 ---
 
@@ -25,6 +25,7 @@ Ce dossier regroupe le code source de référence et les `Dockerfile` des micros
 ```text
 services/
 ├── hermes/     # Plugin de gouvernance DLP amont, compression CCR et compaction RTK (plugin.py)
+├── litellm/    # Gestionnaire d'erreurs d'inférence user-friendly et hooks proxy (error_handler.py)
 ├── presidio/   # Microservice FastAPI d'anonymisation PII & secrets (app.py)
 ├── teams/      # Adaptateur Bot Framework Microsoft Teams (app.py)
 └── README.md   # Ce guide d'orientation
@@ -33,6 +34,7 @@ services/
 | Microservice | Dossier | Stack Technique | Rôle dans la Chaîne ArcIA |
 |---|---|---|---|
 | 🤖 **Hermes Governance & CCR Plugin** | **[hermes/](hermes/README.md)** | Python 3.11 · Hermes Agent Hook | **Barrière 1 DLP** *fail-closed* (`/sanitize` avant SQLite `state.db`), compression réversible **CCR** (cache SHA-256) et compaction **RTK** `git log`. |
+| 🛡️ **LiteLLM Error Handler** | **[litellm/](litellm/README.md)** | Python 3.11 · LiteLLM `CustomLogger` | **Gestionnaire d'erreurs convivial** interceptant les exceptions de passerelle (quota, ZDR, timeout) pour renvoyer des messages en français sans fuite de secrets. |
 | 🛡️ **Presidio DLP Sanitizer** | **[presidio/](presidio/README.md)** | FastAPI · spaCy `fr`/`en` · Presidio | **Bouclier DLP souverain** détectant et anonymisant secrets, clés API, IP et données personnelles (`/sanitize`, `/analyze`, `/anonymize`, `/healthz`). |
 | 💬 **Microsoft Teams Bot Adapter** | **[teams/](teams/README.md)** | Python 3.11 · `aiohttp` · BotBuilder | **Passerelle collaborative Microsoft 365** routant les messages Teams vers `simple/auto` par défaut et la commande `/agent` vers Hermes (`agentic/auto`). |
 

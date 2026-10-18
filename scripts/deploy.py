@@ -569,11 +569,12 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
 
     runner.apply_manifest("\n".join(cm_lines))
 def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) -> Dict[str, str]:
-    """Injecte le code source unique de services/ (Presidio DLP, Teams Bot, Hermes Governance Plugin) dans des ConfigMaps Kubernetes."""
+    """Injecte le code source unique de services/ (Presidio DLP, Teams Bot, Hermes Governance Plugin, LiteLLM Error Handler) dans des ConfigMaps Kubernetes."""
     mappings = [
         ("presidio-code", "app.py", os.path.join(root_dir, "services", "presidio", "app.py")),
         ("teams-bot-code", "app.py", os.path.join(root_dir, "services", "teams", "app.py")),
         ("hermes-governance-plugin", "plugin.py", os.path.join(root_dir, "services", "hermes", "plugin.py")),
+        ("litellm-error-handler", "error_handler.py", os.path.join(root_dir, "services", "litellm", "error_handler.py")),
     ]
     checksums: Dict[str, str] = {}
     for cm_name, key_name, file_path in mappings:
@@ -595,7 +596,7 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
             f"{indented}\n"
         )
         runner.apply_manifest(cm_yaml)
-    log_ok("ConfigMaps de code microservices ('presidio-code', 'teams-bot-code', 'hermes-governance-plugin') synchronisés depuis services/.")
+    log_ok("ConfigMaps de code microservices ('presidio-code', 'teams-bot-code', 'hermes-governance-plugin', 'litellm-error-handler') synchronisés depuis services/.")
     return checksums
 
 # -----------------------------------------------------------------------------
@@ -696,7 +697,11 @@ metadata:
         return None
 
     # 1. enterprise-llm-secret
-    openrouter_key = llm_cfg.get("openrouter_api_key", "")
+    openrouter_key = llm_cfg.get("openrouter_api_key", "").strip()
+    if not openrouter_key:
+        openrouter_key = _get_existing_cluster_secret("litellm-secret", "openrouter-key") or ""
+        if openrouter_key:
+            log_info(" -> Préservation de la clé OpenRouter existante du cluster.")
     runner.apply_manifest(make_secret_manifest("enterprise-llm-secret", namespace, {
         "openrouter-key": openrouter_key
     }))
@@ -746,29 +751,39 @@ metadata:
         "master-key": presidio_key
     }))
 
-    # 5. entraid-secret (si SSO actif ou placeholder sécurisé pour satisfaire les références des pods)
-    sso_tenant = sso_cfg.get("tenant_id", "00000000-0000-0000-0000-000000000000") if sso_cfg.get("enabled") else "00000000-0000-0000-0000-000000000000"
-    sso_client = sso_cfg.get("client_id", "placeholder-client-id") if sso_cfg.get("enabled") else "placeholder-client-id"
-    sso_secret = sso_cfg.get("client_secret", "placeholder-client-secret") if sso_cfg.get("enabled") else "placeholder-client-secret"
-    sso_cookie = sso_cfg.get("cookie_secret", "") if sso_cfg.get("enabled") else ""
-    if not sso_cookie or sso_cookie in KNOWN_INSECURE_SECRETS:
-        sso_cookie = secrets.token_urlsafe(32)
+    # 5. entraid-secret (si SSO actif ou préservation du secret existant)
+    existing_sso_tenant = _get_existing_cluster_secret("entraid-secret", "tenant-id")
+    if existing_sso_tenant and not sso_cfg.get("enabled"):
+        log_info(" -> Préservation de la configuration SSO Entra ID existante du cluster.")
+    else:
+        sso_tenant = sso_cfg.get("tenant_id", "00000000-0000-0000-0000-000000000000") if sso_cfg.get("enabled") else "00000000-0000-0000-0000-000000000000"
+        sso_client = sso_cfg.get("client_id", "placeholder-client-id") if sso_cfg.get("enabled") else "placeholder-client-id"
+        sso_secret = sso_cfg.get("client_secret", "placeholder-client-secret") if sso_cfg.get("enabled") else "placeholder-client-secret"
+        sso_cookie = sso_cfg.get("cookie_secret", "") if sso_cfg.get("enabled") else ""
+        if not sso_cookie or sso_cookie in KNOWN_INSECURE_SECRETS:
+            sso_cookie = _get_existing_cluster_secret("entraid-secret", "cookie-secret") or secrets.token_urlsafe(32)
 
-    runner.apply_manifest(make_secret_manifest("entraid-secret", namespace, {
-        "tenant-id": sso_tenant,
-        "client-id": sso_client,
-        "client-secret": sso_secret,
-        "cookie-secret": sso_cookie
-    }))
-
-    # 6. teams-bot-secret (si bot actif)
-    if teams_cfg.get("enabled"):
-        bot_tenant_id = str(teams_cfg.get("tenant_id") or sso_cfg.get("tenant_id") or "").strip()
-        runner.apply_manifest(make_secret_manifest("teams-bot-secret", namespace, {
-            "app-id": teams_cfg.get("app_id", ""),
-            "app-password": teams_cfg.get("app_password", ""),
-            "tenant-id": bot_tenant_id
+        runner.apply_manifest(make_secret_manifest("entraid-secret", namespace, {
+            "tenant-id": sso_tenant,
+            "client-id": sso_client,
+            "client-secret": sso_secret,
+            "cookie-secret": sso_cookie
         }))
+
+    # 6. teams-bot-secret (si bot actif ou préservation du secret existant)
+    existing_bot_app_id = _get_existing_cluster_secret("teams-bot-secret", "app-id")
+    if teams_cfg.get("enabled") or existing_bot_app_id:
+        bot_tenant_id = str(teams_cfg.get("tenant_id") or sso_cfg.get("tenant_id") or "").strip() or _get_existing_cluster_secret("teams-bot-secret", "tenant-id")
+        app_id = str(teams_cfg.get("app_id") or existing_bot_app_id or "").strip()
+        app_password = str(teams_cfg.get("app_password") or _get_existing_cluster_secret("teams-bot-secret", "app-password") or "").strip()
+        if app_id and app_password:
+            runner.apply_manifest(make_secret_manifest("teams-bot-secret", namespace, {
+                "app-id": app_id,
+                "app-password": app_password,
+                "tenant-id": bot_tenant_id
+            }))
+    elif _get_existing_cluster_secret("teams-bot-secret", "app-id"):
+        log_info(" -> Préservation du secret Teams Bot existant du cluster.")
 
     log_ok("Tous les secrets Kubernetes sont provisionnés de façon déclarative et sécurisée.")
 
@@ -803,6 +818,8 @@ metadata:
     local_vllm = llm_cfg.get("local_vllm_endpoint", "").strip()
     if local_vllm:
         litellm_yaml = litellm_yaml.replace("http://vllm-internal.corp.local:8000/v1", local_vllm)
+    litellm_hash = code_checksums.get("litellm-error-handler", "v04")
+    litellm_yaml = litellm_yaml.replace('checksum/litellm-error-handler: "default"', f'checksum/litellm-error-handler: "{litellm_hash}"')
     runner.apply_manifest(adapt_manifest_namespace(litellm_yaml, namespace))
 
     # C. Hermes Agent (Studio & Gateway Desktop)
@@ -833,7 +850,7 @@ metadata:
     runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))
 
     # E. Services Optionnels : Teams Bot et OAuth2-Proxy
-    if teams_cfg.get("enabled"):
+    if teams_cfg.get("enabled") or existing_bot_app_id:
         log_info(" -> [Optionnel Activé] Déploiement de l'adaptateur Teams Bot (08-teams-bot.yaml)...")
         teams_path = os.path.join(manifests_dir, "08-teams-bot.yaml")
         with open(teams_path, "r", encoding="utf-8") as f:
@@ -846,7 +863,7 @@ metadata:
     else:
         log_info(" -> [Optionnel Ignoré] Adaptateur Microsoft Teams désactivé.")
 
-    if sso_cfg.get("enabled"):
+    if sso_cfg.get("enabled") or existing_sso_tenant:
         log_info(" -> [Optionnel Activé] Déploiement du proxy SSO Entra ID (02-oauth2-proxy.yaml)...")
         oauth_path = os.path.join(manifests_dir, "02-oauth2-proxy.yaml")
         with open(oauth_path, "r", encoding="utf-8") as f:
@@ -921,7 +938,7 @@ spec:
 
     # Construction dynamique des routes Ingress
     teams_path_block = ""
-    if teams_cfg.get("enabled"):
+    if teams_cfg.get("enabled") or existing_bot_app_id:
         teams_path_block = """      - path: /api/messages
         pathType: Prefix
         backend:
@@ -939,7 +956,7 @@ spec:
 
     oauth_path_block = ""
     studio_middlewares = f"{namespace}-studio-prefix@kubernetescrd,{namespace}-studio-stripprefix@kubernetescrd"
-    if sso_cfg.get("enabled"):
+    if sso_cfg.get("enabled") or existing_sso_tenant:
         oauth_path_block = """      - path: /oauth2
         pathType: Prefix
         backend:

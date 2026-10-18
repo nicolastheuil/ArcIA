@@ -59,7 +59,6 @@ model_list:
 
 router_settings:
   fallbacks:
-    - "simple/free": ["simple/auto"]
     - "simple/auto": ["simple/free"]
     - "agentic/free": ["agentic/auto"]
     - "agentic/auto": ["agentic/expert", "simple/auto"]
@@ -97,3 +96,4 @@ guardrails:
 litellm_settings:
   drop_params: true
   set_verbose: false
+  callbacks: error_handler.proxy_handler_instance

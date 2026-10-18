@@ -48,8 +48,7 @@ data:
     router_settings:
       fallbacks:
         - "simple/auto": ["simple/free"]
-        - "simple/free": ["simple/auto"]
-        - "agentic/expert": ["simple/auto", "simple/free"]
+        - "agentic/expert": ["simple/auto"]
       model_group_alias:
         "agentic/free":
           model: "simple/free"
@@ -67,6 +66,9 @@ data:
 
     litellm_settings:
       drop_params: true
+      callbacks: error_handler.proxy_handler_instance
+      request_timeout: 20
+      num_retries: 1
 
     guardrails:
       # Barrière 2 DLP : Anonymisation universelle obligatoire et fail-closed vers le Cloud
@@ -92,6 +94,8 @@ spec:
     metadata:
       labels:
         app: litellm-proxy
+      annotations:
+        checksum/litellm-error-handler: "default"
     spec:
       containers:
       - name: litellm
@@ -174,10 +178,16 @@ spec:
         - name: config
           mountPath: /app/config.yaml
           subPath: config.yaml
+        - name: error-handler
+          mountPath: /app/error_handler.py
+          subPath: error_handler.py
       volumes:
       - name: config
         configMap:
           name: litellm-config
+      - name: error-handler
+        configMap:
+          name: litellm-error-handler
 ---
 apiVersion: v1
 kind: Service

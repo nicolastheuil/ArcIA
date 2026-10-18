@@ -129,6 +129,13 @@ class EphemeralVault:
             if custom_tokens:
                 token_map.update(custom_tokens)
 
+            # Résolution de secours sur les sessions récentes actives si des jetons [TYPE_NN] restent non résolus
+            if "[" in text and "]" in text:
+                for sid, sdata in sorted(self._sessions.items(), key=lambda item: item[1].get("updated_at", 0), reverse=True):
+                    for tok, raw in sdata.get("token_to_raw", {}).items():
+                        if tok not in token_map:
+                            token_map[tok] = raw
+
         if not token_map or not text:
             return text, 0
 

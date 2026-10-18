@@ -117,7 +117,7 @@ spec:
     - protocol: TCP
       port: 443
 ---
-# Flux Presidio DLP : Accessible depuis LiteLLM + Egress HTTPS (443) pour modèles et dépendances
+# Flux Presidio DLP : Accessible depuis LiteLLM, Hermes et Teams Bot + Egress HTTPS (443) pour modèles et dépendances
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -133,8 +133,18 @@ spec:
   ingress:
   - from:
     - podSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values: ["litellm-proxy", "hermes-agent", "teams-bot-adapter"]
+    - podSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: ["hermes-poweruser"]
+    - podSelector:
         matchLabels:
-          app: litellm-proxy
+          arcia.io/role: poweruser
     ports:
     - protocol: TCP
       port: 8080
@@ -226,6 +236,13 @@ spec:
     ports:
     - protocol: TCP
       port: 4000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: presidio-dlp
+    ports:
+    - protocol: TCP
+      port: 8080
   - ports:
     - protocol: TCP
       port: 443
@@ -258,6 +275,13 @@ spec:
     ports:
     - protocol: TCP
       port: 8642
+  - to:
+    - podSelector:
+        matchLabels:
+          app: presidio-dlp
+    ports:
+    - protocol: TCP
+      port: 8080
   - ports:
     - protocol: TCP
       port: 443

@@ -51,6 +51,8 @@ spec:
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: HERMES_URL
           value: "http://hermes-studio.arcia.svc:8642/v1"
+        - name: PRESIDIO_URL
+          value: "http://presidio-dlp.arcia.svc:8080"
         - name: TEAMS_DEFAULT_MODEL
           value: "simple/auto"
         - name: TEAMS_SYSTEM_PROMPT

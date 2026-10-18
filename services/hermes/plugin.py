@@ -272,9 +272,62 @@ def compress_large_json(raw_text: str) -> str:
 
 
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 # 3. Barrière DLP Presidio en Amont (Fail-Closed & Pseudonymisation Réversible)
 # -----------------------------------------------------------------------------
+
+class ArcIAPresidioBlockedException(RuntimeError):
+    """Exception levée en mode Fail-Closed lorsqu'un secret d'infrastructure est bloqué."""
+    pass
+
+
+class ArcIAPresidioUnavailableException(RuntimeError):
+    """Exception levée en mode Fail-Closed lorsque Presidio DLP est inaccessible."""
+    pass
+
+
+def format_hermes_error(error_content: Any) -> str:
+    """
+    Formate les erreurs d'exécution, d'appels LLM ou d'outils pour les Power Users
+    dans Hermes Studio et Hermes CLI, avec des alertes Markdown claires.
+    """
+    raw_str = str(error_content)
+    lower = raw_str.lower()
+
+    if "rejet-fail-closed" in lower or "rejet de secret brut" in lower or "fail_closed_secret_rejected" in lower or "blocage sécurité" in lower:
+        return (
+            "> [!CAUTION]\n"
+            "> ### 🛡️ ArcIA Presidio DLP — Rejet Fail-Closed\n"
+            "> Votre requête ou la sortie d'un outil a été bloquée par mesure de sécurité souveraine "
+            "car elle contient des secrets d'infrastructure sensibles (clé privée SSH/PEM, kubeconfig ou jeton d'authentification).\n"
+            "> L'exécution a été immédiatement interrompue pour protéger l'infrastructure."
+        )
+
+    if "service injoignable" in lower or "inaccessible" in lower or "unreachable" in lower:
+        return (
+            "> [!WARNING]\n"
+            "> ### 🛡️ ArcIA Presidio DLP — Service Indisponible\n"
+            "> Le service de confidentialité Presidio DLP est momentanément inaccessible (Fail-Closed).\n"
+            "> L'exécution a été suspendue pour éviter toute fuite de données vers l'extérieur."
+        )
+
+    if any(k in lower for k in ["key limit exceeded", "daily limit", "spend_usd", "insufficient_quota"]):
+        return (
+            "> [!WARNING]\n"
+            "> ### ⚠️ Quota d'inférence atteint\n"
+            "> La limite d'utilisation quotidienne ou le solde de la clé d'API fournisseur a été atteint.\n"
+            "> Veuillez contacter l'administrateur ArcIA ou vérifier le quota configuré."
+        )
+
+    if any(k in lower for k in ["zero data retention", "filter by data policy", "zdr"]):
+        return (
+            "> [!IMPORTANT]\n"
+            "> ### 🔒 Politique de confidentialité (ZDR)\n"
+            "> Aucun modèle public gratuit ne respecte le Zéro Rétention de Données (ZDR) imposé par ArcIA.\n"
+            "> Veuillez basculer sur un profil d'inférence qualifié (ex: `agentic/auto` ou `agentic/expert`)."
+        )
+
+    return f"> [!WARNING]\n> ### ⚠️ Incident technique\n> {raw_str}"
+
 
 PRESIDIO_DEANONYMIZE_URL = os.environ.get(
     "PRESIDIO_DEANONYMIZE_URL",
@@ -286,7 +339,7 @@ def sanitize_via_presidio(text: str, language: str = "fr", session_id: Optional[
     """
     Appelle le microservice interne Presidio DLP pour assainir un texte
     avant persistance SQLite ou appel au modèle.
-    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception si Presidio est injoignable
+    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception explicite si Presidio est injoignable
     ou rejette un dump de secret brut (HTTP 422).
     """
     if not text or not text.strip():
@@ -309,16 +362,33 @@ def sanitize_via_presidio(text: str, language: str = "fr", session_id: Optional[
                 resp_data = json.loads(resp.read().decode("utf-8"))
                 return resp_data.get("sanitized_text", resp_data.get("text", text))
             if PRESIDIO_FAIL_CLOSED:
-                raise RuntimeError(f"Presidio DLP returned HTTP {resp.status} (Fail-Closed)")
+                raise ArcIAPresidioUnavailableException(f"Presidio DLP returned HTTP {resp.status} (Fail-Closed)")
     except urllib.error.HTTPError as http_err:
         err_msg = http_err.read().decode("utf-8", errors="replace")
         if http_err.code == 422:
-            raise RuntimeError(f"Presidio DLP Fail-Closed [422 Rejet de secret brut] : {err_msg}")
+            friendly_msg = (
+                "🛡️ [ArcIA Presidio DLP - Rejet Fail-Closed] "
+                "Votre message ou document a été bloqué par mesure de sécurité souveraine "
+                "car il contient des secrets d'infrastructure sensibles (clé privée SSH/PEM, kubeconfig ou token). "
+                f"Détail : {err_msg}"
+            )
+            raise ArcIAPresidioBlockedException(friendly_msg)
         if PRESIDIO_FAIL_CLOSED:
-            raise RuntimeError(f"Presidio DLP HTTP {http_err.code} Fail-Closed : {err_msg}")
+            friendly_msg = (
+                f"🛡️ [ArcIA Presidio DLP - Erreur HTTP {http_err.code} Fail-Closed] "
+                f"Erreur du service Presidio : {err_msg}"
+            )
+            raise ArcIAPresidioUnavailableException(friendly_msg)
     except Exception as exc:
+        if isinstance(exc, (ArcIAPresidioBlockedException, ArcIAPresidioUnavailableException)):
+            raise
         if PRESIDIO_FAIL_CLOSED:
-            raise RuntimeError(f"Presidio DLP unreachable or failed in Fail-Closed mode: {exc}") from exc
+            friendly_msg = (
+                f"🛡️ [ArcIA Presidio DLP - Service Injoignable Fail-Closed] "
+                f"Impossible de contacter Presidio DLP ({exc}). "
+                "L'opération a été interrompue pour éviter toute fuite de données vers l'extérieur."
+            )
+            raise ArcIAPresidioUnavailableException(friendly_msg) from exc
     return text
 
 
@@ -327,10 +397,14 @@ def deanonymize_via_presidio(text: str, session_id: Optional[str] = None) -> str
     Ré-hydrate la réponse générée par le LLM en remplaçant les jetons [TYPE_01]
     par leurs valeurs originales depuis le Vault éphémère de session.
     """
-    if not text or not text.strip() or not session_id:
+    if not text or not text.strip():
         return text
 
-    req_body = json.dumps({"text": text, "session_id": session_id}).encode("utf-8")
+    payload = {"text": text}
+    if session_id:
+        payload["session_id"] = session_id
+
+    req_body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         PRESIDIO_DEANONYMIZE_URL,
         data=req_body,
@@ -403,6 +477,9 @@ def main():
     p_dean.add_argument("text", help="Texte contenant des jetons [TYPE_01]")
     p_dean.add_argument("--session-id", required=True, help="Identifiant de session du Vault")
 
+    p_err = sub.add_parser("format-error", help="Formater un message d'erreur pour l'utilisateur Hermes")
+    p_err.add_argument("error", help="Texte ou traceback de l'erreur brute")
+
     args = parser.parse_args()
     if args.cmd == "retrieve":
         res = ccr_retrieve(args.hash, offset=args.offset, limit=args.limit, json_key=args.key)
@@ -411,6 +488,9 @@ def main():
     elif args.cmd == "deanonymize":
         res = deanonymize_via_presidio(args.text, session_id=args.session_id)
         print(res)
+        sys.exit(0)
+    elif args.cmd == "format-error":
+        print(format_hermes_error(args.error))
         sys.exit(0)
 
 

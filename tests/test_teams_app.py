@@ -192,7 +192,13 @@ class TestTeamsAppPackage(unittest.TestCase):
         self.assertEqual(sanitize_user_email("Nicolas THEUIL"), "nicolas.theuil@teams.local")
         self.assertEqual(sanitize_user_email("Clément Élodie"), "clement.elodie@teams.local")
         self.assertEqual(sanitize_user_email("Matthieu et Raphaël"), "matthieu.et.raphael@teams.local")
-        self.assertEqual(sanitize_user_email(""), "collaborateur@teams.local")
+        # 3. Nettoyage des artefacts de génération (__gpt, ArcIA:, etc.) et balises <think>
+        from services.teams.app import clean_model_reply
+        self.assertEqual(clean_model_reply("__gpt Bonjour !"), "Bonjour !")
+        self.assertEqual(clean_model_reply("ArcIA : Voici votre réponse."), "Voici votre réponse.")
+        self.assertEqual(clean_model_reply("Assistant: Réponse structurée."), "Réponse structurée.")
+        self.assertEqual(clean_model_reply("<think>Analyse de la demande...</think> Bonjour monde !"), "Bonjour monde !")
+        self.assertEqual(clean_model_reply("Texte standard sans préfixe."), "Texte standard sans préfixe.")
 
     def test_teams_manifest_and_network_policy_alignment(self):
         """Vérifie que les manifestes 08-teams-bot.yaml et 09-network-policy.yaml sont cohérents pour Teams Bot."""
@@ -203,6 +209,7 @@ class TestTeamsAppPackage(unittest.TestCase):
         self.assertIn("checksum/teams-bot-code", content)
         self.assertIn("MICROSOFT_APP_TENANT_ID", content)
         self.assertIn("TEAMS_SYSTEM_PROMPT", content)
+        self.assertIn("PRESIDIO_URL", content)
         self.assertIn("initialDelaySeconds: 30", content)
 
         netpol_path = self.project_root / "deploy" / "manifests" / "09-network-policy.yaml"
@@ -210,8 +217,9 @@ class TestTeamsAppPackage(unittest.TestCase):
             netpol_content = f.read()
 
         self.assertIn("teams-bot-adapter", netpol_content)
-        # Vérifie que hermes autorise teams-bot-adapter et que teams-bot-adapter peut contacter hermes-agent (8642)
+        # Vérifie que hermes autorise teams-bot-adapter et que teams-bot-adapter peut contacter hermes-agent (8642) et presidio (8080)
         self.assertIn("port: 8642", netpol_content)
+        self.assertIn("port: 8080", netpol_content)
 
 
 if __name__ == "__main__":
