@@ -1404,6 +1404,223 @@ llm_gateway:
                     f.write(orig_mb)
 
 
+    def test_step_containers_are_siblings_and_not_nested(self):
+        """Vérifie que les 4 conteneurs d'étapes (stepContainer1..4) sont des frères directs dans installSection."""
+        from html.parser import HTMLParser
+        VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+        class StepHierarchyValidator(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.stack = []
+                self.step_ancestors = {}
+
+            def handle_starttag(self, tag, attrs):
+                if tag in VOID_TAGS:
+                    return
+                attrs_dict = dict(attrs)
+                el_id = attrs_dict.get("id", "")
+                if el_id and el_id.startswith("stepContainer"):
+                    self.step_ancestors[el_id] = [p[1] for p in self.stack if p[1]]
+                self.stack.append((tag, el_id))
+
+            def handle_endtag(self, tag):
+                if tag in VOID_TAGS:
+                    return
+                if self.stack:
+                    self.stack.pop()
+
+        html = wizard.get_wizard_html_page()
+        validator = StepHierarchyValidator()
+        validator.feed(html)
+
+        for step_num in range(1, 5):
+            s_id = f"stepContainer{step_num}"
+            self.assertIn(s_id, validator.step_ancestors, f"{s_id} doit être présent dans le DOM")
+            ancestors = validator.step_ancestors[s_id]
+            self.assertIn("installSection", ancestors, f"{s_id} doit être dans installSection")
+            for other_num in range(1, 5):
+                if other_num != step_num:
+                    self.assertNotIn(f"stepContainer{other_num}", ancestors, f"{s_id} ne doit pas être imbriqué dans stepContainer{other_num}")
+
+    def test_instance_menus_conditional_visibility(self):
+        """Vérifie que les menus de configuration d'instance sont masqués par défaut et conditionnés."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("updateNavigationVisibility", html)
+        self.assertIn('id="navTabModels" class="nav-btn hidden"', html)
+        self.assertIn('id="navTabPowerUsers" class="nav-btn hidden"', html)
+        self.assertIn('id="navTabIntegrations" class="nav-btn hidden"', html)
+        self.assertIn('id="navTabScaling" class="nav-btn hidden"', html)
+        self.assertIn('id="navTabUpdates" class="nav-btn hidden"', html)
+        self.assertIn('id="btnSidebarNewInstance" class="btn secondary compact hidden"', html)
+        # Accueil et Sauvegarde & reprise ne doivent pas être masqués
+        self.assertIn('id="navTabHome" class="nav-btn active"', html)
+        self.assertIn('id="navTabRestore" class="nav-btn"', html)
+
+    def test_strip_ansi_codes_and_preservation(self):
+        """Vérifie le nettoyage des codes ANSI standards et orphelins tout en préservant les balises de log."""
+        raw_text_1 = "\x1b[1m\x1b[96m=================================================================\x1b[0m"
+        self.assertEqual(wizard.strip_ansi_codes(raw_text_1), "=================================================================")
+
+        raw_text_2 = " [1m [96m[1/7] [0m  [1mVérification de la connectivité au cluster Kubernetes [0m"
+        cleaned_2 = wizard.strip_ansi_codes(raw_text_2).strip()
+        self.assertEqual(cleaned_2, "[1/7]   Vérification de la connectivité au cluster Kubernetes")
+
+        raw_text_3 = " [92m[OK] [0m Cluster connecté avec succès."
+        self.assertEqual(wizard.strip_ansi_codes(raw_text_3).strip(), "[OK]  Cluster connecté avec succès.")
+
+        raw_text_4 = " [93m[WARN] [0m Le déploiement met du temps à démarrer."
+        self.assertEqual(wizard.strip_ansi_codes(raw_text_4).strip(), "[WARN]  Le déploiement met du temps à démarrer.")
+
+    def test_cancel_active_deployment_idle_and_running(self):
+        """Vérifie l'annulation d'un déploiement : refus si inactif, et interruption propre si en cours."""
+        with wizard.deployment_lock:
+            wizard.deployment_state["status"] = "idle"
+            wizard.active_deployment_proc = None
+
+        res_idle = wizard.cancel_active_deployment()
+        self.assertFalse(res_idle["success"])
+        self.assertIn("Aucun déploiement", res_idle["error"])
+
+        mock_proc = MagicMock()
+        mock_proc.terminate = MagicMock()
+        mock_proc.wait = MagicMock()
+        with wizard.deployment_lock:
+            wizard.deployment_state["status"] = "running"
+            wizard.deployment_state["logs"] = ["[INFO] Initialisation..."]
+            wizard.active_deployment_proc = mock_proc
+
+        res_running = wizard.cancel_active_deployment()
+        self.assertTrue(res_running["success"])
+        mock_proc.terminate.assert_called_once()
+        with wizard.deployment_lock:
+            self.assertEqual(wizard.deployment_state["status"], "canceled")
+            self.assertIsNone(wizard.active_deployment_proc)
+            self.assertTrue(any("interrompu" in log for log in wizard.deployment_state["logs"]))
+
+    def test_run_deployment_worker_k8s_existing_vm_cfg_scope(self):
+        """Vérifie que run_deployment_worker lie vm_cfg et construit le récapitulatif sans crash sous k8s_existing."""
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.side_effect = [
+            "[INFO] Lecture du fichier de configuration : arcia.config.yaml\n",
+            "[OK] Validation de la configuration\n",
+            ""
+        ]
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc):
+            wizard.run_deployment_worker(dry_run=True, infra_target="k8s_existing")
+
+        with wizard.deployment_lock:
+            self.assertEqual(wizard.deployment_state["status"], "success")
+            self.assertIn("summary", wizard.deployment_state)
+            summary = wizard.deployment_state["summary"]
+            self.assertIn("webui_url", summary)
+            self.assertIn("hermes_admin_pass", summary)
+
+    def test_wizard_ui_full_page_deployment_and_credentials_view(self):
+        """Vérifie la présence du mode déploiement plein écran, du bouton d'annulation et du résumé des accès."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn(".app-shell.deploy-mode aside.app-sidebar", html)
+        self.assertIn(".app-shell.deploy-mode .app-main-area", html)
+        self.assertIn('id="btnCancelDeploy"', html)
+        self.assertIn("cancelDeployment", html)
+        self.assertIn('id="deployLogsDetails"', html)
+        self.assertIn('id="credentialsRecapContent"', html)
+        self.assertIn("credentials-grid", html)
+        self.assertIn("Liseret doré", html)
+        self.assertIn("Liseret argenté", html)
+
+    def test_get_integrations_status_mocked(self):
+        """Vérifie la détection d'état de connexion de Entra ID et Teams Bot."""
+        cfg = {
+            "entra_id_sso": {
+                "enabled": True,
+                "tenant_id": "azure-tenant-123",
+                "client_id": "azure-client-456"
+            },
+            "teams_bot": {
+                "enabled": True,
+                "app_id": "teams-app-789",
+                "app_password": "secret-password"
+            },
+            "kubernetes": {"namespace": "arcia"}
+        }
+
+        mock_deployments = json.dumps({
+            "items": [
+                {
+                    "metadata": {"name": "oauth2-proxy"},
+                    "status": {"readyReplicas": 2}
+                },
+                {
+                    "metadata": {"name": "teams-bot-adapter"},
+                    "status": {"readyReplicas": 1}
+                }
+            ]
+        })
+
+        runner_mock = MagicMock()
+        runner_mock.run.return_value = (0, mock_deployments, "")
+
+        with patch("wizard.get_k8s_runner", return_value=runner_mock):
+            res = wizard.get_integrations_status(cfg)
+
+        self.assertTrue(res["success"])
+        self.assertTrue(res["sso"]["enabled"])
+        self.assertEqual(res["sso"]["status"], "connected")
+        self.assertEqual(res["sso"]["ready_replicas"], 2)
+        self.assertEqual(res["sso"]["tenant_id"], "azure-tenant-123")
+
+        self.assertTrue(res["teams"]["enabled"])
+        self.assertEqual(res["teams"]["status"], "connected")
+        self.assertEqual(res["teams"]["ready_replicas"], 1)
+        self.assertEqual(res["teams"]["app_id"], "teams-app-789")
+
+    def test_get_instance_backup_timeline_mocked(self):
+        """Vérifie l'analyse de l'historique Git et la construction de la frise chronologique."""
+        mock_log = (
+            "a1b2c3d4e5f6g7h8|2026-10-18 20:30:00 +0200|chore(instance): sauvegarde chiffrée\n"
+            "b2c3d4e5f6g7h8i9|2026-10-18 19:15:00 +0200|chore(instance): déploiement initial\n"
+        )
+
+        with patch("subprocess.run") as mock_run:
+            # premier appel clone ok, second log ok
+            mock_proc_clone = MagicMock(returncode=0)
+            mock_proc_log = MagicMock(returncode=0, stdout=mock_log)
+            mock_run.side_effect = [mock_proc_clone, mock_proc_log]
+
+            res = wizard.get_instance_backup_timeline("https://github.com/myorg/arcia-backup.git", "pat123")
+
+        self.assertTrue(res["success"])
+        self.assertEqual(len(res["timeline"]), 2)
+        self.assertEqual(res["timeline"][0]["short_hash"], "a1b2c3d")
+        self.assertEqual(res["timeline"][0]["datetime"], "2026-10-18 20:30:00 +0200")
+        self.assertEqual(res["last_backup"], "2026-10-18 20:30:00 +0200")
+
+    def test_wizard_ui_integrations_and_backup_timeline_elements(self):
+        """Vérifie la présence des bandeaux de statut en direct, de la timeline et des champs ACME dans l'UI."""
+        html = wizard.get_wizard_html_page()
+        # Éléments SSO et Teams
+        self.assertIn('id="post_entra_status_banner"', html)
+        self.assertIn('id="post_entra_status_dot"', html)
+        self.assertIn('id="post_teams_status_banner"', html)
+        self.assertIn("fetchIntegrationsStatus", html)
+
+        # Éléments Sauvegarde et Reprise
+        self.assertIn('id="backup_current_repo_badge"', html)
+        self.assertIn('id="backup_current_repo_text"', html)
+        self.assertIn('id="backupTimelineTableBody"', html)
+        self.assertIn("fetchBackupInfo", html)
+        self.assertIn("backupCurrentInstanceNow", html)
+        self.assertIn("restorePointInTime", html)
+
+        # Champs DNS ACME
+        self.assertIn('id="network_acme_dns_txt"', html)
+        self.assertIn('id="network_acme_account_key"', html)
+
+
 if __name__ == "__main__":
     unittest.main()
 

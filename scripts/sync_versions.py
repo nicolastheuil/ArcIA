@@ -23,7 +23,7 @@ def load_target_version() -> str:
         raise FileNotFoundError(f"Référentiel introuvable : {VERSIONS_JSON_PATH}")
     with open(VERSIONS_JSON_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
-    version = data.get("arcia_version") or data.get("arcia_release") or "v0.5.0"
+    version = data.get("arcia_version") or data.get("arcia_release") or "v0.5.1"
     return version if version.startswith("v") else f"v{version}"
 
 
@@ -72,6 +72,138 @@ VERSION_TARGET_PATTERNS = [
     (
         r"\barcia_version\s*=\s*['\"]v?[0-9.]+['\"]",
         lambda v: f'arcia_version = "{v}"',
+    ),
+    (
+        r"ArcIA-Update-Checker/[0-9.]+",
+        lambda v: f"ArcIA-Update-Checker/{v.lstrip('v')}",
+    ),
+    (
+        r"ArcIA\s+v[0-9.]+\s*·\s*Production",
+        lambda v: f"ArcIA {v} · Production",
+    ),
+    (
+        r"versions de référence ArcIA\s+v[0-9.]+",
+        lambda v: f"versions de référence ArcIA {v}",
+    ),
+    (
+        r"Catalogue ArcIA\s+v[0-9.]+",
+        lambda v: f"Catalogue ArcIA {v}",
+    ),
+    (
+        r"ArcIA v0\.[0-9.]+\s*—",
+        lambda v: f"ArcIA {v} —",
+    ),
+    (
+        r"ArcIA v0\.[0-9.]+\s+Platform Validation Tests",
+        lambda v: f"ArcIA {v} Platform Validation Tests",
+    ),
+    (
+        r"Passerelle d'inférence LiteLLM v0\.[0-9.]+",
+        lambda v: f"Passerelle d'inférence LiteLLM {v}",
+    ),
+    (
+        r"Tableau de bord de traçabilité v0\.[0-9.]+",
+        lambda v: f"Tableau de bord de traçabilité {v}",
+    ),
+    (
+        r"## 1\. Principes fondateurs v0\.[0-9.]+",
+        lambda v: f"## 1. Principes fondateurs {v}",
+    ),
+    (
+        r"## 3\. Cartographie des composants et ports \(v0\.[0-9.]+\)",
+        lambda v: f"## 3. Cartographie des composants et ports ({v})",
+    ),
+    (
+        r"dans la version \*\*v0\.[0-9.]+\*\*",
+        lambda v: f"dans la version **{v}**",
+    ),
+    (
+        r"Cible \(v0\.[0-9.]+\)",
+        lambda v: f"Cible ({v})",
+    ),
+    (
+        r"## Profils utilisateurs v0\.[0-9.]+",
+        lambda v: f"## Profils utilisateurs {v}",
+    ),
+    (
+        r"## Synthèse des durcissements de sécurité \(v0\.[0-9.]+\)",
+        lambda v: f"## Synthèse des durcissements de sécurité ({v})",
+    ),
+    (
+        r"## 1\. Fonctionnalités clés v0\.[0-9.]+",
+        lambda v: f"## 1. Fonctionnalités clés {v}",
+    ),
+    (
+        r"## 1\. Rôles et architecture v0\.[0-9.]+",
+        lambda v: f"## 1. Rôles et architecture {v}",
+    ),
+    (
+        r"## 3\. Configuration du routage v0\.[0-9.]+",
+        lambda v: f"## 3. Configuration du routage {v}",
+    ),
+    (
+        r"## 1\. Caractéristiques principales et verrouillage d'accès v0\.[0-9.]+",
+        lambda v: f"## 1. Caractéristiques principales et verrouillage d'accès {v}",
+    ),
+    (
+        r"# Presidio DLP — gouvernance et double barrière de confidentialité \(v0\.[0-9.]+\)",
+        lambda v: f"# Presidio DLP — gouvernance et double barrière de confidentialité ({v})",
+    ),
+    (
+        r"# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users \(v0\.[0-9.]+\)",
+        lambda v: f"# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users ({v})",
+    ),
+    (
+        r"# LiteLLM Proxy — passerelle d'inférence d'entreprise \(v0\.[0-9.]+\)",
+        lambda v: f"# LiteLLM Proxy — passerelle d'inférence d'entreprise ({v})",
+    ),
+    (
+        r"# Intégration Microsoft Teams — bot ArcIA \(v0\.[0-9.]+\)",
+        lambda v: f"# Intégration Microsoft Teams — bot ArcIA ({v})",
+    ),
+    (
+        r"# Portail collaborateur Open-WebUI et SSO Microsoft Entra ID \(v0\.[0-9.]+\)",
+        lambda v: f"# Portail collaborateur Open-WebUI et SSO Microsoft Entra ID ({v})",
+    ),
+    (
+        r"\[État des fonctionnalités v0\.[0-9.]+\]",
+        lambda v: f"[État des fonctionnalités {v}]",
+    ),
+    (
+        r"flux d'inférence en v0\.[0-9.]+\.",
+        lambda v: f"flux d'inférence en {v}.",
+    ),
+    (
+        r">\s*\*\*Statut en v0\.[0-9.]+\s*:\s*Implémenté et Actif\.\*\*",
+        lambda v: f"> **Statut en {v} : Implémenté et Actif.**",
+    ),
+    (
+        r"arcia-governance-tokenmaxing\s*v0\.[0-9.]+",
+        lambda v: f"arcia-governance-tokenmaxing {v}",
+    ),
+    (
+        r"Guide Tokenmaxing & CCR v0\.[0-9.]+",
+        lambda v: f"Guide Tokenmaxing & CCR {v}",
+    ),
+    (
+        r"Governance & Tokenmaxing Plugin \(v0\.[0-9.]+\)",
+        lambda v: f"Governance & Tokenmaxing Plugin ({v})",
+    ),
+    (
+        r"Adaptateur Teams Bot\s*:\s*🟢\s*Opérationnel\s*\(v0\.[0-9.]+\)",
+        lambda v: f"Adaptateur Teams Bot : 🟢 Opérationnel ({v})",
+    ),
+    (
+        r"tokens typés v0\.[0-9.]+",
+        lambda v: f"tokens typés {v}",
+    ),
+    (
+        r"security constraints for v0\.[0-9.]+",
+        lambda v: f"security constraints for {v}",
+    ),
+    (
+        r"profils canoniques v0\.[0-9.]+",
+        lambda v: f"profils canoniques {v}",
     ),
 ]
 

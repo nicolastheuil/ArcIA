@@ -3,32 +3,32 @@
     "simple/auto": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "simple/free": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "agentic/auto": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "agentic/free": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "agentic/expert": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "local/model": {
       "icon": "/static/icon-model-local.svg",
       "type": "local",
-      "badge": "Bouclier doré (Local souverain)"
+      "badge": "Liseret doré (Local souverain)"
     },
     "LLM Standard": {
       "icon": "/static/icon-model-default.svg",
@@ -38,7 +38,7 @@
     "LLM Auto (ZDR)": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     },
     "Agentic Standard": {
       "icon": "/static/icon-model-default.svg",
@@ -48,7 +48,7 @@
     "Agentic Auto (ZDR)": {
       "icon": "/static/icon-model-zdr.svg",
       "type": "zdr",
-      "badge": "Bouclier argenté (Cloud ZDR)"
+      "badge": "Liseret argenté (Cloud ZDR)"
     }
   },
   "default_icon": "/static/icon-model-default.svg",

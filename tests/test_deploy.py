@@ -6,6 +6,9 @@ Unit tests for ArcIA deployment engine and configuration parser.
 import os
 import sys
 import unittest
+import json
+import base64
+from unittest.mock import MagicMock
 
 # Ajouter scripts/ au sys.path
 SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -216,6 +219,72 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
         self.assertEqual(models["cloud-claude"]["icon"], "/static/icon-model-zdr.svg")
         self.assertEqual(models["custom-std"]["type"], "default")
         self.assertEqual(models["custom-std"]["icon"], "/static/icon-model-default.svg")
+
+    def test_build_litellm_config_data(self):
+        """Vérifie la génération dynamique de la configuration YAML de LiteLLM avec profils et modèles."""
+        cfg = {
+            "llm_gateway": {
+                "default_model": "simple/auto",
+                "models_routing": [
+                    {
+                        "alias": "simple/claude",
+                        "target_model": "openrouter/anthropic/claude-3.5-haiku",
+                        "category": "simple",
+                        "zdr": True
+                    },
+                    {
+                        "alias": "agentic/coding",
+                        "target_model": "openrouter/deepseek/deepseek-chat",
+                        "category": "agentic",
+                        "zdr": False
+                    }
+                ]
+            },
+            "hermes": {
+                "default_model": "agentic/coding"
+            }
+        }
+        res_yaml = deploy.build_litellm_config_data(cfg)
+        self.assertIsInstance(res_yaml, str)
+
+        # Vérifier salt_key dans general_settings
+        self.assertIn("salt_key: os.environ/LITELLM_SALT_KEY", res_yaml)
+        self.assertIn("store_model_in_db: true", res_yaml)
+
+        # Vérifier que les modèles et alias canoniques sont présents
+        self.assertIn('model_name: "simple/claude"', res_yaml)
+        self.assertIn('model_name: "agentic/coding"', res_yaml)
+        self.assertIn('"agentic/auto":', res_yaml)
+        self.assertIn("presidio-dlp.arcia.svc", res_yaml)
+
+    def test_make_secret_manifest_tls(self):
+        """Vérifie la génération d'un secret Kubernetes de type TLS avec blocs littéraux."""
+        data = {
+            "tls.crt": "-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----\n",
+            "tls.key": "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n"
+        }
+        manifest = deploy.make_secret_manifest("arcia-tls-cert", "arcia", data, secret_type="kubernetes.io/tls")
+        self.assertIn("type: kubernetes.io/tls", manifest)
+        self.assertIn("tls.crt: |", manifest)
+        self.assertIn("tls.key: |", manifest)
+
+    def test_get_existing_cluster_secret_hyphenated_keys(self):
+        """Vérifie l'extraction sécurisée de clés avec tirets depuis le secret cluster JSON."""
+        fake_secret_json = json.dumps({
+            "data": {
+                "master-key": base64.b64encode(b"sk-secret-12345").decode("utf-8"),
+                "salt-key": base64.b64encode(b"salt-abcdef").decode("utf-8"),
+                "db-password": base64.b64encode(b"pg-pass-987").decode("utf-8")
+            }
+        })
+        runner = MagicMock()
+        runner.run.return_value = (0, fake_secret_json, "")
+
+        key = deploy.get_existing_cluster_secret(runner, "arcia", "litellm-secret", "master-key")
+        self.assertEqual(key, "sk-secret-12345")
+
+        salt = deploy.get_existing_cluster_secret(runner, "arcia", "litellm-secret", "salt-key")
+        self.assertEqual(salt, "salt-abcdef")
 
 if __name__ == "__main__":
     unittest.main()

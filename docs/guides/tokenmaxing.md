@@ -1,10 +1,10 @@
-# Tokenmaxing v0.5.0 : CCR, RTK et sobriété de contexte dans Hermes
+# Tokenmaxing v0.5.1 : CCR, RTK et sobriété de contexte dans Hermes
 
 > [!NOTE]
-> **Statut en v0.5.0 : Implémenté et Actif.**
+> **Statut en v0.5.1 : Implémenté et Actif.**
 > Le plugin natif de gouvernance et d'économie de tokens ([services/hermes/plugin.py](../../services/hermes/plugin.py)) est synchronisé automatiquement par `scripts/deploy.py` dans le ConfigMap `hermes-governance-plugin` et monté dans [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml) ainsi que dans les pods Power Users ([deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml)).
 
-Le socle **ArcIA v0.5.0** articule quatre leviers complémentaires d'économie de tokens et de sobriété :
+Le socle **ArcIA v0.5.1** articule quatre leviers complémentaires d'économie de tokens et de sobriété :
 1. **CCR (Compress-Cache-Retrieve)** : Compression réversible des fichiers et résultats JSON volumineux (> 8 Ko) avant leur injection dans la fenêtre de contexte du LLM, avec mise en cache mémoire SHA-256 et récupération paginée de l'original à la demande.
 2. **RTK (Rust Token Killer)** : Réécriture bornée des commandes `git log` verbeuses pour réduire le bruit des historiques Git.
 3. **Graphify** : Cartographie structurelle AST locale de bases de code ([scripts/arcia_graphify.py](../../scripts/arcia_graphify.py)) sans consommer un seul token LLM.
@@ -58,7 +58,7 @@ Le plugin enregistre deux outils directement invocables par Hermes Agent :
 
 ## 4. Architecture de sécurité et non-recouvrement
 
-| Fonction | Implémentation ArcIA v0.5.0 | Principe de Sobriété |
+| Fonction | Implémentation ArcIA v0.5.1 | Principe de Sobriété |
 |---|---|---|
 | **Mémoire de session** | Hermes natif (`state.db` sur PVC RWO dédié) | Un seul propriétaire SQLite par pod ; pas de mémoire globale inter-utilisateurs |
 | **Compression de contexte** | Plugin natif `services/hermes/plugin.py` (CCR + RTK) | Zéro proxy externe ; cache RAM éphémère isolé par runtime |

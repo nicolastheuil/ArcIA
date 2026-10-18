@@ -1,14 +1,14 @@
 {
-  "arcia_release": "v0.5.0",
-  "arcia_version": "v0.5.0",
+  "arcia_release": "v0.5.1",
+  "arcia_version": "v0.5.1",
   "published_at": "2026-10-18",
   "channel": "stable",
   "repository": "nicolastheuil/ArcIA",
   "components": {
     "arcia-core": {
-      "version": "v0.5.0",
+      "version": "v0.5.1",
       "image": "nicolastheuil/ArcIA",
-      "release_notes": "Synchronisation des compétences, ConfigMaps DLP, images stables épinglées et connecteur Teams."
+      "release_notes": "Routage dynamique LiteLLM, timeline de sauvegarde Git, sondes de connectivité SSO/Teams et support validation ACME."
     },
     "presidio-dlp": {
       "version": "2.2.355",

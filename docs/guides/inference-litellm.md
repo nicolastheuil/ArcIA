@@ -1,12 +1,12 @@
-# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.0)
+# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.1)
 
-> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.1)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les composants de la plateforme ArcIA (Open-WebUI en flux directs `simple/*`, Hermes Agent pour les flux `agentic/*`, Bot Teams, ainsi que les pods dédiés des Power Users).
 
 ---
 
-## 1. Rôles et architecture v0.5.0
+## 1. Rôles et architecture v0.5.1
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
@@ -35,7 +35,7 @@ Le service est déployé via :
 
 ---
 
-## 3. Configuration du routage v0.5.0
+## 3. Configuration du routage v0.5.1
 
 Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles et le guardrail Presidio :
 
@@ -194,5 +194,5 @@ LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([service
 Voir également :
 - [Chaîne de routage complète et cycle de vie d'une requête](chaine-de-routage.md)
 - [Gouvernance et confidentialité Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.5.0](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.5.1](../etat-des-fonctionnalites.md)
 - [Quickstart et configuration pratique](../runbooks/quickstart.md)

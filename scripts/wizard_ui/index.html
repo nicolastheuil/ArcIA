@@ -57,6 +57,16 @@
       width: 100%;
     }
 
+    /* Mode plein écran pour le déploiement universel */
+    .app-shell.deploy-mode aside.app-sidebar {
+      display: none !important;
+    }
+    .app-shell.deploy-mode .app-main-area {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 32px 48px;
+    }
+
     /* Bandeau latéral limpide à gauche (Glassmorphism sombre translucide) */
     aside.app-sidebar {
       width: 280px;
@@ -1005,6 +1015,57 @@
     .integration-card.active { border-color: var(--border-strong); }
     .integration-card.active .integration-body { display: block; }
 
+    /* Badges génériques et bandeaux de statut */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+    .badge.ok { background: rgba(16, 185, 129, 0.12); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.25); }
+    .badge.warning { background: rgba(245, 158, 11, 0.12); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .badge.error { background: rgba(239, 68, 68, 0.12); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.25); }
+    .badge.info { background: rgba(22, 89, 228, 0.12); color: #6BE7DD; border: 1px solid rgba(107, 231, 221, 0.25); }
+
+    .integration-status-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    .timeline-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+    .timeline-table th, .timeline-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .timeline-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .timeline-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
     /* Volet repliable */
     details.disclosure {
       background: var(--surface-2);
@@ -1315,7 +1376,7 @@
       </div>
 
       <!-- Bouton Nouvelle instance sous la configuration active -->
-      <button id="btnSidebarNewInstance" class="btn secondary compact" onclick="startNewInstanceSetup()" style="width: 100%; justify-content: center; font-size: 12px; margin-bottom: 16px; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.02); gap: 6px;">
+      <button id="btnSidebarNewInstance" class="btn secondary compact hidden" onclick="startNewInstanceSetup()" style="width: 100%; justify-content: center; font-size: 12px; margin-bottom: 16px; border-style: dashed; border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.02); gap: 6px;">
         <span style="font-size: 13px; font-weight: bold;">＋</span> Nouvelle instance
       </button>
 
@@ -1325,29 +1386,29 @@
           <span class="nav-icon">🏠</span>
           <span class="nav-label">Accueil</span>
         </button>
-        <button id="navTabModels" class="nav-btn" onclick="switchMainTab('models')">
+        <button id="navTabModels" class="nav-btn hidden" onclick="switchMainTab('models')">
           <span class="nav-icon">⚡</span>
           <span class="nav-label">Modèles & routage</span>
         </button>
-        <button id="navTabPowerUsers" class="nav-btn" onclick="switchMainTab('powerusers')">
+        <button id="navTabPowerUsers" class="nav-btn hidden" onclick="switchMainTab('powerusers')">
           <span class="nav-icon">👤</span>
           <span class="nav-label">Power users</span>
         </button>
-        <button id="navTabIntegrations" class="nav-btn" onclick="switchMainTab('integrations')">
+        <button id="navTabIntegrations" class="nav-btn hidden" onclick="switchMainTab('integrations')">
           <span class="nav-icon">🛡️</span>
           <span class="nav-label">SSO & Teams</span>
         </button>
-        <button id="navTabScaling" class="nav-btn" onclick="switchMainTab('scaling')">
+        <button id="navTabScaling" class="nav-btn hidden" onclick="switchMainTab('scaling')">
           <span class="nav-icon">📊</span>
           <span class="nav-label">Dimensionnement cluster</span>
         </button>
-        <button id="navTabUpdates" class="nav-btn" onclick="switchMainTab('updates')">
+        <button id="navTabUpdates" class="nav-btn hidden" onclick="switchMainTab('updates')">
           <span class="nav-icon">🚀</span>
           <span class="nav-label">Mises à jour</span>
         </button>
         <button id="navTabRestore" class="nav-btn" onclick="switchMainTab('restore')">
           <span class="nav-icon">🔒</span>
-          <span class="nav-label">Sauvegarde & reprise</span>
+          <span class="nav-label">Sauvegarde et reprise</span>
         </button>
       </nav>
 
@@ -1357,7 +1418,7 @@
           <span id="sidebarStatusDot" class="status-dot"></span>
           <span id="sidebarStatusText">Analyse…</span>
         </div>
-        <div class="sidebar-footer-version">ArcIA v0.5.0 · Production</div>
+        <div class="sidebar-footer-version">ArcIA v0.5.1 · Production</div>
       </div>
     </aside>
 
@@ -2164,8 +2225,8 @@
           <div class="notice-box mt-16" style="border-left: 3px solid #6be7dd;">
             <strong>Icônes automatiques des modèles (Open-WebUI) :</strong> Le Wizard pousse dynamiquement les icônes officielles dans Open-WebUI lors de l'enregistrement de la configuration :
             <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.6;">
-              <li><strong style="color:#fcd34d;">Bouclier doré :</strong> Modèles locaux souverains (Ollama, vLLM) garantissant zéro fuite hors du réseau interne.</li>
-              <li><strong style="color:#e2e8f0;">Bouclier argenté :</strong> Modèles cloud protégés avec Zero Data Retention (ZDR) et bouclier DLP fail-closed.</li>
+              <li><strong style="color:#fcd34d;">Liseret doré :</strong> Modèles locaux souverains (Ollama, vLLM) garantissant zéro fuite hors du réseau interne.</li>
+              <li><strong style="color:#e2e8f0;">Liseret argenté :</strong> Modèles cloud protégés avec Zero Data Retention (ZDR) et bouclier DLP fail-closed.</li>
               <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Remplacement automatique du fallback générique « OI ».</li>
             </ul>
           </div>
@@ -2204,6 +2265,7 @@
           </div>
         </div>
       </div>
+    </div>
 
         <!-- Navigation Étape 2 -->
         <div class="wizard-step-footer">
@@ -2281,6 +2343,18 @@
               <label class="field-label" for="network_tls_secret_name">Nom du Secret TLS existant</label>
               <input type="text" id="network_tls_secret_name" value="arcia-tls-cert">
             </div>
+
+            <div id="group_acme_dns" class="form-group span-2">
+              <label class="field-label" for="network_acme_dns_txt">Validation DNS Let's Encrypt (enregistrement TXT réutilisable)</label>
+              <input type="text" id="network_acme_dns_txt" placeholder="Valeur challenge TXT de _acme-challenge pour réutilisation pérenne">
+              <span class="field-hint">Conserve l'enregistrement DNS TXT dans le YAML pour valider immédiatement le domaine lors d'une restauration.</span>
+            </div>
+
+            <div id="group_acme_account" class="form-group span-2">
+              <label class="field-label" for="network_acme_account_key">Clé privée de compte Let's Encrypt (optionnel)</label>
+              <input type="password" id="network_acme_account_key" placeholder="Clé privée de compte ACME existante (PEM ou base64)">
+              <span class="field-hint">Permet de réutiliser le même compte ACME lors de la restauration d'une instance sur un autre cluster.</span>
+            </div>
           </div>
         </div>
 
@@ -2336,6 +2410,7 @@
               <label class="field-label" for="webui_storage_size">Volume Open-WebUI / RAG</label>
               <input type="text" id="webui_storage_size" value="50Gi">
             </div>
+          </div>
         </div>
 
         <!-- Intégration 1 : SSO Microsoft Entra ID -->
@@ -2522,43 +2597,49 @@
 
         <!-- Jalons et terminal de suivi du déploiement -->
         <div id="deployProgressPanel" class="panel hidden">
-          <div class="panel-header">
-            <h3>Suivi du déploiement</h3>
-            <p id="deployStatusMessage">Déploiement en cours d'exécution…</p>
+          <div class="panel-header flex-between" style="border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;">
+            <div>
+              <h3 id="deployPanelTitle" style="font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px;">Suivi du déploiement universel</h3>
+              <p id="deployStatusMessage" style="color: var(--text-muted); margin-top: 4px;">Déploiement en cours d'exécution…</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="btnCancelDeploy" class="btn danger compact" type="button" onclick="cancelDeployment()">⏹ Annuler le déploiement</button>
+              <button id="btnExitDeployMode" class="btn secondary compact hidden" type="button" onclick="exitDeploymentMode()">← Revenir à la configuration</button>
+            </div>
           </div>
 
-          <div class="progress-bar-wrap">
-            <div id="deployProgressBar" class="progress-bar-fill"></div>
+          <!-- Section Jalons & Progression -->
+          <div id="deployExecutionActiveView">
+            <div class="progress-bar-wrap" style="height: 10px; border-radius: 9999px; background: var(--surface-3); overflow: hidden; margin-bottom: 20px;">
+              <div id="deployProgressBar" class="progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent) 0%, var(--cyan) 100%); transition: width 0.5s ease;"></div>
+            </div>
+
+            <div class="milestones-list">
+              <div id="m_stone_1" class="milestone-item active"><span class="milestone-icon">1</span> <span>Préparation du socle et des namespaces Kubernetes</span></div>
+              <div id="m_stone_2" class="milestone-item"><span class="milestone-icon">2</span> <span>Bouclier DLP Presidio Fail-Closed et filtres de souveraineté</span></div>
+              <div id="m_stone_3" class="milestone-item"><span class="milestone-icon">3</span> <span>Passerelle d'inférence LiteLLM et routage des modèles</span></div>
+              <div id="m_stone_4" class="milestone-item"><span class="milestone-icon">4</span> <span>Moteur d'agents Hermes, plugins de gouvernance et stockage</span></div>
+              <div id="m_stone_5" class="milestone-item"><span class="milestone-icon">5</span> <span>Portail collaborateur Open-WebUI et contrôleur Ingress TLS</span></div>
+            </div>
           </div>
 
-          <div class="milestones-list">
-            <div id="m_stone_1" class="milestone-item active"><span class="milestone-icon">1</span> <span>Préparation du socle et des namespaces Kubernetes</span></div>
-            <div id="m_stone_2" class="milestone-item"><span class="milestone-icon">2</span> <span>Bouclier DLP Presidio Fail-Closed et filtres de souveraineté</span></div>
-            <div id="m_stone_3" class="milestone-item"><span class="milestone-icon">3</span> <span>Passerelle d'inférence LiteLLM et routage des modèles</span></div>
-            <div id="m_stone_4" class="milestone-item"><span class="milestone-icon">4</span> <span>Moteur d'agents Hermes, plugins de gouvernance et stockage</span></div>
-            <div id="m_stone_5" class="milestone-item"><span class="milestone-icon">5</span> <span>Portail collaborateur Open-WebUI et contrôleur Ingress TLS</span></div>
-          </div>
-
-          <details class="disclosure" open>
-            <summary>Journaux d'exécution en direct</summary>
-            <div id="deployLogsContainer" class="logs-terminal mt-16"></div>
-          </details>
-
-          <!-- Récapitulatif complet et sécurisé des identifiants (affiché en fin de déploiement) -->
-          <div id="deployCredentialsRecapCard" class="panel mt-16 hidden" style="border: 1px solid var(--accent); background: var(--surface-2);">
-            <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+          <!-- Récapitulatif complet et sécurisé des identifiants (affiché en haut lors du succès) -->
+          <div id="deployCredentialsRecapCard" class="panel mt-16 hidden" style="border: 1px solid var(--accent); background: var(--surface-2); box-shadow: 0 10px 30px rgba(22, 89, 228, 0.12);">
+            <div class="panel-header" style="border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 18px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                 <div>
-                  <h3 style="color:var(--accent); display:flex; align-items:center; gap:8px;">
+                  <h3 style="color:var(--accent); display:flex; align-items:center; gap:8px; font-size:18px;">
                     <span>🎉</span> Récapitulatif des identifiants et accès déployés
                   </h3>
                   <p style="margin-top:4px; font-size:13px; color:var(--text-muted);">
                     Conservez précieusement ces identifiants d'administration. Vous pouvez les copier ou télécharger le fichier récapitulatif.
                   </p>
                 </div>
-                <div style="display:flex; gap:8px;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <a id="btnOpenWebUI" href="#" target="_blank" class="btn primary compact">🚀 Ouvrir Open-WebUI &rarr;</a>
                   <button class="btn secondary compact" type="button" onclick="copyAllCredentialsToClipboard()">📋 Tout copier</button>
-                  <button class="btn primary compact" type="button" onclick="downloadCredentialsSummaryFile()">⬇️ Télécharger arcia-credentials.txt</button>
+                  <button class="btn secondary compact" type="button" onclick="downloadCredentialsSummaryFile()">⬇️ Télécharger arcia-credentials.txt</button>
+                  <button class="btn primary compact" type="button" onclick="exitDeploymentModeAndShowInstance()">⚙️ Accéder au tableau de bord</button>
                 </div>
               </div>
             </div>
@@ -2567,6 +2648,12 @@
               <!-- Rempli dynamiquement par renderDeploymentCredentials(summary) -->
             </div>
           </div>
+
+          <!-- Terminal de logs (repliable sous forme de panneau technique) -->
+          <details id="deployLogsDetails" class="disclosure mt-16" open>
+            <summary id="deployLogsSummary">Journaux d'exécution en direct</summary>
+            <div id="deployLogsContainer" class="logs-terminal mt-16"></div>
+          </details>
         </div>
       </div>
 
@@ -2671,7 +2758,10 @@
           <h2>SSO et intégrations collaboratives</h2>
           <p>Configurez l'authentification unique Entra ID et le bot Microsoft Teams pour vos collaborateurs.</p>
         </div>
-        <button class="btn primary compact" onclick="saveIntegrationsConfig()">Enregistrer les intégrations</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn secondary compact" onclick="fetchIntegrationsStatus()">Actualiser l'état</button>
+          <button class="btn primary compact" onclick="saveIntegrationsConfig()">Enregistrer les intégrations</button>
+        </div>
       </div>
 
       <!-- SSO Entra ID -->
@@ -2686,6 +2776,16 @@
             <span class="switch-toggle"></span>
           </label>
         </div>
+
+        <!-- Bandeau d'état de connexion SSO -->
+        <div id="post_entra_status_banner" class="integration-status-banner">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="post_entra_status_dot" class="status-dot"></span>
+            <span id="post_entra_status_text" style="font-weight:500;">Vérification de la connectivité…</span>
+          </div>
+          <div id="post_entra_summary_info" style="color:var(--text-secondary); font-size:12px;"></div>
+        </div>
+
         <div id="post_card_entraid" class="mt-16">
           <div class="form-grid">
             <div class="form-group">
@@ -2723,6 +2823,16 @@
             <span class="switch-toggle"></span>
           </label>
         </div>
+
+        <!-- Bandeau d'état de connexion Teams Bot -->
+        <div id="post_teams_status_banner" class="integration-status-banner">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="post_teams_status_dot" class="status-dot"></span>
+            <span id="post_teams_status_text" style="font-weight:500;">Vérification de la connectivité…</span>
+          </div>
+          <div id="post_teams_summary_info" style="color:var(--text-secondary); font-size:12px;"></div>
+        </div>
+
         <div id="post_card_teams" class="mt-16">
           <div class="form-grid">
             <div class="form-group">
@@ -2876,16 +2986,82 @@
          6. SECTION SAUVEGARDE ET REPRISE
     ====================================================================== -->
     <section id="restoreSection" class="view-section">
-      <div class="panel-header">
-        <h2>Sauvegarde et restauration</h2>
-        <p>Récupérez votre instance depuis un dépôt Git chiffré AES-256-GCM ou importez une configuration locale.</p>
+      <div class="panel-header flex-between">
+        <div>
+          <h2>Sauvegarde et restauration</h2>
+          <p>Supervisez vos sauvegardes Git chiffrées AES-256-GCM et restaurez votre instance à un point précis dans le temps.</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn secondary compact" onclick="fetchBackupInfo()">Actualiser l'historique</button>
+        </div>
       </div>
 
+      <!-- Panneau Dépôt de sauvegarde actuel & Déclenchement de backup -->
+      <div class="panel">
+        <div class="integration-header flex-between">
+          <div>
+            <h3>Dépôt Git de sauvegarde d'instance</h3>
+            <p>Le coffre-fort chiffré où sont synchronisées les configurations et clés de l'instance.</p>
+          </div>
+          <span id="backup_current_repo_badge" class="badge">Non configuré</span>
+        </div>
+
+        <div class="integration-status-banner mt-16">
+          <div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:2px;">Dépôt distant connecté :</div>
+            <code id="backup_current_repo_text" style="font-size:13px; color:var(--cyan);">(Aucun dépôt configuré)</code>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:2px;">Dernière sauvegarde réussie :</div>
+            <strong id="backup_last_date_text" style="font-size:13px;">—</strong>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;">
+          <div style="flex:1; min-width:260px;">
+            <label class="field-label" for="backup_passphrase_input">Mot de passe maître pour sauvegarder maintenant</label>
+            <input type="password" id="backup_passphrase_input" placeholder="Mot de passe maître de chiffrement">
+          </div>
+          <button class="btn primary" onclick="backupCurrentInstanceNow()">Sauvegarder l'état actuel maintenant</button>
+        </div>
+      </div>
+
+      <!-- Frise chronologique des points de restauration (Timeline) -->
+      <div class="panel">
+        <div class="panel-header flex-between">
+          <div>
+            <h3>Points de restauration disponibles (Timeline)</h3>
+            <p>Sélectionnez un instantané historique pour revenir à un état antérieur de la configuration.</p>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="timeline-table">
+            <thead>
+              <tr>
+                <th style="width:200px;">Date et heure</th>
+                <th style="width:120px;">Instantané</th>
+                <th>Description de la sauvegarde</th>
+                <th style="width:160px; text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="backupTimelineTableBody">
+              <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">
+                  Chargement de l'historique des sauvegardes…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Restauration manuelle & Import local -->
       <div class="home-cards-grid">
         <div class="panel">
           <div class="panel-header">
-            <h3>Restaurer depuis un dépôt Git privé</h3>
-            <p>Déchiffrement sécurisé du bundle d'instance avec votre mot de passe maître.</p>
+            <h3>Restaurer depuis un autre dépôt Git</h3>
+            <p>Déchiffrement sécurisé d'un bundle d'instance distant.</p>
           </div>
           <div class="form-group">
             <label class="field-label" for="restore_git_url">URL du dépôt Git privé</label>
@@ -2896,7 +3072,7 @@
             <input type="password" id="restore_git_token" placeholder="ghp_xxxxxxxxxxxx">
           </div>
           <div class="form-group">
-            <label class="field-label" for="restore_git_passphrase">Mot de passe maître de chiffrement</label>
+            <label class="field-label" for="restore_git_passphrase">Mot de passe maître de déchiffrement</label>
             <input type="password" id="restore_git_passphrase">
           </div>
           <button class="btn primary mt-16" onclick="restoreFromGit()">Restaurer et charger l'instance</button>
@@ -3089,6 +3265,7 @@
 
     // Initialisation de l'application
     function initApp() {
+      updateNavigationVisibility();
       runInitialLoadingSequence();
       // Garde-fou inconditionnel : après 3.5s maximum, l'écran de chargement disparaît quoi qu'il arrive
       setTimeout(dismissLoadingScreen, 3500);
@@ -3224,7 +3401,9 @@
         if (sideTxt) sideTxt.textContent = state.instanceDetected ? 'Instance active' : 'Prêt pour install';
 
         // Chargement en arrière-plan des modules complémentaires
-        fetchPowerUsers();
+        if (state.instanceDetected) {
+          fetchPowerUsers();
+        }
         fetchModelRouting();
 
         // Fondu de sortie fluide du Splash Screen
@@ -3232,6 +3411,7 @@
 
       } catch (err) {
         console.error('Erreur séquence initiale :', err);
+        state.instanceDetected = false;
         dismissLoadingScreen();
         renderHomePageView(null);
       }
@@ -3305,6 +3485,7 @@
 
         renderHomePageView(res);
       } catch (e) {
+        state.instanceDetected = false;
         renderHomePageView(null);
       }
     }
@@ -3335,6 +3516,28 @@
           saveFooter.classList.add('hidden');
         } else {
           saveFooter.classList.remove('hidden');
+        }
+      }
+    }
+
+    function updateNavigationVisibility() {
+      const instanceNavTabs = [
+        document.getElementById('navTabModels'),
+        document.getElementById('navTabPowerUsers'),
+        document.getElementById('navTabIntegrations'),
+        document.getElementById('navTabScaling'),
+        document.getElementById('navTabUpdates')
+      ];
+      const btnNewInstance = document.getElementById('btnSidebarNewInstance');
+
+      if (state.instanceDetected) {
+        instanceNavTabs.forEach(tab => tab && tab.classList.remove('hidden'));
+        if (btnNewInstance) btnNewInstance.classList.remove('hidden');
+      } else {
+        instanceNavTabs.forEach(tab => tab && tab.classList.add('hidden'));
+        if (btnNewInstance) btnNewInstance.classList.add('hidden');
+        if (['models', 'powerusers', 'integrations', 'scaling', 'updates'].includes(state.activeTab)) {
+          switchMainTab('home');
         }
       }
     }
@@ -3396,7 +3599,7 @@
           if (comps.length > 0) {
             tbody.innerHTML = comps.map(c => {
               const name = typeof c === 'string' ? c : (c.name || c.id);
-              const version = typeof c === 'object' && c.version ? c.version : (c.current_version || 'v0.5.0');
+              const version = typeof c === 'object' && c.version ? c.version : (c.current_version || 'v0.5.1');
               const isReady = typeof c === 'object' ? (c.ready !== false) : true;
               const source = typeof c === 'object' && c.source ? c.source : (detectResult?.target_info || 'Cluster');
               const hasUp = Boolean(typeof c === 'object' && (c.has_update || c.update_available));
@@ -3434,6 +3637,7 @@
         dashView.classList.add('hidden');
         installView.classList.remove('hidden');
       }
+      updateNavigationVisibility();
     }
 
     async function refreshDashboardComponents() {
@@ -3444,6 +3648,9 @@
 
     // Navigation principale via la sidebar
     function switchMainTab(tab) {
+      if (!state.instanceDetected && ['models', 'powerusers', 'integrations', 'scaling', 'updates'].includes(tab)) {
+        return;
+      }
       state.activeTab = tab;
       document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.app-sidebar-nav .nav-btn').forEach(b => b.classList.remove('active'));
@@ -3465,6 +3672,7 @@
       } else if (tab === 'integrations') {
         document.getElementById('integrationsSection')?.classList.add('active');
         document.getElementById('navTabIntegrations')?.classList.add('active');
+        fetchIntegrationsStatus();
       } else if (tab === 'scaling') {
         document.getElementById('scalingSection')?.classList.add('active');
         document.getElementById('navTabScaling')?.classList.add('active');
@@ -3476,6 +3684,7 @@
       } else if (tab === 'restore') {
         document.getElementById('restoreSection')?.classList.add('active');
         document.getElementById('navTabRestore')?.classList.add('active');
+        fetchBackupInfo();
       }
     }
 
@@ -3491,9 +3700,7 @@
     function returnToHome() {
       state.newInstanceFlow = false;
       switchMainTab('home');
-      if (state.instanceDetected && state.latestDetectResult) {
-        renderHomePageView(state.latestDetectResult);
-      }
+      renderHomePageView(state.latestDetectResult || null);
     }
 
     function startGuidedInstall() {
@@ -3517,7 +3724,9 @@
         if (prev) prev.classList.add('done');
       }
 
-      if (step === 2) {
+      if (step === 1) {
+        selectInfraTarget(state.infraTarget || 'k8s_existing');
+      } else if (step === 2) {
         mountModelRoutingBlock('installModelRoutingMount');
         if (!state.models || state.models.length === 0) {
           fetchModelRouting();
@@ -4077,8 +4286,8 @@
 
     const MODEL_ICONS = {
       default: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMEEwRjFEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRTcXVpcmNsZUJnIiB4MT0iNjQiIHkxPSIzMiIgeDI9IjQ0OCIgeTI9IjQ4MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMTMxQjJFIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU1JSIgc3RvcC1jb2xvcj0iIzBBMEYxRCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDUwNzEyIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRDeWFuRmlsbCIgeDE9IjgwIiB5MT0iOTgiIHgyPSIyMjQiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM1QUQ4Q0UiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBIYWxvIGFtYmlhbnQgY2xhc3NpcXVlIC0tPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRTdWJ0bGVHbG93IiBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMTAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgc3RvcC1vcGFjaXR5PSIwLjE0IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIHN0b3Atb3BhY2l0eT0iMCIgLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgPC9kZWZzPgoKICA8IS0tIENvbnRlbmV1ciBTcXVpcmNsZSBEYXJrIE1vZGUgb2ZmaWNpZWwgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYURlZmF1bHRTcXVpcmNsZUJnKSIgc3Ryb2tlPSIjMUUyOTNCIiBzdHJva2Utd2lkdGg9IjgiIC8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMTAiIGZpbGw9InVybCgjYXJjaWFEZWZhdWx0U3VidGxlR2xvdykiIC8+CgogIDwhLS0gTW9ub2dyYW1tZSBvZmZpY2llbCAiYUlBIiBjZW50csOpIC0tPgogIDxnIGlkPSJhcmNpYS1hSUEtbW9ub2dyYW0iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4LCAxNzQpIHNjYWxlKDEuNjgpIj4KICAgIDwhLS0gImEiIGVuIEJsYW5jICgjRjhGQUZDKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik00My42MSAyNkM0Ny43OCAyNi4wOSA1MS44IDI2LjU3IDU1LjY2IDI3LjQzIDU5LjUyIDI4LjI5IDYyLjk5IDMwLjI3IDY2LjA3IDMzLjM2IDY4LjcgMzUuOSA3MC41NCAzOC44OSA3MS41OCA0Mi4zNSA3Mi42MyA0NS44IDczLjE1IDQ5LjM0IDczLjE1IDUyLjk2TDczLjE1IDk3Ljc1IDIyLjI0IDk3Ljc1QzE0Ljg5IDk3Ljc1IDkuMjUgOTUuNzMgNS4zNSA5MS42OSAxLjQ1IDg3LjY2LTAuMzIgODIuMDYgMC4wNSA3NC44OCAwLjY4IDY2LjI2IDMuNzIgNjAuNjggOS4xNyA1OC4xMyAxNC42MiA1NS41OSAyMS4xMSA1NC4zMiAyOC42NCA1NC4zMkw1My41NSA1NC4xOUM1My44MiA0OC4yOSA1Mi4zIDQ0LjYxIDQ4Ljk5IDQzLjE2IDQ1LjY4IDQxLjcxIDQxLjQ4IDQwLjk4IDM2LjQgNDAuOThMNC44MSA0MC44NCA0LjgxIDI2IDQzLjYxIDI2Wk0yOS45OSA4My4zMiA1My42OCA4My4zMiA1My42OCA2OC40OCAzMS4zNSA2OC40OEMzMS4xNyA2OC41NyAzMC45OSA2OC42MiAzMC44MSA2OC42MkwzMC4yNyA2OC42MkMyNy43MyA2OC43MSAyNS4zNyA2OS4xOSAyMy4xOSA3MC4wNSAyMS4wMSA3MC45MSAxOS44NyA3Mi45MyAxOS43OCA3Ni4xIDE5LjYgNzkuNjQgMjAuNTcgODEuNzMgMjIuNzEgODIuMzcgMjQuODQgODMuMDEgMjcuMjcgODMuMzcgMjkuOTkgODMuNDZMMjkuOTkgODMuMzJaIgogICAgICBmaWxsPSIjRjhGQUZDIgogICAgLz4KCiAgICA8IS0tICJJIiBlbiBCbGV1IEN5YW4gQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTgyLjkyIDk3Ljc2IEwxMDAuMTYgMCBMMTIxLjY3IDAgTDEwNC40MyA5Ny43NiBaIgogICAgICBmaWxsPSJ1cmwoI2FyY2lhRGVmYXVsdEN5YW5GaWxsKSIKICAgIC8+CgogICAgPCEtLSAiQSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGZpbGwtcnVsZT0iZXZlbm9kZCIKICAgICAgY2xpcC1ydWxlPSJldmVub2RkIgogICAgICBkPSJNMTc3Ljg2IDAgTDE5OS42NSAwIEwyMjQuMDcgOTcuNzYgTDIwMS4yMCA5Ny43NiBMMTk2LjMyIDc0LjQ4IEwxNTMuODQgNzQuNDggTDE0MS4wMiA5Ny43NiBMMTE5LjM3IDk3Ljc2IEwxNzcuODYgMCBaIE0xODQuNTEgMTkuNDcgTDE2My41OCA1Ny4wNSBMMTkyLjcyIDU3LjA1IEwxODQuNTEgMTkuNDcgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYURlZmF1bHRDeWFuRmlsbCkiCiAgICAvPgogIDwvZz4KPC9zdmc+Cg==",
-      local: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMEEwRjFEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYUxvY2FsU3F1aXJjbGVCZyIgeDE9IjY0IiB5MT0iMzIiIHgyPSI0NDgiIHkyPSI0ODAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE4MUQyRiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1NSUiIHN0b3AtY29sb3I9IiMwRDEyMjIiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBCb3JkdXJlIGRvcsOpZSBkdSBTcXVpcmNsZSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFHb2xkQm9yZGVyIiB4MT0iMzIiIHkxPSIzMiIgeDI9IjQ4MCIgeTI9IjQ4MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkNEMzREIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjQ1JSIgc3RvcC1jb2xvcj0iI0Y1OUUwQiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI4MCUiIHN0b3AtY29sb3I9IiNCNDUzMDkiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0ZDRDM0RCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBDeWFuIG9mZmljaWVsIEFyY0lBICgjNkJFN0REKSBwb3VyIGxlIG1vbm9ncmFtbWUgLS0+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImFyY2lhTG9jYWxDeWFuRmlsbCIgeDE9IjgwIiB5MT0iOTgiIHgyPSIyMjQiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM1QUQ4Q0UiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBIYWxvIGFtYmlhbnQgZG9yw6kgLS0+CiAgICA8cmFkaWFsR3JhZGllbnQgaWQ9ImFyY2lhR29sZEhhbG8iIGN4PSIyNDAiIGN5PSIyNDAiIHI9IjIyMCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRjU5RTBCIiBzdG9wLW9wYWNpdHk9IjAuMTYiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgc3RvcC1vcGFjaXR5PSIwIiAvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KCiAgICA8IS0tIETDqWdyYWTDqSBtw6l0YWxsaXF1ZSBkdSBib3VjbGllciBkb3LDqSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0ic2hpZWxkR29sZEdyYWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0ZGRkJFQiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIyNSUiIHN0b3AtY29sb3I9IiNGREU2OEEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjRjU5RTBCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9Ijg1JSIgc3RvcC1jb2xvcj0iI0Q5NzcwNiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNzgzNTBGIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIETDqWdyYWTDqSBpbnTDqXJpZXVyIGR1IGJvdWNsaWVyIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJzaGllbGRJbm5lckdvbGRHcmFkIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxRTI5M0IiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBBMEYxRCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBPbWJyZSBwb3J0w6llIHBvdXIgbGUgYm91Y2xpZXIgLS0+CiAgICA8ZmlsdGVyIGlkPSJnb2xkU2hpZWxkU2hhZG93IiB4PSItMjAlIiB5PSItMjAlIiB3aWR0aD0iMTQwJSIgaGVpZ2h0PSIxNDAlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjYiIHN0ZERldmlhdGlvbj0iOCIgZmxvb2QtY29sb3I9IiMwMDAwMDAiIGZsb29kLW9wYWNpdHk9IjAuNzUiIC8+CiAgICAgIDxmZURyb3BTaGFkb3cgZHg9IjAiIGR5PSIwIiBzdGREZXZpYXRpb249IjE0IiBmbG9vZC1jb2xvcj0iI0Y1OUUwQiIgZmxvb2Qtb3BhY2l0eT0iMC4zMCIgLz4KICAgIDwvZmlsdGVyPgogIDwvZGVmcz4KCiAgPCEtLSBDb250ZW5ldXIgU3F1aXJjbGUgYXZlYyBhY2NlbnQgZG9yw6kgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYUxvY2FsU3F1aXJjbGVCZykiIHN0cm9rZT0idXJsKCNhcmNpYUdvbGRCb3JkZXIpIiBzdHJva2Utd2lkdGg9IjgiIC8+CiAgPGNpcmNsZSBjeD0iMjQwIiBjeT0iMjQwIiByPSIyMjAiIGZpbGw9InVybCgjYXJjaWFHb2xkSGFsbykiIC8+CgogIDwhLS0gTW9ub2dyYW1tZSBvZmZpY2llbCAiYUlBIiBjZW50csOpIC0tPgogIDxnIGlkPSJhcmNpYS1hSUEtbW9ub2dyYW0iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4LCAxNzQpIHNjYWxlKDEuNjgpIj4KICAgIDwhLS0gImEiIGVuIEJsYW5jICgjRjhGQUZDKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik00My42MSAyNkM0Ny43OCAyNi4wOSA1MS44IDI2LjU3IDU1LjY2IDI3LjQzIDU5LjUyIDI4LjI5IDYyLjk5IDMwLjI3IDY2LjA3IDMzLjM2IDY4LjcgMzUuOSA3MC41NCAzOC44OSA3MS41OCA0Mi4zNSA3Mi42MyA0NS44IDczLjE1IDQ5LjM0IDczLjE1IDUyLjk2TDczLjE1IDk3Ljc1IDIyLjI0IDk3Ljc1QzE0Ljg5IDk3Ljc1IDkuMjUgOTUuNzMgNS4zNSA5MS42OSAxLjQ1IDg3LjY2LTAuMzIgODIuMDYgMC4wNSA3NC44OCAwLjY4IDY2LjI2IDMuNzIgNjAuNjggOS4xNyA1OC4xMyAxNC42MiA1NS41OSAyMS4xMSA1NC4zMiAyOC42NCA1NC4zMkw1My41NSA1NC4xOUM1My44MiA0OC4yOSA1Mi4zIDQ0LjYxIDQ4Ljk5IDQzLjE2IDQ1LjY4IDQxLjcxIDQxLjQ4IDQwLjk4IDM2LjQgNDAuOThMNC44MSA0MC44NCA0LjgxIDI2IDQzLjYxIDI2Wk0yOS45OSA4My4zMiA1My42OCA4My4zMiA1My42OCA2OC40OCAzMS4zNSA2OC40OEMzMS4xNyA2OC41NyAzMC45OSA2OC42MiAzMC44MSA2OC42MkwzMC4yNyA2OC42MkMyNy43MyA2OC43MSAyNS4zNyA2OS4xOSAyMy4xOSA3MC4wNSAyMS4wMSA3MC45MSAxOS44NyA3Mi45MyAxOS43OCA3Ni4xIDE5LjYgNzkuNjQgMjAuNTcgODEuNzMgMjIuNzEgODIuMzcgMjQuODQgODMuMDEgMjcuMjcgODMuMzcgMjkuOTkgODMuNDZMMjkuOTkgODMuMzJaIgogICAgICBmaWxsPSIjRjhGQUZDIgogICAgLz4KCiAgICA8IS0tICJJIiBlbiBCbGV1IEN5YW4gQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTgyLjkyIDk3Ljc2IEwxMDAuMTYgMCBMMTIxLjY3IDAgTDEwNC40MyA5Ny43NiBaIgogICAgICBmaWxsPSJ1cmwoI2FyY2lhTG9jYWxDeWFuRmlsbCkiCiAgICAvPgoKICAgIDwhLS0gIkEiIGVuIEJsZXUgQ3lhbiBBcmNJQSAoIzZCRTdERCkgLS0+CiAgICA8cGF0aAogICAgICBmaWxsLXJ1bGU9ImV2ZW5vZGQiCiAgICAgIGNsaXAtcnVsZT0iZXZlbm9kZCIKICAgICAgZD0iTTE3Ny44NiAwIEwxOTkuNjUgMCBMMjI0LjA3IDk3Ljc2IEwyMDEuMjAgOTcuNzYgTDE5Ni4zMiA3NC40OCBMMTUzLjg0IDc0LjQ4IEwxNDEuMDIgOTcuNzYgTDExOS4zNyA5Ny43NiBMMTc3Ljg2IDAgWiBNMTg0LjUxIDE5LjQ3IEwxNjMuNTggNTcuMDUgTDE5Mi43MiA1Ny4wNSBMMTg0LjUxIDE5LjQ3IFoiCiAgICAgIGZpbGw9InVybCgjYXJjaWFMb2NhbEN5YW5GaWxsKSIKICAgIC8+CiAgPC9nPgoKICA8IS0tIEJvdWNsaWVyIERvcsOpIFNvdXZlcmFpbiAoTW9kw6hsZXMgTG9jYXV4IE9sbGFtYSAvIHZMTE0pIGVuIGJhcyDDoCBkcm9pdGUgLS0+CiAgPGcgaWQ9ImFyY2lhLWxvY2FsLWdvbGRlbi1zaGllbGQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMwMCwgMjgwKSIgZmlsdGVyPSJ1cmwoI2dvbGRTaGllbGRTaGFkb3cpIj4KICAgIDwhLS0gQ29ycHMgZXh0ZXJuZSBkdSBib3VjbGllciBkb3LDqSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik0gODUgMTAgQyAxMzAgMTAgMTYwIDIyIDE2NSAyNCBDIDE2NSA3NSAxNjAgMTIwIDE0NSAxNTAgQyAxMjUgMTg1IDg1IDIwNSA4NSAyMDUgQyA4NSAyMDUgNDUgMTg1IDI1IDE1MCBDIDEwIDEyMCA1IDc1IDUgMjQgQyAxMCAyMiA0MCAxMCA4NSAxMCBaIgogICAgICBmaWxsPSJ1cmwoI3NoaWVsZEdvbGRHcmFkKSIKICAgICAgc3Ryb2tlPSIjRkZGQkVCIgogICAgICBzdHJva2Utd2lkdGg9IjMiCiAgICAvPgoKICAgIDwhLS0gQ29ldXIgaW50w6lyaWV1ciBkdSBib3VjbGllciAoRGFyayBOYXZ5KSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik0gODUgMjIgQyAxMjIgMjIgMTQ1IDMyIDE1MCAzNCBDIDE1MCA3OCAxNDUgMTE0IDEzMyAxMzggQyAxMTcgMTY3IDg1IDE4NiA4NSAxODYgQyA4NSAxODYgNTMgMTY3IDM3IDEzOCBDIDI1IDExNCAyMCA3OCAyMCAzNCBDIDI1IDMyIDQ4IDIyIDg1IDIyIFoiCiAgICAgIGZpbGw9InVybCgjc2hpZWxkSW5uZXJHb2xkR3JhZCkiCiAgICAgIHN0cm9rZT0iIzc4MzUwRiIKICAgICAgc3Ryb2tlLXdpZHRoPSIyIgogICAgLz4KCiAgICA8IS0tIEVtYmzDqG1lIFNvdXZlcmFpbiBMb2NhbCA6IFB1Y2UgLyBOxZN1ZCBsb2NhbCBldCDDiXRvaWxlIGRvcsOpZSAtLT4KICAgIDwhLS0gTWluaSBQdWNlIENQVSBjZW50cmFsZSAtLT4KICAgIDxyZWN0IHg9IjY3IiB5PSI2NSIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM2IiByeD0iNiIgZmlsbD0iI0Y1OUUwQiIgc3Ryb2tlPSIjRkRFNjhBIiBzdHJva2Utd2lkdGg9IjIiIC8+CiAgICA8cmVjdCB4PSI3NCIgeT0iNzIiIHdpZHRoPSIyMiIgaGVpZ2h0PSIyMiIgcng9IjMiIGZpbGw9IiMwQTBGMUQiIC8+CiAgICA8Y2lyY2xlIGN4PSI4NSIgY3k9IjgzIiByPSI1IiBmaWxsPSIjRkNEMzREIiAvPgoKICAgIDwhLS0gQnJvY2hlcyBkZSBwcm9jZXNzZXVyIGxvY2FsIC0tPgogICAgPGxpbmUgeDE9IjYwIiB5MT0iNzMiIHgyPSI2NyIgeTI9IjczIiBzdHJva2U9IiNGREU2OEEiIHN0cm9rZS13aWR0aD0iMi41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CiAgICA8bGluZSB4MT0iNjAiIHkxPSI4MyIgeDI9IjY3IiB5Mj0iODMiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KICAgIDxsaW5lIHgxPSI2MCIgeTE9IjkzIiB4Mj0iNjciIHkyPSI5MyIgc3Ryb2tlPSIjRkRFNjhBIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgoKICAgIDxsaW5lIHgxPSIxMDMiIHkxPSI3MyIgeDI9IjExMCIgeTI9IjczIiBzdHJva2U9IiNGREU2OEEiIHN0cm9rZS13aWR0aD0iMi41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CiAgICA8bGluZSB4MT0iMTAzIiB5MT0iODMiIHgyPSIxMTAiIHkyPSI4MyIgc3Ryb2tlPSIjRkRFNjhBIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgogICAgPGxpbmUgeDE9IjEwMyIgeTE9IjkzIiB4Mj0iMTEwIiB5Mj0iOTMiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KCiAgICA8bGluZSB4MT0iNzMiIHkxPSI1OCIgeDI9IjczIiB5Mj0iNjUiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KICAgIDxsaW5lIHgxPSI4NSIgeTE9IjU4IiB4Mj0iODUiIHkyPSI2NSIgc3Ryb2tlPSIjRkRFNjhBIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgogICAgPGxpbmUgeDE9Ijk3IiB5MT0iNTgiIHgyPSI5NyIgeTI9IjY1IiBzdHJva2U9IiNGREU2OEEiIHN0cm9rZS13aWR0aD0iMi41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CgogICAgPGxpbmUgeDE9IjczIiB5MT0iMTAxIiB4Mj0iNzMiIHkyPSIxMDgiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgLz4KICAgIDxsaW5lIHgxPSI4NSIgeTE9IjEwMSIgeDI9Ijg1IiB5Mj0iMTA4IiBzdHJva2U9IiNGREU2OEEiIHN0cm9rZS13aWR0aD0iMi41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CiAgICA8bGluZSB4MT0iOTciIHkxPSIxMDEiIHgyPSI5NyIgeTI9IjEwOCIgc3Ryb2tlPSIjRkRFNjhBIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiAvPgoKICAgIDwhLS0gTGFiZWwgIkxPQ0FMIiBtaW5pYXR1cmUgc291cyBsYSBwdWNlIC0tPgogICAgPHBhdGgKICAgICAgZD0iTSA2NCAxMjUgTCAxMDYgMTI1IgogICAgICBzdHJva2U9IiNGQ0QzNEQiCiAgICAgIHN0cm9rZS13aWR0aD0iMi41IgogICAgICBzdHJva2UtbGluZWNhcD0icm91bmQiCiAgICAvPgogICAgPGNpcmNsZSBjeD0iODUiIGN5PSIxNDIiIHI9IjQiIGZpbGw9IiNGQ0QzNEQiIC8+CiAgPC9nPgo8L3N2Zz4K",
-      zdr: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMEEwRjFEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYVpkclNxdWlyY2xlQmciIHgxPSI2NCIgeTE9IjMyIiB4Mj0iNDQ4IiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxNDFCMkQiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjMDkwRTFCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgoKICAgIDwhLS0gQm9yZHVyZSBhcmdlbnTDqWUgZHUgU3F1aXJjbGUgLS0+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImFyY2lhU2lsdmVyQm9yZGVyIiB4MT0iMzIiIHkxPSIzMiIgeDI9IjQ4MCIgeTI9IjQ4MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkZGRkZGIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjM1JSIgc3RvcC1jb2xvcj0iI0UyRThGMCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI3MCUiIHN0b3AtY29sb3I9IiM5NEEzQjgiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0NCRDVFMSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBDeWFuIG9mZmljaWVsIEFyY0lBICgjNkJFN0REKSBwb3VyIGxlIG1vbm9ncmFtbWUgLS0+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImFyY2lhWmRyQ3lhbkZpbGwiIHgxPSI4MCIgeTE9Ijk4IiB4Mj0iMjI0IiB5Mj0iMCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNUFEOENFIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM2QkU3REQiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgoKICAgIDwhLS0gSGFsbyBhbWJpYW50IGFyZ2VudMOpICYgY3lhbiAtLT4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYXJjaWFTaWx2ZXJIYWxvIiBjeD0iMjQwIiBjeT0iMjQwIiByPSIyMjAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0UyRThGMCIgc3RvcC1vcGFjaXR5PSIwLjE0IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjQwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgc3RvcC1vcGFjaXR5PSIwLjA4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIHN0b3Atb3BhY2l0eT0iMCIgLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CgogICAgPCEtLSBEw6lncmFkw6kgbcOpdGFsbGlxdWUgZHUgYm91Y2xpZXIgYXJnZW50w6kgLS0+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZFNpbHZlckdyYWQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0ZGRkZGRiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIyNSUiIHN0b3AtY29sb3I9IiNGMUY1RjkiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjQ0JENUUxIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9Ijg1JSIgc3RvcC1jb2xvcj0iIzY0NzQ4QiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMzM0MTU1IiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIETDqWdyYWTDqSBpbnTDqXJpZXVyIGR1IGJvdWNsaWVyIChEYXJrIEJsdWUgLyBTbGF0ZSkgLS0+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNoaWVsZElubmVyU2lsdmVyR3JhZCIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMEYxNzJBIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA4MTQiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgoKICAgIDwhLS0gT21icmUgcG9ydMOpZSBwb3VyIGxlIGJvdWNsaWVyIGFyZ2VudMOpIC0tPgogICAgPGZpbHRlciBpZD0ic2lsdmVyU2hpZWxkU2hhZG93IiB4PSItMjAlIiB5PSItMjAlIiB3aWR0aD0iMTQwJSIgaGVpZ2h0PSIxNDAlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjYiIHN0ZERldmlhdGlvbj0iOCIgZmxvb2QtY29sb3I9IiMwMDAwMDAiIGZsb29kLW9wYWNpdHk9IjAuODAiIC8+CiAgICAgIDxmZURyb3BTaGFkb3cgZHg9IjAiIGR5PSIwIiBzdGREZXZpYXRpb249IjE0IiBmbG9vZC1jb2xvcj0iI0UyRThGMCIgZmxvb2Qtb3BhY2l0eT0iMC4yNSIgLz4KICAgIDwvZmlsdGVyPgogIDwvZGVmcz4KCiAgPCEtLSBDb250ZW5ldXIgU3F1aXJjbGUgYXZlYyBhY2NlbnQgYXJnZW50w6kgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYVpkclNxdWlyY2xlQmcpIiBzdHJva2U9InVybCgjYXJjaWFTaWx2ZXJCb3JkZXIpIiBzdHJva2Utd2lkdGg9IjgiIC8+CiAgPGNpcmNsZSBjeD0iMjQwIiBjeT0iMjQwIiByPSIyMjAiIGZpbGw9InVybCgjYXJjaWFTaWx2ZXJIYWxvKSIgLz4KCiAgPCEtLSBNb25vZ3JhbW1lIG9mZmljaWVsICJhSUEiIGNlbnRyw6kgLS0+CiAgPGcgaWQ9ImFyY2lhLWFJQS1tb25vZ3JhbSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjgsIDE3NCkgc2NhbGUoMS42OCkiPgogICAgPCEtLSAiYSIgZW4gQmxhbmMgKCNGOEZBRkMpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTQzLjYxIDI2QzQ3Ljc4IDI2LjA5IDUxLjggMjYuNTcgNTUuNjYgMjcuNDMgNTkuNTIgMjguMjkgNjIuOTkgMzAuMjcgNjYuMDcgMzMuMzYgNjguNyAzNS45IDcwLjU0IDM4Ljg5IDcxLjU4IDQyLjM1IDcyLjYzIDQ1LjggNzMuMTUgNDkuMzQgNzMuMTUgNTIuOTZMNzMuMTUgOTcuNzUgMjIuMjQgOTcuNzVDMTQuODkgOTcuNzUgOS4yNSA5NS43MyA1LjM1IDkxLjY5IDEuNDUgODcuNjYtMC4zMiA4Mi4wNiAwLjA1IDc0Ljg4IDAuNjggNjYuMjYgMy43MiA2MC42OCA5LjE3IDU4LjEzIDE0LjYyIDU1LjU5IDIxLjExIDU0LjMyIDI4LjY0IDU0LjMyTDUzLjU1IDU0LjE5QzUzLjgyIDQ4LjI5IDUyLjMgNDQuNjEgNDguOTkgNDMuMTYgNDUuNjggNDEuNzEgNDEuNDggNDAuOTggMzYuNCA0MC45OEw0LjgxIDQwLjg0IDQuODEgMjYgNDMuNjEgMjZaTTI5Ljk5IDgzLjMyIDUzLjY4IDgzLjMyIDUzLjY4IDY4LjQ4IDMxLjM1IDY4LjQ4QzMxLjE3IDY4LjU3IDMwLjk5IDY4LjYyIDMwLjgxIDY4LjYyTDMwLjI3IDY4LjYyQzI3LjczIDY4LjcxIDI1LjM3IDY5LjE5IDIzLjE5IDcwLjA1IDIxLjAxIDcwLjkxIDE5Ljg3IDcyLjkzIDE5Ljc4IDc2LjEgMTkuNiA3OS42NCAyMC41NyA4MS43MyAyMi43MSA4Mi4zNyAyNC44NCA4My4wMSAyNy4yNyA4My4zNyAyOS45OSA4My40NkwyOS45OSA4My4zMloiCiAgICAgIGZpbGw9IiNGOEZBRkMiCiAgICAvPgoKICAgIDwhLS0gIkkiIGVuIEJsZXUgQ3lhbiBBcmNJQSAoIzZCRTdERCkgLS0+CiAgICA8cGF0aAogICAgICBkPSJNODIuOTIgOTcuNzYgTDEwMC4xNiAwIEwxMjEuNjcgMCBMMTA0LjQzIDk3Ljc2IFoiCiAgICAgIGZpbGw9InVybCgjYXJjaWFaZHJDeWFuRmlsbCkiCiAgICAvPgoKICAgIDwhLS0gIkEiIGVuIEJsZXUgQ3lhbiBBcmNJQSAoIzZCRTdERCkgLS0+CiAgICA8cGF0aAogICAgICBmaWxsLXJ1bGU9ImV2ZW5vZGQiCiAgICAgIGNsaXAtcnVsZT0iZXZlbm9kZCIKICAgICAgZD0iTTE3Ny44NiAwIEwxOTkuNjUgMCBMMjI0LjA3IDk3Ljc2IEwyMDEuMjAgOTcuNzYgTDE5Ni4zMiA3NC40OCBMMTUzLjg0IDc0LjQ4IEwxNDEuMDIgOTcuNzYgTDExOS4zNyA5Ny43NiBMMTc3Ljg2IDAgWiBNMTg0LjUxIDE5LjQ3IEwxNjMuNTggNTcuMDUgTDE5Mi43MiA1Ny4wNSBMMTg0LjUxIDE5LjQ3IFoiCiAgICAgIGZpbGw9InVybCgjYXJjaWFaZHJDeWFuRmlsbCkiCiAgICAvPgogIDwvZz4KCiAgPCEtLSBCb3VjbGllciBBcmdlbnTDqSBDbG91ZCBaRFIgKFBsYW7DqHRlICsgQ2FkZW5hcyBaZXJvIERhdGEgUmV0ZW50aW9uKSBlbiBiYXMgw6AgZHJvaXRlIC0tPgogIDxnIGlkPSJhcmNpYS1jbG91ZC16ZHItc2lsdmVyLXNoaWVsZCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzAwLCAyODApIiBmaWx0ZXI9InVybCgjc2lsdmVyU2hpZWxkU2hhZG93KSI+CiAgICA8IS0tIENvcnBzIGV4dGVybmUgZHUgYm91Y2xpZXIgYXJnZW50w6kgLS0+CiAgICA8cGF0aAogICAgICBkPSJNIDg1IDEwIEMgMTMwIDEwIDE2MCAyMiAxNjUgMjQgQyAxNjUgNzUgMTYwIDEyMCAxNDUgMTUwIEMgMTI1IDE4NSA4NSAyMDUgODUgMjA1IEMgODUgMjA1IDQ1IDE4NSAyNSAxNTAgQyAxMCAxMjAgNSA3NSA1IDI0IEMgMTAgMjIgNDAgMTAgODUgMTAgWiIKICAgICAgZmlsbD0idXJsKCNzaGllbGRTaWx2ZXJHcmFkKSIKICAgICAgc3Ryb2tlPSIjRkZGRkZGIgogICAgICBzdHJva2Utd2lkdGg9IjMiCiAgICAvPgoKICAgIDwhLS0gQ29ldXIgaW50w6lyaWV1ciBkdSBib3VjbGllciAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik0gODUgMjIgQyAxMjIgMjIgMTQ1IDMyIDE1MCAzNCBDIDE1MCA3OCAxNDUgMTE0IDEzMyAxMzggQyAxMTcgMTY3IDg1IDE4NiA4NSAxODYgQyA4NSAxODYgNTMgMTY3IDM3IDEzOCBDIDI1IDExNCAyMCA3OCAyMCAzNCBDIDI1IDMyIDQ4IDIyIDg1IDIyIFoiCiAgICAgIGZpbGw9InVybCgjc2hpZWxkSW5uZXJTaWx2ZXJHcmFkKSIKICAgICAgc3Ryb2tlPSIjMzM0MTU1IgogICAgICBzdHJva2Utd2lkdGg9IjIiCiAgICAvPgoKICAgIDwhLS0gRW1ibMOobWUgWkRSIDogUGxhbsOodGUgLyBHbG9iZSArIENhZGVuYXMgZGUgcHJvdGVjdGlvbiAtLT4KICAgIDwhLS0gUGxhbsOodGUgLyBHbG9iZSBDbG91ZCAtLT4KICAgIDxjaXJjbGUgY3g9Ijg1IiBjeT0iNzQiIHI9IjI0IiBmaWxsPSIjMTMyMzQyIiBzdHJva2U9IiM2QkU3REQiIHN0cm9rZS13aWR0aD0iMiIgLz4KICAgIDxlbGxpcHNlIGN4PSI4NSIgY3k9Ijc0IiByeD0iMjQiIHJ5PSI5IiBzdHJva2U9IiM2QkU3REQiIHN0cm9rZS13aWR0aD0iMS44IiBmaWxsPSJub25lIiBvcGFjaXR5PSIwLjg1IiAvPgogICAgPGxpbmUgeDE9Ijg1IiB5MT0iNTAiIHgyPSI4NSIgeTI9Ijk4IiBzdHJva2U9IiM2QkU3REQiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtZGFzaGFycmF5PSIzLDMiIG9wYWNpdHk9IjAuNzUiIC8+CgogICAgPCEtLSBDYWRlbmFzIFPDqWN1cmlzw6kgKFplcm8gRGF0YSBSZXRlbnRpb24pIGF1IGNlbnRyZSBkdSBib3VjbGllciAtLT4KICAgIDwhLS0gQW5zZSBkdSBjYWRlbmFzIC0tPgogICAgPHBhdGgKICAgICAgZD0iTSA3NCAxMTYgTCA3NCAxMDUgQyA3NCA5NyA3OCA5MiA4NSA5MiBDIDkyIDkyIDk2IDk3IDk2IDEwNSBMIDk2IDExNiIKICAgICAgc3Ryb2tlPSIjRjhGQUZDIgogICAgICBzdHJva2Utd2lkdGg9IjMuNSIKICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgICBmaWxsPSJub25lIgogICAgLz4KICAgIDwhLS0gQ29ycHMgZHUgY2FkZW5hcyAoYXJnZW50w6kgYXZlYyBib3JkIGN5YW4pIC0tPgogICAgPHJlY3QgeD0iNjciIHk9IjExNSIgd2lkdGg9IjM2IiBoZWlnaHQ9IjMwIiByeD0iNSIgZmlsbD0iI0UyRThGMCIgc3Ryb2tlPSIjNkJFN0REIiBzdHJva2Utd2lkdGg9IjIiIC8+CiAgICA8IS0tIFRyb3UgZGUgc2VycnVyZSBkdSBjYWRlbmFzIC0tPgogICAgPGNpcmNsZSBjeD0iODUiIGN5PSIxMjciIHI9IjMuNSIgZmlsbD0iIzBBMEYxRCIgLz4KICAgIDxwb2x5Z29uIHBvaW50cz0iODMsMTI3IDg3LDEyNyA4OCwxMzcgODIsMTM3IiBmaWxsPSIjMEEwRjFEIiAvPgoKICAgIDwhLS0gQmFkZ2UgWkRSIHNvdXMgbGUgY2FkZW5hcyAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik0gNjYgMTU2IEwgMTA0IDE1NiIKICAgICAgc3Ryb2tlPSIjNkJFN0REIgogICAgICBzdHJva2Utd2lkdGg9IjIuNSIKICAgICAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgLz4KICAgIDxjaXJjbGUgY3g9Ijg1IiBjeT0iMTcwIiByPSIzLjUiIGZpbGw9IiM2QkU3REQiIC8+CiAgPC9nPgo8L3N2Zz4K"
+      local: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMTgxRDJGIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYUxvY2FsU3F1aXJjbGVCZyIgeDE9IjY0IiB5MT0iMzIiIHgyPSI0NDgiIHkyPSI0ODAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE4MUQyRiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1NSUiIHN0b3AtY29sb3I9IiMwRDEyMjIiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBMaXNlcmV0IGRvcsOpIG9mZmljaWVsIEFyY0lBIChTb3V2ZXJhaW4gTG9jYWwpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYUdvbGRCb3JkZXIiIHgxPSIzMiIgeTE9IjMyIiB4Mj0iNDgwIiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGQ0QzNEQiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMzUlIiBzdG9wLWNvbG9yPSIjRjU5RTBCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjcwJSIgc3RvcC1jb2xvcj0iI0I0NTMwOSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjRkNEMzREIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIHBvdXIgbGUgbW9ub2dyYW1tZSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFMb2NhbEN5YW5GaWxsIiB4MT0iODAiIHkxPSI5OCIgeDI9IjIyNCIgeTI9IjAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzVBRDhDRSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNkJFN0REIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEhhbG8gYW1iaWFudCBkb3LDqSBjaGF1ZCAtLT4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYXJjaWFHb2xkSGFsbyIgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMjMwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGNTlFMEIiIHN0b3Atb3BhY2l0eT0iMC4yMiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI2MCUiIHN0b3AtY29sb3I9IiNGNTlFMEIiIHN0b3Atb3BhY2l0eT0iMC4wNiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDUwNzEyIiBzdG9wLW9wYWNpdHk9IjAiIC8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KCiAgPCEtLSBDb250ZW5ldXIgU3F1aXJjbGUgYXZlYyBsaXNlcmV0IGRvcsOpIG1hcnF1w6kgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYUxvY2FsU3F1aXJjbGVCZykiIHN0cm9rZT0idXJsKCNhcmNpYUdvbGRCb3JkZXIpIiBzdHJva2Utd2lkdGg9IjE0IiAvPgogIDwhLS0gQW5uZWF1IGludMOpcmlldXIgc3VidGlsIHJlbmZvcsOnYW50IGxlIGxpc2VyZXQgLS0+CiAgPHJlY3QgeD0iMzUiIHk9IjM1IiB3aWR0aD0iNDQyIiBoZWlnaHQ9IjQ0MiIgcng9Ijk4IiByeT0iOTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyIiBvcGFjaXR5PSIwLjQiIC8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMzAiIGZpbGw9InVybCgjYXJjaWFHb2xkSGFsbykiIC8+CgogIDwhLS0gTW9ub2dyYW1tZSBvZmZpY2llbCAiYUlBIiBjZW50csOpIC0tPgogIDxnIGlkPSJhcmNpYS1hSUEtbW9ub2dyYW0iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4LCAxNzQpIHNjYWxlKDEuNjgpIj4KICAgIDwhLS0gImEiIGVuIEJsYW5jICgjRjhGQUZDKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik00My42MSAyNkM0Ny43OCAyNi4wOSA1MS44IDI2LjU3IDU1LjY2IDI3LjQzIDU5LjUyIDI4LjI5IDYyLjk5IDMwLjI3IDY2LjA3IDMzLjM2IDY4LjcgMzUuOSA3MC41NCAzOC44OSA3MS41OCA0Mi4zNSA3Mi42MyA0NS44IDczLjE1IDQ5LjM0IDczLjE1IDUyLjk2TDczLjE1IDk3Ljc1IDIyLjI0IDk3Ljc1QzE0Ljg5IDk3Ljc1IDkuMjUgOTUuNzMgNS4zNSA5MS42OSAxLjQ1IDg3LjY2LTAuMzIgODIuMDYgMC4wNSA3NC44OCAwLjY4IDY2LjI2IDMuNzIgNjAuNjggOS4xNyA1OC4xMyAxNC42MiA1NS41OSAyMS4xMSA1NC4zMiAyOC42NCA1NC4zMkw1My41NSA1NC4xOUM1My44MiA0OC4yOSA1Mi4zIDQ0LjYxIDQ4Ljk5IDQzLjE2IDQ1LjY4IDQxLjcxIDQxLjQ4IDQwLjk4IDM2LjQgNDAuOThMNC44MSA0MC44NCA0LjgxIDI2IDQzLjYxIDI2Wk0yOS45OSA4My4zMiA1My42OCA4My4zMiA1My42OCA2OC40OCAzMS4zNSA2OC40OEMzMS4xNyA2OC41NyAzMC45OSA2OC42MiAzMC44MSA2OC42MkwzMC4yNyA2OC42MkMyNy43MyA2OC43MSAyNS4zNyA2OS4xOSAyMy4xOSA3MC4wNSAyMS4wMSA3MC45MSAxOS44NyA3Mi45MyAxOS43OCA3Ni4xIDE5LjYgNzkuNjQgMjAuNTcgODEuNzMgMjIuNzEgODIuMzcgMjQuODQgODMuMDEgMjcuMjcgODMuMzcgMjkuOTkgODMuNDZMMjkuOTkgODMuMzJaIgogICAgICBmaWxsPSIjRjhGQUZDIgogICAgLz4KCiAgICA8IS0tICJJIiBlbiBCbGV1IEN5YW4gQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTgyLjkyIDk3Ljc2IEwxMDAuMTYgMCBMMTIxLjY3IDAgTDEwNC40MyA5Ny43NiBaIgogICAgICBmaWxsPSJ1cmwoI2FyY2lhTG9jYWxDeWFuRmlsbCkiCiAgICAvPgoKICAgIDwhLS0gIkEiIGVuIEJsZXUgQ3lhbiBBcmNJQSAoIzZCRTdERCkgLS0+CiAgICA8cGF0aAogICAgICBmaWxsLXJ1bGU9ImV2ZW5vZGQiCiAgICAgIGNsaXAtcnVsZT0iZXZlbm9kZCIKICAgICAgZD0iTTE3Ny44NiAwIEwxOTkuNjUgMCBMMjI0LjA3IDk3Ljc2IEwyMDEuMjAgOTcuNzYgTDE5Ni4zMiA3NC40OCBMMTUzLjg0IDc0LjQ4IEwxNDEuMDIgOTcuNzYgTDExOS4zNyA5Ny43NiBMMTc3Ljg2IDAgWiBNMTg0LjUxIDE5LjQ3IEwxNjMuNTggNTcuMDUgTDE5Mi43MiA1Ny4wNSBMMTg0LjUxIDE5LjQ3IFoiCiAgICAgIGZpbGw9InVybCgjYXJjaWFMb2NhbEN5YW5GaWxsKSIKICAgIC8+CiAgPC9nPgo8L3N2Zz4K",
+      zdr: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMTQxQjJEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYVpkclNxdWlyY2xlQmciIHgxPSI2NCIgeTE9IjMyIiB4Mj0iNDQ4IiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxNDFCMkQiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjMDkwRTFCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgoKICAgIDwhLS0gTGlzZXJldCBhcmdlbnTDqSBvZmZpY2llbCBBcmNJQSAoQ2xvdWQgWkRSKSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFTaWx2ZXJCb3JkZXIiIHgxPSIzMiIgeTE9IjMyIiB4Mj0iNDgwIiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGRkZGRkYiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMzAlIiBzdG9wLWNvbG9yPSIjRTJFOEYwIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjcwJSIgc3RvcC1jb2xvcj0iIzk0QTNCOCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjQ0JENUUxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIHBvdXIgbGUgbW9ub2dyYW1tZSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFaZHJDeWFuRmlsbCIgeDE9IjgwIiB5MT0iOTgiIHgyPSIyMjQiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM1QUQ4Q0UiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBIYWxvIGFtYmlhbnQgYXJnZW50w6kgJiBjeWFuIC0tPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJhcmNpYVNpbHZlckhhbG8iIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjIzMCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRTJFOEYwIiBzdG9wLW9wYWNpdHk9IjAuMjAiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNDUlIiBzdG9wLWNvbG9yPSIjNkJFN0REIiBzdG9wLW9wYWNpdHk9IjAuMDgiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgc3RvcC1vcGFjaXR5PSIwIiAvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CgogIDwhLS0gQ29udGVuZXVyIFNxdWlyY2xlIGF2ZWMgbGlzZXJldCBhcmdlbnTDqSBtYXJxdcOpIC0tPgogIDxyZWN0IHg9IjI0IiB5PSIyNCIgd2lkdGg9IjQ2NCIgaGVpZ2h0PSI0NjQiIHJ4PSIxMDgiIHJ5PSIxMDgiIGZpbGw9InVybCgjYXJjaWFaZHJTcXVpcmNsZUJnKSIgc3Ryb2tlPSJ1cmwoI2FyY2lhU2lsdmVyQm9yZGVyKSIgc3Ryb2tlLXdpZHRoPSIxNCIgLz4KICA8IS0tIEFubmVhdSBpbnTDqXJpZXVyIHN1YnRpbCByZW5mb3LDp2FudCBsZSBsaXNlcmV0IC0tPgogIDxyZWN0IHg9IjM1IiB5PSIzNSIgd2lkdGg9IjQ0MiIgaGVpZ2h0PSI0NDIiIHJ4PSI5OCIgcnk9Ijk4IiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMiIgb3BhY2l0eT0iMC40NSIgLz4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjIzMCIgZmlsbD0idXJsKCNhcmNpYVNpbHZlckhhbG8pIiAvPgoKICA8IS0tIE1vbm9ncmFtbWUgb2ZmaWNpZWwgImFJQSIgY2VudHLDqSAtLT4KICA8ZyBpZD0iYXJjaWEtYUlBLW1vbm9ncmFtIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2OCwgMTc0KSBzY2FsZSgxLjY4KSI+CiAgICA8IS0tICJhIiBlbiBCbGFuYyAoI0Y4RkFGQykgLS0+CiAgICA8cGF0aAogICAgICBkPSJNNDMuNjEgMjZDNDcuNzggMjYuMDkgNTEuOCAyNi41NyA1NS42NiAyNy40MyA1OS41MiAyOC4yOSA2Mi45OSAzMC4yNyA2Ni4wNyAzMy4zNiA2OC43IDM1LjkgNzAuNTQgMzguODkgNzEuNTggNDIuMzUgNzIuNjMgNDUuOCA3My4xNSA0OS4zNCA3My4xNSA1Mi45Nkw3My4xNSA5Ny43NSAyMi4yNCA5Ny43NUMxNC44OSA5Ny43NSA5LjI1IDk1LjczIDUuMzUgOTEuNjkgMS40NSA4Ny42Ni0wLjMyIDgyLjA2IDAuMDUgNzQuODggMC42OCA2Ni4yNiAzLjcyIDYwLjY4IDkuMTcgNTguMTMgMTQuNjIgNTUuNTkgMjEuMTEgNTQuMzIgMjguNjQgNTQuMzJMNTMuNTUgNTQuMTlDNTMuODIgNDguMjkgNTIuMyA0NC42MSA0OC45OSA0My4xNiA0NS42OCA0MS43MSA0MS40OCA0MC45OCAzNi40IDQwLjk4TDQuODEgNDAuODQgNC44MSAyNiA0My42MSAyNlpNMjkuOTkgODMuMzIgNTMuNjggODMuMzIgNTMuNjggNjguNDggMzEuMzUgNjguNDhDMzEuMTcgNjguNTcgMzAuOTkgNjguNjIgMzAuODEgNjguNjJMMzAuMjcgNjguNjJDMjcuNzMgNjguNzEgMjUuMzcgNjkuMTkgMjMuMTkgNzAuMDUgMjEuMDEgNzAuOTEgMTkuODcgNzIuOTMgMTkuNzggNzYuMSAxOS42IDc5LjY0IDIwLjU3IDgxLjczIDIyLjcxIDgyLjM3IDI0Ljg0IDgzLjAxIDI3LjI3IDgzLjM3IDI5Ljk5IDgzLjQ2TDI5Ljk5IDgzLjMyWiIKICAgICAgZmlsbD0iI0Y4RkFGQyIKICAgIC8+CgogICAgPCEtLSAiSSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik04Mi45MiA5Ny43NiBMMTAwLjE2IDAgTDEyMS42NyAwIEwxMDQuNDMgOTcuNzYgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYVpkckN5YW5GaWxsKSIKICAgIC8+CgogICAgPCEtLSAiQSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGZpbGwtcnVsZT0iZXZlbm9kZCIKICAgICAgY2xpcC1ydWxlPSJldmVub2RkIgogICAgICBkPSJNMTc3Ljg2IDAgTDE5OS42NSAwIEwyMjQuMDcgOTcuNzYgTDIwMS4yMCA5Ny43NiBMMTk2LjMyIDc0LjQ4IEwxNTMuODQgNzQuNDggTDE0MS4wMiA5Ny43NiBMMTE5LjM3IDk3Ljc2IEwxNzcuODYgMCBaIE0xODQuNTEgMTkuNDcgTDE2My41OCA1Ny4wNSBMMTkyLjcyIDU3LjA1IEwxODQuNTEgMTkuNDcgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYVpkckN5YW5GaWxsKSIKICAgIC8+CiAgPC9nPgo8L3N2Zz4K"
     };
 
     function renderModelRoutingTable() {
@@ -4108,10 +4317,10 @@
         let iconTitle = 'Modèle standard : icône aIA classique par défaut dans Open-WebUI';
         if (isLocal) {
           iconSrc = MODEL_ICONS.local;
-          iconTitle = 'Modèle local souverain (Ollama / vLLM) : icône aIA avec bouclier doré dans Open-WebUI';
+          iconTitle = 'Modèle local souverain (Ollama / vLLM) : icône aIA avec liseret doré dans Open-WebUI';
         } else if (m.zdr) {
           iconSrc = MODEL_ICONS.zdr;
-          iconTitle = 'Modèle cloud avec ZDR activé : icône aIA avec bouclier argenté (planète + cadenas) dans Open-WebUI';
+          iconTitle = 'Modèle cloud avec ZDR activé : icône aIA avec liseret argenté dans Open-WebUI';
         }
 
         const providerOptions = availableProviders.map(p =>
@@ -4476,7 +4685,9 @@
           ingress_class: document.getElementById('network_ingress_class').value,
           tls_mode: document.getElementById('network_tls_mode').value,
           acme_email: document.getElementById('network_acme_email').value,
-          tls_secret_name: document.getElementById('network_tls_secret_name').value
+          tls_secret_name: document.getElementById('network_tls_secret_name').value,
+          acme_dns_txt: document.getElementById('network_acme_dns_txt')?.value || '',
+          acme_account_key: document.getElementById('network_acme_account_key')?.value || ''
         },
         llm_gateway: {
           openrouter_api_key: document.getElementById('openrouter_api_key')?.value || '',
@@ -4578,13 +4789,50 @@
       }
     }
 
+    function stripAnsiJs(text) {
+      if (!text) return '';
+      return text
+        .replace(/\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '')
+        .replace(/\[(?:\d{1,3}(?:;\d{1,3})*)?m/g, '');
+    }
+
     async function triggerDeployment(dryRun = false) {
       const cfg = collectConfigFromUI();
+
+      // Activation du mode plein écran pour le suivi du déploiement
+      document.querySelector('.app-shell')?.classList.add('deploy-mode');
+      document.querySelector('#installSection .stepper-header')?.classList.add('hidden');
+      document.querySelectorAll('#installSection .step-page').forEach(p => p.classList.add('hidden'));
+
       const panel = document.getElementById('deployProgressPanel');
       panel.classList.remove('hidden');
 
+      const titleEl = document.getElementById('deployPanelTitle');
+      if (titleEl) titleEl.textContent = dryRun ? 'Simulation du déploiement (Dry-Run)' : "Déploiement universel d'ArcIA";
+
       const statusMsg = document.getElementById('deployStatusMessage');
-      statusMsg.textContent = dryRun ? 'Simulation Dry-Run en cours…' : 'Déploiement en cours sur la cible…';
+      statusMsg.textContent = dryRun ? "Simulation Dry-Run en cours d'exécution…" : "Déploiement en cours sur la cible…";
+
+      document.getElementById('btnCancelDeploy')?.classList.remove('hidden');
+      const cancelBtn = document.getElementById('btnCancelDeploy');
+      if (cancelBtn) cancelBtn.disabled = false;
+      document.getElementById('btnExitDeployMode')?.classList.add('hidden');
+      document.getElementById('deployCredentialsRecapCard')?.classList.add('hidden');
+      document.getElementById('deployExecutionActiveView')?.classList.remove('hidden');
+
+      const logsDetails = document.getElementById('deployLogsDetails');
+      if (logsDetails) {
+        logsDetails.setAttribute('open', '');
+        const sumEl = document.getElementById('deployLogsSummary');
+        if (sumEl) sumEl.textContent = "Journaux d'exécution en direct";
+      }
+
+      // Réinitialisation des jalons visuels
+      for (let i = 1; i <= 5; i++) {
+        const m = document.getElementById('m_stone_' + i);
+        if (m) m.className = i === 1 ? 'milestone-item active' : 'milestone-item';
+      }
+      document.getElementById('deployProgressBar').style.width = '5%';
 
       const payload = {
         config: cfg,
@@ -4608,10 +4856,55 @@
           startDeployPolling();
         } else {
           statusMsg.textContent = 'Erreur au démarrage : ' + (res.error || 'échec');
+          document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+          document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
         }
       } catch (e) {
         statusMsg.textContent = 'Erreur lors du lancement du déploiement.';
+        document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+        document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
       }
+    }
+
+    async function cancelDeployment() {
+      if (!confirm("Voulez-vous vraiment annuler le déploiement en cours d'exécution ?")) {
+        return;
+      }
+      const btn = document.getElementById('btnCancelDeploy');
+      if (btn) btn.disabled = true;
+      document.getElementById('deployStatusMessage').textContent = 'Annulation en cours…';
+
+      try {
+        const res = await api('deploy/cancel', {});
+        if (res && res.success) {
+          showToast('Déploiement annulé avec succès.');
+          document.getElementById('deployStatusMessage').textContent = "⏹ Déploiement interrompu par l'opérateur.";
+        } else {
+          showToast(res.error || "Impossible d'annuler le déploiement.");
+        }
+      } catch (e) {
+        showToast("Erreur lors de la requête d'annulation.");
+      } finally {
+        if (state.deployPollInterval) clearInterval(state.deployPollInterval);
+        document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+        document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
+      }
+    }
+
+    function exitDeploymentMode() {
+      document.querySelector('.app-shell')?.classList.remove('deploy-mode');
+      document.querySelector('#installSection .stepper-header')?.classList.remove('hidden');
+      document.getElementById('deployProgressPanel')?.classList.add('hidden');
+      goToStep(4);
+    }
+
+    function exitDeploymentModeAndShowInstance() {
+      document.querySelector('.app-shell')?.classList.remove('deploy-mode');
+      document.querySelector('#installSection .stepper-header')?.classList.remove('hidden');
+      document.getElementById('deployProgressPanel')?.classList.add('hidden');
+      fetchInitialConfig().then(() => {
+        switchTab('home');
+      });
     }
 
     function startDeployPolling() {
@@ -4627,15 +4920,38 @@
               clearInterval(state.deployPollInterval);
               document.getElementById('deployStatusMessage').textContent = '✓ Déploiement terminé avec succès !';
               document.getElementById('deployProgressBar').style.width = '100%';
+              document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+              document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
+
+              // Replier les logs techniques au profit de la mise en valeur des identifiants
+              const logsDetails = document.getElementById('deployLogsDetails');
+              if (logsDetails) {
+                logsDetails.removeAttribute('open');
+                const sumEl = document.getElementById('deployLogsSummary');
+                if (sumEl) sumEl.textContent = `Consulter les journaux d'exécution complets (${(st.logs || []).length} lignes)`;
+              }
+
               showToast('ArcIA a été déployé avec succès sur la cible.');
               if (st.summary) {
                 renderDeploymentCredentials(st.summary);
+                const btnWeb = document.getElementById('btnOpenWebUI');
+                if (btnWeb && st.summary.webui_url) {
+                  btnWeb.href = st.summary.webui_url;
+                  btnWeb.textContent = `🚀 Ouvrir Open-WebUI (${st.summary.public_fqdn || ''}) →`;
+                }
               }
               fetchInitialConfig();
             } else if (st.status === 'error') {
               clearInterval(state.deployPollInterval);
               document.getElementById('deployStatusMessage').textContent = '✗ Échec du déploiement. Consultez les logs.';
+              document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+              document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
               showToast('Le déploiement a rencontré une erreur.');
+            } else if (st.status === 'canceled') {
+              clearInterval(state.deployPollInterval);
+              document.getElementById('deployStatusMessage').textContent = "⏹ Déploiement interrompu par l'opérateur.";
+              document.getElementById('btnCancelDeploy')?.classList.add('hidden');
+              document.getElementById('btnExitDeployMode')?.classList.remove('hidden');
             }
           }
         } catch (e) {}
@@ -4645,11 +4961,12 @@
     function renderDeployLogs(logs) {
       const container = document.getElementById('deployLogsContainer');
       if (!container) return;
-      container.innerHTML = logs.map(l => {
+      container.innerHTML = logs.map(rawL => {
+        const l = stripAnsiJs(rawL);
         let cls = 'log-line';
         if (l.includes('[OK]') || l.includes('succès') || l.includes('opérationnel')) cls += ' log-ok';
         else if (l.includes('[WARN]') || l.includes('attention')) cls += ' log-warn';
-        else if (l.includes('[ERR]') || l.includes('erreur') || l.includes('échec')) cls += ' log-err';
+        else if (l.includes('[ERR]') || l.includes('erreur') || l.includes('échec') || l.includes('FATAL ERROR')) cls += ' log-err';
         return `<div class="${cls}">${escapeHtml(l)}</div>`;
       }).join('');
       container.scrollTop = container.scrollHeight;
@@ -5330,13 +5647,13 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       if (!tbody) return;
 
       if (!components || components.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">Tous les composants sont à jour avec les versions de référence ArcIA v0.5.0.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">Tous les composants sont à jour avec les versions de référence ArcIA v0.5.1</td></tr>';
         return;
       }
 
       tbody.innerHTML = components.map(c => {
         const hasUpdate = Boolean(c.update_available || c.has_update || (c.current_version && c.latest_version && c.current_version !== c.latest_version && c.latest_version !== 'Inconnu'));
-        const curVer = c.current_version || c.deployed_version || 'v0.5.0';
+        const curVer = c.current_version || c.deployed_version || 'v0.5.1';
         const targetVer = c.latest_version || c.target_version || curVer;
         const compName = c.name || c.id;
 
@@ -5447,6 +5764,179 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       }
     }
 
+    // =========================================================================
+    // ÉTAT DES INTÉGRATIONS EN DIRECT (SSO & TEAMS BOT)
+    // =========================================================================
+    async function fetchIntegrationsStatus() {
+      try {
+        const res = await api('integrations/status');
+        if (res && res.success) {
+          // Entra ID
+          const sso = res.sso || {};
+          const ssoDot = document.getElementById('post_entra_status_dot');
+          const ssoText = document.getElementById('post_entra_status_text');
+          const ssoInfo = document.getElementById('post_entra_summary_info');
+          if (ssoDot && ssoText) {
+            if (sso.status === 'connected') {
+              ssoDot.className = 'status-dot ok';
+              ssoText.textContent = `Connecté · ${sso.message}`;
+            } else if (sso.status === 'starting') {
+              ssoDot.className = 'status-dot';
+              ssoText.textContent = `En attente · ${sso.message}`;
+            } else {
+              ssoDot.className = 'status-dot' + (sso.enabled ? ' error' : '');
+              ssoText.textContent = sso.enabled ? `Inactif · ${sso.message}` : 'Désactivé';
+            }
+          }
+          if (ssoInfo) {
+            const parts = [];
+            if (sso.tenant_id) parts.push(`Tenant : ${escapeHtml(sso.tenant_id)}`);
+            if (sso.client_id) parts.push(`Client : ${escapeHtml(sso.client_id)}`);
+            ssoInfo.textContent = parts.join(' · ') || (sso.enabled ? 'Identifiants configurés' : 'Non configuré');
+          }
+
+          // Teams
+          const teams = res.teams || {};
+          const teamsDot = document.getElementById('post_teams_status_dot');
+          const teamsText = document.getElementById('post_teams_status_text');
+          const teamsInfo = document.getElementById('post_teams_summary_info');
+          if (teamsDot && teamsText) {
+            if (teams.status === 'connected') {
+              teamsDot.className = 'status-dot ok';
+              teamsText.textContent = `Connecté · ${teams.message}`;
+            } else if (teams.status === 'starting') {
+              teamsDot.className = 'status-dot';
+              teamsText.textContent = `En attente · ${teams.message}`;
+            } else {
+              teamsDot.className = 'status-dot' + (teams.enabled ? ' error' : '');
+              teamsText.textContent = teams.enabled ? `Inactif · ${teams.message}` : 'Désactivé';
+            }
+          }
+          if (teamsInfo) {
+            teamsInfo.textContent = teams.app_id ? `App ID : ${escapeHtml(teams.app_id)}` : (teams.enabled ? 'Identifiants configurés' : 'Non configuré');
+          }
+        }
+      } catch (e) {
+        console.error('Erreur vérification intégrations :', e);
+      }
+    }
+
+    // =========================================================================
+    // GESTION DU DÉPÔT DE SAUVEGARDE ET DE LA TIMELINE
+    // =========================================================================
+    async function fetchBackupInfo() {
+      const repoText = document.getElementById('backup_current_repo_text');
+      const repoBadge = document.getElementById('backup_current_repo_badge');
+      const lastDateText = document.getElementById('backup_last_date_text');
+      const tbody = document.getElementById('backupTimelineTableBody');
+
+      try {
+        const res = await api('instance/backup-info');
+        if (res && res.success) {
+          if (res.configured && res.repo_url) {
+            if (repoText) repoText.textContent = res.repo_url;
+            if (repoBadge) {
+              repoBadge.className = 'badge ok';
+              repoBadge.textContent = 'Dépôt connecté';
+            }
+            const manUrl = document.getElementById('restore_git_url');
+            if (manUrl && !manUrl.value) manUrl.value = res.repo_url;
+          } else {
+            if (repoText) repoText.textContent = '(Aucun dépôt de sauvegarde configuré)';
+            if (repoBadge) {
+              repoBadge.className = 'badge';
+              repoBadge.textContent = 'Non configuré';
+            }
+          }
+
+          if (lastDateText) {
+            lastDateText.textContent = res.last_backup || 'Aucune sauvegarde effectuée';
+          }
+
+          renderBackupTimeline(res.timeline || []);
+        } else {
+          if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger); padding:16px;">${escapeHtml(res?.error || 'Impossible de joindre le dépôt')}</td></tr>`;
+        }
+      } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Aucune connexion au dépôt ou erreur de communication.</td></tr>';
+      }
+    }
+
+    function renderBackupTimeline(timeline) {
+      const tbody = document.getElementById('backupTimelineTableBody');
+      if (!tbody) return;
+
+      if (!timeline || timeline.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">Aucun point de restauration dans l\'historique Git. Effectuez votre première sauvegarde ci-dessus.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = timeline.map(point => {
+        const shortHash = point.short_hash || point.hash.substring(0, 7);
+        const dt = point.datetime || '—';
+        const msg = point.message || 'Sauvegarde chiffrée ArcIA';
+        return `
+          <tr>
+            <td><strong>${escapeHtml(dt)}</strong></td>
+            <td><code>${escapeHtml(shortHash)}</code></td>
+            <td>${escapeHtml(msg)}</td>
+            <td style="text-align:right;">
+              <button class="btn secondary compact" onclick="restorePointInTime('${escapeHtml(point.hash)}', '${escapeHtml(dt)}')">
+                Restaurer ce point
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function backupCurrentInstanceNow() {
+      const pass = document.getElementById('backup_passphrase_input')?.value?.trim();
+      if (!pass) {
+        showToast('Veuillez renseigner votre mot de passe maître de chiffrement.');
+        document.getElementById('backup_passphrase_input')?.focus();
+        return;
+      }
+
+      showToast('Sauvegarde et chiffrement de l\'instance en cours vers Git…');
+      try {
+        const res = await api('instance/backup-now', { passphrase: pass });
+        if (res && res.success) {
+          showToast(`Sauvegarde chiffrée réussie (${res.timestamp || 'OK'}).`);
+          fetchBackupInfo();
+        } else {
+          showToast('Erreur sauvegarde : ' + (res?.error || 'échec git push'));
+        }
+      } catch (e) {
+        showToast('Erreur de communication lors de la sauvegarde.');
+      }
+    }
+
+    async function restorePointInTime(commitHash, commitDate) {
+      let pass = document.getElementById('backup_passphrase_input')?.value?.trim();
+      if (!pass) {
+        pass = prompt(`Veuillez saisir votre mot de passe maître de déchiffrement pour restaurer l'instantané du ${commitDate} (${commitHash.substring(0, 7)}) :`);
+      }
+      if (!pass) return;
+
+      showToast(`Restauration de l'instance au point ${commitHash.substring(0, 7)} (${commitDate})…`);
+      try {
+        const res = await api('instance/restore', {
+          passphrase: pass,
+          commit_hash: commitHash
+        });
+        if (res && res.success) {
+          showToast(`Instance restaurée au point du ${commitDate} !`);
+          fetchInitialConfig();
+          switchMainTab('home');
+        } else {
+          showToast('Échec de restauration : ' + (res?.error || 'mot de passe invalide'));
+        }
+      } catch (e) {
+        showToast('Erreur de communication lors de la restauration.');
+      }
+    }
+
     async function restoreFromGit() {
       const repo = document.getElementById('restore_git_url').value;
       const token = document.getElementById('restore_git_token').value;
@@ -5497,6 +5987,8 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
         if (cfg.network.tls_mode) document.getElementById('network_tls_mode').value = cfg.network.tls_mode;
         if (cfg.network.acme_email) document.getElementById('network_acme_email').value = cfg.network.acme_email;
         if (cfg.network.tls_secret_name) document.getElementById('network_tls_secret_name').value = cfg.network.tls_secret_name;
+        if (cfg.network.acme_dns_txt && document.getElementById('network_acme_dns_txt')) document.getElementById('network_acme_dns_txt').value = cfg.network.acme_dns_txt;
+        if (cfg.network.acme_account_key && document.getElementById('network_acme_account_key')) document.getElementById('network_acme_account_key').value = cfg.network.acme_account_key;
         onTlsModeChanged();
       }
 
@@ -5610,22 +6102,48 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       // Entra ID
       if (cfg.entra_id_sso) {
         const on = !!cfg.entra_id_sso.enabled;
-        document.getElementById('entra_id_enabled').checked = on;
+        const entraOnEl = document.getElementById('entra_id_enabled');
+        if (entraOnEl) entraOnEl.checked = on;
         toggleIntegration('card_entraid', on);
-        if (cfg.entra_id_sso.tenant_id) document.getElementById('entra_tenant_id').value = cfg.entra_id_sso.tenant_id;
-        if (cfg.entra_id_sso.client_id) document.getElementById('entra_client_id').value = cfg.entra_id_sso.client_id;
-        if (cfg.entra_id_sso.client_secret) document.getElementById('entra_client_secret').value = cfg.entra_id_sso.client_secret;
-        if (cfg.entra_id_sso.cookie_secret) document.getElementById('entra_cookie_secret').value = cfg.entra_id_sso.cookie_secret;
+        if (cfg.entra_id_sso.tenant_id && document.getElementById('entra_tenant_id')) document.getElementById('entra_tenant_id').value = cfg.entra_id_sso.tenant_id;
+        if (cfg.entra_id_sso.client_id && document.getElementById('entra_client_id')) document.getElementById('entra_client_id').value = cfg.entra_id_sso.client_id;
+        if (cfg.entra_id_sso.client_secret && document.getElementById('entra_client_secret')) document.getElementById('entra_client_secret').value = cfg.entra_id_sso.client_secret;
+        if (cfg.entra_id_sso.cookie_secret && document.getElementById('entra_cookie_secret')) document.getElementById('entra_cookie_secret').value = cfg.entra_id_sso.cookie_secret;
+
+        // Également dans le Centre de pilotage (post-déploiement)
+        const postEntraOnEl = document.getElementById('post_entra_id_enabled');
+        if (postEntraOnEl) postEntraOnEl.checked = on;
+        togglePostIntegration('post_card_entraid', on);
+        if (cfg.entra_id_sso.tenant_id && document.getElementById('post_entra_tenant_id')) document.getElementById('post_entra_tenant_id').value = cfg.entra_id_sso.tenant_id;
+        if (cfg.entra_id_sso.client_id && document.getElementById('post_entra_client_id')) document.getElementById('post_entra_client_id').value = cfg.entra_id_sso.client_id;
+        if (cfg.entra_id_sso.client_secret && document.getElementById('post_entra_client_secret')) document.getElementById('post_entra_client_secret').value = cfg.entra_id_sso.client_secret;
+        if (cfg.entra_id_sso.cookie_secret && document.getElementById('post_entra_cookie_secret')) document.getElementById('post_entra_cookie_secret').value = cfg.entra_id_sso.cookie_secret;
       }
 
       // Teams Bot
       if (cfg.teams_bot) {
         const on = !!cfg.teams_bot.enabled;
-        document.getElementById('teams_bot_enabled').checked = on;
+        const teamsOnEl = document.getElementById('teams_bot_enabled');
+        if (teamsOnEl) teamsOnEl.checked = on;
         toggleIntegration('card_teams', on);
-        if (cfg.teams_bot.app_id) document.getElementById('teams_app_id').value = cfg.teams_bot.app_id;
-        if (cfg.teams_bot.app_password) document.getElementById('teams_app_password').value = cfg.teams_bot.app_password;
-        if (cfg.teams_bot.system_prompt) document.getElementById('teams_system_prompt').value = cfg.teams_bot.system_prompt;
+        if (cfg.teams_bot.app_id && document.getElementById('teams_app_id')) document.getElementById('teams_app_id').value = cfg.teams_bot.app_id;
+        if (cfg.teams_bot.app_password && document.getElementById('teams_app_password')) document.getElementById('teams_app_password').value = cfg.teams_bot.app_password;
+        if (cfg.teams_bot.system_prompt && document.getElementById('teams_system_prompt')) document.getElementById('teams_system_prompt').value = cfg.teams_bot.system_prompt;
+
+        // Également dans le Centre de pilotage (post-déploiement)
+        const postTeamsOnEl = document.getElementById('post_teams_bot_enabled');
+        if (postTeamsOnEl) postTeamsOnEl.checked = on;
+        togglePostIntegration('post_card_teams', on);
+        if (cfg.teams_bot.app_id && document.getElementById('post_teams_app_id')) document.getElementById('post_teams_app_id').value = cfg.teams_bot.app_id;
+        if (cfg.teams_bot.app_password && document.getElementById('post_teams_app_password')) document.getElementById('post_teams_app_password').value = cfg.teams_bot.app_password;
+        if (cfg.teams_bot.system_prompt && document.getElementById('post_teams_system_prompt')) document.getElementById('post_teams_system_prompt').value = cfg.teams_bot.system_prompt;
+      }
+
+      // Sauvegarde d'instance (Git)
+      const bkp = cfg.instance_backup || cfg.instance_git;
+      if (bkp) {
+        if (bkp.repo_url && document.getElementById('restore_git_url')) document.getElementById('restore_git_url').value = bkp.repo_url;
+        if ((bkp.git_token || bkp.token) && document.getElementById('restore_git_token')) document.getElementById('restore_git_token').value = bkp.git_token || bkp.token;
       }
     }
 

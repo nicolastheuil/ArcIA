@@ -1,6 +1,6 @@
-# Sécurité et gouvernance des données — ArcIA v0.5.0
+# Sécurité et gouvernance des données — ArcIA v0.5.1
 
-Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.5.0**.
+Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.5.1**.
 
 ---
 

@@ -146,17 +146,26 @@ def format_user_friendly_error(raw_error_text: str, default_status_code: int = 5
         return 503, msg
 
     # 7. Clé d'API fournisseur invalide / Erreur d'authentification
-    if any(k in lower for k in [
+    if default_status_code == 401 or any(k in lower for k in [
         "authenticationerror",
         "invalid_api_key",
         "invalid api key",
         "unauthorized",
         "expired_key",
-        "expired key"
+        "expired key",
+        "malformed api key",
+        "malformed_key",
+        "auth_error",
+        "authentication failed",
+        "invalid token",
+        "key not found",
+        "failed to authenticate",
+        "user does not have access",
+        "bearer token"
     ]):
         msg = (
-            "🔑 **Erreur d'authentification** : La clé d'API fournisseur configurée sur la passerelle est invalide "
-            "ou a expiré. Veuillez contacter l'administrateur de la plateforme ArcIA."
+            "🔑 **Erreur d'authentification** : La clé d'accès ou d'API configurée sur la passerelle LiteLLM est invalide, "
+            "absente ou a expiré. Veuillez vérifier la Master Key ou vos clés de fournisseurs dans les paramètres d'administration ArcIA."
         )
         return 401, msg
 

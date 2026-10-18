@@ -1,12 +1,12 @@
-# Architecture ArcIA v0.5.0
+# Architecture ArcIA v0.5.1
 
-> **Statut : Implémenté (v0.5.0)** · [Consulter le tableau de bord des fonctionnalités](etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.1)** · [Consulter le tableau de bord des fonctionnalités](etat-des-fonctionnalites.md)
 
 ArcIA est la plateforme d'IA agentique d'entreprise conçue pour concilier autonomie des agents, gouvernance stricte des données et expérience utilisateur unifiée sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
-## 1. Principes fondateurs v0.5.0
+## 1. Principes fondateurs v0.5.1
 
 1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
 2. **Routage Hybride & Catalogue à 5 Profils Canoniques** :
@@ -101,7 +101,7 @@ flowchart TD
 ---
 
 <a id="carte-du-dépôt"></a>
-## 3. Cartographie des composants et ports (v0.5.0)
+## 3. Cartographie des composants et ports (v0.5.1)
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
 |---|---|---|---|---|---|

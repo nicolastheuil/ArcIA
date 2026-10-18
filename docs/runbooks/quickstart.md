@@ -1,6 +1,6 @@
-# Quickstart ArcIA v0.5.0
+# Quickstart ArcIA v0.5.1
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.0** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.1** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
@@ -152,7 +152,7 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Les 5 profils canoniques disponibles
 
-Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.0** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
+Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.1** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
 - **`simple/free`** : Chat direct rapide sans coût via OpenRouter Free (`openrouter/openrouter/free`).
 - **`simple/auto`** *(Défaut)* : Chat direct polyvalent équilibrant performance et coût (`openrouter/auto`).
 - **`agentic/free`** : Session autonome Hermes outillée sur palier gratuit (`openrouter/openrouter/free`).

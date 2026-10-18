@@ -34,7 +34,7 @@ class TestArcIADLP(unittest.TestCase):
             self.skipTest("Module services/presidio/app.py introuvable")
 
     # =========================================================================
-    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.5.0)
+    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.5.1)
     # =========================================================================
 
     def test_ip_address_redaction(self):

@@ -1,14 +1,14 @@
-# Chaîne de routage IA et cycle de vie d'une requête dans ArcIA v0.5.0
+# Chaîne de routage IA et cycle de vie d'une requête dans ArcIA v0.5.1
 
-> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.1)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.5.0**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
+Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.5.1**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
 
 ---
 
 ## 1. Principes fondamentaux de la chaîne
 
-Dans ArcIA v0.5.0, la chaîne de routage répond à **cinq principes directeurs stricts** :
+Dans ArcIA v0.5.1, la chaîne de routage répond à **cinq principes directeurs stricts** :
 1. **Un seul point de sortie vers le cloud : LiteLLM.** Aucun composant — navigateur client compris (`ENABLE_DIRECT_CONNECTIONS=false`) — ne communique directement avec un fournisseur externe.
 2. **Double barrière DLP 100 % fail-closed** :
    - **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance ([services/hermes/plugin.py](../../services/hermes/plugin.py)) appelle `POST /sanitize` sur Presidio DLP *avant* toute persistance dans SQLite (`state.db`) et *avant* tout appel LLM.
@@ -214,7 +214,7 @@ L'ajout ou l'ajustement d'un modèle s'effectue en quelques secondes depuis l'as
 
 ## 6. Caviardage DLP Presidio : ce qui est réellement masqué
 
-Le bouclier Presidio DLP d'ArcIA v0.5.0 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
+Le bouclier Presidio DLP d'ArcIA v0.5.1 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
 1. **Secrets techniques** : Clés privées PEM, tokens Bearer, tokens GitHub (`ghp_`), clés d'API (`sk-`), clés AWS (`AKIA`), mots de passe explicites (`password=`) → Remplacés par `[SECRET_REMOVED]`.
 2. **Adresses IP** : Détection active IPv4 (`\b(?:\d{1,3}\.){3}\d{1,3}\b`) → Remplacées par `[ARCIA_IP_ADDRESS_n]`.
 3. **Données personnelles (PII)** :

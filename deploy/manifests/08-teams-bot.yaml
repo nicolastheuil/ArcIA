@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.0 — Microsoft Teams Bot Adapter
+# ArcIA v0.5.1 — Microsoft Teams Bot Adapter
 # Code source unique : services/teams/app.py (injecté via ConfigMap teams-bot-code
 # par scripts/deploy.py ou kubectl apply -k deploy/manifests)
 # ==============================================================================
@@ -8,6 +8,12 @@ kind: Deployment
 metadata:
   name: teams-bot-adapter
   namespace: arcia
+  labels:
+    app: teams-bot-adapter
+    app.kubernetes.io/name: teams-bot-adapter
+    app.kubernetes.io/version: "v4.16.0"
+  annotations:
+    app.kubernetes.io/version: "v4.16.0"
 spec:
   replicas: 1
   selector:
@@ -17,7 +23,9 @@ spec:
     metadata:
       labels:
         app: teams-bot-adapter
+        app.kubernetes.io/version: "v4.16.0"
       annotations:
+        app.kubernetes.io/version: "v4.16.0"
         checksum/teams-bot-code: "default"
     spec:
       containers:

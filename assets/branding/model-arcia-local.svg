@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
   <defs>
-    <!-- Fond Squircle Dark Mode sobre (#0A0F1D -> #050712) -->
+    <!-- Fond Squircle Dark Mode sobre (#181D2F -> #050712) -->
     <linearGradient id="arciaLocalSquircleBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#181D2F" />
       <stop offset="55%" stop-color="#0D1222" />
       <stop offset="100%" stop-color="#050712" />
     </linearGradient>
 
-    <!-- Bordure dorée du Squircle -->
+    <!-- Liseret doré officiel ArcIA (Souverain Local) -->
     <linearGradient id="arciaGoldBorder" x1="32" y1="32" x2="480" y2="480" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#FCD34D" />
-      <stop offset="45%" stop-color="#F59E0B" />
-      <stop offset="80%" stop-color="#B45309" />
+      <stop offset="35%" stop-color="#F59E0B" />
+      <stop offset="70%" stop-color="#B45309" />
       <stop offset="100%" stop-color="#FCD34D" />
     </linearGradient>
 
@@ -21,37 +21,19 @@
       <stop offset="100%" stop-color="#6BE7DD" />
     </linearGradient>
 
-    <!-- Halo ambiant doré -->
-    <radialGradient id="arciaGoldHalo" cx="240" cy="240" r="220" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.16" />
+    <!-- Halo ambiant doré chaud -->
+    <radialGradient id="arciaGoldHalo" cx="256" cy="256" r="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.22" />
+      <stop offset="60%" stop-color="#F59E0B" stop-opacity="0.06" />
       <stop offset="100%" stop-color="#050712" stop-opacity="0" />
     </radialGradient>
-
-    <!-- Dégradé métallique du bouclier doré -->
-    <linearGradient id="shieldGoldGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FFFBEB" />
-      <stop offset="25%" stop-color="#FDE68A" />
-      <stop offset="60%" stop-color="#F59E0B" />
-      <stop offset="85%" stop-color="#D97706" />
-      <stop offset="100%" stop-color="#78350F" />
-    </linearGradient>
-
-    <!-- Dégradé intérieur du bouclier -->
-    <linearGradient id="shieldInnerGoldGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1E293B" />
-      <stop offset="100%" stop-color="#0A0F1D" />
-    </linearGradient>
-
-    <!-- Ombre portée pour le bouclier -->
-    <filter id="goldShieldShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.75" />
-      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#F59E0B" flood-opacity="0.30" />
-    </filter>
   </defs>
 
-  <!-- Conteneur Squircle avec accent doré -->
-  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#arciaLocalSquircleBg)" stroke="url(#arciaGoldBorder)" stroke-width="8" />
-  <circle cx="240" cy="240" r="220" fill="url(#arciaGoldHalo)" />
+  <!-- Conteneur Squircle avec liseret doré marqué -->
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#arciaLocalSquircleBg)" stroke="url(#arciaGoldBorder)" stroke-width="14" />
+  <!-- Anneau intérieur subtil renforçant le liseret -->
+  <rect x="35" y="35" width="442" height="442" rx="98" ry="98" fill="none" stroke="#FDE68A" stroke-width="2" opacity="0.4" />
+  <circle cx="256" cy="256" r="230" fill="url(#arciaGoldHalo)" />
 
   <!-- Monogramme officiel "aIA" centré -->
   <g id="arcia-aIA-monogram" transform="translate(68, 174) scale(1.68)">
@@ -74,56 +56,5 @@
       d="M177.86 0 L199.65 0 L224.07 97.76 L201.20 97.76 L196.32 74.48 L153.84 74.48 L141.02 97.76 L119.37 97.76 L177.86 0 Z M184.51 19.47 L163.58 57.05 L192.72 57.05 L184.51 19.47 Z"
       fill="url(#arciaLocalCyanFill)"
     />
-  </g>
-
-  <!-- Bouclier Doré Souverain (Modèles Locaux Ollama / vLLM) en bas à droite -->
-  <g id="arcia-local-golden-shield" transform="translate(300, 280)" filter="url(#goldShieldShadow)">
-    <!-- Corps externe du bouclier doré -->
-    <path
-      d="M 85 10 C 130 10 160 22 165 24 C 165 75 160 120 145 150 C 125 185 85 205 85 205 C 85 205 45 185 25 150 C 10 120 5 75 5 24 C 10 22 40 10 85 10 Z"
-      fill="url(#shieldGoldGrad)"
-      stroke="#FFFBEB"
-      stroke-width="3"
-    />
-
-    <!-- Coeur intérieur du bouclier (Dark Navy) -->
-    <path
-      d="M 85 22 C 122 22 145 32 150 34 C 150 78 145 114 133 138 C 117 167 85 186 85 186 C 85 186 53 167 37 138 C 25 114 20 78 20 34 C 25 32 48 22 85 22 Z"
-      fill="url(#shieldInnerGoldGrad)"
-      stroke="#78350F"
-      stroke-width="2"
-    />
-
-    <!-- Emblème Souverain Local : Puce / Nœud local et Étoile dorée -->
-    <!-- Mini Puce CPU centrale -->
-    <rect x="67" y="65" width="36" height="36" rx="6" fill="#F59E0B" stroke="#FDE68A" stroke-width="2" />
-    <rect x="74" y="72" width="22" height="22" rx="3" fill="#0A0F1D" />
-    <circle cx="85" cy="83" r="5" fill="#FCD34D" />
-
-    <!-- Broches de processeur local -->
-    <line x1="60" y1="73" x2="67" y2="73" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="60" y1="83" x2="67" y2="83" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="60" y1="93" x2="67" y2="93" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-
-    <line x1="103" y1="73" x2="110" y2="73" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="103" y1="83" x2="110" y2="83" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="103" y1="93" x2="110" y2="93" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-
-    <line x1="73" y1="58" x2="73" y2="65" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="85" y1="58" x2="85" y2="65" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="97" y1="58" x2="97" y2="65" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-
-    <line x1="73" y1="101" x2="73" y2="108" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="85" y1="101" x2="85" y2="108" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-    <line x1="97" y1="101" x2="97" y2="108" stroke="#FDE68A" stroke-width="2.5" stroke-linecap="round" />
-
-    <!-- Label "LOCAL" miniature sous la puce -->
-    <path
-      d="M 64 125 L 106 125"
-      stroke="#FCD34D"
-      stroke-width="2.5"
-      stroke-linecap="round"
-    />
-    <circle cx="85" cy="142" r="4" fill="#FCD34D" />
   </g>
 </svg>

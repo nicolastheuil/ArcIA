@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.0 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
+# ArcIA v0.5.1 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
 # ==============================================================================
 apiVersion: v1
 kind: ConfigMap

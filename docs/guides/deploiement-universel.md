@@ -1,15 +1,15 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Kubernetes-Déploiement_Universel-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
   <img src="https://img.shields.io/badge/Setup_Wizard-3_Parcours_Dédiés-6BE7DD?style=flat-square&logoColor=050712" alt="Setup Wizard">
 </p>
 
-# Guide de déploiement universel d'ArcIA v0.5.0 sur Kubernetes
+# Guide de déploiement universel d'ArcIA v0.5.1 sur Kubernetes
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement universel**
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.5.0** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.5.1** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
 
 ---
 

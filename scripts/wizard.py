@@ -73,6 +73,8 @@ deployment_state = {
     "exit_code": None,
     "summary": {}
 }
+active_deployment_proc: Optional[subprocess.Popen] = None
+
 
 # Global zero-downtime update state
 update_lock = threading.Lock()
@@ -353,13 +355,29 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
     return {"success": False, "error": "Fournisseur Git non pris en charge."}
 
 def git_push_instance(repo_url: str, token: str, encrypted_bundle_str: str, instance_name: str, fqdn: str) -> dict:
-    """Initialise, committe et pousse le bundle d'instance chiffré vers le dépôt privé."""
+    """Commits et pousse le bundle d'instance chiffré vers le dépôt privé en préservant l'historique."""
     temp_dir = tempfile.mkdtemp(prefix="arcia-instance-")
     try:
+        auth_url = repo_url
+        if token and "https://" in repo_url:
+            if "github.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
+            elif "gitlab.com" in repo_url:
+                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
+            else:
+                auth_url = repo_url.replace("https://", f"https://{token}@")
+
+        # Tenter un clone du dépôt existant pour préserver l'historique
+        clone_res = subprocess.run(["git", "clone", "--depth", "50", auth_url, temp_dir], capture_output=True, timeout=30)
+        if clone_res.returncode != 0:
+            subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
+            subprocess.run(["git", "checkout", "-B", "main"], cwd=temp_dir, capture_output=True)
+            subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=temp_dir, capture_output=True)
+
         meta = {
             "instance_name": instance_name,
             "public_fqdn": fqdn,
-            "schema_version": "0.4.0",
+            "schema_version": "0.5.1",
             "encryption": "AES-256-GCM-PBKDF2-100K",
             "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
@@ -398,6 +416,41 @@ Pour restaurer cette instance sur un cluster Kubernetes neuf ou reconstruit :
         with open(os.path.join(temp_dir, "README.md"), "w", encoding="utf-8") as f:
             f.write(readme_content)
 
+        subprocess.run(["git", "config", "user.name", "ArcIA Setup Wizard"], cwd=temp_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "admin@arcia.local"], cwd=temp_dir, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True, check=True)
+        timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S")
+        subprocess.run(["git", "commit", "-m", f"chore(instance): sauvegarde chiffrée {timestamp_str}"], cwd=temp_dir, capture_output=True)
+
+        proc = subprocess.run(["git", "push", "-u", "origin", "main"], cwd=temp_dir, capture_output=True, timeout=30)
+        if proc.returncode != 0:
+            proc = subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=temp_dir, capture_output=True, timeout=30)
+            if proc.returncode != 0:
+                err = proc.stderr.decode("utf-8", errors="replace")
+                return {"success": False, "error": f"Erreur git push ({err.strip()})"}
+
+        # Enregistrer la sauvegarde dans arcia.config.yaml
+        try:
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            cfg.setdefault("instance_backup", {})["enabled"] = True
+            cfg["instance_backup"]["repo_url"] = repo_url
+            cfg["instance_backup"]["git_token"] = token
+            cfg["instance_backup"]["last_backup"] = timestamp_str
+            save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
+        except Exception:
+            pass
+
+        return {"success": True, "repo_url": repo_url, "timestamp": timestamp_str}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+def get_instance_backup_timeline(repo_url: str, token: str) -> dict:
+    """Récupère l'historique des commits de sauvegarde chiffrée depuis le dépôt privé."""
+    temp_dir = tempfile.mkdtemp(prefix="arcia-timeline-")
+    try:
         auth_url = repo_url
         if token and "https://" in repo_url:
             if "github.com" in repo_url:
@@ -407,27 +460,45 @@ Pour restaurer cette instance sur un cluster Kubernetes neuf ou reconstruit :
             else:
                 auth_url = repo_url.replace("https://", f"https://{token}@")
 
-        subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
-        subprocess.run(["git", "config", "user.name", "ArcIA Setup Wizard"], cwd=temp_dir, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "admin@arcia.local"], cwd=temp_dir, capture_output=True)
-        subprocess.run(["git", "checkout", "-B", "main"], cwd=temp_dir, capture_output=True)
-        subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True, check=True)
-        subprocess.run(["git", "commit", "-m", f"chore(instance): sauvegarde chiffrée de {instance_name}"], cwd=temp_dir, capture_output=True, check=True)
-        subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=temp_dir, capture_output=True)
-
-        proc = subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=temp_dir, capture_output=True, timeout=30)
+        proc = subprocess.run(["git", "clone", "--depth", "50", auth_url, temp_dir], capture_output=True, timeout=30)
         if proc.returncode != 0:
             err = proc.stderr.decode("utf-8", errors="replace")
-            return {"success": False, "error": f"Erreur git push ({err.strip()})"}
+            return {"success": False, "error": f"Impossible d'accéder au dépôt : {err.strip()}", "timeline": []}
 
-        return {"success": True, "repo_url": repo_url}
+        log_proc = subprocess.run(
+            ["git", "log", "--format=%H|%ad|%s", "--date=iso"],
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        timeline = []
+        if log_proc.returncode == 0 and log_proc.stdout.strip():
+            for line in log_proc.stdout.strip().splitlines():
+                parts = line.split("|", 2)
+                if len(parts) >= 3:
+                    c_hash, c_date, c_msg = parts[0].strip(), parts[1].strip(), parts[2].strip()
+                    timeline.append({
+                        "hash": c_hash,
+                        "short_hash": c_hash[:7],
+                        "datetime": c_date,
+                        "message": c_msg
+                    })
 
+        last_backup = timeline[0]["datetime"] if timeline else None
+        return {
+            "success": True,
+            "repo_url": repo_url,
+            "last_backup": last_backup,
+            "timeline": timeline
+        }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "timeline": []}
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) -> dict:
+def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, commit_hash: Optional[str] = None) -> dict:
     """Clone le dépôt d'instance privé et déchiffre la configuration avec le mot de passe maître."""
     temp_dir = tempfile.mkdtemp(prefix="arcia-restore-")
     try:
@@ -440,10 +511,16 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) ->
             else:
                 auth_url = repo_url.replace("https://", f"https://{token}@")
 
-        proc = subprocess.run(["git", "clone", "--depth", "1", auth_url, temp_dir], capture_output=True, timeout=30)
+        depth_args = [] if commit_hash else ["--depth", "50"]
+        proc = subprocess.run(["git", "clone"] + depth_args + [auth_url, temp_dir], capture_output=True, timeout=30)
         if proc.returncode != 0:
             err = proc.stderr.decode("utf-8", errors="replace")
             return {"success": False, "error": f"Impossible d'accéder au dépôt d'instance : {err.strip()}"}
+
+        if commit_hash:
+            ck = subprocess.run(["git", "checkout", commit_hash], cwd=temp_dir, capture_output=True, timeout=15)
+            if ck.returncode != 0:
+                return {"success": False, "error": f"Point de restauration {commit_hash[:7]} introuvable."}
 
         enc_file = os.path.join(temp_dir, "instance-secrets.enc")
         if not os.path.isfile(enc_file):
@@ -474,12 +551,22 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) ->
         import deploy
         cfg = deploy.parse_yaml_or_env(DEFAULT_CONFIG_PATH)
 
+        # Enregistrer la source de backup restaurée
+        try:
+            cfg.setdefault("instance_backup", {})["enabled"] = True
+            cfg["instance_backup"]["repo_url"] = repo_url
+            cfg["instance_backup"]["git_token"] = token
+            save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
+        except Exception:
+            pass
+
         return {
             "success": True,
             "instance_name": decrypted.get("instance_name", "ArcIA-instance"),
             "public_fqdn": decrypted.get("public_fqdn", cfg.get("network", {}).get("public_fqdn", "")),
             "config": cfg,
-            "message": f"Instance '{decrypted.get('instance_name', '')}' déchiffrée avec succès !"
+            "commit_hash": commit_hash,
+            "message": f"Instance '{decrypted.get('instance_name', '')}' restaurée avec succès !"
         }
 
     except ValueError as ve:
@@ -488,6 +575,95 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) ->
         return {"success": False, "error": f"Erreur lors de la restauration : {str(e)}"}
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+def get_instance_backup_info() -> dict:
+    """Renvoie les informations actuelles sur le dépôt de sauvegarde d'instance et la timeline des commits."""
+    cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
+    repo_url = backup_cfg.get("repo_url", "").strip()
+    token = (backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
+    last_backup = backup_cfg.get("last_backup", None)
+
+    if not repo_url:
+        return {
+            "success": True,
+            "configured": False,
+            "repo_url": "",
+            "last_backup": None,
+            "timeline": []
+        }
+
+    timeline_res = get_instance_backup_timeline(repo_url, token)
+    return {
+        "success": True,
+        "configured": True,
+        "repo_url": repo_url,
+        "last_backup": timeline_res.get("last_backup") or last_backup,
+        "timeline": timeline_res.get("timeline", [])
+    }
+
+def get_integrations_status(cfg: Optional[Dict[str, Any]] = None) -> dict:
+    """Vérifie l'état de configuration et de connectivité en production du SSO Entra ID et du Bot Teams."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    sso_cfg = cfg.get("entra_id_sso", {})
+    teams_cfg = cfg.get("teams_bot", {})
+
+    sso_enabled = bool(sso_cfg.get("enabled", False))
+    teams_enabled = bool(teams_cfg.get("enabled", False))
+
+    res = {
+        "success": True,
+        "sso": {
+            "enabled": sso_enabled,
+            "configured": bool(sso_cfg.get("tenant_id") and sso_cfg.get("client_id")),
+            "status": "inactive",
+            "ready_replicas": 0,
+            "tenant_id": sso_cfg.get("tenant_id", ""),
+            "client_id": sso_cfg.get("client_id", ""),
+            "message": "Non configuré" if not sso_enabled else "Désactivé"
+        },
+        "teams": {
+            "enabled": teams_enabled,
+            "configured": bool(teams_cfg.get("app_id") and teams_cfg.get("app_password")),
+            "status": "inactive",
+            "ready_replicas": 0,
+            "app_id": teams_cfg.get("app_id", ""),
+            "message": "Non configuré" if not teams_enabled else "Désactivé"
+        }
+    }
+
+    try:
+        runner = get_k8s_runner(cfg)
+        ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+        rc, out, _ = runner.run(["get", "deployments", f"-n={ns}", "-o", "json"], timeout=4)
+        if rc == 0 and out.strip():
+            data = json.loads(out)
+            for item in data.get("items", []):
+                name = item.get("metadata", {}).get("name", "")
+                status = item.get("status", {})
+                ready = status.get("readyReplicas", 0)
+                if name == "oauth2-proxy":
+                    if ready > 0:
+                        res["sso"]["status"] = "connected"
+                        res["sso"]["ready_replicas"] = ready
+                        res["sso"]["message"] = f"Opérationnel ({ready} pod(s) actif(s))"
+                    elif sso_enabled:
+                        res["sso"]["status"] = "starting"
+                        res["sso"]["message"] = "En attente de démarrage du pod"
+                elif name == "teams-bot-adapter":
+                    if ready > 0:
+                        res["teams"]["status"] = "connected"
+                        res["teams"]["ready_replicas"] = ready
+                        res["teams"]["message"] = f"Opérationnel ({ready} pod(s) actif(s))"
+                    elif teams_enabled:
+                        res["teams"]["status"] = "starting"
+                        res["teams"]["message"] = "En attente de démarrage du pod"
+    except Exception:
+        pass
+
+    return res
 
 # -----------------------------------------------------------------------------
 # Dimensionnement VMware vSphere & Cibles d'Infrastructure
@@ -1579,9 +1755,46 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
 # Exécution du Déploiement en Tâche de Fond & Sauvegarde Git Chiffrée
 # -----------------------------------------------------------------------------
 
+def strip_ansi_codes(text: str) -> str:
+    """Supprime proprement les séquences d'échappement ANSI de la sortie d'exécution."""
+    if not text:
+        return ""
+    # Séquences ANSI standard
+    text = re.sub(r'\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+    # Séquences orphelines sans caractère d'échappement initial (ex: [1m, [96m, [0m)
+    text = re.sub(r'\[(?:\d{1,3}(?:;\d{1,3})*)?m', '', text)
+    return text
+
+def cancel_active_deployment() -> dict:
+    """Interrompt immédiatement le déploiement en cours d'exécution."""
+    global active_deployment_proc, deployment_state
+    proc_to_kill = None
+    with deployment_lock:
+        if deployment_state.get("status") != "running":
+            return {"success": False, "error": "Aucun déploiement n'est actuellement en cours d'exécution."}
+        proc_to_kill = active_deployment_proc
+        deployment_state["status"] = "canceled"
+        deployment_state["exit_code"] = -1
+        deployment_state["logs"].append("[WARN] Déploiement interrompu par l'opérateur.")
+
+    if proc_to_kill:
+        try:
+            proc_to_kill.terminate()
+            try:
+                proc_to_kill.wait(timeout=2)
+            except Exception:
+                proc_to_kill.kill()
+        except Exception:
+            pass
+
+    with deployment_lock:
+        active_deployment_proc = None
+
+    return {"success": True, "message": "Déploiement interrompu avec succès."}
+
 def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dict] = None,
                           infra_target: str = "k8s_existing", infra_config: Optional[dict] = None):
-    global deployment_state
+    global deployment_state, active_deployment_proc
 
     with deployment_lock:
         deployment_state["status"] = "running"
@@ -1625,6 +1838,7 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             env_vars = os.environ.copy()
             env_vars["PYTHONUNBUFFERED"] = "1"
             env_vars["PYTHONIOENCODING"] = "utf-8"
+            env_vars["PYTHONUTF8"] = "1"
             env_vars["OPENROUTER_API_KEY"] = openrouter_key
             env_vars["WEBUI_PORT"] = str(webui_port)
             env_vars["LITELLM_PORT"] = str(litellm_port)
@@ -1636,21 +1850,29 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
                 cwd=ROOT_DIR,
                 env=env_vars
             )
+            with deployment_lock:
+                active_deployment_proc = proc
 
             for line in iter(proc.stdout.readline, ''):
                 if line:
-                    clean_line = line.rstrip()
-                    with deployment_lock:
-                        deployment_state["logs"].append(clean_line)
+                    clean_line = strip_ansi_codes(line).rstrip()
+                    if clean_line:
+                        with deployment_lock:
+                            deployment_state["logs"].append(clean_line)
 
             proc.wait()
             exit_code = proc.returncode
 
             with deployment_lock:
+                active_deployment_proc = None
+                if deployment_state["status"] == "canceled":
+                    return
                 deployment_state["exit_code"] = exit_code
                 if exit_code == 0:
                     deployment_state["status"] = "success"
@@ -1673,13 +1895,16 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             return
         except Exception as de:
             with deployment_lock:
-                deployment_state["status"] = "error"
-                deployment_state["logs"].append(f"[FATAL ERROR Docker] {str(de)}")
+                active_deployment_proc = None
+                if deployment_state["status"] != "canceled":
+                    deployment_state["status"] = "error"
+                    deployment_state["logs"].append(f"[FATAL ERROR Docker] {str(de)}")
             return
 
     # Mode Kubernetes Existant ou VMware vSphere
+    cfg_for_vm, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    vm_cfg = (infra_config or {}).get("vmware", {}) or (cfg_for_vm or {}).get("vmware", {}) or {}
     if infra_target == "vmware_k3s":
-        vm_cfg = (infra_config or {}).get("vmware", {})
         res_ov = vm_cfg.get("resources_override", {})
         storage_acc = vm_cfg.get("storage_account", {})
         nodes = res_ov.get("nodes", 3)
@@ -1705,6 +1930,7 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
     env_vars = os.environ.copy()
     env_vars["PYTHONUNBUFFERED"] = "1"
     env_vars["PYTHONIOENCODING"] = "utf-8"
+    env_vars["PYTHONUTF8"] = "1"
 
     with deployment_lock:
         deployment_state["logs"].append(f"[INFO] Exécution du déploiement : python -u scripts/deploy.py {'--dry-run' if dry_run else ''}")
@@ -1715,21 +1941,29 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
             cwd=ROOT_DIR,
             env=env_vars
         )
+        with deployment_lock:
+            active_deployment_proc = proc
 
         for line in iter(proc.stdout.readline, ''):
             if line:
-                clean_line = line.rstrip()
-                with deployment_lock:
-                    deployment_state["logs"].append(clean_line)
+                clean_line = strip_ansi_codes(line).rstrip()
+                if clean_line:
+                    with deployment_lock:
+                        deployment_state["logs"].append(clean_line)
 
         proc.wait()
         exit_code = proc.returncode
 
         with deployment_lock:
+            active_deployment_proc = None
+            if deployment_state["status"] == "canceled":
+                return
             deployment_state["exit_code"] = exit_code
             if exit_code == 0:
                 cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
@@ -1824,8 +2058,11 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
 
     except Exception as e:
         with deployment_lock:
-            deployment_state["status"] = "error"
-            deployment_state["logs"].append(f"[FATAL ERROR] {str(e)}")
+            active_deployment_proc = None
+            if deployment_state["status"] != "canceled":
+                deployment_state["status"] = "error"
+                deployment_state["logs"].append(f"[FATAL ERROR] {str(e)}")
+
 
 # -----------------------------------------------------------------------------
 # Vérification en Ligne des Mises à Jour & Séquence de Mise à Jour Zero-Downtime
@@ -1841,7 +2078,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "services/ & skills/",
         "k8s_resource": "configmap/presidio-code,hermes-governance-plugin,teams-bot-code,arcia-native-skills",
         "default_image": "nicolastheuil/ArcIA",
-        "default_version": "v0.5.0",
+        "default_version": "v0.5.1",
         "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
         "wave": 1,
         "is_bumpable_image": False,
@@ -1856,7 +2093,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "deploy/manifests/03-presidio.yaml",
         "k8s_resource": "deployment/presidio-dlp",
         "default_image": "python:3.11-slim",
-        "default_version": "2.2.354",
+        "default_version": "2.2.355",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 2,
         "is_bumpable_image": False,
@@ -1974,7 +2211,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
             with open(ARCIA_VERSIONS_FILE, "r", encoding="utf-8") as f:
                 local_data = json.load(f)
                 if isinstance(local_data, dict):
-                    local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.0"))
+                    local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.1"))
         except Exception:
             pass
 
@@ -1985,7 +2222,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
     repo = local_data.get("repository", "nicolastheuil/ArcIA")
     remote_url = f"https://raw.githubusercontent.com/{repo}/main/deploy/versions.json"
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.0",
+        "User-Agent": "ArcIA-Update-Checker/0.5.1",
         "Accept": "application/json"
     }
     try:
@@ -1994,19 +2231,19 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
             if resp.status == 200:
                 remote_data = json.loads(resp.read().decode("utf-8", errors="replace"))
                 if isinstance(remote_data, dict) and "components" in remote_data:
-                    remote_data.setdefault("arcia_version", remote_data.get("arcia_release", "v0.5.0"))
+                    remote_data.setdefault("arcia_version", remote_data.get("arcia_release", "v0.5.1"))
                     return remote_data
     except Exception:
         pass
 
     if isinstance(local_data, dict):
-        local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.0"))
+        local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.1"))
     return local_data
 
 def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
     """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.0",
+        "User-Agent": "ArcIA-Update-Checker/0.5.1",
         "Accept": "application/vnd.github.v3+json"
     }
     # 1. Essayer /releases/latest
@@ -2127,11 +2364,15 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                         clean_tag = tag.replace("main-", "") if tag.startswith("main-v") else tag
 
                         annotations = meta.get("annotations", {})
-                        app_ver = annotations.get("app.kubernetes.io/version")
+                        labels = meta.get("labels", {})
+                        app_ver = annotations.get("app.kubernetes.io/version") or labels.get("app.kubernetes.io/version")
 
                         # Pour les microservices reposant sur python:3.11-slim, conserver la version logicielle identifiée
-                        if img_no_digest.startswith("python:") or img_no_digest == "python":
-                            final_ver = app_ver or next((c["default_version"] for c in ARCIA_UPDATABLE_COMPONENTS if c["id"] == comp_id), "3.11-slim")
+                        if img_no_digest.startswith("python:") or img_no_digest == "python" or comp_id in ("presidio-dlp", "teams-bot"):
+                            if app_ver and app_ver not in ("3.11-slim", "slim", "latest"):
+                                final_ver = app_ver
+                            else:
+                                final_ver = next((c["default_version"] for c in ARCIA_UPDATABLE_COMPONENTS if c["id"] == comp_id), clean_tag)
                         else:
                             final_ver = clean_tag
 
@@ -2150,7 +2391,7 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                     rc_cm, out_cm, _ = runner.run(["get", "configmap", "arcia-native-skills", f"-n={namespace}", "-o", "json"], timeout=timeout)
                     if rc_cm == 0 and out_cm.strip():
                         versions["arcia-core"] = {
-                            "version": "v0.5.0",
+                            "version": "v0.5.1",
                             "image": "ConfigMap: arcia-native-skills",
                             "ready": True,
                             "replicas": 1,
@@ -2197,7 +2438,7 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                                 }
                 if versions:
                     versions["arcia-core"] = {
-                        "version": "v0.5.0",
+                        "version": "v0.5.1",
                         "image": "docker-compose.lab.yml",
                         "ready": True,
                         "replicas": 1,
@@ -2242,7 +2483,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         arcia_comp_ref = (arcia_catalog.get("components") or {}).get(cid, {})
         target_version = arcia_comp_ref.get("version") or comp["default_version"]
         target_image = arcia_comp_ref.get("image") or comp["default_image"]
-        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.0"
+        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.1"
         release_notes = arcia_comp_ref.get("release_notes", "")
         repo = arcia_catalog.get("repository", "nicolastheuil/ArcIA")
         release_url = f"https://github.com/{repo}/releases"
@@ -3693,11 +3934,11 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
         if is_local:
             m["icon"] = "/static/icon-model-local.svg"
             m["icon_type"] = "local"
-            m["icon_badge"] = "Bouclier doré (Local souverain)"
+            m["icon_badge"] = "Liseret doré (Local souverain)"
         elif zdr:
             m["icon"] = "/static/icon-model-zdr.svg"
             m["icon_type"] = "zdr"
-            m["icon_badge"] = "Bouclier argenté (Cloud ZDR)"
+            m["icon_badge"] = "Liseret argenté (Cloud ZDR)"
         else:
             m["icon"] = "/static/icon-model-default.svg"
             m["icon_type"] = "default"
@@ -3835,98 +4076,8 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
     """Met à jour à chaud le ConfigMap litellm-config avec les modèles définis et redémarre LiteLLM."""
     try:
-        routing_info = get_model_routing_config(cfg)
-        mappings = routing_info.get("mappings", [])
-        model_list_entries = []
-        fallbacks_map = {}
-
-        for m in mappings:
-            name = m.get("name") or m.get("alias", "")
-            target = m.get("target_model") or m.get("real_model", "")
-            fallbacks = m.get("fallbacks") or ([m["fallback"]] if m.get("fallback") else [])
-            zdr = m.get("zdr", True)
-
-            if fallbacks:
-                fallbacks_map[name] = [f for f in fallbacks if f]
-
-            if name in ("agentic/free", "agentic/auto") and target in ("openrouter/openrouter/free", "openrouter/auto"):
-                continue
-
-            entry = f"""  - model_name: "{name}"
-    litellm_params:
-      model: {target}
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          data_collection: "deny"
-          zdr: {str(zdr).lower()}
-          allow_fallbacks: false"""
-            model_list_entries.append(entry)
-
-        models_yaml = "\n".join(model_list_entries) if model_list_entries else "  []"
-
-        fallbacks_lines = []
-        for k, v in fallbacks_map.items():
-            if v:
-                fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
-        fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
-
-        defined_names = {m.get("name") or m.get("alias", "") for m in mappings}
-        alias_entries = []
-        default_simple = routing_info.get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple"), None)
-        if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
-            alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
-
-        free_simple = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
-        if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
-            alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
-
-        default_agentic = routing_info.get("hermes_default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic"), default_simple)
-        if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
-            alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
-
-        free_agentic = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
-        if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
-            alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
-
-        if "simple/free" in defined_names and "agentic/free" not in defined_names:
-            alias_entries.append("""    "agentic/free":\n      model: "simple/free"\n      hidden: true""")
-        if "simple/auto" in defined_names and "agentic/auto" not in defined_names:
-            alias_entries.append("""    "agentic/auto":\n      model: "simple/auto"\n      hidden: true""")
-
-        aliases_yaml = "\n".join(alias_entries) if alias_entries else "    {}"
-
-        full_config_yaml = f"""model_list:
-{models_yaml}
-
-router_settings:
-  fallbacks:
-{fallbacks_yaml}
-  model_group_alias:
-{aliases_yaml}
-
-general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
-  database_url: os.environ/DATABASE_URL
-  database_connection_pool_limit: 10
-  user_header_name: "X-OpenWebUI-User-Email"
-  store_model_in_db: true
-
-litellm_settings:
-  drop_params: true
-  callbacks: error_handler.proxy_handler_instance
-  request_timeout: 20
-  num_retries: 1
-
-guardrails:
-  - guardrail_name: "presidio-guard"
-    litellm_params:
-      guardrail: presidio
-      mode: "pre_call"
-      default_on: true
-      presidio_analyzer_api_base: "http://presidio-dlp:8080"
-      presidio_anonymizer_api_base: "http://presidio-dlp:8080"
-"""
+        import deploy
+        full_config_yaml = deploy.build_litellm_config_data(cfg, namespace=ns)
         patch_cm = json.dumps({"data": {"config.yaml": full_config_yaml}})
         rc, _, _ = runner.run(["patch", "configmap", "litellm-config", "-n", ns, "-p", patch_cm])
         if rc != 0:
@@ -4521,6 +4672,11 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 res = check_instance_connectivity(cfg, context=ctx, namespace=ns)
                 res["is_existing"] = exists
                 self.send_json(200, res)
+            elif path == "/api/integrations/status":
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                self.send_json(200, get_integrations_status(cfg))
+            elif path == "/api/instance/backup-info":
+                self.send_json(200, get_instance_backup_info())
             elif path == "/api/health":
                 self.send_json(200, {"status": "ok"})
             elif path.startswith("/static/"):
@@ -4623,8 +4779,32 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             repo_url = req_data.get("repo_url", "").strip()
             token = req_data.get("token", "").strip()
             passphrase = req_data.get("passphrase", "").strip()
-            res = git_pull_and_decrypt_instance(repo_url, token, passphrase)
+            commit_hash = req_data.get("commit_hash", None)
+            res = git_pull_and_decrypt_instance(repo_url, token, passphrase, commit_hash=commit_hash)
             self.send_json(200, res)
+
+        elif path == "/api/instance/backup-now":
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
+            repo_url = (req_data.get("repo_url") or backup_cfg.get("repo_url") or "").strip()
+            token = (req_data.get("token") or backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
+            passphrase = (req_data.get("passphrase") or backup_cfg.get("passphrase") or "").strip()
+            if not (repo_url and token and passphrase):
+                self.send_json(400, {"success": False, "error": "Paramètres de sauvegarde Git incomplets (dépôt, token ou mot de passe manquant)."})
+            else:
+                res = git_push_instance(repo_url, token, passphrase, cfg)
+                self.send_json(200, res)
+
+        elif path == "/api/instance/timeline":
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
+            repo_url = (req_data.get("repo_url") or backup_cfg.get("repo_url") or "").strip()
+            token = (req_data.get("token") or backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
+            if not repo_url:
+                self.send_json(400, {"success": False, "error": "URL de dépôt de sauvegarde manquante.", "timeline": []})
+            else:
+                res = get_instance_backup_timeline(repo_url, token)
+                self.send_json(200, res)
 
         elif path == "/api/generate-secret":
             kind = req_data.get("kind", "pat")
@@ -4702,6 +4882,10 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"success": True, "started": True, "dry_run": dry_run, "infra_target": infra_target})
             except Exception as de:
                 self.send_json(500, {"success": False, "error": f"Erreur lors de la configuration ou du démarrage du déploiement : {str(de)}"})
+
+        elif path == "/api/deploy/cancel":
+            res = cancel_active_deployment()
+            self.send_json(200 if res.get("success") else 400, res)
 
         elif path == "/api/updates/check":
             online = bool(req_data.get("online", req_data.get("check_online", True)))
@@ -4886,7 +5070,7 @@ def main():
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.0            \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.1            \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

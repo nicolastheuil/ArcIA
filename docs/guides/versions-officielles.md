@@ -1,6 +1,6 @@
-# Versions et compatibilités — ArcIA v0.5.0
+# Versions et compatibilités — ArcIA v0.5.1
 
-Ce document consigne les versions officielles et images de conteneurs retenues et déployées dans le socle **ArcIA v0.5.0**.
+Ce document consigne les versions officielles et images de conteneurs retenues et déployées dans le socle **ArcIA v0.5.1**.
 
 ---
 

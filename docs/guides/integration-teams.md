@@ -1,4 +1,4 @@
-# Intégration Microsoft Teams — bot ArcIA (v0.5.0)
+# Intégration Microsoft Teams — bot ArcIA (v0.5.1)
 
 L'adaptateur Microsoft Teams permet d'amener les capacités d'ArcIA directement dans le flux de travail quotidien des équipes sous Microsoft 365 (messages privés 1:1, mentions d'équipe et canaux partagés).
 
@@ -199,4 +199,4 @@ Si le bot ne répond pas lorsque vous lui écrivez dans Teams, suivez cette gril
 | :--- | :--- | :--- |
 | **« Bot non valide : Veuillez vérifier que le bot est enregistré et que le canal Teams est activé »** | Vous avez tenté d'importer le ZIP avant de créer le bot, ou avec un Bot ID inexistant. | Suivez l'**Étape 1** pour créer le bot dans *Bot management*, puis régénérez le ZIP avec votre vrai Bot ID (Étape 2). |
 | **Erreur HTTP 401 / 500 sur le webhook** | Le mot de passe client (`TEAMS_BOT_APP_PASSWORD`) est expiré, incorrect ou le tenant ne correspond pas. | Régénérez un secret client dans *Bot management > Client secrets* ou vérifiez `tenant_id`. |
-| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.5.0 (routage double `/api/teams/messages` et `/api/teams/messages/`). |
+| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.5.1 (routage double `/api/teams/messages` et `/api/teams/messages/`). |

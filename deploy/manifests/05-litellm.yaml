@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.0 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
+# ArcIA v0.5.1 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
 # Catalogue canonique :
 #   - Direct LiteLLM : simple/free, simple/auto
 #   - Moteur Hermes  : agentic/free, agentic/auto, agentic/expert
@@ -59,6 +59,7 @@ data:
 
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
+      salt_key: os.environ/LITELLM_SALT_KEY
       database_url: os.environ/DATABASE_URL
       database_connection_pool_limit: 10
       user_header_name: "X-OpenWebUI-User-Email"
@@ -118,6 +119,11 @@ spec:
             secretKeyRef:
               name: litellm-secret
               key: master-key
+        - name: LITELLM_SALT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: salt-key
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:

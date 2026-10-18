@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/IaC-Kubernetes_&_Docker_Lab-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="IaC Kubernetes">
   <img src="https://img.shields.io/badge/Rollout-Zero--Downtime-10B981?style=flat-square" alt="Zero-Downtime">
 </p>

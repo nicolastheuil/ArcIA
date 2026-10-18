@@ -19,7 +19,7 @@ import argparse
 import subprocess
 from typing import Dict, Any, Optional, List, Tuple
 
-def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str]) -> str:
+def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str], secret_type: str = "Opaque") -> str:
     """Génère un manifeste Kubernetes Secret déclaratif avec stringData pour transmission sécurisée par stdin."""
     lines = [
         "apiVersion: v1",
@@ -27,12 +27,18 @@ def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str])
         "metadata:",
         f"  name: {name}",
         f"  namespace: {namespace}",
-        "type: Opaque",
+        f"type: {secret_type}",
         "stringData:",
     ]
     for k, v in string_data.items():
-        escaped_v = str(v).replace("\\", "\\\\").replace('"', '\\"')
-        lines.append(f'  {k}: "{escaped_v}"')
+        str_val = str(v)
+        if "\n" in str_val:
+            lines.append(f"  {k}: |")
+            for subline in str_val.splitlines():
+                lines.append(f"    {subline}")
+        else:
+            escaped_v = str_val.replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'  {k}: "{escaped_v}"')
     return "\n".join(lines) + "\n"
 
 # Support UTF-8 et streaming non-bufferisé sur Windows PowerShell / CMD
@@ -537,12 +543,12 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
         models_map[m] = {
             "icon": zdr_icon,
             "type": "zdr",
-            "badge": "Bouclier argenté (Cloud ZDR)"
+            "badge": "Liseret argenté (Cloud ZDR)"
         }
     models_map["local/model"] = {
         "icon": local_icon,
         "type": "local",
-        "badge": "Bouclier doré (Local souverain)"
+        "badge": "Liseret doré (Local souverain)"
     }
 
     mappings = []
@@ -574,13 +580,13 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
                 models_map[alias] = {
                     "icon": local_icon,
                     "type": "local",
-                    "badge": "Bouclier doré (Local souverain)"
+                    "badge": "Liseret doré (Local souverain)"
                 }
             elif zdr:
                 models_map[alias] = {
                     "icon": zdr_icon,
                     "type": "zdr",
-                    "badge": "Bouclier argenté (Cloud ZDR)"
+                    "badge": "Liseret argenté (Cloud ZDR)"
                 }
             else:
                 models_map[alias] = {
@@ -595,6 +601,157 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
         "local_icon": local_icon,
         "zdr_icon": zdr_icon
     }
+
+def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: str = "arcia") -> str:
+    """Génère le contenu complet de config.yaml pour le ConfigMap litellm-config d'après arcia.config.yaml."""
+    cfg = cfg or {}
+    llm_cfg = cfg.get("llm_gateway", {})
+    mappings = llm_cfg.get("models_routing", [])
+    model_list_entries = []
+    fallbacks_map = {}
+
+    if not mappings:
+        model_list_entries = [
+            """  - model_name: "simple/free"
+    litellm_params:
+      model: openrouter/openrouter/free
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          data_collection: "deny"
+          zdr: true
+          allow_fallbacks: false""",
+            """  - model_name: "simple/auto"
+    litellm_params:
+      model: openrouter/auto
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          data_collection: "deny"
+          zdr: true
+          allow_fallbacks: false""",
+            """  - model_name: "agentic/expert"
+    litellm_params:
+      model: openrouter/deepseek/deepseek-chat
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          data_collection: "deny"
+          zdr: true
+          allow_fallbacks: false"""
+        ]
+        fallbacks_yaml = """    - "simple/auto": ["simple/free"]
+    - "agentic/expert": ["simple/auto"]"""
+        aliases_yaml = """    "agentic/free":
+      model: "simple/free"
+      hidden: true
+    "agentic/auto":
+      model: "simple/auto"
+      hidden: true"""
+    else:
+        for m in mappings:
+            name = m.get("name") or m.get("alias", "")
+            if not name:
+                continue
+            target = m.get("target_model") or m.get("real_model", "")
+            fallbacks = m.get("fallbacks") or ([m["fallback"]] if m.get("fallback") else [])
+            zdr = m.get("zdr", True)
+            prov = str(m.get("provider", "openrouter")).lower()
+
+            if fallbacks:
+                fallbacks_map[name] = [f for f in fallbacks if f]
+
+            if name in ("agentic/free", "agentic/auto") and target in ("openrouter/openrouter/free", "openrouter/auto"):
+                continue
+
+            api_key_var = "os.environ/OPENROUTER_API_KEY"
+            if prov == "openai":
+                api_key_var = "os.environ/OPENAI_API_KEY"
+            elif prov == "anthropic":
+                api_key_var = "os.environ/ANTHROPIC_API_KEY"
+            elif prov == "mistral":
+                api_key_var = "os.environ/MISTRAL_API_KEY"
+            elif prov == "gemini":
+                api_key_var = "os.environ/GEMINI_API_KEY"
+            elif prov in ("ollama", "vllm", "local"):
+                api_key_var = "ollama"
+
+            entry = f"""  - model_name: "{name}"
+    litellm_params:
+      model: {target}
+      api_key: {api_key_var}
+      extra_body:
+        provider:
+          data_collection: "deny"
+          zdr: {str(zdr).lower()}
+          allow_fallbacks: false"""
+            model_list_entries.append(entry)
+
+        fallbacks_lines = []
+        for k, v in fallbacks_map.items():
+            if v:
+                fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
+        fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
+
+        defined_names = {m.get("name") or m.get("alias", "") for m in mappings}
+        alias_entries = []
+        default_simple = llm_cfg.get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple"), None)
+        if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
+            alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
+
+        free_simple = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
+        if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
+            alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
+
+        default_agentic = cfg.get("hermes", {}).get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic"), default_simple)
+        if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
+            alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
+
+        free_agentic = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
+        if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
+            alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
+
+        if "simple/free" in defined_names and "agentic/free" not in defined_names:
+            alias_entries.append("""    "agentic/free":\n      model: "simple/free"\n      hidden: true""")
+        if "simple/auto" in defined_names and "agentic/auto" not in defined_names:
+            alias_entries.append("""    "agentic/auto":\n      model: "simple/auto"\n      hidden: true""")
+
+        aliases_yaml = "\n".join(alias_entries) if alias_entries else "    {}"
+
+    models_yaml = "\n".join(model_list_entries) if model_list_entries else "  []"
+
+    return f"""model_list:
+{models_yaml}
+
+router_settings:
+  fallbacks:
+{fallbacks_yaml}
+  model_group_alias:
+{aliases_yaml}
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  salt_key: os.environ/LITELLM_SALT_KEY
+  database_url: os.environ/DATABASE_URL
+  database_connection_pool_limit: 10
+  user_header_name: "X-OpenWebUI-User-Email"
+  store_model_in_db: true
+
+litellm_settings:
+  drop_params: true
+  callbacks: error_handler.proxy_handler_instance
+  request_timeout: 20
+  num_retries: 1
+
+guardrails:
+  - guardrail_name: "presidio-guard"
+    litellm_params:
+      guardrail: presidio
+      mode: "pre_call"
+      default_on: true
+      presidio_analyzer_api_base: "http://presidio-dlp.{namespace}.svc:8080"
+      presidio_anonymizer_api_base: "http://presidio-dlp.{namespace}.svc:8080"
+"""
 
 def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: Optional[Dict[str, Any]] = None):
     """Crée le ConfigMap arcia-webui-branding avec les logos SVG, custom.css, loader.js et les icônes de modèles ArcIA."""
@@ -790,14 +947,21 @@ metadata:
         "arcia-presidio-master-key"
     }
 
+def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_name: str) -> Optional[str]:
+    """Récupère et décode en toute sécurité la valeur d'une clé (y compris avec tirets) dans un Secret Kubernetes."""
+    try:
+        rc_s, out_s, _ = runner.run(["get", "secret", secret_name, f"-n={namespace}", "-o", "json"])
+        if rc_s == 0 and out_s.strip():
+            sec_json = json.loads(out_s)
+            val_b64 = sec_json.get("data", {}).get(key_name)
+            if val_b64:
+                return base64.b64decode(val_b64.strip()).decode("utf-8")
+    except Exception:
+        pass
+    return None
+
     def _get_existing_cluster_secret(secret_name: str, key_name: str) -> Optional[str]:
-        try:
-            rc_s, out_s, _ = runner.run(["get", "secret", secret_name, f"-n={namespace}", "-o", f"jsonpath={{.data.{key_name}}}"])
-            if rc_s == 0 and out_s.strip():
-                return base64.b64decode(out_s.strip()).decode("utf-8")
-        except Exception:
-            pass
-        return None
+        return get_existing_cluster_secret(runner, namespace, secret_name, key_name)
 
     # 1. enterprise-llm-secret
     openrouter_key = llm_cfg.get("openrouter_api_key", "").strip()
@@ -814,6 +978,18 @@ metadata:
     if not litellm_master or litellm_master in KNOWN_INSECURE_SECRETS:
         litellm_master = _get_existing_cluster_secret("litellm-secret", "master-key") or f"sk-arcia-{secrets.token_urlsafe(32)}"
         log_info(" -> Génération ou préservation de la Master Key LiteLLM.")
+        llm_cfg["master_key"] = litellm_master
+        cfg_path = os.path.join(root_dir, "arcia.config.yaml")
+        if os.path.isfile(cfg_path):
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as fy:
+                    loaded = yaml.safe_load(fy) or {}
+                loaded.setdefault("llm_gateway", {})["master_key"] = litellm_master
+                with open(cfg_path, "w", encoding="utf-8") as fy_out:
+                    yaml.dump(loaded, fy_out, allow_unicode=True, sort_keys=False)
+            except Exception:
+                pass
 
     litellm_salt = llm_cfg.get("salt_key", "")
     if not litellm_salt or litellm_salt in KNOWN_INSECURE_SECRETS:
@@ -925,6 +1101,12 @@ metadata:
     litellm_yaml = litellm_yaml.replace('checksum/litellm-error-handler: "default"', f'checksum/litellm-error-handler: "{litellm_hash}"')
     runner.apply_manifest(adapt_manifest_namespace(litellm_yaml, namespace))
 
+    # Injection dynamique du catalogue de modèles configuré dans le ConfigMap litellm-config
+    dynamic_litellm_cm = build_litellm_config_data(cfg, namespace=namespace)
+    cm_patch_obj = json.dumps({"data": {"config.yaml": dynamic_litellm_cm}})
+    runner.run(["patch", "configmap", "litellm-config", f"-n={namespace}", "-p", cm_patch_obj])
+    log_ok("Catalogue de modèles et routage LiteLLM synchronisés avec succès.")
+
     # C. Hermes Agent (Studio & Gateway Desktop)
     log_info(" -> Déploiement de Hermes Agent & Studio (06-hermes-agent.yaml)...")
     hermes_path = os.path.join(manifests_dir, "06-hermes-agent.yaml")
@@ -989,25 +1171,49 @@ metadata:
     # 5. Gestion des Certificats TLS & Ingress
     log_step(5, total_steps, "Configuration du routage Ingress et des Certificats TLS")
 
-    # Vérification et initialisation sécurisée du secret TLS si absent
-    rc_tls, _, _ = runner.run(["get", "secret", tls_secret_name, f"-n={namespace}"])
-    if rc_tls != 0:
-        log_info(f" -> Secret TLS '{tls_secret_name}' absent : génération d'un certificat bootstrap pour '{public_fqdn}'...")
-        gen_cmd = f"openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls_{namespace}.key -out /tmp/tls_{namespace}.crt -subj '/CN={public_fqdn}' >/dev/null 2>&1 && sudo k3s kubectl create secret tls {tls_secret_name} --cert=/tmp/tls_{namespace}.crt --key=/tmp/tls_{namespace}.key -n {namespace} >/dev/null 2>&1 && rm -f /tmp/tls_{namespace}.*"
-        if runner.mode == "remote-ssh":
-            ssh_tls = ["ssh", "-o", "BatchMode=yes"]
-            if runner.known_hosts:
-                ssh_tls.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
-            else:
-                ssh_tls.extend(["-o", "StrictHostKeyChecking=accept-new"])
-            if runner.ident_key:
-                ssh_tls.extend(["-i", runner.ident_key])
-            ssh_tls.extend(["-p", str(runner.ssh_port), f"{runner.ssh_user}@{runner.ssh_node}", gen_cmd])
-            subprocess.run(ssh_tls, capture_output=True)
+    custom_cert = net_cfg.get("tls_cert", "").strip()
+    custom_key = net_cfg.get("tls_key", "").strip()
+    acme_account_key = net_cfg.get("acme_account_key", "").strip()
+    acme_dns_txt = net_cfg.get("acme_dns_txt", "").strip()
+
+    if custom_cert and custom_key:
+        log_info(f" -> Injection du certificat TLS personnalisé déclaré pour '{public_fqdn}'...")
+        runner.apply_manifest(make_secret_manifest(tls_secret_name, namespace, {
+            "tls.crt": custom_cert,
+            "tls.key": custom_key
+        }, secret_type="kubernetes.io/tls"))
+        log_ok(f"Secret TLS '{tls_secret_name}' provisionné avec le certificat configuré.")
+    else:
+        # Vérification si le secret TLS existe déjà sur le cluster
+        rc_tls, _, _ = runner.run(["get", "secret", tls_secret_name, f"-n={namespace}"])
+        if rc_tls == 0:
+            log_ok(f"Secret TLS existant '{tls_secret_name}' préservé sur le cluster.")
         else:
-            subprocess.run(gen_cmd, shell=True, capture_output=True)
-        log_ok(f"Secret TLS bootstrap '{tls_secret_name}' provisionné.")
+            log_info(f" -> Secret TLS '{tls_secret_name}' absent : génération d'un certificat bootstrap pour '{public_fqdn}'...")
+            gen_cmd = f"openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/tls_{namespace}.key -out /tmp/tls_{namespace}.crt -subj '/CN={public_fqdn}' >/dev/null 2>&1 && sudo k3s kubectl create secret tls {tls_secret_name} --cert=/tmp/tls_{namespace}.crt --key=/tmp/tls_{namespace}.key -n {namespace} >/dev/null 2>&1 && rm -f /tmp/tls_{namespace}.*"
+            if runner.mode == "remote-ssh":
+                ssh_tls = ["ssh", "-o", "BatchMode=yes"]
+                if runner.known_hosts:
+                    ssh_tls.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={runner.known_hosts}"])
+                else:
+                    ssh_tls.extend(["-o", "StrictHostKeyChecking=accept-new"])
+                if runner.ident_key:
+                    ssh_tls.extend(["-i", runner.ident_key])
+                ssh_tls.extend(["-p", str(runner.ssh_port), f"{runner.ssh_user}@{runner.ssh_node}", gen_cmd])
+                subprocess.run(ssh_tls, capture_output=True)
+            else:
+                subprocess.run(gen_cmd, shell=True, capture_output=True)
+            log_ok(f"Secret TLS bootstrap '{tls_secret_name}' provisionné.")
+
     if tls_mode.startswith("letsencrypt"):
+        if acme_account_key:
+            log_info(f" -> Injection de la clé de compte ACME pour Let's Encrypt ({tls_mode}-key)...")
+            runner.apply_manifest(make_secret_manifest(f"{tls_mode}-key", namespace, {
+                "tls.key": acme_account_key
+            }))
+        if acme_dns_txt:
+            log_info(f" -> [Validation ACME DNS] Entrée TXT enregistrée pour '{public_fqdn}' : _acme-challenge.{public_fqdn} = {acme_dns_txt}")
+
         server_url = "https://acme-v02.api.letsencrypt.org/directory" if tls_mode == "letsencrypt-prod" else "https://acme-staging-v02.api.letsencrypt.org/directory"
         issuer_yaml = f"""apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
