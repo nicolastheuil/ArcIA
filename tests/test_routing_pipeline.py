@@ -156,6 +156,160 @@ class TestRoutingPipeline(unittest.TestCase):
         self.assertFalse(result["cm_synced"])
         self.assertIn("non appliqué", result["message"])
 
+    def test_catalog_projection_simple_and_agentic(self):
+        cfg = {
+            "llm_gateway": {
+                "default_model": "custom-simple",
+                "models_routing": [
+                    {"alias": "custom-simple", "category": "simple", "target_model": "openrouter/auto"},
+                    {"alias": "custom-agentic", "category": "agentic", "target_model": "openrouter/anthropic/claude-3.7-sonnet"}
+                ]
+            },
+            "hermes": {
+                "default_model": "custom-agentic"
+            }
+        }
+        catalog = deploy.build_model_catalog(cfg)
+        self.assertEqual(catalog["simple_models"], ["custom-simple"])
+        self.assertEqual(catalog["agentic_models"], ["custom-agentic"])
+        self.assertEqual(catalog["default_simple"], "custom-simple")
+        self.assertEqual(catalog["default_agentic"], "custom-agentic")
+
+        # Open-WebUI configs
+        configs = json.loads(deploy.build_openwebui_api_configs(cfg))
+        self.assertTrue(configs["0"]["enable"])
+        self.assertEqual(configs["0"]["model_ids"], ["custom-simple"])
+        self.assertTrue(configs["1"]["enable"])
+        self.assertEqual(configs["1"]["model_ids"], ["custom-agentic"])
+
+        # Hermes config
+        hermes_cfg = deploy.build_hermes_config_data(cfg, namespace="arcia")
+        self.assertIn("discover_models: false", hermes_cfg)
+        self.assertIn("- custom-agentic", hermes_cfg)
+        self.assertNotIn("- custom-simple", hermes_cfg)
+        self.assertIn('model_name: "custom-agentic"', hermes_cfg)
+        self.assertIn('custom-agentic:\n            model: "custom-agentic"', hermes_cfg)
+
+    def test_empty_category_disables_connection(self):
+        # Cas 1 : Aucun modèle agentique déclaré
+        cfg_only_simple = {
+            "llm_gateway": {
+                "models_routing": [
+                    {"alias": "simple/only", "category": "simple", "target_model": "openrouter/auto"}
+                ]
+            }
+        }
+        configs_simple = json.loads(deploy.build_openwebui_api_configs(cfg_only_simple))
+        self.assertTrue(configs_simple["0"]["enable"])
+        self.assertEqual(configs_simple["0"]["model_ids"], ["simple/only"])
+        self.assertFalse(configs_simple["1"]["enable"])
+        self.assertEqual(configs_simple["1"]["model_ids"], [])
+
+        # Cas 2 : Aucun modèle simple déclaré
+        cfg_only_agentic = {
+            "llm_gateway": {
+                "models_routing": [
+                    {"alias": "agentic/only", "category": "agentic", "target_model": "openrouter/auto"}
+                ]
+            }
+        }
+        configs_agentic = json.loads(deploy.build_openwebui_api_configs(cfg_only_agentic))
+        self.assertFalse(configs_agentic["0"]["enable"])
+        self.assertEqual(configs_agentic["0"]["model_ids"], [])
+        self.assertTrue(configs_agentic["1"]["enable"])
+        self.assertEqual(configs_agentic["1"]["model_ids"], ["agentic/only"])
+
+        # Cas 3 : Catalogue explicitement vide
+        cfg_empty = {"llm_gateway": {"models_routing": []}}
+        configs_empty = json.loads(deploy.build_openwebui_api_configs(cfg_empty))
+        self.assertFalse(configs_empty["0"]["enable"])
+        self.assertEqual(configs_empty["0"]["model_ids"], [])
+        self.assertFalse(configs_empty["1"]["enable"])
+        self.assertEqual(configs_empty["1"]["model_ids"], [])
+
+    def test_explicit_catalog_does_not_inject_canonical_models(self):
+        cfg = {
+            "llm_gateway": {
+                "models_routing": [
+                    {"alias": "enterprise-chat", "category": "simple", "target_model": "openrouter/auto"}
+                ]
+            }
+        }
+        catalog = deploy.build_model_catalog(cfg)
+        self.assertEqual(len(catalog["all_models"]), 1)
+        self.assertEqual(catalog["all_models"][0]["id"], "enterprise-chat")
+
+        configs = json.loads(deploy.build_openwebui_api_configs(cfg))
+        self.assertNotIn("simple/auto", configs["0"]["model_ids"])
+        self.assertNotIn("simple/free", configs["0"]["model_ids"])
+        self.assertNotIn("agentic/auto", configs["1"]["model_ids"])
+
+        branding = deploy.compute_models_branding_dict(cfg)
+        self.assertIn("enterprise-chat", branding["models"])
+        self.assertNotIn("local/model", branding["models"])
+
+    def test_store_model_in_db_is_disabled(self):
+        config = deploy.build_litellm_config_data({"llm_gateway": {"models_routing": []}})
+        self.assertIn("store_model_in_db: false", config)
+
+    def test_openwebui_manifest_server_side_restrictions(self):
+        manifest_path = ROOT / "deploy" / "manifests" / "07-open-webui.yaml"
+        content = manifest_path.read_text(encoding="utf-8")
+        self.assertIn('name: ENABLE_DIRECT_CONNECTIONS\n          value: "false"', content)
+        self.assertIn('name: ENABLE_COMMUNITY_SHARING\n          value: "false"', content)
+        self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
+        self.assertIn('name: DEFAULT_USER_ROLE\n          value: "user"', content)
+        self.assertNotIn("MODEL_FILTER_LIST", content)
+        self.assertNotIn("ENABLE_MODEL_FILTER", content)
+
+    def test_three_component_sync_reports_per_component_status(self):
+        runner = RecordingRunner()
+        cfg = {
+            "kubernetes": {"namespace": "arcia"},
+            "llm_gateway": {
+                "models_routing": [
+                    {"alias": "simple/test", "category": "simple", "target_model": "openrouter/auto"},
+                    {"alias": "agentic/test", "category": "agentic", "target_model": "openrouter/anthropic/claude-3.7-sonnet"}
+                ]
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory, patch.object(wizard, "ROOT_DIR", directory), \
+                patch.object(wizard, "get_k8s_runner", return_value=runner):
+            res = wizard.save_model_routing_config({
+                "mappings": cfg["llm_gateway"]["models_routing"],
+                "default_model": "simple/test",
+                "hermes_default_model": "agentic/test"
+            }, str(Path(directory) / "config.yaml"))
+
+        self.assertTrue(res["success"])
+        self.assertTrue(res["litellm_synced"])
+        self.assertTrue(res["hermes_synced"])
+        self.assertTrue(res["openwebui_synced"])
+        self.assertTrue(res["all_synced"])
+        self.assertIn("Passerelle LiteLLM, moteur Hermes et portail Open-WebUI synchronisés", res["message"])
+
+    def test_error_handler_differentiates_session_and_keys(self):
+        sys.path.insert(0, str(ROOT / "services" / "litellm"))
+        import error_handler
+
+        # 1. Rejet de session administrative (token_not_found_in_db)
+        code, msg = error_handler.format_user_friendly_error("token_not_found_in_db: Token sk-synthetic not found", 401)
+        self.assertEqual(code, 401)
+        self.assertIn("Session d'administration expirée ou invalide", msg)
+        self.assertIn("déconnecter", msg)
+        self.assertNotIn("sk-synthetic", msg)
+
+        # 2. Clé virtuelle non autorisée
+        code_v, msg_v = error_handler.format_user_friendly_error("user does not have access to model", 401)
+        self.assertEqual(code_v, 401)
+        self.assertIn("Jeton d'inférence non autorisé", msg_v)
+
+        # 3. Clé fournisseur invalide
+        code_p, msg_p = error_handler.format_user_friendly_error("AuthenticationError: invalid_api_key from OpenRouter", 401)
+        self.assertEqual(code_p, 401)
+        self.assertIn("Erreur d'authentification", msg_p)
+
 
 if __name__ == "__main__":
     unittest.main()
+

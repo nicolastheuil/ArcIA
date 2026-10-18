@@ -145,7 +145,34 @@ def format_user_friendly_error(raw_error_text: str, default_status_code: int = 5
         )
         return 503, msg
 
-    # 7. Clé d'API fournisseur invalide / Erreur d'authentification
+    # 7. Rejet de session d'administration LiteLLM (Jeton inconnu / session expirée)
+    if any(k in lower for k in [
+        "token_not_found_in_db",
+        "verification token",
+        "verification_token",
+        "invalid session",
+        "session expired"
+    ]):
+        msg = (
+            "🔒 **Session d'administration expirée ou invalide** : Le jeton de session n'est plus reconnu par la passerelle LiteLLM. "
+            "Veuillez vous déconnecter puis vous reconnecter avec vos identifiants d'administration actifs dans une fenêtre de navigation privée."
+        )
+        return 401, msg
+
+    # 8. Clé virtuelle d'inférence invalide ou non autorisée
+    if any(k in lower for k in [
+        "user does not have access",
+        "invalid virtual key",
+        "virtual key not found",
+        "invalid token"
+    ]):
+        msg = (
+            "🔑 **Jeton d'inférence non autorisé** : Le jeton PAT ou la clé virtuelle utilisée pour cette requête "
+            "n'est pas autorisée ou a été révoquée. Veuillez vérifier vos accès dans l'espace collaborateur."
+        )
+        return 401, msg
+
+    # 9. Clé d'API fournisseur invalide / Erreur d'authentification amont
     if default_status_code == 401 or any(k in lower for k in [
         "authenticationerror",
         "invalid_api_key",
@@ -157,10 +184,8 @@ def format_user_friendly_error(raw_error_text: str, default_status_code: int = 5
         "malformed_key",
         "auth_error",
         "authentication failed",
-        "invalid token",
         "key not found",
         "failed to authenticate",
-        "user does not have access",
         "bearer token"
     ]):
         msg = (

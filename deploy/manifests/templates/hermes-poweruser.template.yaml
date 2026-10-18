@@ -28,41 +28,7 @@ metadata:
     app.kubernetes.io/instance: {{USER_SLUG}}
 data:
   config.yaml: |
-    model:
-      provider: custom
-      base_url: http://litellm-proxy.arcia.svc:4000/v1
-      default: agentic/auto
-      key_env: OPENAI_API_KEY
-    providers:
-      custom:
-        name: "ArcIA Agentic"
-        base_url: http://litellm-proxy.arcia.svc:4000/v1
-        key_env: OPENAI_API_KEY
-        discover_models: false
-        models:
-          - agentic/auto
-          - agentic/free
-          - agentic/expert
-    approvals:
-      mode: smart
-      unattended_mode: approve
-    skills:
-      external_dirs:
-        - /opt/data/skills
-        - /opt/data/shared-skills/arcia
-    agent:
-      max_turns: 40
-    platforms:
-      api_server:
-        direct_model_requests: true
-        model_name: "agentic/auto"
-        model_routes:
-          agentic/free:
-            model: "simple/free"
-          agentic/auto:
-            model: "simple/auto"
-          agentic/expert:
-            model: "agentic/expert"
+{{HERMES_CONFIG_INDENTED}}
   SOUL.md: |
 {{SOUL_CONTENT_INDENTED}}
   USER.md: |

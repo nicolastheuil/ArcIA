@@ -75,14 +75,14 @@ spec:
           value: "false"
         - name: ENABLE_OPENAI_API
           value: "true"
+        - name: OPENAI_API_CONFIGS
+          value: '{"0":{"enable":true,"model_ids":["simple/auto","simple/free"]},"1":{"enable":true,"model_ids":["agentic/auto","agentic/free","agentic/expert"]}}'
         - name: DEFAULT_MODELS
           value: "simple/auto"
         - name: TASK_MODEL
           value: "simple/auto"
-        - name: ENABLE_MODEL_FILTER
+        - name: ENABLE_COMMUNITY_SHARING
           value: "false"
-        - name: MODEL_FILTER_LIST
-          value: "LLM Standard;LLM Auto (ZDR);Agentic Standard;Agentic Auto (ZDR);simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert"
         - name: ENABLE_SUBAGENTS
           value: "true"
         - name: ENABLE_DIRECT_CONNECTIONS

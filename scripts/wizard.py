@@ -3992,14 +3992,35 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     llm = cfg.setdefault("llm_gateway", {})
     hermes = cfg.setdefault("hermes", {})
 
-    # Validation stricte contre les boucles de repli infinies
+    # Validation stricte contre les boucles de repli infinies et les incohérences de catalogue
     if "mappings" in data and isinstance(data["mappings"], list):
-        loop_err = detect_fallback_loops(data["mappings"])
+        mappings_list = data["mappings"]
+        loop_err = detect_fallback_loops(mappings_list)
         if loop_err:
             return {
                 "success": False,
                 "error": f"Boucle de repli infinie détectée : {loop_err}. Veuillez modifier la chaîne de repli avant d'enregistrer."
             }
+        seen_aliases = set()
+        for idx, m in enumerate(mappings_list):
+            if not isinstance(m, dict):
+                continue
+            alias = str(m.get("alias") or m.get("name") or "").strip()
+            if not alias:
+                return {"success": False, "error": f"Modèle #{idx + 1} : identifiant (alias) manquant."}
+            if alias in seen_aliases:
+                return {"success": False, "error": f"Identifiant de modèle dupliqué : '{alias}'."}
+            seen_aliases.add(alias)
+            target = str(m.get("target_model") or m.get("real_model") or "").strip()
+            if not target:
+                return {"success": False, "error": f"Modèle '{alias}' : cible fournisseur manquante (target_model obligatoire)."}
+
+        def_llm_check = str(data.get("default_model") or "").strip()
+        if def_llm_check and seen_aliases and def_llm_check not in seen_aliases:
+            return {"success": False, "error": f"Modèle par défaut '{def_llm_check}' introuvable parmi les modèles déclarés."}
+        def_hermes_check = str(data.get("hermes_default_model") or "").strip()
+        if def_hermes_check and seen_aliases and def_hermes_check not in seen_aliases:
+            return {"success": False, "error": f"Modèle par défaut Hermes '{def_hermes_check}' introuvable parmi les modèles déclarés."}
 
     providers_input = data.get("providers", {})
     for key_short, key_full in [
@@ -4051,26 +4072,62 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     except Exception:
         pass
 
-    # 2. Synchroniser le ConfigMap LiteLLM et le branding Open-WebUI si le cluster est connecté
-    cm_synced = False
+    # 2. Synchronisation des 3 composants (LiteLLM, Hermes, Open-WebUI) et Power Users
+    litellm_synced = False
+    hermes_synced = False
+    openwebui_synced = False
+    powerusers_synced = False
+    cluster_connected = False
+    details = {}
+
     try:
         runner = get_k8s_runner(cfg)
         ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
         rc, _, _ = runner.run(["get", "namespace", ns])
         if rc == 0:
-            cm_synced = sync_litellm_configmap(cfg, runner, ns)
+            cluster_connected = True
+            # 1. LiteLLM Proxy
+            litellm_synced = sync_litellm_configmap(cfg, runner, ns)
+            details["litellm"] = "Opérationnel" if litellm_synced else "Échec de synchronisation"
+
+            # 2. Hermes Agent
+            hermes_synced = sync_hermes_configmap(cfg, runner, ns)
+            details["hermes"] = "Opérationnel" if hermes_synced else "Échec de synchronisation"
+
+            # 3. Open-WebUI
+            openwebui_synced = sync_openwebui_models_config(cfg, runner, ns)
+            details["openwebui"] = "Opérationnel" if openwebui_synced else "Échec de synchronisation"
+
+            # 4. Branding Open-WebUI
             try:
                 import deploy
                 deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
                 branding_synced = True
             except Exception:
                 pass
-    except Exception:
-        pass
+
+            # 5. Power Users
+            try:
+                pu_res = sync_all_powerusers_wizard(cfg)
+                powerusers_synced = pu_res.get("success", False)
+                details["powerusers"] = f"{pu_res.get('count', 0)} synchronisé(s)"
+            except Exception as pue:
+                details["powerusers"] = f"Ignoré ({pue})"
+        else:
+            details["cluster"] = f"Namespace '{ns}' inaccessible sur le cluster."
+    except Exception as e:
+        details["error"] = str(e)
 
     msg_parts = ["Configuration du routage enregistrée avec succès."]
-    if cm_synced:
-        msg_parts.append("ConfigMap LiteLLM synchronisé et redémarrage vérifié.")
+    if cluster_connected:
+        if litellm_synced and hermes_synced and openwebui_synced:
+            msg_parts.append("Passerelle LiteLLM, moteur Hermes et portail Open-WebUI synchronisés.")
+        else:
+            partial_reports = []
+            partial_reports.append(f"LiteLLM: {'OK' if litellm_synced else 'Erreur'}")
+            partial_reports.append(f"Hermes: {'OK' if hermes_synced else 'Erreur'}")
+            partial_reports.append(f"Open-WebUI: {'OK' if openwebui_synced else 'Erreur'}")
+            msg_parts.append(f"Synchronisation cluster partielle ({', '.join(partial_reports)}).")
     else:
         msg_parts.append("Routage non appliqué au cluster : vérifiez la cible Kubernetes et relancez la synchronisation. La sauvegarde locale est conservée.")
     if branding_synced:
@@ -4078,8 +4135,14 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 
     return {
         "success": True,
-        "cm_synced": cm_synced,
+        "cm_synced": litellm_synced,
+        "litellm_synced": litellm_synced,
+        "hermes_synced": hermes_synced,
+        "openwebui_synced": openwebui_synced,
+        "powerusers_synced": powerusers_synced,
         "branding_synced": branding_synced,
+        "all_synced": bool(litellm_synced and hermes_synced and openwebui_synced),
+        "details": details,
         "message": " ".join(msg_parts)
     }
 
@@ -4101,6 +4164,51 @@ def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
         if rc != 0:
             return False
         rc, _, _ = runner.run(["rollout", "status", "deployment/litellm-proxy", "-n", ns, "--timeout=45s"], timeout=50)
+        return rc == 0
+    except Exception:
+        return False
+
+def sync_hermes_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
+    """Met à jour à chaud le ConfigMap hermes-config avec les modèles agentiques définis et redémarre Hermes."""
+    try:
+        import deploy
+        hermes_config_yaml = deploy.build_hermes_config_data(cfg, namespace=ns)
+        manifest = json.dumps({"apiVersion": "v1", "kind": "ConfigMap",
+                               "metadata": {"name": "hermes-config", "namespace": ns},
+                               "data": {"config.yaml": hermes_config_yaml}})
+        rc, _, _ = runner.run(["apply", "-f", "-"], stdin_input=manifest, timeout=15)
+        if rc != 0:
+            return False
+
+        # Redémarrage à chaud de Hermes Agent pour prise en compte immédiate
+        rc, _, _ = runner.run(["rollout", "restart", "deployment/hermes-agent", "-n", ns], timeout=15)
+        if rc != 0:
+            return False
+        rc, _, _ = runner.run(["rollout", "status", "deployment/hermes-agent", "-n", ns, "--timeout=45s"], timeout=50)
+        return rc == 0
+    except Exception:
+        return False
+
+def sync_openwebui_models_config(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
+    """Met à jour à chaud les variables de catalogue (OPENAI_API_CONFIGS, DEFAULT_MODELS, TASK_MODEL) sur Open-WebUI."""
+    try:
+        import deploy
+        api_configs = deploy.build_openwebui_api_configs(cfg)
+        catalog = deploy.build_model_catalog(cfg)
+        def_model = catalog["default_simple"] or catalog["default_agentic"] or ""
+        task_model = def_model
+
+        env_args = [
+            "set", "env", "deployment/open-webui", f"-n={ns}",
+            f"OPENAI_API_CONFIGS={api_configs}",
+            f"DEFAULT_MODELS={def_model}",
+            f"TASK_MODEL={task_model}",
+            "ENABLE_COMMUNITY_SHARING=false"
+        ]
+        rc, _, _ = runner.run(env_args, timeout=15)
+        if rc != 0:
+            return False
+        rc, _, _ = runner.run(["rollout", "status", "deployment/open-webui", f"-n={ns}", "--timeout=45s"], timeout=50)
         return rc == 0
     except Exception:
         return False

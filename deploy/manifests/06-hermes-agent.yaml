@@ -72,6 +72,8 @@ spec:
     metadata:
       labels:
         app: hermes-agent
+      annotations:
+        checksum/hermes-config: "default"
     spec:
       securityContext:
         fsGroup: 10000

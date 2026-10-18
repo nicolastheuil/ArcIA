@@ -249,7 +249,7 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
 
         # Vérifier salt_key dans general_settings
         self.assertIn("salt_key: os.environ/LITELLM_SALT_KEY", res_yaml)
-        self.assertIn("store_model_in_db: true", res_yaml)
+        self.assertIn("store_model_in_db: false", res_yaml)
 
         # Vérifier que les modèles et alias canoniques sont présents
         self.assertIn('model_name: "simple/claude"', res_yaml)

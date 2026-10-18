@@ -1,0 +1,58 @@
+# Configuration CI synthétique pour validation et tests automatisés
+instance_name: "arcia-ci"
+infra_target: "k8s_existing"
+
+kubernetes:
+  mode: "local"
+  namespace: "arcia-ci"
+  storage_class: "standard"
+
+network:
+  public_fqdn: "arcia.example.org"
+  tls_mode: "disabled"
+  ingress_class: "traefik"
+
+llm_gateway:
+  master_key: "sk-ci-master-key-32chars-placeholder"
+  salt_key: "ci-salt-key-32chars-placeholder-abc"
+  db_password: "ci-db-password-32chars-placeholder"
+  default_model: "simple/auto"
+  models_routing:
+    - alias: "simple/auto"
+      category: "simple"
+      provider: "openrouter"
+      target_model: "openrouter/anthropic/claude-3.5-haiku"
+      fallback: "simple/free"
+      zdr: true
+    - alias: "simple/free"
+      category: "simple"
+      provider: "openrouter"
+      target_model: "openrouter/meta-llama/llama-3.3-70b-instruct:free"
+      fallback: ""
+      zdr: true
+    - alias: "agentic/auto"
+      category: "agentic"
+      provider: "openrouter"
+      target_model: "openrouter/anthropic/claude-3.7-sonnet"
+      fallback: ""
+      zdr: true
+
+hermes:
+  default_model: "agentic/auto"
+  admin_password: "ci-admin-password-test"
+  api_token: "arcia-pat-ci-token-test"
+  storage_size: "10Gi"
+
+presidio:
+  enabled: true
+  master_key: "ci-presidio-master-key-test"
+
+open_webui:
+  enabled: true
+  storage_size: "20Gi"
+
+entra_id_sso:
+  enabled: false
+
+teams_bot:
+  enabled: false

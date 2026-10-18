@@ -80,7 +80,10 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "true"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)
         self.assertIn('name: OPENAI_API_BASE_URLS\n          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"', content)
-        self.assertIn('simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert', content)
+        self.assertIn('name: OPENAI_API_CONFIGS', content)
+        self.assertIn('"0":{"enable":true', content)
+        self.assertIn('"1":{"enable":true', content)
+        self.assertIn('name: ENABLE_COMMUNITY_SHARING\n          value: "false"', content)
         self.assertIn('name: hermes-gateway-secret\n              key: api-server-key', content)
 
     def test_ingress_v1_rate_limited(self):

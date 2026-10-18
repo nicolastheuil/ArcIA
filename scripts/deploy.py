@@ -451,6 +451,34 @@ def validate_config(cfg: Dict[str, Any]) -> None:
             if not teams.get(field):
                 errors.append(f"teams_bot.{field} est OBLIGATOIRE lorsque teams_bot.enabled est à true.")
 
+    # Validation du catalogue et du routage des modèles
+    llm = cfg.get("llm_gateway", {})
+    if "models_routing" in llm:
+        raw_mappings = llm["models_routing"]
+        if isinstance(raw_mappings, list):
+            seen_aliases = set()
+            for idx, m in enumerate(raw_mappings):
+                if not isinstance(m, dict):
+                    continue
+                alias = str(m.get("alias") or m.get("name") or "").strip()
+                if not alias:
+                    errors.append(f"llm_gateway.models_routing[{idx}] : identifiant (alias) manquant.")
+                    continue
+                if alias in seen_aliases:
+                    errors.append(f"llm_gateway.models_routing : identifiant dupliqué '{alias}'.")
+                seen_aliases.add(alias)
+                target = str(m.get("target_model") or m.get("real_model") or "").strip()
+                if not target:
+                    errors.append(f"llm_gateway.models_routing[{idx}] ('{alias}') : cible fournisseur manquante (target_model obligatoire).")
+
+            def_llm = str(llm.get("default_model") or "").strip()
+            if def_llm and seen_aliases and def_llm not in seen_aliases:
+                errors.append(f"llm_gateway.default_model '{def_llm}' est introuvable parmi les modèles déclarés ({', '.join(sorted(seen_aliases))}).")
+
+            def_hermes = str(cfg.get("hermes", {}).get("default_model") or "").strip()
+            if def_hermes and seen_aliases and def_hermes not in seen_aliases:
+                errors.append(f"hermes.default_model '{def_hermes}' est introuvable parmi les modèles déclarés ({', '.join(sorted(seen_aliases))}).")
+
     if errors:
         log_err("La configuration comporte des erreurs de validation :")
         for err in errors:
@@ -572,30 +600,15 @@ data:
 
     log_ok("Toutes les compétences et outils natifs d'ArcIA sont déployés.")
 
-def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir: Optional[str] = None) -> Dict[str, Any]:
-    """Calcule le dictionnaire de routage des icônes de modèles ArcIA (par défaut, local doré, cloud ZDR argenté)."""
-    default_icon = "/static/icon-model-default.svg"
-    local_icon = "/static/icon-model-local.svg"
-    zdr_icon = "/static/icon-model-zdr.svg"
+def build_model_catalog(cfg: Optional[Dict[str, Any]] = None, root_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Construit la représentation unifiée et normalisée du catalogue de modèles à partir des déclarations du Wizard.
+    Garantit une source de vérité unique pour LiteLLM, Hermes et Open-WebUI."""
+    cfg = cfg or {}
+    llm_cfg = cfg.get("llm_gateway", {})
+    hermes_cfg = cfg.get("hermes", {})
 
-    models_map: Dict[str, Dict[str, str]] = {}
-    canonical_models = ["simple/auto", "simple/free", "agentic/auto", "agentic/free", "agentic/expert"]
-    for m in canonical_models:
-        models_map[m] = {
-            "icon": zdr_icon,
-            "type": "zdr",
-            "badge": "Liseret argenté (Cloud ZDR)"
-        }
-    models_map["local/model"] = {
-        "icon": local_icon,
-        "type": "local",
-        "badge": "Liseret doré (Local souverain)"
-    }
-
-    mappings = []
-    if cfg and isinstance(cfg, dict):
-        mappings = cfg.get("llm_gateway", {}).get("models_routing", [])
-    if not mappings and root_dir:
+    raw_mappings = llm_cfg.get("models_routing")
+    if raw_mappings is None and root_dir:
         cfg_path = os.path.join(root_dir, "arcia.config.yaml")
         if os.path.isfile(cfg_path):
             try:
@@ -603,38 +616,234 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
                 with open(cfg_path, "r", encoding="utf-8") as f:
                     c = yaml.safe_load(f)
                     if c and isinstance(c, dict):
-                        mappings = c.get("llm_gateway", {}).get("models_routing", [])
+                        raw_mappings = c.get("llm_gateway", {}).get("models_routing")
             except Exception:
                 pass
 
-    if mappings and isinstance(mappings, list):
-        for m in mappings:
-            alias = str(m.get("alias") or m.get("name") or "").strip()
-            if not alias:
-                continue
-            prov = str(m.get("provider") or "").lower()
-            target = str(m.get("target_model") or m.get("real_model") or "").lower()
-            zdr = bool(m.get("zdr", True))
+    is_explicit_catalog = (raw_mappings is not None)
 
-            is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
-            if is_local:
-                models_map[alias] = {
-                    "icon": local_icon,
-                    "type": "local",
-                    "badge": "Liseret doré (Local souverain)"
-                }
-            elif zdr:
-                models_map[alias] = {
-                    "icon": zdr_icon,
-                    "type": "zdr",
-                    "badge": "Liseret argenté (Cloud ZDR)"
-                }
-            else:
-                models_map[alias] = {
-                    "icon": default_icon,
-                    "type": "default",
-                    "badge": "aIA classique (Défaut)"
-                }
+    # Si models_routing est absent (None et non configuré), on utilise le catalogue canonique par défaut
+    if raw_mappings is None:
+        raw_mappings = [
+            {
+                "alias": "simple/auto",
+                "category": "simple",
+                "provider": "openrouter",
+                "target_model": "openrouter/anthropic/claude-3.5-haiku",
+                "fallback": "simple/free",
+                "zdr": True
+            },
+            {
+                "alias": "simple/free",
+                "category": "simple",
+                "provider": "openrouter",
+                "target_model": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                "fallback": "",
+                "zdr": True
+            },
+            {
+                "alias": "agentic/auto",
+                "category": "agentic",
+                "provider": "openrouter",
+                "target_model": "openrouter/anthropic/claude-3.7-sonnet",
+                "fallback": "agentic/free",
+                "zdr": True
+            },
+            {
+                "alias": "agentic/free",
+                "category": "agentic",
+                "provider": "openrouter",
+                "target_model": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                "fallback": "",
+                "zdr": True
+            },
+            {
+                "alias": "agentic/expert",
+                "category": "agentic",
+                "provider": "openrouter",
+                "target_model": "openrouter/anthropic/claude-3.7-sonnet:thinking",
+                "fallback": "agentic/auto",
+                "zdr": True
+            }
+        ]
+
+    models: List[Dict[str, Any]] = []
+    seen_ids: Set[str] = set()
+
+    for item in raw_mappings:
+        if not isinstance(item, dict):
+            continue
+        # L'alias prime sur le nom
+        alias = str(item.get("alias") or item.get("name") or "").strip()
+        if not alias:
+            continue
+        if alias in seen_ids:
+            continue
+        seen_ids.add(alias)
+
+        target = str(item.get("target_model") or item.get("real_model") or "").strip()
+        category = str(item.get("category") or "simple").strip().lower()
+        if category not in ("simple", "agentic"):
+            category = "simple"
+        provider = str(item.get("provider") or "openrouter").strip().lower()
+        zdr = bool(item.get("zdr", True))
+        fallback = str(item.get("fallback") or "").strip()
+        fallbacks = item.get("fallbacks") or ([fallback] if fallback else [])
+
+        models.append({
+            "id": alias,
+            "alias": alias,
+            "name": str(item.get("name") or alias).strip(),
+            "target_model": target,
+            "real_model": target,
+            "category": category,
+            "provider": provider,
+            "zdr": zdr,
+            "fallbacks": [f for f in fallbacks if f],
+            "fallback": fallback,
+            "label": item.get("label", alias),
+            "profile": item.get("profile", ""),
+            "description": item.get("description", "")
+        })
+
+    simple_models = [m["id"] for m in models if m["category"] == "simple"]
+    agentic_models = [m["id"] for m in models if m["category"] == "agentic"]
+
+    declared_def_simple = str(llm_cfg.get("default_model") or "").strip()
+    if declared_def_simple in simple_models:
+        default_simple = declared_def_simple
+    elif simple_models:
+        default_simple = simple_models[0]
+    else:
+        default_simple = declared_def_simple if declared_def_simple else ""
+
+    declared_def_agentic = str(hermes_cfg.get("default_model") or "").strip()
+    if declared_def_agentic in agentic_models:
+        default_agentic = declared_def_agentic
+    elif agentic_models:
+        default_agentic = agentic_models[0]
+    else:
+        default_agentic = declared_def_agentic if declared_def_agentic else default_simple
+
+    return {
+        "all_models": models,
+        "simple_models": simple_models,
+        "agentic_models": agentic_models,
+        "default_simple": default_simple,
+        "default_agentic": default_agentic,
+        "seen_ids": seen_ids,
+        "is_explicit_catalog": is_explicit_catalog
+    }
+
+def build_openwebui_api_configs(cfg: Optional[Dict[str, Any]] = None) -> str:
+    """Génère la configuration OPENAI_API_CONFIGS pour Open-WebUI v0.12.3.
+    Index '0' (LiteLLM) : uniquement les modèles simple déclarés.
+    Index '1' (Hermes) : uniquement les modèles agentic déclarés.
+    Si une catégorie est vide, la connexion correspondante est désactivée avec enable: false."""
+    catalog = build_model_catalog(cfg)
+    simple_models = catalog["simple_models"]
+    agentic_models = catalog["agentic_models"]
+
+    configs = {
+        "0": {
+            "enable": bool(simple_models),
+            "model_ids": simple_models
+        },
+        "1": {
+            "enable": bool(agentic_models),
+            "model_ids": agentic_models
+        }
+    }
+    return json.dumps(configs, ensure_ascii=False)
+
+def build_hermes_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: str = "arcia") -> str:
+    """Génère le contenu complet de config.yaml pour Hermes Agent (Studio & Pods dédiés Power Users).
+    Projette dynamiquement les seuls modèles de catégorie agentic déclarés."""
+    catalog = build_model_catalog(cfg)
+    agentic_models = catalog["agentic_models"]
+    default_agentic = catalog["default_agentic"] or (agentic_models[0] if agentic_models else "")
+
+    if agentic_models:
+        models_lines = "\n".join(f"          - {m}" for m in agentic_models)
+        routes_lines = "\n".join(
+            f"          {m}:\n            model: \"{m}\""
+            for m in agentic_models
+        )
+    else:
+        models_lines = "          []"
+        routes_lines = "          {}"
+
+    return f"""model:
+  provider: custom
+  base_url: http://litellm-proxy.{namespace}.svc:4000/v1
+  default: {default_agentic}
+  key_env: OPENAI_API_KEY
+providers:
+  custom:
+    name: "ArcIA Agentic"
+    base_url: http://litellm-proxy.{namespace}.svc:4000/v1
+    key_env: OPENAI_API_KEY
+    discover_models: false
+    models:
+{models_lines}
+approvals:
+  mode: smart
+  unattended_mode: approve
+skills:
+  external_dirs:
+    - /opt/data/skills
+    - /opt/data/shared-skills/arcia
+agent:
+  max_turns: 30
+platforms:
+  api_server:
+    direct_model_requests: true
+    model_name: "{default_agentic}"
+    model_routes:
+{routes_lines}
+"""
+
+def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Calcule le dictionnaire de routage des icônes de modèles ArcIA (par défaut, local doré, cloud ZDR argenté)."""
+    default_icon = "/static/icon-model-default.svg"
+    local_icon = "/static/icon-model-local.svg"
+    zdr_icon = "/static/icon-model-zdr.svg"
+
+    catalog = build_model_catalog(cfg=cfg, root_dir=root_dir)
+    models_map: Dict[str, Dict[str, str]] = {}
+
+    if not catalog["is_explicit_catalog"]:
+        models_map["local/model"] = {
+            "icon": local_icon,
+            "type": "local",
+            "badge": "Liseret doré (Local souverain)"
+        }
+
+    for m in catalog["all_models"]:
+        alias = m["id"]
+        prov = m["provider"]
+        target = m["target_model"].lower()
+        zdr = m["zdr"]
+
+        is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
+        if is_local:
+            models_map[alias] = {
+                "icon": local_icon,
+                "type": "local",
+                "badge": "Liseret doré (Local souverain)"
+            }
+        elif zdr:
+            models_map[alias] = {
+                "icon": zdr_icon,
+                "type": "zdr",
+                "badge": "Liseret argenté (Cloud ZDR)"
+            }
+        else:
+            models_map[alias] = {
+                "icon": default_icon,
+                "type": "default",
+                "badge": "aIA classique (Défaut)"
+            }
 
     return {
         "models": models_map,
@@ -646,129 +855,85 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
 def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: str = "arcia") -> str:
     """Génère le contenu complet de config.yaml pour le ConfigMap litellm-config d'après arcia.config.yaml."""
     cfg = cfg or {}
-    llm_cfg = cfg.get("llm_gateway", {})
-    mappings = llm_cfg.get("models_routing", [])
+    catalog = build_model_catalog(cfg)
+    models = catalog["all_models"]
+    defined_names = {m["id"] for m in models}
+
     model_list_entries = []
     fallbacks_map = {}
 
-    if not mappings:
-        model_list_entries = [
-            """  - model_name: "simple/free"
-    litellm_params:
-      model: openrouter/openrouter/free
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          data_collection: "deny"
-          zdr: true
-          allow_fallbacks: false""",
-            """  - model_name: "simple/auto"
-    litellm_params:
-      model: openrouter/auto
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          data_collection: "deny"
-          zdr: true
-          allow_fallbacks: false""",
-            """  - model_name: "agentic/expert"
-    litellm_params:
-      model: openrouter/deepseek/deepseek-chat
-      api_key: os.environ/OPENROUTER_API_KEY
-      extra_body:
-        provider:
-          data_collection: "deny"
-          zdr: true
-          allow_fallbacks: false"""
+    for m in models:
+        name = m["id"]
+        target = m["target_model"]
+        fallbacks = m["fallbacks"]
+        zdr = m["zdr"]
+        prov = m["provider"]
+
+        if fallbacks:
+            fallbacks_map[name] = [f for f in fallbacks if f]
+
+        api_key_var = "os.environ/OPENROUTER_API_KEY"
+        if prov == "openai":
+            api_key_var = "os.environ/OPENAI_API_KEY"
+        elif prov == "anthropic":
+            api_key_var = "os.environ/ANTHROPIC_API_KEY"
+        elif prov == "mistral":
+            api_key_var = "os.environ/MISTRAL_API_KEY"
+        elif prov == "gemini":
+            api_key_var = "os.environ/GEMINI_API_KEY"
+        elif prov in ("ollama", "vllm", "local"):
+            api_key_var = "ollama"
+
+        is_free_openrouter = (prov == "openrouter") and (":free" in target.lower() or "free" in target.lower())
+
+        extra_body_lines = [
+            "      extra_body:",
+            "        provider:",
         ]
-        fallbacks_yaml = """    - "simple/auto": ["simple/free"]
-    - "agentic/expert": ["simple/auto"]"""
-        aliases_yaml = """    "agentic/free":
-      model: "simple/free"
-      hidden: true
-    "agentic/auto":
-      model: "simple/auto"
-      hidden: true"""
-    else:
-        for m in mappings:
-            name = m.get("alias") or m.get("name", "")
-            if not name:
-                continue
-            target = m.get("target_model") or m.get("real_model", "")
-            fallbacks = m.get("fallbacks") or ([m["fallback"]] if m.get("fallback") else [])
-            zdr = m.get("zdr", True)
-            prov = str(m.get("provider", "openrouter")).lower()
+        if not is_free_openrouter:
+            extra_body_lines.append('          data_collection: "deny"')
+        extra_body_lines.extend([
+            f'          zdr: {str(zdr).lower()}',
+            '          allow_fallbacks: false'
+        ])
+        extra_body_str = "\n".join(extra_body_lines)
 
-            if fallbacks:
-                fallbacks_map[name] = [f for f in fallbacks if f]
-
-            api_key_var = "os.environ/OPENROUTER_API_KEY"
-            if prov == "openai":
-                api_key_var = "os.environ/OPENAI_API_KEY"
-            elif prov == "anthropic":
-                api_key_var = "os.environ/ANTHROPIC_API_KEY"
-            elif prov == "mistral":
-                api_key_var = "os.environ/MISTRAL_API_KEY"
-            elif prov == "gemini":
-                api_key_var = "os.environ/GEMINI_API_KEY"
-            elif prov in ("ollama", "vllm", "local"):
-                api_key_var = "ollama"
-
-            # Pour les modèles OpenRouter gratuits (:free ou openrouter/free),
-            # OpenRouter interdit data_collection: deny car les endpoints gratuits
-            # nécessitent l'autorisation d'entraînement (Data Policy restriction).
-            is_free_openrouter = (prov == "openrouter") and (":free" in target.lower() or "free" in target.lower())
-
-            extra_body_lines = [
-                "      extra_body:",
-                "        provider:",
-            ]
-            if not is_free_openrouter:
-                extra_body_lines.append('          data_collection: "deny"')
-            extra_body_lines.extend([
-                f'          zdr: {str(zdr).lower()}',
-                '          allow_fallbacks: false'
-            ])
-            extra_body_str = "\n".join(extra_body_lines)
-
-            entry = f"""  - model_name: "{name}"
+        entry = f"""  - model_name: "{name}"
     litellm_params:
       model: {target}
       api_key: {api_key_var}
 {extra_body_str}"""
-            model_list_entries.append(entry)
+        model_list_entries.append(entry)
 
-        fallbacks_lines = []
-        for k, v in fallbacks_map.items():
-            if v:
-                fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
-        fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
+    fallbacks_lines = []
+    for k, v in fallbacks_map.items():
+        if v:
+            fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
+    fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
 
-        defined_names = {m.get("alias") or m.get("name", "") for m in mappings}
-        alias_entries = []
-        default_simple = llm_cfg.get("default_model") or next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "simple"), None)
-        if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
-            alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
+    alias_entries = []
+    default_simple = catalog["default_simple"]
+    if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
+        alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
 
-        free_simple = next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
-        if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
-            alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
+    free_simple = next((m["id"] for m in models if m["category"] == "simple" and m["zdr"]), default_simple)
+    if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
+        alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
 
-        default_agentic = cfg.get("hermes", {}).get("default_model") or next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "agentic"), default_simple)
-        if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
-            alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
+    default_agentic = catalog["default_agentic"]
+    if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
+        alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
 
-        free_agentic = next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
-        if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
-            alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
+    free_agentic = next((m["id"] for m in models if m["category"] == "agentic" and m["zdr"]), default_agentic)
+    if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
+        alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
 
-        if "simple/free" in defined_names and "agentic/free" not in defined_names:
-            alias_entries.append("""    "agentic/free":\n      model: "simple/free"\n      hidden: true""")
-        if "simple/auto" in defined_names and "agentic/auto" not in defined_names:
-            alias_entries.append("""    "agentic/auto":\n      model: "simple/auto"\n      hidden: true""")
+    if "simple/free" in defined_names and "agentic/free" not in defined_names:
+        alias_entries.append("""    "agentic/free":\n      model: "simple/free"\n      hidden: true""")
+    if "simple/auto" in defined_names and "agentic/auto" not in defined_names:
+        alias_entries.append("""    "agentic/auto":\n      model: "simple/auto"\n      hidden: true""")
 
-        aliases_yaml = "\n".join(alias_entries) if alias_entries else "    {}"
-
+    aliases_yaml = "\n".join(alias_entries) if alias_entries else "    {}"
     models_yaml = "\n".join(model_list_entries) if model_list_entries else "  []"
 
     return f"""model_list:
@@ -786,7 +951,7 @@ general_settings:
   database_url: os.environ/DATABASE_URL
   database_connection_pool_limit: 10
   user_header_name: "X-OpenWebUI-User-Email"
-  store_model_in_db: true
+  store_model_in_db: false
 
 litellm_settings:
   drop_params: true
@@ -1205,7 +1370,25 @@ data:
     hermes_yaml = hermes_yaml.replace("https://assistant.example.org/studio", f"https://{public_fqdn}/studio")
     if storage_class:
         hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+
+    dynamic_hermes_cm = build_hermes_config_data(cfg, namespace=namespace)
+    indented_hermes_cm = textwrap.indent(dynamic_hermes_cm, "    ")
+    hermes_cm_manifest = f"""apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: {namespace}
+data:
+  config.yaml: |
+{indented_hermes_cm}
+"""
+    hermes_parts = hermes_yaml.split("\n---\n")
+    hermes_parts[0] = hermes_cm_manifest.strip()
+    hermes_yaml = "\n---\n".join(hermes_parts)
+    hermes_hash = hashlib.sha256(dynamic_hermes_cm.encode("utf-8")).hexdigest()
+    hermes_yaml = hermes_yaml.replace('checksum/hermes-config: "default"', f'checksum/hermes-config: "{hermes_hash}"')
     runner.apply_manifest(adapt_manifest_namespace(hermes_yaml, namespace))
+    log_ok("Configuration agentique Hermes synchronisée avec succès.")
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
     log_info(" -> [Branding ArcIA] Injection de l'identité visuelle officielle (SVG & CSS)...")
@@ -1219,10 +1402,17 @@ data:
     webui_yaml = re.sub(r'storage:\s*(?:20|50)Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-    default_simple = llm_cfg.get("default_model") or "LLM Standard"
-    if default_simple:
-        webui_yaml = webui_yaml.replace('value: "simple/auto"', f'value: "{default_simple}"')
+    model_catalog = build_model_catalog(cfg)
+    default_model = model_catalog["default_simple"] or model_catalog["default_agentic"] or "simple/auto"
+    openwebui_api_configs = build_openwebui_api_configs(cfg)
+
+    # Remplacement des variables de modèles et injection de OPENAI_API_CONFIGS
+    webui_yaml = re.sub(r'value: "simple/auto"', f'value: "{default_model}"', webui_yaml)
+    webui_yaml = re.sub(r'(- name: OPENAI_API_CONFIGS\s*\n\s*value:\s*)(?:\'[^\']*\'|"[^"]*")', r"\1'" + openwebui_api_configs + "'", webui_yaml)
+    webui_yaml = re.sub(r'\s*-\s*name:\s*MODEL_FILTER_LIST\s*\n\s*value:\s*"[^"]*"', '', webui_yaml)
+    webui_yaml = re.sub(r'\s*-\s*name:\s*ENABLE_MODEL_FILTER\s*\n\s*value:\s*"[^"]*"', '', webui_yaml)
     runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))
+    log_ok("Portail Open-WebUI déployé avec catalogue restreint par connexion.")
 
     # E. Services Optionnels : Teams Bot et OAuth2-Proxy
     if teams_cfg.get("enabled") or existing_bot_app_id:

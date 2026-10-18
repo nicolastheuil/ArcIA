@@ -145,6 +145,11 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
     with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
         template = f.read()
 
+    sys.path.insert(0, ROOT_DIR)
+    sys.path.insert(0, os.path.join(ROOT_DIR, "scripts"))
+    import deploy
+    hermes_cfg_yaml = deploy.build_hermes_config_data(cfg, namespace=ns)
+
     rendered = template
     rendered = rendered.replace("{{USER_SLUG}}", slug)
     rendered = rendered.replace("{{NAMESPACE}}", ns)
@@ -152,6 +157,7 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
     rendered = rendered.replace("{{PUBLIC_FQDN}}", fqdn)
     rendered = rendered.replace("{{LITELLM_PAT}}", pat)
     rendered = rendered.replace("{{STUDIO_PASSWORD}}", pwd)
+    rendered = rendered.replace("{{HERMES_CONFIG_INDENTED}}", indent_lines(hermes_cfg_yaml, 4))
     rendered = rendered.replace("{{SOUL_CONTENT_INDENTED}}", indent_lines(soul_text, 4))
     rendered = rendered.replace("{{USER_CONTENT_INDENTED}}", indent_lines(user_text, 4))
 
@@ -427,18 +433,31 @@ def sync_single_user(slug: str, ns: str = "arcia", fqdn: Optional[str] = None, r
         register_litellm_pat(pat, user_email, team=team, ns=ns)
 
     # 6. Synchronisation à chaud du pod en cours d'exécution
-    sync_code = """
+    cfg = load_arcia_config()
+    sys.path.insert(0, os.path.join(ROOT_DIR, "scripts"))
+    import deploy
+    catalog = deploy.build_model_catalog(cfg)
+    agentic_models = catalog["agentic_models"]
+    default_agentic = catalog["default_agentic"] or (agentic_models[0] if agentic_models else "")
+    models_repr = json.dumps(agentic_models)
+    def_repr = json.dumps(default_agentic)
+    routes_dict = {m: {"model": m} for m in agentic_models}
+    routes_repr = json.dumps(routes_dict)
+
+    sync_code = f"""
 import sys; sys.path.insert(0, '/opt/hermes'); import hermes_yaml
 cfg_p = '/opt/data/.hermes/config.yaml'
 try:
-    with open(cfg_p) as f: c = hermes_yaml.safe_load(f) or {}
-    c.setdefault('providers', {})['custom'] = {
+    with open(cfg_p) as f: c = hermes_yaml.safe_load(f) or {{}}
+    c.setdefault('providers', {{}})['custom'] = {{
         'name': 'ArcIA Agentic',
-        'base_url': 'http://litellm-proxy.arcia.svc:4000/v1',
+        'base_url': 'http://litellm-proxy.{ns}.svc:4000/v1',
         'key_env': 'OPENAI_API_KEY',
         'discover_models': False,
-        'models': ['agentic/auto', 'agentic/free', 'agentic/expert']
-    }
+        'models': {models_repr}
+    }}
+    c.setdefault('platforms', {{}}).setdefault('api_server', {{}})['model_name'] = {def_repr}
+    c.setdefault('platforms', {{}}).setdefault('api_server', {{}})['model_routes'] = {routes_repr}
     with open(cfg_p, 'w') as f: hermes_yaml.safe_dump(c, f)
     with open('/opt/data/config.yaml', 'w') as f: hermes_yaml.safe_dump(c, f)
 except Exception: pass
