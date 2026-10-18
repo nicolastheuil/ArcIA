@@ -3610,7 +3610,7 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "real_model": llm.get("simple_auto_model") or "openrouter/anthropic/claude-3.5-haiku",
             "description": "Chat standard direct via LiteLLM Proxy sans latence de boucle agentique. Modèle par défaut.",
             "fallbacks": ["simple/free"],
-            "fallback": "openrouter/openai/gpt-4o-mini",
+            "fallback": "simple/free",
             "zdr": True,
             "is_default": (llm.get("default_model", "simple/auto") == "simple/auto"),
             "is_canonical": True
@@ -3625,8 +3625,8 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "target_model": llm.get("simple_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
             "real_model": llm.get("simple_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
             "description": "Inférence cloud gratuite à coût zéro sous protection ZDR et Presidio DLP.",
-            "fallbacks": ["simple/auto"],
-            "fallback": "openrouter/google/gemini-2.0-flash-exp:free",
+            "fallbacks": [],
+            "fallback": "",
             "zdr": True,
             "is_default": (llm.get("default_model") == "simple/free"),
             "is_canonical": True
@@ -3641,8 +3641,8 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "target_model": llm.get("agentic_auto_model") or "openrouter/anthropic/claude-3.7-sonnet",
             "real_model": llm.get("agentic_auto_model") or "openrouter/anthropic/claude-3.7-sonnet",
             "description": "Session agentique autonome standard pour les tâches multi-outils, recherches et code.",
-            "fallbacks": ["agentic/free", "simple/auto"],
-            "fallback": "openrouter/openai/gpt-4o",
+            "fallbacks": ["agentic/free"],
+            "fallback": "agentic/free",
             "zdr": True,
             "is_default": (llm.get("default_model") == "agentic/auto"),
             "is_canonical": True
@@ -3657,8 +3657,8 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "target_model": llm.get("agentic_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
             "real_model": llm.get("agentic_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
             "description": "Session agentique autonome exécutée sur des modèles gratuits sans frais d'inférence.",
-            "fallbacks": ["agentic/auto"],
-            "fallback": "openrouter/qwen/qwen-2.5-72b-instruct:free",
+            "fallbacks": [],
+            "fallback": "",
             "zdr": True,
             "is_default": (llm.get("default_model") == "agentic/free"),
             "is_canonical": True
@@ -3673,8 +3673,8 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "target_model": llm.get("agentic_expert_model") or "openrouter/anthropic/claude-3.7-sonnet:thinking",
             "real_model": llm.get("agentic_expert_model") or "openrouter/anthropic/claude-3.7-sonnet:thinking",
             "description": "Orchestration haute précision avec raisonnement approfondi pour le code et l'architecture.",
-            "fallbacks": ["agentic/auto", "simple/auto"],
-            "fallback": "openrouter/deepseek/deepseek-r1",
+            "fallbacks": ["agentic/auto"],
+            "fallback": "agentic/auto",
             "zdr": True,
             "is_default": (llm.get("default_model") == "agentic/expert"),
             "is_canonical": True

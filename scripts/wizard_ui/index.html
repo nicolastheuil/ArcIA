@@ -879,6 +879,52 @@
 
     .col-nowrap { white-space: nowrap; }
 
+    /* Table de routage compacte sans ascenseur horizontal */
+    #modelsRoutingTable {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+    #modelsRoutingTable th,
+    #modelsRoutingTable td {
+      padding: 7px 5px !important;
+      font-size: 11.5px;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #modelsRoutingTable input[type="text"],
+    #modelsRoutingTable select {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      font-size: 11.5px;
+      padding: 3px 5px;
+      height: 28px;
+      border-radius: var(--radius-xs);
+    }
+    #modelsRoutingTable .switch-wrap {
+      justify-content: center;
+      margin: 0 auto;
+    }
+    #modelsRoutingTable .btn.compact {
+      padding: 2px 6px;
+      font-size: 11px;
+      height: 26px;
+    }
+
+    /* Barre d'action et pied de page harmonise pour chaque etape du wizard */
+    .wizard-step-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      gap: 12px;
+    }
+
     /* Interrupteurs (Switches) */
     .switch-wrap {
       display: inline-flex;
@@ -1928,8 +1974,8 @@
         </div>
 
         <!-- Navigation Étape 1 -->
-        <div class="flex-between mt-16">
-          <span></span>
+        <div class="wizard-step-footer">
+          <button class="btn secondary" onclick="returnToHome()">&larr; Annuler</button>
           <button class="btn primary" onclick="goToStep(2)">Continuer vers les modèles &rarr;</button>
         </div>
       </div>
@@ -2091,18 +2137,18 @@
             <span id="modelSearchCounter" style="font-size: 12px; color: var(--text-muted);"></span>
           </div>
 
-          <div style="overflow-x: auto; margin-top: 10px; width: 100%;">
-            <table id="modelsRoutingTable" class="data-table" style="width: 100%;">
+          <div style="width: 100%; margin-top: 10px; overflow-x: hidden;">
+            <table id="modelsRoutingTable" class="data-table">
               <thead>
                 <tr>
-                  <th style="min-width: 175px;">Alias / Nom &amp; Icône</th>
-                  <th style="min-width: 150px;">Cible d'exécution</th>
-                  <th style="min-width: 140px;">Fournisseur</th>
-                  <th style="min-width: 200px;">Modèle cible amont</th>
-                  <th style="min-width: 150px;">Repli (Fallback)</th>
-                  <th class="text-center" style="width: 60px;">ZDR</th>
-                  <th style="min-width: 130px;">Test réel</th>
-                  <th style="width: 50px;">Actions</th>
+                  <th style="width: 17%;">Alias &amp; Icône</th>
+                  <th style="width: 12%;">Cible</th>
+                  <th style="width: 13%;">Fournisseur</th>
+                  <th style="width: 24%;">Modèle cible amont</th>
+                  <th style="width: 14%;">Repli (Fallback)</th>
+                  <th class="text-center" style="width: 6%;">ZDR</th>
+                  <th style="width: 10%;">Test</th>
+                  <th class="text-center" style="width: 4%;"></th>
                 </tr>
               </thead>
               <tbody id="modelsRoutingBody">
@@ -2150,7 +2196,7 @@
             </div>
           </div>
 
-          <div class="flex-between mt-16" style="padding-top: 16px; border-top: 1px solid var(--border);">
+          <div id="saveModelRoutingFooter" class="flex-between mt-16" style="padding-top: 16px; border-top: 1px solid var(--border);">
             <div id="saveModelRoutingHint" style="font-size: 13px; color: var(--text-secondary);">
               ⚠ Vous devez tester et valider tous les modèles avec succès avant d'enregistrer le routage.
             </div>
@@ -2159,72 +2205,49 @@
         </div>
       </div>
 
-        <!-- Volet repliable : Paramètres techniques et secrets -->
-        <details class="disclosure">
-          <summary>Paramètres techniques et secrets d'infrastructure</summary>
-          <div class="form-grid mt-16">
-            <div class="form-group">
-              <label class="field-label" for="litellm_master_key">Clé maître LiteLLM</label>
-              <div style="display:flex; gap:8px;">
-                <input type="password" id="litellm_master_key">
-                <button class="btn secondary compact" onclick="generateSecret('pat', 'litellm_master_key')">Générer</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="field-label" for="hermes_admin_password">Mot de passe administrateur Hermes</label>
-              <div style="display:flex; gap:8px;">
-                <input type="password" id="hermes_admin_password">
-                <button class="btn secondary compact" onclick="generateSecret('admin', 'hermes_admin_password')">Générer</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="field-label" for="hermes_api_token">Jeton d'API Hermes (PAT)</label>
-              <div style="display:flex; gap:8px;">
-                <input type="password" id="hermes_api_token">
-                <button class="btn secondary compact" onclick="generateSecret('pat', 'hermes_api_token')">Générer</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="field-label" for="presidio_master_key">Clé maître Presidio DLP</label>
-              <div style="display:flex; gap:8px;">
-                <input type="password" id="presidio_master_key">
-                <button class="btn secondary compact" onclick="generateSecret('presidio', 'presidio_master_key')">Générer</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="field-label" for="hermes_storage_size">Volume de stockage Hermes</label>
-              <input type="text" id="hermes_storage_size" value="20Gi">
-            </div>
-
-            <div class="form-group">
-              <label class="field-label" for="webui_storage_size">Volume Open-WebUI / RAG</label>
-              <input type="text" id="webui_storage_size" value="50Gi">
-            </div>
-          </div>
-        </details>
-
         <!-- Navigation Étape 2 -->
-        <div class="flex-between mt-16">
+        <div class="wizard-step-footer">
           <button class="btn secondary" onclick="goToStep(1)">&larr; Précédent</button>
-          <button class="btn primary" onclick="goToStep(3)">Continuer vers l'accès &rarr;</button>
+          <div id="step2RoutingHint" style="font-size: 13px; color: var(--text-secondary); text-align: center;">
+            <!-- Synchronisé dynamiquement avec l'état des modèles -->
+          </div>
+          <button id="btnStep2Continue" class="btn primary" onclick="goToStep(3)">Continuer vers l'accès &rarr;</button>
         </div>
       </div>
 
       <!-- ================= ÉTAPE 3 : ACCÈS, NOMMAGE ET SÉCURITÉ ================= -->
       <div id="stepContainer3" class="step-page hidden">
         <div class="panel-header">
-          <h2>Étape 3 · Accès, nommage et intégrations d'entreprise</h2>
-          <p>Définissez votre domaine public, vos certificats TLS et activez les intégrations collaboratives.</p>
+          <h2>Étape 3 · Accès, nommage et sécurité de la plateforme</h2>
+          <p>Configurez le point d'entrée réseau, les clés d'administration et les intégrations collaboratives de votre organisation.</p>
         </div>
 
-        <!-- Panneau Réseau & FQDN -->
+        <!-- Panneau Réseau Docker Lab -->
+        <div id="panel_network_docker" class="panel hidden">
+          <div class="panel-header">
+            <h3>Points d'accès locaux (Laboratoire Docker)</h3>
+            <p>Les interfaces et services de l'instance sont directement joignables sur votre machine locale.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="field-label">Portail collaborateur Open-WebUI</label>
+              <input type="text" value="http://localhost:3000" readonly style="font-family: monospace; background: var(--surface-3);">
+            </div>
+            <div class="form-group">
+              <label class="field-label">Passerelle d'inférence unifiée LiteLLM</label>
+              <input type="text" value="http://localhost:4000/v1" readonly style="font-family: monospace; background: var(--surface-3);">
+            </div>
+            <div class="form-group">
+              <label class="field-label">Bouclier de confidentialité Presidio DLP</label>
+              <input type="text" value="http://localhost:5001" readonly style="font-family: monospace; background: var(--surface-3);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Panneau Réseau & FQDN (Kubernetes / VMware) -->
         <div id="panel_network_tls" class="panel">
           <div class="panel-header">
-            <h3>Nom de domaine et certificats TLS</h3>
+            <h3>Nom de domaine et certificats TLS (Kubernetes)</h3>
             <p>Point d'entrée sécurisé pour les collaborateurs de l'organisation.</p>
           </div>
 
@@ -2259,6 +2282,60 @@
               <input type="text" id="network_tls_secret_name" value="arcia-tls-cert">
             </div>
           </div>
+        </div>
+
+        <!-- Panneau Sécurité & Secrets maîtres -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Secrets maîtres et sécurité d'administration</h3>
+            <p>Identifiants d'administration, clés de chiffrement de la passerelle et persistance des volumes.</p>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="field-label" for="hermes_admin_password">Mot de passe administrateur Hermes <span class="required">*</span></label>
+              <div style="display:flex; gap:8px;">
+                <input type="password" id="hermes_admin_password" placeholder="Mot de passe admin">
+                <button class="btn secondary compact" type="button" onclick="togglePasswordVisibility('hermes_admin_password')" title="Afficher/Masquer">👁️</button>
+                <button class="btn secondary compact" type="button" onclick="generateSecret('admin', 'hermes_admin_password')">Générer</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="hermes_api_token">Jeton d'API Hermes (PAT) <span class="required">*</span></label>
+              <div style="display:flex; gap:8px;">
+                <input type="password" id="hermes_api_token" placeholder="Jeton d'API">
+                <button class="btn secondary compact" type="button" onclick="togglePasswordVisibility('hermes_api_token')" title="Afficher/Masquer">👁️</button>
+                <button class="btn secondary compact" type="button" onclick="generateSecret('pat', 'hermes_api_token')">Générer</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="presidio_master_key">Clé maître Presidio DLP <span class="required">*</span></label>
+              <div style="display:flex; gap:8px;">
+                <input type="password" id="presidio_master_key" placeholder="Clé maître DLP">
+                <button class="btn secondary compact" type="button" onclick="togglePasswordVisibility('presidio_master_key')" title="Afficher/Masquer">👁️</button>
+                <button class="btn secondary compact" type="button" onclick="generateSecret('presidio', 'presidio_master_key')">Générer</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="litellm_master_key">Clé maître LiteLLM Proxy <span class="required">*</span></label>
+              <div style="display:flex; gap:8px;">
+                <input type="password" id="litellm_master_key" placeholder="Clé maître LiteLLM">
+                <button class="btn secondary compact" type="button" onclick="togglePasswordVisibility('litellm_master_key')" title="Afficher/Masquer">👁️</button>
+                <button class="btn secondary compact" type="button" onclick="generateSecret('pat', 'litellm_master_key')">Générer</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="hermes_storage_size">Volume persistant Hermes</label>
+              <input type="text" id="hermes_storage_size" value="20Gi">
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="webui_storage_size">Volume Open-WebUI / RAG</label>
+              <input type="text" id="webui_storage_size" value="50Gi">
+            </div>
         </div>
 
         <!-- Intégration 1 : SSO Microsoft Entra ID -->
@@ -2384,7 +2461,7 @@
         </div>
 
         <!-- Navigation Étape 3 -->
-        <div class="flex-between mt-16">
+        <div class="wizard-step-footer">
           <button class="btn secondary" onclick="goToStep(2)">&larr; Précédent</button>
           <button class="btn primary" onclick="goToStep(4)">Continuer vers la synthèse &rarr;</button>
         </div>
@@ -2433,12 +2510,13 @@
             <strong>Gouvernance souveraine :</strong> La double barrière Presidio DLP est appliquée de façon étanche. Les inférences externes bénéficient du Zéro Rétention de Données (ZDR) pour chaque modèle configuré. Les compétences Graphify, Ponytail et Public-APIs enrichissent Hermes.
           </div>
 
-          <div class="mt-16 flex-between">
-            <div>
+          <div class="wizard-step-footer">
+            <button class="btn secondary" onclick="goToStep(3)">&larr; Précédent</button>
+            <div style="display: flex; gap: 8px;">
               <button class="btn secondary" onclick="saveConfigurationLocally()">Enregistrer la configuration</button>
               <button class="btn secondary" onclick="triggerDeployment(true)">Simuler le déploiement (Dry-Run)</button>
+              <button class="btn primary" onclick="triggerDeployment(false)">Déployer ArcIA &rarr;</button>
             </div>
-            <button class="btn primary" onclick="triggerDeployment(false)">Déployer ArcIA &rarr;</button>
           </div>
         </div>
 
@@ -2489,12 +2567,6 @@
               <!-- Rempli dynamiquement par renderDeploymentCredentials(summary) -->
             </div>
           </div>
-        </div>
-
-        <!-- Navigation Étape 4 -->
-        <div class="flex-between mt-16">
-          <button class="btn secondary" onclick="goToStep(3)">&larr; Précédent</button>
-          <span></span>
         </div>
       </div>
 
@@ -3257,6 +3329,14 @@
       if (block && mount && block.parentElement !== mount) {
         mount.appendChild(block);
       }
+      const saveFooter = document.getElementById('saveModelRoutingFooter');
+      if (saveFooter) {
+        if (mountId === 'installModelRoutingMount') {
+          saveFooter.classList.add('hidden');
+        } else {
+          saveFooter.classList.remove('hidden');
+        }
+      }
     }
 
     function renderHomePageView(detectResult) {
@@ -3399,12 +3479,10 @@
       }
     }
 
-    function startNewInstanceSetup() {
-      state.models = [];
+    async function startNewInstanceSetup() {
       state.currentStep = 1;
       state.newInstanceFlow = true;
-
-      renderModelRoutingTable();
+      await fetchModelRouting();
       switchMainTab('install');
       goToStep(1);
       showToast('Parcours de déploiement d\'une nouvelle instance initialisé.');
@@ -3441,8 +3519,15 @@
 
       if (step === 2) {
         mountModelRoutingBlock('installModelRoutingMount');
-        renderModelRoutingTable();
-        updateDefaultModelDropdowns();
+        if (!state.models || state.models.length === 0) {
+          fetchModelRouting();
+        } else {
+          renderModelRoutingTable();
+          updateDefaultModelDropdowns();
+          checkCanSaveModelRouting();
+        }
+      } else if (step === 3) {
+        selectInfraTarget(state.infraTarget || 'k8s_existing');
       } else if (step === 4) {
         updateSummaryView();
       }
@@ -3461,6 +3546,8 @@
       document.getElementById('panel_infra_vmware').classList.toggle('hidden', target !== 'vmware_k3s');
       document.getElementById('panel_infra_k8s').classList.toggle('hidden', target !== 'k8s_existing');
 
+      const netDockerPanel = document.getElementById('panel_network_docker');
+      if (netDockerPanel) netDockerPanel.classList.toggle('hidden', target !== 'docker_lab');
       const netTlsPanel = document.getElementById('panel_network_tls');
       if (netTlsPanel) netTlsPanel.classList.toggle('hidden', target === 'docker_lab');
     }
@@ -3887,7 +3974,8 @@
     function checkCanSaveModelRouting() {
       const btns = document.querySelectorAll('#btnSaveModelRouting');
       const hints = document.querySelectorAll('#saveModelRoutingHint');
-      if (btns.length === 0 && hints.length === 0) return;
+      const step2Btn = document.getElementById('btnStep2Continue');
+      const step2Hint = document.getElementById('step2RoutingHint');
 
       const setUiState = (isDisabled, htmlMessage) => {
         btns.forEach(btn => {
@@ -3897,6 +3985,13 @@
         hints.forEach(hint => {
           hint.innerHTML = htmlMessage;
         });
+        if (step2Btn) {
+          step2Btn.disabled = isDisabled;
+          step2Btn.classList.toggle('disabled', isDisabled);
+        }
+        if (step2Hint) {
+          step2Hint.innerHTML = htmlMessage;
+        }
       };
 
       if (!state.models || state.models.length === 0) {
@@ -3904,17 +3999,25 @@
         return;
       }
 
+      // Nettoyage automatique des replis fantômes (ne bloque jamais sur un modèle supprimé ou introuvable)
+      const existingAliases = (state.models || []).map(o => (o.alias || o.name || '').trim()).filter(Boolean);
+      state.models.forEach(m => {
+        if (m.fallback && !existingAliases.includes(m.fallback.trim())) {
+          m.fallback = '';
+        }
+      });
+
       // 1. Détection de boucles de repli (cycles A -> B -> A)
       const loopRes = detectFallbackLoops(state.models);
       if (loopRes.hasLoop) {
-        setUiState(true, `<span style="color: var(--danger); font-weight: 600;">⛔ Boucle de repli infinie détectée : ${escapeHtml(loopRes.loopChain)}. Vous devez modifier cette chaîne avant d'enregistrer.</span>`);
+        setUiState(true, `<span style="color: var(--danger); font-weight: 600;">⛔ Boucle de repli infinie détectée : ${escapeHtml(loopRes.loopChain)}. Vous devez modifier cette chaîne.</span>`);
         return;
       }
 
       // 2. Modèles non testés ou en échec
       const unverified = state.models.filter(m => !m.testedOk);
       if (unverified.length > 0) {
-        setUiState(true, `<span style="color: var(--warning);">⚠ ${unverified.length} modèle(s) non validé(s). Cliquez sur « Tester » pour valider chaque ligne avant d'enregistrer.</span>`);
+        setUiState(true, `<span style="color: var(--warning);">⚠ ${unverified.length} modèle(s) non validé(s). Cliquez sur « Tester » pour valider chaque ligne.</span>`);
         return;
       }
 
@@ -3925,7 +4028,7 @@
         return;
       }
 
-      setUiState(false, '<span style="color: var(--success); font-weight: 500;">✓ Toutes les chaînes de routage et de repli sont validées et prêtes à être enregistrées.</span>');
+      setUiState(false, '<span style="color: var(--success); font-weight: 500;">✓ Tous les modèles configurés sont testés et validés.</span>');
     }
 
     function isDynamicModel(modelId, modelLabel) {
@@ -4038,12 +4141,12 @@
           .map(o => (o.alias || o.name).trim());
 
         let fallbackOptions = '<option value="">Aucun repli</option>';
-        if (m.fallback && !validTestedAliases.includes(m.fallback)) {
-          fallbackOptions += `<option value="${escapeHtml(m.fallback)}" selected style="color:var(--danger);">⚠ ${escapeHtml(m.fallback)} (non validé)</option>`;
-        }
         validTestedAliases.forEach(a => {
           fallbackOptions += `<option value="${escapeHtml(a)}" ${m.fallback === a ? 'selected' : ''}>${escapeHtml(a)} (validé)</option>`;
         });
+        if (m.fallback && !validTestedAliases.includes(m.fallback) && state.models.some(o => (o.alias || o.name) === m.fallback)) {
+          fallbackOptions += `<option value="${escapeHtml(m.fallback)}" selected style="color:var(--danger);">⚠ ${escapeHtml(m.fallback)} (non validé)</option>`;
+        }
 
         const statusBadge = m.testedOk
           ? `<span class="badge ok" style="padding: 2px 6px; font-size: 11px;">✓ ${m.lastLatency ? m.lastLatency + 'ms' : 'OK'}</span>`
@@ -4058,30 +4161,30 @@
         return `
           <tr id="model_tr_${idx}" class="${m.testedOk ? 'model-row-ok' : ''}" style="${rowMatches ? '' : 'display:none;'}">
             <td>
-              <div style="display:inline-flex; align-items:center; gap:8px;">
-                <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="width: 120px; font-weight: 500;">
-                <img src="${iconSrc}" alt="Icône modèle" title="${escapeHtml(iconTitle)}" width="26" height="26" style="border-radius: 6px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: help; vertical-align: middle;">
+              <div style="display:flex; align-items:center; gap:5px; width:100%;">
+                <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="flex:1; min-width:0; font-weight:500;" title="${escapeHtml(m.alias || m.name)}">
+                <img src="${iconSrc}" alt="Icône modèle" title="${escapeHtml(iconTitle)}" width="22" height="22" style="border-radius:4px; flex-shrink:0; cursor:help; vertical-align:middle;">
               </div>
             </td>
             <td>
-              <select onchange="updateModelRow(${idx}, 'category', this.value); updateDefaultModelDropdowns();">
-                <option value="simple" ${m.category === 'simple' ? 'selected' : ''}>Simple (LiteLLM direct)</option>
-                <option value="agentic" ${m.category === 'agentic' ? 'selected' : ''}>Agentic (Hermes Agent)</option>
+              <select onchange="updateModelRow(${idx}, 'category', this.value); updateDefaultModelDropdowns();" style="width:100%;">
+                <option value="simple" ${m.category === 'simple' ? 'selected' : ''}>Simple (LiteLLM)</option>
+                <option value="agentic" ${m.category === 'agentic' ? 'selected' : ''}>Agentic (Hermes)</option>
               </select>
             </td>
             <td>
-              <select onchange="onModelProviderChanged(${idx}, this.value)" style="min-width: 130px;">
+              <select onchange="onModelProviderChanged(${idx}, this.value)" style="width:100%;">
                 ${providerOptions}
               </select>
             </td>
             <td>
-              <select id="m_target_select_${idx}" onchange="onModelTargetSelectChanged(${idx}, this.value)" style="min-width: 170px;">
+              <select id="m_target_select_${idx}" onchange="onModelTargetSelectChanged(${idx}, this.value)" style="width:100%;">
                 ${modelOptions}
               </select>
-              <input type="text" id="m_custom_input_${idx}" class="${isCustomModel ? '' : 'hidden'}" value="${escapeHtml(curTarget)}" onchange="updateModelRow(${idx}, 'target_model', this.value)" placeholder="ex: provider/model-id" style="margin-top: 4px; font-size: 12px;">
+              <input type="text" id="m_custom_input_${idx}" class="${isCustomModel ? '' : 'hidden'}" value="${escapeHtml(curTarget)}" onchange="updateModelRow(${idx}, 'target_model', this.value)" placeholder="ex: provider/model-id" style="margin-top:3px; font-size:11px; width:100%;">
             </td>
             <td>
-              <select id="m_fallback_select_${idx}" onchange="updateModelRow(${idx}, 'fallback', this.value)" style="min-width: 140px;">
+              <select id="m_fallback_select_${idx}" onchange="updateModelRow(${idx}, 'fallback', this.value)" style="width:100%;">
                 ${fallbackOptions}
               </select>
             </td>
@@ -4092,13 +4195,13 @@
               </label>
             </td>
             <td>
-              <div style="display:inline-flex; align-items:center; gap:6px;">
-                <button class="btn secondary compact" onclick="testModelRowRealAccess(${idx})" title="Valider l'accès réel en direct">Tester</button>
+              <div style="display:flex; align-items:center; gap:4px; width:100%;">
+                <button class="btn secondary compact" onclick="testModelRowRealAccess(${idx})" title="Valider l'accès direct" style="padding:2px 5px; font-size:11px;">Tester</button>
                 <span id="test_status_row_${idx}" class="model-row-test-status">${statusBadge}</span>
               </div>
             </td>
-            <td>
-              <button class="btn text compact" style="color: var(--danger);" onclick="deleteModelRow(${idx})" title="Supprimer ce modèle">&times;</button>
+            <td class="text-center">
+              <button class="btn text compact" style="color:var(--danger); padding:0 4px; font-size:14px;" onclick="deleteModelRow(${idx})" title="Supprimer ce modèle">&times;</button>
             </td>
           </tr>
         `;
@@ -4212,7 +4315,13 @@
     }
 
     function deleteModelRow(idx) {
-      state.models.splice(idx, 1);
+      const deleted = state.models.splice(idx, 1);
+      const deletedAlias = (deleted[0]?.alias || deleted[0]?.name || '').trim();
+      if (deletedAlias) {
+        state.models.forEach(m => {
+          if (m.fallback === deletedAlias) m.fallback = '';
+        });
+      }
       renderModelRoutingTable();
       refreshFallbackDropdowns();
       checkCanSaveModelRouting();
