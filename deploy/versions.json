@@ -26,8 +26,8 @@
       "release_notes": "Passerelle d'inférence unifiée avec ZDR granulaire par modèle et guardrail Presidio."
     },
     "hermes-agent": {
-      "version": "v0.2.0",
-      "image": "nousresearch/hermes-agent:v0.2.0",
+      "version": "v0.22.2",
+      "image": "nousresearch/hermes-agent:v0.22.2",
       "release_notes": "Moteur d'agents autonomes, Studio Kanban et mémoire SQLite state.db isolée."
     },
     "teams-bot": {

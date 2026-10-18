@@ -17,6 +17,7 @@ import secrets
 import hashlib
 import argparse
 import subprocess
+import textwrap
 from typing import Dict, Any, Optional, List, Tuple
 
 def make_secret_manifest(name: str, namespace: str, string_data: Dict[str, str], secret_type: str = "Opaque") -> str:
@@ -181,11 +182,34 @@ def parse_env_format(content: str) -> Dict[str, Any]:
     }
 
 def parse_simple_yaml(text: str) -> Dict[str, Any]:
-    """Parseur récursif simple pour le format arcia.config.yaml."""
+    """Parseur récursif simple pour le format arcia.config.yaml avec support des scalaires multi-lignes (|)."""
     result: Dict[str, Any] = {}
     stack: List[Tuple[int, Dict[str, Any]]] = [(0, result)]
 
+    in_block = False
+    block_indent = 0
+    block_key = ""
+    block_dict = None
+    block_lines = []
+
     for line_idx, raw_line in enumerate(text.splitlines(), start=1):
+        if in_block:
+            if not raw_line.strip():
+                block_lines.append("")
+                continue
+            line_indent = len(raw_line) - len(raw_line.lstrip())
+            if line_indent > block_indent:
+                prefix_len = block_indent + 2
+                block_lines.append(raw_line[prefix_len:] if len(raw_line) >= prefix_len else raw_line.lstrip())
+                continue
+            else:
+                if block_dict is not None and block_key:
+                    block_dict[block_key] = "\n".join(block_lines)
+                in_block = False
+                block_lines = []
+                block_dict = None
+                block_key = ""
+
         # Enlever les commentaires inline si non entre guillemets
         clean = raw_line.split("#", 1)[0].rstrip()
         if not clean.strip():
@@ -210,9 +234,19 @@ def parse_simple_yaml(text: str) -> Dict[str, Any]:
                 new_dict: Dict[str, Any] = {}
                 current_dict[key] = new_dict
                 stack.append((indent, new_dict))
+            elif val_str in ("|", "|-", ">", ">-"):
+                # Début d'un bloc scalaire multi-ligne
+                in_block = True
+                block_indent = indent
+                block_key = key
+                block_dict = current_dict
+                block_lines = []
             else:
                 # C'est une valeur scalaire
                 current_dict[key] = cast_scalar(val_str)
+
+    if in_block and block_dict is not None and block_key:
+        block_dict[block_key] = "\n".join(block_lines)
 
     return result
 
@@ -676,15 +710,28 @@ def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: s
             elif prov in ("ollama", "vllm", "local"):
                 api_key_var = "ollama"
 
+            # Pour les modèles OpenRouter gratuits (:free ou openrouter/free),
+            # OpenRouter interdit data_collection: deny car les endpoints gratuits
+            # nécessitent l'autorisation d'entraînement (Data Policy restriction).
+            is_free_openrouter = (prov == "openrouter") and (":free" in target.lower() or "free" in target.lower())
+
+            extra_body_lines = [
+                "      extra_body:",
+                "        provider:",
+            ]
+            if not is_free_openrouter:
+                extra_body_lines.append('          data_collection: "deny"')
+            extra_body_lines.extend([
+                f'          zdr: {str(zdr).lower()}',
+                '          allow_fallbacks: false'
+            ])
+            extra_body_str = "\n".join(extra_body_lines)
+
             entry = f"""  - model_name: "{name}"
     litellm_params:
       model: {target}
       api_key: {api_key_var}
-      extra_body:
-        provider:
-          data_collection: "deny"
-          zdr: {str(zdr).lower()}
-          allow_fallbacks: false"""
+{extra_body_str}"""
             model_list_entries.append(entry)
 
         fallbacks_lines = []
@@ -1103,8 +1150,17 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
 
     # Injection dynamique du catalogue de modèles configuré dans le ConfigMap litellm-config
     dynamic_litellm_cm = build_litellm_config_data(cfg, namespace=namespace)
-    cm_patch_obj = json.dumps({"data": {"config.yaml": dynamic_litellm_cm}})
-    runner.run(["patch", "configmap", "litellm-config", f"-n={namespace}", "-p", cm_patch_obj])
+    indented_litellm_cm = textwrap.indent(dynamic_litellm_cm, "    ")
+    litellm_cm_manifest = f"""apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: {namespace}
+data:
+  config.yaml: |
+{indented_litellm_cm}
+"""
+    runner.apply_manifest(litellm_cm_manifest)
     log_ok("Catalogue de modèles et routage LiteLLM synchronisés avec succès.")
 
     # C. Hermes Agent (Studio & Gateway Desktop)
@@ -1132,6 +1188,9 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
     webui_yaml = re.sub(r'storage:\s*(?:20|50)Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
+    default_simple = llm_cfg.get("default_model") or "LLM Standard"
+    if default_simple:
+        webui_yaml = webui_yaml.replace('value: "simple/auto"', f'value: "{default_simple}"')
     runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))
 
     # E. Services Optionnels : Teams Bot et OAuth2-Proxy
