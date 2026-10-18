@@ -85,7 +85,7 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 ---
 
 <a id="-architecture-globale"></a>
-## 🏛️ Architecture Globale (Vue Macro-Concepts)
+## 🏛️ Architecture Globale
 
 Plutôt qu'un empilement technique complexe, **ArcIA** s'articule autour de **5 macro-concepts** qui structurent le parcours de chaque requête :
 
