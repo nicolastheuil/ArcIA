@@ -25,6 +25,11 @@
       "type": "zdr",
       "badge": "Bouclier argenté (Cloud ZDR)"
     },
+    "local/model": {
+      "icon": "/static/icon-model-local.svg",
+      "type": "local",
+      "badge": "Bouclier doré (Local souverain)"
+    },
     "LLM Standard": {
       "icon": "/static/icon-model-default.svg",
       "type": "default",
