@@ -1,0 +1,161 @@
+"""Régressions du parcours wizard -> déploiement -> catalogue LiteLLM."""
+import base64
+import contextlib
+import io
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+import deploy
+import wizard
+import diagnose_litellm
+
+
+class RecordingRunner:
+    def __init__(self, failure=None):
+        self.mode = "local"
+        self.calls = []
+        self.manifests = []
+        self.failure = failure
+
+    def run(self, args, stdin_input=None, timeout=None):
+        self.calls.append((args, stdin_input))
+        if self.failure and args[:len(self.failure)] == self.failure:
+            return 1, "", "synthetic failure"
+        if args[:3] == ["get", "secret", "litellm-secret"]:
+            data = {k: base64.b64encode(v.encode()).decode() for k, v in {
+                "master-key": "sk-synthetic-existing-master",
+                "salt-key": "synthetic-salt", "db-password": "synthetic-password",
+                "openrouter-key": "sk-or-synthetic-existing",
+                "database-url": "postgresql://synthetic",
+            }.items()}
+            return 0, json.dumps({"data": data}), ""
+        return 0, "", ""
+
+    def apply_manifest(self, manifest):
+        self.manifests.append(manifest)
+
+
+class TestRoutingPipeline(unittest.TestCase):
+    def test_wizard_roundtrip_preserves_gateway_credentials_and_four_models(self):
+        cfg = {"llm_gateway": {
+            "master_key": "sk-synthetic-master", "salt_key": "synthetic-salt",
+            "db_password": "synthetic-db", "models_routing": [
+                {"alias": f"simple/model-{i}", "target_model": "openrouter/auto"}
+                for i in range(4)
+            ]}}
+        result = deploy.parse_simple_yaml(wizard.serialize_yaml_config(cfg))
+        for field in ("master_key", "salt_key", "db_password", "models_routing"):
+            self.assertEqual(result["llm_gateway"].get(field), cfg["llm_gateway"][field])
+
+    def test_explicit_agentic_mappings_are_not_dropped(self):
+        mappings = [
+            {"alias": "simple/free", "target_model": "openrouter/openrouter/free"},
+            {"alias": "simple/auto", "target_model": "openrouter/auto"},
+            {"alias": "agentic/free", "target_model": "openrouter/openrouter/free"},
+            {"alias": "agentic/auto", "target_model": "openrouter/auto"},
+        ]
+        config = deploy.build_litellm_config_data({"llm_gateway": {"models_routing": mappings}})
+        self.assertEqual(config.count("model_name:"), 4)
+
+    def test_deployment_reaches_dynamic_catalogue_and_preserves_identity(self):
+        runner = RecordingRunner()
+        cfg = {"kubernetes": {"namespace": "arcia"}, "network": {"tls_mode": "disabled"},
+               "llm_gateway": {"models_routing": [
+                   {"alias": "simple/synthetic", "target_model": "openrouter/auto"}
+               ]}}
+        with tempfile.TemporaryDirectory() as directory:
+            # Read generic sources from the real harness; no instance file exists here.
+            for name in ("services", "deploy", "assets", "skills"):
+                import shutil
+                shutil.copytree(ROOT / name, Path(directory) / name)
+            with patch.object(deploy, "K8sRunner", return_value=runner), contextlib.redirect_stdout(io.StringIO()):
+                deploy.deploy_arcia(cfg, directory)
+        manifests = "\n".join(runner.manifests)
+        self.assertIn('model_name: "simple/synthetic"', manifests)
+        self.assertIn('master-key: "sk-synthetic-existing-master"', manifests)
+        self.assertIn('salt-key: "synthetic-salt"', manifests)
+        self.assertIn('db-password: "synthetic-password"', manifests)
+        self.assertTrue(any(args[:2] == ["rollout", "status"] for args, _ in runner.calls))
+        first_proxy_manifest = next(m for m in runner.manifests if "name: litellm-proxy" in m and "kind: Deployment" in m)
+        self.assertIn('model_name: "simple/synthetic"', first_proxy_manifest)
+        self.assertIn("checksum/litellm-config:", first_proxy_manifest)
+        self.assertIn("checksum/litellm-secret:", first_proxy_manifest)
+
+    def test_sync_refuses_to_claim_success_when_restart_fails(self):
+        runner = RecordingRunner(failure=["rollout", "restart"])
+        self.assertFalse(wizard.sync_litellm_configmap({}, runner, "arcia"))
+
+    def test_sync_refuses_to_claim_success_when_rollout_fails(self):
+        runner = RecordingRunner(failure=["rollout", "status"])
+        self.assertFalse(wizard.sync_litellm_configmap({}, runner, "arcia"))
+
+    def test_litellm_token_has_required_proxy_key_prefix(self):
+        self.assertTrue(wizard.generate_token("litellm").startswith("sk-"))
+
+    def test_diagnostic_executes_probe_without_exposing_credentials(self):
+        cfg = {"llm_gateway": {"models_routing": [{"alias": "simple/test", "target_model": "openrouter/auto"}]}}
+        config = deploy.build_litellm_config_data(cfg)
+
+        class ProbeRunner(RecordingRunner):
+            def run(self, args, stdin_input=None, timeout=None):
+                if args[:2] == ["get", "configmap"]:
+                    return 0, json.dumps({"data": {"config.yaml": config}}), ""
+                if args[0] == "exec":
+                    # Execute the actual transferred program with only HTTP replaced.
+                    output = io.StringIO()
+                    response = unittest.mock.MagicMock()
+                    response.status = 200
+                    response.read.return_value = b'{"data":[{"id":"simple/test","model_name":"simple/test"}]}'
+                    response.__enter__.return_value = response
+                    with patch.dict(os.environ, {"LITELLM_MASTER_KEY": "sk-synthetic-existing-master"}), \
+                            patch("urllib.request.urlopen", return_value=response), \
+                            patch.object(Path, "read_bytes", return_value=config.encode()), \
+                            contextlib.redirect_stdout(output):
+                        try:
+                            exec(stdin_input, {})
+                        except Exception:
+                            return 1, "", "probe failed"
+                    return 0, output.getvalue(), ""
+                return super().run(args, stdin_input, timeout)
+
+        result = diagnose_litellm.diagnose(cfg, ProbeRunner())
+        self.assertTrue(result["pod_probe_ok"])
+        self.assertTrue(result["pod_master_matches_secret"])
+        self.assertEqual(result["models_http_status"], 200)
+        self.assertEqual(result["admin_models_count"], 1)
+        self.assertNotIn("sk-synthetic", json.dumps(result))
+
+    def test_model_alias_takes_precedence_over_display_name(self):
+        config = deploy.build_litellm_config_data({"llm_gateway": {"models_routing": [
+            {"name": "Chat", "alias": "simple/chat", "target_model": "openrouter/auto"}
+        ]}})
+        self.assertIn('model_name: "simple/chat"', config)
+
+    def test_provider_keys_are_updated_without_replacing_master_salt_or_db(self):
+        runner = RecordingRunner()
+        cfg = {"llm_gateway": {"openai_api_key": "sk-synthetic-openai"}}
+        wizard.sync_litellm_configmap(cfg, runner, "arcia")
+        updates = [json.loads(m) for m in runner.manifests if m.startswith('{')]
+        secret = next((m for m in updates if m.get("kind") == "Secret"), {})
+        self.assertEqual(secret.get("data", {}).get("openai-key"), base64.b64encode(b"sk-synthetic-openai").decode())
+        self.assertEqual(secret.get("data", {}).get("master-key"), base64.b64encode(b"sk-synthetic-existing-master").decode())
+
+    def test_routing_save_reports_local_only_when_cluster_unavailable(self):
+        runner = RecordingRunner(failure=["get", "namespace"])
+        with tempfile.TemporaryDirectory() as directory, patch.object(wizard, "ROOT_DIR", directory), \
+                patch.object(wizard, "get_k8s_runner", return_value=runner):
+            result = wizard.save_model_routing_config({"mappings": []}, str(Path(directory) / "config.yaml"))
+        self.assertTrue(result["success"])
+        self.assertFalse(result["cm_synced"])
+        self.assertIn("non appliqué", result["message"])
+
+
+if __name__ == "__main__":
+    unittest.main()

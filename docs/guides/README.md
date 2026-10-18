@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Guides-15_Références_Techniques-6BE7DD?style=flat-square&logoColor=050712" alt="15 Guides">
 </p>
@@ -8,7 +8,7 @@
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **Guides Techniques**
 
-Ce répertoire rassemble les **15 guides thématiques** qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.5.1**.
+Ce répertoire rassemble les **15 guides thématiques** qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.5.2**.
 
 ---
 

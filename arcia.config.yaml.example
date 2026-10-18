@@ -87,7 +87,20 @@ llm_gateway:
   openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
   # Clé maître de la passerelle LiteLLM (pour administrer les clés virtuelles et budgets)
-  master_key: "sk-arcia-master-key-change-me-32b"
+  # Vide : préserver le Secret existant, ou générer une clé sk-arcia-* à l'installation.
+  master_key: ""
+  salt_key: ""
+  db_password: ""
+
+  # Fournisseurs directs optionnels (injectés dans litellm-secret et le pod).
+  openai_api_key: ""
+  anthropic_api_key: ""
+  mistral_api_key: ""
+  gemini_api_key: ""
+
+  # Mappings explicites du wizard ; [] conserve le catalogue par défaut.
+  # Chaque alias explicite, y compris agentic/*, devient une entrée model_list.
+  models_routing: []
 
   # Modèle d'entreprise par défaut dans Open-WebUI et Teams :
   # Catalogue canonique v0.4 (5 profils) :

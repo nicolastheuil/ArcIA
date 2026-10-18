@@ -30,25 +30,15 @@
       "type": "local",
       "badge": "Liseret doré (Local souverain)"
     },
-    "LLM Standard": {
+    "LLM Nemotron": {
       "icon": "/static/icon-model-default.svg",
       "type": "default",
       "badge": "aIA classique (Défaut)"
     },
-    "LLM Auto (ZDR)": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "Agentic Standard": {
+    "Agentic Nemotron": {
       "icon": "/static/icon-model-default.svg",
       "type": "default",
       "badge": "aIA classique (Défaut)"
-    },
-    "Agentic Auto (ZDR)": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
     }
   },
   "default_icon": "/static/icon-model-default.svg",

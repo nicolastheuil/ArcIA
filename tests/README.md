@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Tests-141_Unit_&_Integration_Checks-10B981?style=flat-square" alt="141 Tests">
   <img src="https://img.shields.io/badge/Docs_Validator-100%25_Links_Checked-6BE7DD?style=flat-square&logoColor=050712" alt="Docs Validated">
 </p>
@@ -8,7 +8,7 @@
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Tests (`tests/`)**
 
-Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.5.1**.
+Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.5.2**.
 
 ---
 

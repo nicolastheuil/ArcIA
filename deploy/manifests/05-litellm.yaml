@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.1 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
+# ArcIA v0.5.2 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
 # Catalogue canonique :
 #   - Direct LiteLLM : simple/free, simple/auto
 #   - Moteur Hermes  : agentic/free, agentic/auto, agentic/expert
@@ -97,6 +97,8 @@ spec:
         app: litellm-proxy
       annotations:
         checksum/litellm-error-handler: "default"
+        checksum/litellm-config: "default"
+        checksum/litellm-secret: "default"
     spec:
       containers:
       - name: litellm
@@ -119,6 +121,30 @@ spec:
             secretKeyRef:
               name: litellm-secret
               key: master-key
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: openai-key
+              optional: true
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: anthropic-key
+              optional: true
+        - name: MISTRAL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: mistral-key
+              optional: true
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secret
+              key: gemini-key
+              optional: true
         - name: LITELLM_SALT_KEY
           valueFrom:
             secretKeyRef:

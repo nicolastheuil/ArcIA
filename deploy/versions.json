@@ -1,17 +1,17 @@
 {
-  "arcia_release": "v0.5.1",
-  "arcia_version": "v0.5.1",
+  "arcia_release": "v0.5.2",
+  "arcia_version": "v0.5.2",
   "published_at": "2026-10-18",
   "channel": "stable",
   "repository": "nicolastheuil/ArcIA",
   "components": {
     "arcia-core": {
-      "version": "v0.5.1",
+      "version": "v0.5.2",
       "image": "nicolastheuil/ArcIA",
-      "release_notes": "Routage dynamique LiteLLM, timeline de sauvegarde Git, sondes de connectivité SSO/Teams et support validation ACME."
+      "release_notes": "Alignement OpenWebUI v0.12.3, Hermes Agent v0.22.2, Presidio DLP 2.2.364 et routage robuste LiteLLM."
     },
     "presidio-dlp": {
-      "version": "2.2.355",
+      "version": "2.2.364",
       "image": "python:3.11-slim",
       "release_notes": "Règles PII françaises enrichies et rejet fail-closed des secrets PEM/SSH."
     },
@@ -36,9 +36,9 @@
       "release_notes": "Adaptateur Bot Framework Microsoft Teams avec délégation /agent vers Hermes."
     },
     "open-webui": {
-      "version": "v0.5.10",
-      "image": "ghcr.io/open-webui/open-webui:v0.5.10",
-      "release_notes": "Portail collaborateur hybride avec routage switch simple/agentic et RAG."
+      "version": "v0.12.3",
+      "image": "ghcr.io/open-webui/open-webui:v0.12.3",
+      "release_notes": "Portail collaborateur hybride avec chiffrement de bout en bout (MLS), routage des modèles et RAG."
     }
   },
   "version_registry": {

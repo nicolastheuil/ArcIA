@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Documentation-Hub_Central-6BE7DD?style=flat-square&logoColor=050712" alt="Documentation Hub">
   <img src="https://img.shields.io/badge/Liens_Vérifiés-validate__docs.py-10B981?style=flat-square" alt="Liens Vérifiés">
 </p>
@@ -18,7 +18,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 | Document | Portée & Contenu |
 |---|---|
 | 📐 **[Architecture Technique](architecture.md)** | Topologie Kubernetes complète, schémas détaillés des Pods/Services, routage hybride, stockage CSI et carte du code |
-| 📊 **[État des Fonctionnalités](etat-des-fonctionnalites.md)** | Tableau de bord de traçabilité v0.5.1, matrice de qualification et durcissements de sécurité |
+| 📊 **[État des Fonctionnalités](etat-des-fonctionnalites.md)** | Tableau de bord de traçabilité v0.5.2, matrice de qualification et durcissements de sécurité |
 | 🤖 **[Charte d'Ingénierie (`AGENTS.md`)](../AGENTS.md)** | Règles d'architecture, séparation socle générique / dépôt d'instance et exigences de qualification |
 
 ---

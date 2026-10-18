@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ArcIA v0.5.1 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
+ArcIA v0.5.2 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
 
 Permet de déployer, gérer, suspendre et supprimer des environnements Hermes Agent
 dédiés par utilisateur directement dans le cluster Kubernetes.
@@ -543,7 +543,7 @@ def cmd_destroy(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ArcIA v0.5.1 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
+    parser = argparse.ArgumentParser(description="ArcIA v0.5.2 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
     parser.add_argument("--namespace", default="arcia", help="Namespace Kubernetes cible")
     parser.add_argument("--fqdn", default=None, help="FQDN public de la plateforme (ex: assistant.entreprise.com)")
 

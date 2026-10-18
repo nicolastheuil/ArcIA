@@ -22,6 +22,10 @@ class TestArcIAWizard(unittest.TestCase):
     def setUp(self):
         self.root_dir = SCRIPT_DIR
         self.config_example_path = os.path.join(self.root_dir, "arcia.config.yaml.example")
+        # Les fixtures ne doivent jamais découvrir un cluster privé du poste.
+        ssh = patch("deploy.find_harness_ssh", return_value=(None, None))
+        ssh.start()
+        self.addCleanup(ssh.stop)
 
     def test_generate_token_kinds(self):
         """Vérifie la génération de tokens cryptographiques pour chaque usage."""
@@ -348,7 +352,8 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertIn("ssh_key", cfg["kubernetes"]["remote_ssh"])
         cfg["kubernetes"]["remote_ssh"]["ssh_key"] = "C:\\Users\\test\\.ssh\\id_ed25519"
         yaml_text = wizard.serialize_yaml_config(cfg)
-        self.assertIn('ssh_key: "C:\\Users\\test\\.ssh\\id_ed25519"', yaml_text)
+        parsed = deploy.parse_simple_yaml(yaml_text)
+        self.assertEqual(parsed["kubernetes"]["remote_ssh"]["ssh_key"], cfg["kubernetes"]["remote_ssh"]["ssh_key"])
 
     def test_audit_diagnoses_ssh_permission_denied(self):
         """Vérifie que l'audit K8s diagnostique précisément un échec d'authentification SSH."""
@@ -1045,17 +1050,14 @@ llm_gateway:
 
         res = wizard.sync_litellm_configmap(cfg, mock_runner, "arcia")
         self.assertTrue(res)
-        self.assertEqual(mock_runner.run.call_count, 2)
+        self.assertEqual(mock_runner.run.call_count, 3)
         call_args = mock_runner.run.call_args_list[0][0][0]
-        self.assertEqual(call_args[0], "patch")
-        self.assertEqual(call_args[1], "configmap")
-        self.assertEqual(call_args[2], "litellm-config")
+        self.assertEqual(call_args, ["apply", "-f", "-"])
 
         restart_args = mock_runner.run.call_args_list[1][0][0]
         self.assertEqual(restart_args[:3], ["rollout", "restart", "deployment/litellm-proxy"])
 
-        patch_idx = call_args.index("-p") + 1
-        patch_json = json.loads(call_args[patch_idx])
+        patch_json = json.loads(mock_runner.run.call_args_list[0].kwargs["stdin_input"])
         config_yaml = patch_json["data"]["config.yaml"]
 
         self.assertIn('model_name: "simple/auto"', config_yaml)
@@ -1330,7 +1332,8 @@ llm_gateway:
 
     def test_vmware_ssh_key_generation_native(self):
         """Vérifie la génération autonome d'une paire de clés SSH Ed25519 OpenSSH."""
-        res = wizard.generate_ssh_key_pair("test_ed25519_unit")
+        with tempfile.TemporaryDirectory() as directory, patch("wizard.os.path.expanduser", return_value=directory):
+            res = wizard.generate_ssh_key_pair("test_ed25519_unit")
         self.assertTrue(res.get("success"), res.get("error"))
         self.assertTrue(res.get("public_key", "").startswith("ssh-ed25519 "))
         self.assertIn("BEGIN OPENSSH PRIVATE KEY", res.get("private_key", ""))
@@ -1387,7 +1390,9 @@ llm_gateway:
                     {"name": "local/model", "alias": "local/model", "provider": "ollama", "target_model": "ollama/llama3", "zdr": False}
                 ]
             }
-            res = wizard.save_model_routing_config(payload, cfg_path=tmp_path)
+            with patch("wizard.get_k8s_runner") as get_runner:
+                get_runner.return_value.run.return_value = (1, "", "synthetic offline")
+                res = wizard.save_model_routing_config(payload, cfg_path=tmp_path)
             self.assertTrue(res.get("success"))
             self.assertTrue(os.path.isfile(mb_path))
             with open(mb_path, "r", encoding="utf-8") as f:

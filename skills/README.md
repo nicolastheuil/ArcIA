@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Skills-Catalogue_Souverain-6BE7DD?style=flat-square&logoColor=050712" alt="Catalogue Skills">
   <img src="https://img.shields.io/badge/Air--Gapped-Compatible-10B981?style=flat-square" alt="Air-Gapped">
 </p>

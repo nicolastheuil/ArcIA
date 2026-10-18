@@ -1,6 +1,6 @@
-# Quickstart ArcIA v0.5.1
+# Quickstart ArcIA v0.5.2
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.1** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.2** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
@@ -128,6 +128,13 @@ Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
 
 ## 3. Configuration de LiteLLM et catalogue des 5 profils canoniques
 
+Si l'onglet **Models** de LiteLLM retourne `token_not_found_in_db`, commencez par
+renouveler la session d'administration. Vérifiez ensuite le parcours avec
+`python scripts/diagnose_litellm.py --config arcia.config.yaml` : aucune inférence
+ni modification de ressource, aucune clé affichée. Consultez le
+[diagnostic du catalogue et de la session LiteLLM](../guides/inference-litellm.md#diagnostic-du-catalogue-et-de-la-session-dadministration)
+avant de redémarrer ou de réappliquer une configuration différente.
+
 ### Où renseigner les clés d'entreprise ?
 
 La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèles et masque les clés d'API derrière des profils virtuels sécurisés :
@@ -152,7 +159,7 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
 
 ### Les 5 profils canoniques disponibles
 
-Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.1** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
+Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.2** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
 - **`simple/free`** : Chat direct rapide sans coût via OpenRouter Free (`openrouter/openrouter/free`).
 - **`simple/auto`** *(Défaut)* : Chat direct polyvalent équilibrant performance et coût (`openrouter/auto`).
 - **`agentic/free`** : Session autonome Hermes outillée sur palier gratuit (`openrouter/openrouter/free`).

@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Secrets-AES--256--GCM_&_K8s_Secrets-FA7B4E?style=flat-square" alt="Secrets">
   <img src="https://img.shields.io/badge/Git_Safety-Zero_Plaintext-10B981?style=flat-square" alt="Zero Plaintext">
 </p>

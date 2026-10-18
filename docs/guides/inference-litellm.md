@@ -1,12 +1,12 @@
-# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.1)
+# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.2)
 
-> **Statut : Implémenté (v0.5.1)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les composants de la plateforme ArcIA (Open-WebUI en flux directs `simple/*`, Hermes Agent pour les flux `agentic/*`, Bot Teams, ainsi que les pods dédiés des Power Users).
 
 ---
 
-## 1. Rôles et architecture v0.5.1
+## 1. Rôles et architecture v0.5.2
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
@@ -35,7 +35,7 @@ Le service est déployé via :
 
 ---
 
-## 3. Configuration du routage v0.5.1
+## 3. Configuration du routage v0.5.2
 
 Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles et le guardrail Presidio :
 
@@ -150,6 +150,53 @@ La connexion requiert la **Master Key** cryptographique générée au déploieme
 
 ---
 
+## Diagnostic du catalogue et de la session d'administration
+
+Une erreur `token_not_found_in_db` dans l'onglet **Models** signifie que le jeton
+présenté par le navigateur n'est pas reconnu par le proxy. Elle ne prouve pas que
+`model_list` est vide. Les clés fournisseurs (OpenRouter, OpenAI, etc.), la clé
+maître LiteLLM et les jetons de session ou clés virtuelles ont des rôles distincts.
+
+1. Déconnectez la session LiteLLM, puis ouvrez `/ui/` dans une fenêtre privée et
+   reconnectez-vous avec le compte administrateur et la clé maître **actuelle**
+   du Secret `litellm-secret` (sauf mot de passe UI personnalisé). Utilisez un outil
+   local protégé ou le presse-papiers ; ne collez aucune clé dans le chat.
+2. Lancez le diagnostic en lecture seule depuis le dépôt utilisé par le wizard :
+
+   ```powershell
+   python scripts/diagnose_litellm.py --config arcia.config.yaml
+   ```
+
+   Le diagnostic compare le nombre de mappings locaux, la ConfigMap, le fichier
+   monté dans le pod, la clé maître du Secret et celle du pod, puis interroge
+   `/v1/models` et `/model/info` avec cette dernière. Il ne réalise aucune
+   inférence, ne modifie aucune ressource et ne restitue que des compteurs,
+   codes HTTP et comparaisons. `null` signifie qu'une vérification est indisponible.
+   Il inspecte un pod du Deployment ; en cas de rollout en cours, contrôler aussi
+   les autres répliques avant de conclure à une convergence complète.
+3. Deux réponses HTTP 200 avec la clé du pod, associées à un 401 dans le navigateur,
+   orientent vers le jeton du navigateur. Un champ `pod_master_matches_secret`
+   faux signale une variable d'environnement périmée. Un champ
+   `mounted_config_matches_configmap` faux signale une différence de fichier
+   (contenu ou format) : le montage `subPath` ne se recharge pas à chaud.
+4. Comparez `models_unique_count` et `admin_models_unique_count` aux compteurs
+   d'entrées : plusieurs déploiements peuvent partager le même alias. Avec les
+   modèles YAML et ceux persistés en base, quatre entrées ne signifient donc pas
+   forcément quatre alias distincts. Le wizard reste la source déclarative ;
+   n'effacez pas la base pour corriger une session invalide.
+5. Avant toute réapplication, vérifiez le fichier d'instance et les mappings à
+   conserver. Enregistrez ensuite le routage depuis le wizard corrigé. Il pousse
+   le catalogue et les clés fournisseurs, préserve la clé maître, le sel et les
+   identifiants PostgreSQL, puis vérifie le redémarrage et le rollout. Une
+   sauvegarde locale sans application au cluster est explicitement signalée.
+
+Le déploiement headless rend la ConfigMap dynamique **avant** le Deployment et
+annote son PodTemplate avec les empreintes du catalogue et du Secret : une
+réapplication déclenche le chargement des changements. La sauvegarde du wizard
+conserve `master_key`, `salt_key`, `db_password` et tous les mappings explicites.
+Les alias priment sur les noms d'affichage ; deux routes agentiques explicites
+ne sont plus supprimées au profit d'alias implicites.
+
 ## 5. Gestion des clés virtuelles et budgets
 
 L'administration des clés virtuelles nominatives s'effectue via le portail UI (onglet **Virtual Keys**) ou via le script [scripts/arcia_keys.py](../../scripts/arcia_keys.py) :
@@ -194,5 +241,5 @@ LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([service
 Voir également :
 - [Chaîne de routage complète et cycle de vie d'une requête](chaine-de-routage.md)
 - [Gouvernance et confidentialité Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.5.1](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.5.2](../etat-des-fonctionnalites.md)
 - [Quickstart et configuration pratique](../runbooks/quickstart.md)

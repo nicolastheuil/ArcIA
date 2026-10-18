@@ -1,6 +1,6 @@
-# ArcIA v0.5.1 — État réel des fonctionnalités et traçabilité
+# ArcIA v0.5.2 — État réel des fonctionnalités et traçabilité
 
-Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique initial et consigne leur statut officiel dans la version **v0.5.1**.
+Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique initial et consigne leur statut officiel dans la version **v0.5.2**.
 
 La documentation d'ArcIA respecte une stricte transparence entre l'existant prouvé par le code et les cibles futures.
 
@@ -29,7 +29,7 @@ La documentation d'ArcIA respecte une stricte transparence entre l'existant prou
 | **17**| « Hermes Studio » confondu avec un projet tiers | **Clarifié (v0.4)** | Studio documenté comme le tableau de bord officiel `hermes dashboard`. |
 | **18**| Plugin Tokenmaxing non chargeable (pas de `register(ctx)`) | **Résolu (v0.4)** | `services/hermes/plugin.py` implémente `register(ctx)` avec double barrière DLP fail-closed, compression réversible CCR (cache SHA-256 + `arcia_restore_tool_result`) et compaction RTK `git log`. |
 | **19**| Mode Power User et pods dédiés non harmonisés | **Résolu (v0.4)** | Simplification en 2 profils (Utilisateurs Standards & Power Users) avec pods Hermes dédiés sur K8s (`.\scripts\Spawn-PowerUser.ps1`) et accès `/v1` (`scripts/arcia_keys.py`). |
-| **20**| Serveurs MCP `arcia_knowledge` et ChromaDB 50Gi dédiés absents | **Cible (v0.5.1)** | RAG embarqué dans Open-WebUI. Les connecteurs MCP dédiés sont gérés nativement dans le Setup Wizard et le catalogue de compétences. |
+| **20**| Serveurs MCP `arcia_knowledge` et ChromaDB 50Gi dédiés absents | **Cible (v0.5.2)** | RAG embarqué dans Open-WebUI. Les connecteurs MCP dédiés sont gérés nativement dans le Setup Wizard et le catalogue de compétences. |
 | **21**| Synchronisation non contrôlée de skills externes en tâche de fond | **Résolu (v0.4)** | Suppression du CronJob automatique. Synchronisation contrôlée via `scripts/Sync-Skills.ps1` / `skills/sync-skills.sh` et compétences natives montées par ConfigMap. |
 | **22**| Duplication du code Python entre `services/` et les ConfigMaps K8s | **Résolu (v0.4)** | Source unique dans `services/*/app.py` et `plugin.py`, synchronisée automatiquement en ConfigMaps par `scripts/deploy.py` (`sync_service_configmaps`). |
 | **23**| Versions officielles annoncées mais images flottantes (`:main`, `:latest`) | **Résolu (v0.4)** | Versions épinglées avec tags stables (`berriai/litellm:main-v1.72.6-stable`, `open-webui:v0.5.10`, `hermes-agent:v0.2.0`, `postgres:16-alpine`). |
@@ -39,7 +39,15 @@ La documentation d'ArcIA respecte une stricte transparence entre l'existant prou
 
 ---
 
-## Profils utilisateurs v0.5.1
+## Profils utilisateurs v0.5.2
+
+Le parcours wizard → fichier d'instance → ConfigMap → pod LiteLLM dispose de
+tests de régression synthétiques dans `tests/test_routing_pipeline.py` :
+conservation des identifiants, des mappings explicites et des alias, déploiement
+jusqu'au catalogue dynamique, contrôle des échecs de restart/rollout et diagnostic
+sans restitution des clés. Ces tests ne constituent pas une recette sur cluster
+neuf. Le [guide LiteLLM](guides/inference-litellm.md#diagnostic-du-catalogue-et-de-la-session-dadministration)
+distingue un catalogue inaccessible par session invalide d'un catalogue absent.
 
 | Profil | Environnements & canaux | Modèles configurés à l'installation | Isolation & persistance | Contrôle DLP |
 |---|---|---|---|---|
@@ -48,7 +56,7 @@ La documentation d'ArcIA respecte une stricte transparence entre l'existant prou
 
 ---
 
-## Synthèse des durcissements de sécurité (v0.5.1)
+## Synthèse des durcissements de sécurité (v0.5.2)
 
 | Domaine | Mesure appliquée | Fichiers et manifests | Bénéfice de sécurité |
 |---|---|---|---|

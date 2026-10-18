@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Microservices-Python_3.11-6BE7DD?style=flat-square&logo=python&logoColor=050712" alt="Python 3.11">
   <img src="https://img.shields.io/badge/Sync-Zero_Duplication_ConfigMaps-10B981?style=flat-square" alt="Zero Duplication">
 </p>
@@ -8,7 +8,7 @@
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Microservices (`services/`)**
 
-Ce dossier regroupe le code source de référence et les `Dockerfile` des microservices et plugins développés sur mesure pour la plateforme **ArcIA v0.5.1**.
+Ce dossier regroupe le code source de référence et les `Dockerfile` des microservices et plugins développés sur mesure pour la plateforme **ArcIA v0.5.2**.
 
 ---
 

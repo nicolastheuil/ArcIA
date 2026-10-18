@@ -1,6 +1,6 @@
-# Presidio DLP — gouvernance et double barrière de confidentialité (v0.5.1)
+# Presidio DLP — gouvernance et double barrière de confidentialité (v0.5.2)
 
-> **Statut : Implémenté (v0.5.1)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 Presidio DLP est la brique de sécurité de premier plan d'ArcIA. Elle garantit qu'aucune information personnelle identifiable (PII), clé d'API, mot de passe, adresse IP ou identifiant d'infrastructure d'entreprise n'est persistée en clair ni transmise vers des modèles d'IA hébergés dans le cloud.
 

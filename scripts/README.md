@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.1-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Automation-PowerShell_&_Python_3.11-6BE7DD?style=flat-square&logoColor=050712" alt="Automation">
   <img src="https://img.shields.io/badge/Updates-Zero--Downtime_Engine-FA7B4E?style=flat-square" alt="Zero-Downtime Engine">
 </p>
@@ -9,6 +9,12 @@
 > **[🏠 Accueil ArcIA](../README.md)** › **Scripts & Outillage (`scripts/`)**
 
 Ce dossier regroupe les moteurs d'installation, le centre de mise à jour Zero-Downtime, les gestionnaires de Pods Power Users et les outils de validation de la plateforme **ArcIA**.
+
+Le [diagnostic LiteLLM](diagnose_litellm.py) s'exécute avec
+`python scripts/diagnose_litellm.py --config arcia.config.yaml`. Il vérifie en
+lecture seule les mappings, la ConfigMap, le pod et les API de catalogue sans
+afficher de clé ni appeler un fournisseur. Voir le
+[runbook de diagnostic](../docs/guides/inference-litellm.md#diagnostic-du-catalogue-et-de-la-session-dadministration).
 
 ---
 

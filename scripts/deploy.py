@@ -145,6 +145,9 @@ def parse_env_format(content: str) -> Dict[str, Any]:
         "llm_gateway": {
             "openrouter_api_key": env.get("OPENROUTER_API_KEY", ""),
             "master_key": env.get("LITELLM_MASTER_KEY", ""),
+            "salt_key": env.get("LITELLM_SALT_KEY", ""),
+            "db_password": env.get("LITELLM_DB_PASSWORD", ""),
+            **{f"{p}_api_key": env.get(f"{p.upper()}_API_KEY", "") for p in ("openai", "anthropic", "mistral", "gemini")},
             "default_model": env.get("ARCIA_DEFAULT_MODEL", "simple/auto"),
             "local_vllm_endpoint": env.get("VLLM_INTERNAL_URL", ""),
         },
@@ -259,10 +262,14 @@ def cast_scalar(val: str) -> Any:
     if val.lower() == "false":
         return False
     if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+        if val.startswith('"'):
+            try:
+                return json.loads(val)
+            except ValueError:
+                pass
         return val[1:-1]
     if (val.startswith("[") and val.endswith("]")) or (val.startswith("{") and val.endswith("}")):
         try:
-            import json
             return json.loads(val)
         except Exception:
             pass
@@ -684,7 +691,7 @@ def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: s
       hidden: true"""
     else:
         for m in mappings:
-            name = m.get("name") or m.get("alias", "")
+            name = m.get("alias") or m.get("name", "")
             if not name:
                 continue
             target = m.get("target_model") or m.get("real_model", "")
@@ -694,9 +701,6 @@ def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: s
 
             if fallbacks:
                 fallbacks_map[name] = [f for f in fallbacks if f]
-
-            if name in ("agentic/free", "agentic/auto") and target in ("openrouter/openrouter/free", "openrouter/auto"):
-                continue
 
             api_key_var = "os.environ/OPENROUTER_API_KEY"
             if prov == "openai":
@@ -740,21 +744,21 @@ def build_litellm_config_data(cfg: Optional[Dict[str, Any]] = None, namespace: s
                 fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
         fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
 
-        defined_names = {m.get("name") or m.get("alias", "") for m in mappings}
+        defined_names = {m.get("alias") or m.get("name", "") for m in mappings}
         alias_entries = []
-        default_simple = llm_cfg.get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple"), None)
+        default_simple = llm_cfg.get("default_model") or next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "simple"), None)
         if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
             alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
 
-        free_simple = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
+        free_simple = next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
         if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
             alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
 
-        default_agentic = cfg.get("hermes", {}).get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic"), default_simple)
+        default_agentic = cfg.get("hermes", {}).get("default_model") or next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "agentic"), default_simple)
         if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
             alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
 
-        free_agentic = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
+        free_agentic = next((m.get("alias") or m.get("name") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
         if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
             alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
 
@@ -909,6 +913,37 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
 # -----------------------------------------------------------------------------
+def sync_litellm_provider_secrets(cfg: Dict[str, Any], runner, namespace: str) -> None:
+    """Met à jour les clés fournisseurs par stdin en préservant l'identité du proxy."""
+    updates = {p.replace("_", "-") + "-key": str(cfg.get("llm_gateway", {}).get(p + "_api_key", "")).strip()
+               for p in ("openrouter", "openai", "anthropic", "mistral", "gemini")}
+    updates = {k: v for k, v in updates.items() if v}
+    if not updates:
+        return
+    rc, out, _ = runner.run(["get", "secret", "litellm-secret", f"-n={namespace}", "-o", "json"], timeout=10)
+    if rc != 0:
+        raise RuntimeError("Secret LiteLLM inaccessible ; aucune identité remplacée.")
+    data = json.loads(out).get("data", {})
+    if not all(data.get(k) for k in ("master-key", "salt-key", "database-url")):
+        raise RuntimeError("Secret LiteLLM incomplet ; réappliquez le déploiement.")
+    data.update({k: base64.b64encode(v.encode("utf-8")).decode("ascii") for k, v in updates.items()})
+    runner.apply_manifest(json.dumps({"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+                                     "metadata": {"name": "litellm-secret", "namespace": namespace}, "data": data}))
+
+
+def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_name: str) -> Optional[str]:
+    """Lit un champ de Secret en mémoire sans l'afficher."""
+    try:
+        rc, out, _ = runner.run(["get", "secret", secret_name, f"-n={namespace}", "-o", "json"], timeout=10)
+        if rc == 0 and out.strip():
+            value = json.loads(out).get("data", {}).get(key_name)
+            if value:
+                return base64.b64decode(value.strip()).decode("utf-8")
+    except Exception:
+        pass
+    return None
+
+
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
     k8s_cfg = cfg.get("kubernetes", {})
     mode = k8s_cfg.get("mode", "local")
@@ -994,19 +1029,6 @@ metadata:
         "arcia-presidio-master-key"
     }
 
-def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_name: str) -> Optional[str]:
-    """Récupère et décode en toute sécurité la valeur d'une clé (y compris avec tirets) dans un Secret Kubernetes."""
-    try:
-        rc_s, out_s, _ = runner.run(["get", "secret", secret_name, f"-n={namespace}", "-o", "json"])
-        if rc_s == 0 and out_s.strip():
-            sec_json = json.loads(out_s)
-            val_b64 = sec_json.get("data", {}).get(key_name)
-            if val_b64:
-                return base64.b64decode(val_b64.strip()).decode("utf-8")
-    except Exception:
-        pass
-    return None
-
     def _get_existing_cluster_secret(secret_name: str, key_name: str) -> Optional[str]:
         return get_existing_cluster_secret(runner, namespace, secret_name, key_name)
 
@@ -1048,13 +1070,16 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
 
     litellm_db_url = f"postgresql://litellm:{litellm_db_pass}@litellm-db.{namespace}.svc:5432/litellm"
 
-    runner.apply_manifest(make_secret_manifest("litellm-secret", namespace, {
+    litellm_secret_data = {
         "master-key": litellm_master,
         "salt-key": litellm_salt,
         "db-password": litellm_db_pass,
         "openrouter-key": openrouter_key,
         "database-url": litellm_db_url
-    }))
+    }
+    for provider in ("openai", "anthropic", "mistral", "gemini"):
+        litellm_secret_data[f"{provider}-key"] = llm_cfg.get(f"{provider}_api_key") or _get_existing_cluster_secret("litellm-secret", f"{provider}-key") or ""
+    runner.apply_manifest(make_secret_manifest("litellm-secret", namespace, litellm_secret_data))
 
     # 3. hermes-gateway-secret
     hermes_key = hermes_cfg.get("api_token", "")
@@ -1146,9 +1171,7 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
         litellm_yaml = litellm_yaml.replace("http://vllm-internal.corp.local:8000/v1", local_vllm)
     litellm_hash = code_checksums.get("litellm-error-handler", "v04")
     litellm_yaml = litellm_yaml.replace('checksum/litellm-error-handler: "default"', f'checksum/litellm-error-handler: "{litellm_hash}"')
-    runner.apply_manifest(adapt_manifest_namespace(litellm_yaml, namespace))
-
-    # Injection dynamique du catalogue de modèles configuré dans le ConfigMap litellm-config
+    # Le catalogue doit précéder la création du pod (montage subPath figé).
     dynamic_litellm_cm = build_litellm_config_data(cfg, namespace=namespace)
     indented_litellm_cm = textwrap.indent(dynamic_litellm_cm, "    ")
     litellm_cm_manifest = f"""apiVersion: v1
@@ -1160,7 +1183,15 @@ data:
   config.yaml: |
 {indented_litellm_cm}
 """
-    runner.apply_manifest(litellm_cm_manifest)
+    # Remplacer le ConfigMap statique dans le flux avant d'appliquer le Deployment.
+    _, separator, resources = litellm_yaml.partition("\n---\n")
+    if not separator:
+        raise RuntimeError("Manifeste LiteLLM incomplet : Deployment absent.")
+    config_hash = hashlib.sha256(dynamic_litellm_cm.encode("utf-8")).hexdigest()
+    secret_hash = hashlib.sha256(json.dumps(litellm_secret_data, sort_keys=True).encode("utf-8")).hexdigest()
+    resources = resources.replace('checksum/litellm-config: "default"', f'checksum/litellm-config: "{config_hash}"')
+    resources = resources.replace('checksum/litellm-secret: "default"', f'checksum/litellm-secret: "{secret_hash}"')
+    runner.apply_manifest(adapt_manifest_namespace(litellm_cm_manifest + "\n---\n" + resources, namespace))
     log_ok("Catalogue de modèles et routage LiteLLM synchronisés avec succès.")
 
     # C. Hermes Agent (Studio & Gateway Desktop)

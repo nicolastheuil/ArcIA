@@ -95,7 +95,9 @@ last_update_check_cache: Dict[str, Any] = {}
 
 def generate_token(kind: str) -> str:
     """Génère un jeton cryptographiquement sécurisé."""
-    if kind == "pat":
+    if kind == "litellm":
+        return "sk-arcia-" + secrets.token_urlsafe(32)
+    elif kind == "pat":
         return f"arcia-pat-{secrets.token_urlsafe(24)}"
     elif kind == "cookie":
         return secrets.token_urlsafe(32)
@@ -1556,8 +1558,7 @@ def serialize_yaml_config(cfg: Dict[str, Any]) -> str:
         return "true" if bool(val) else "false"
 
     def qstr(val: Any) -> str:
-        s = str(val or "")
-        return f'"{s}"'
+        return json.dumps(str(val or ""), ensure_ascii=False)
 
     def istr(val: Any, default: int = 22) -> int:
         try:
@@ -1607,6 +1608,9 @@ network:
 # 3. Passerelle IA & Fournisseurs LLM
 llm_gateway:
   openrouter_api_key: {qstr(llm.get('openrouter_api_key', ''))}
+  master_key: {qstr(llm.get('master_key', ''))}
+  salt_key: {qstr(llm.get('salt_key', ''))}
+  db_password: {qstr(llm.get('db_password', ''))}
   default_model: {qstr(llm.get('default_model', 'simple/auto'))}
   local_vllm_endpoint: {qstr(llm.get('local_vllm_endpoint', ''))}
   openai_api_key: {qstr(llm.get('openai_api_key', ''))}
@@ -1706,6 +1710,10 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
         try:
             with open(env_path, "w", encoding="utf-8") as f:
                 f.write(f"# ArcIA Environment Secrets - Auto-généré par le Wizard\n")
+                for field, env_name in (("master_key", "LITELLM_MASTER_KEY"), ("salt_key", "LITELLM_SALT_KEY"), ("db_password", "LITELLM_DB_PASSWORD")):
+                    value = cfg.get("llm_gateway", {}).get(field, "")
+                    if value:
+                        f.write(f"{env_name}={value}\n")
                 or_key = cfg.get('llm_gateway', {}).get('openrouter_api_key', '')
                 if or_key and not is_placeholder_key(or_key):
                     f.write(f"OPENROUTER_API_KEY={or_key}\n")
@@ -2078,7 +2086,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "services/ & skills/",
         "k8s_resource": "configmap/presidio-code,hermes-governance-plugin,teams-bot-code,arcia-native-skills",
         "default_image": "nicolastheuil/ArcIA",
-        "default_version": "v0.5.1",
+        "default_version": "v0.5.2",
         "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
         "wave": 1,
         "is_bumpable_image": False,
@@ -2093,7 +2101,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "deploy/manifests/03-presidio.yaml",
         "k8s_resource": "deployment/presidio-dlp",
         "default_image": "python:3.11-slim",
-        "default_version": "2.2.355",
+        "default_version": "2.2.364",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 2,
         "is_bumpable_image": False,
@@ -2107,8 +2115,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "oauth2-proxy/oauth2-proxy",
         "manifest": "deploy/manifests/02-oauth2-proxy.yaml",
         "k8s_resource": "deployment/oauth2-proxy",
-        "default_image": "quay.io/oauth2-proxy/oauth2-proxy:v7.6.0",
-        "default_version": "v7.6.0",
+        "default_image": "quay.io/oauth2-proxy/oauth2-proxy:v7.8.1",
+        "default_version": "v7.8.1",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /ping",
         "wave": 2,
         "is_bumpable_image": True,
@@ -2137,8 +2145,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "NousResearch/Hermes-Agent",
         "manifest": "deploy/manifests/06-hermes-agent.yaml",
         "k8s_resource": "deployment/hermes-agent",
-        "default_image": "nousresearch/hermes-agent:v0.2.0",
-        "default_version": "v0.2.0",
+        "default_image": "nousresearch/hermes-agent:v0.22.2",
+        "default_version": "v0.22.2",
         "strategy": "Mise à jour atomique + Préservation verrou SQLite state.db + Sync Power Users",
         "wave": 4,
         "is_bumpable_image": True,
@@ -2167,8 +2175,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "open-webui/open-webui",
         "manifest": "deploy/manifests/07-open-webui.yaml",
         "k8s_resource": "deployment/open-webui",
-        "default_image": "ghcr.io/open-webui/open-webui:v0.5.10",
-        "default_version": "v0.5.10",
+        "default_image": "ghcr.io/open-webui/open-webui:v0.12.3",
+        "default_version": "v0.12.3",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health",
         "wave": 5,
         "is_bumpable_image": True,
@@ -2222,7 +2230,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
     repo = local_data.get("repository", "nicolastheuil/ArcIA")
     remote_url = f"https://raw.githubusercontent.com/{repo}/main/deploy/versions.json"
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.1",
+        "User-Agent": "ArcIA-Update-Checker/0.5.2",
         "Accept": "application/json"
     }
     try:
@@ -2243,7 +2251,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
 def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
     """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.1",
+        "User-Agent": "ArcIA-Update-Checker/0.5.2",
         "Accept": "application/vnd.github.v3+json"
     }
     # 1. Essayer /releases/latest
@@ -2483,7 +2491,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         arcia_comp_ref = (arcia_catalog.get("components") or {}).get(cid, {})
         target_version = arcia_comp_ref.get("version") or comp["default_version"]
         target_image = arcia_comp_ref.get("image") or comp["default_image"]
-        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.1"
+        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.2"
         release_notes = arcia_comp_ref.get("release_notes", "")
         repo = arcia_catalog.get("repository", "nicolastheuil/ArcIA")
         release_url = f"https://github.com/{repo}/releases"
@@ -4062,7 +4070,9 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 
     msg_parts = ["Configuration du routage enregistrée avec succès."]
     if cm_synced:
-        msg_parts.append("ConfigMap LiteLLM synchronisé.")
+        msg_parts.append("ConfigMap LiteLLM synchronisé et redémarrage vérifié.")
+    else:
+        msg_parts.append("Routage non appliqué au cluster : vérifiez la cible Kubernetes et relancez la synchronisation. La sauvegarde locale est conservée.")
     if branding_synced:
         msg_parts.append("Icônes des modèles poussées dans Open-WebUI.")
 
@@ -4078,14 +4088,20 @@ def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
     try:
         import deploy
         full_config_yaml = deploy.build_litellm_config_data(cfg, namespace=ns)
-        patch_cm = json.dumps({"data": {"config.yaml": full_config_yaml}})
-        rc, _, _ = runner.run(["patch", "configmap", "litellm-config", "-n", ns, "-p", patch_cm])
+        deploy.sync_litellm_provider_secrets(cfg, runner, ns)
+        manifest = json.dumps({"apiVersion": "v1", "kind": "ConfigMap",
+                               "metadata": {"name": "litellm-config", "namespace": ns},
+                               "data": {"config.yaml": full_config_yaml}})
+        rc, _, _ = runner.run(["apply", "-f", "-"], stdin_input=manifest, timeout=15)
         if rc != 0:
             return False
 
         # Redémarrage à chaud de LiteLLM Proxy pour prise en compte immédiate
-        runner.run(["rollout", "restart", "deployment/litellm-proxy", "-n", ns])
-        return True
+        rc, _, _ = runner.run(["rollout", "restart", "deployment/litellm-proxy", "-n", ns], timeout=15)
+        if rc != 0:
+            return False
+        rc, _, _ = runner.run(["rollout", "status", "deployment/litellm-proxy", "-n", ns, "--timeout=45s"], timeout=50)
+        return rc == 0
     except Exception:
         return False
 
@@ -5070,7 +5086,7 @@ def main():
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.1            \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.2            \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

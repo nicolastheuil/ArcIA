@@ -1,12 +1,12 @@
-# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users (v0.5.1)
+# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users (v0.5.2)
 
-> **Statut : Implémenté (v0.5.1)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'exécuter des agents autonomes capables de planifier des tâches complexes, d'utiliser des outils (outils locaux, shell, git, recherche web, APIs publiques), de compresser leur contexte (CCR/RTK) et de maintenir un état persistant.
 
 ---
 
-## 1. Fonctionnalités clés v0.5.1
+## 1. Fonctionnalités clés v0.5.2
 
 - **Hermes Studio Dashboard (port 9119)** :
   - Interface visuelle de pilotage de missions en mode **Kanban**.
@@ -96,6 +96,6 @@ Le script [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) (ados
 
 Voir également :
 - [Chaîne de Routage & Cycle de Vie](chaine-de-routage.md)
-- [Sobriété Tokenmaxing v0.5.1 (CCR & RTK)](tokenmaxing.md)
+- [Sobriété Tokenmaxing v0.5.2 (CCR & RTK)](tokenmaxing.md)
 - [Passerelle d'Inférence LiteLLM](inference-litellm.md)
-- [État des fonctionnalités v0.5.1](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.5.2](../etat-des-fonctionnalites.md)
