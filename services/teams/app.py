@@ -97,7 +97,7 @@ async def handle_builtin_commands(clean_text: str) -> str | None:
         status_icon = "🟢" if litellm_ok else "🔴"
         return (
             f"📊 **Statut Opérationnel d'ArcIA**\n\n"
-            f"- **Adaptateur Teams Bot** : 🟢 Opérationnel (v0.4.0)\n"
+            f"- **Adaptateur Teams Bot** : 🟢 Opérationnel (v0.5.0)\n"
             f"- **Passerelle LiteLLM Proxy** : {status_icon} ({'En ligne' if litellm_ok else 'Indisponible'})\n"
             f"- **Profil Inférence Défaut** : `{DEFAULT_MODEL}`\n"
             f"- **Profil Agentique Hermes** : `agentic/auto`\n"

@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Documentation-Hub_Central-6BE7DD?style=flat-square&logoColor=050712" alt="Documentation Hub">
   <img src="https://img.shields.io/badge/Liens_Vérifiés-validate__docs.py-10B981?style=flat-square" alt="Liens Vérifiés">
 </p>
 
-# 📖 Centre de Documentation — ArcIA
+# 📖 Centre de documentation — ArcIA
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Documentation**
 
@@ -13,17 +13,17 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 
 ---
 
-## 🏛️ 1. Architecture & Cadrage
+## 🏛️ 1. Architecture et cadrage
 
 | Document | Portée & Contenu |
 |---|---|
 | 📐 **[Architecture Technique](architecture.md)** | Topologie Kubernetes complète, schémas détaillés des Pods/Services, routage hybride, stockage CSI et carte du code |
-| 📊 **[État des Fonctionnalités](etat-des-fonctionnalites.md)** | Tableau de bord de traçabilité v0.4, matrice de qualification et durcissements de sécurité |
+| 📊 **[État des Fonctionnalités](etat-des-fonctionnalites.md)** | Tableau de bord de traçabilité v0.5.0, matrice de qualification et durcissements de sécurité |
 | 🤖 **[Charte d'Ingénierie (`AGENTS.md`)](../AGENTS.md)** | Règles d'architecture, séparation socle générique / dépôt d'instance et exigences de qualification |
 
 ---
 
-## 📘 2. Guides Fonctionnels & Techniques
+## 📘 2. Guides fonctionnels et techniques
 
 | Domaine | Besoin Opérationnel | Guide de Référence |
 |---|---|---|
@@ -46,7 +46,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 ---
 
 <a id="exploitation"></a>
-## 🛠️ 3. Runbooks d'Exploitation (MCO & PRA)
+## 🛠️ 3. Runbooks d'exploitation (MCO et PRA)
 
 | Procédure | Runbook de Référence |
 |---|---|
@@ -56,7 +56,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 
 ---
 
-## ✅ 4. Gouvernance Documentaire & Preuves
+## ✅ 4. Gouvernance documentaire et preuves
 
 > [!NOTE]
 > **Séparation Socle Générique / Dépôt d'Instance :**

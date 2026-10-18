@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🎨_Assets-Design_System-0C2762?style=flat-square" alt="Assets"></a>
   <img src="https://img.shields.io/badge/Palette-%231659E4_•_%236BE7DD_•_%230C2762-6BE7DD?style=flat-square&logoColor=050712" alt="Palette">
 </p>
 
-# ✨ Identité Visuelle & Charte Graphique — ArcIA
+# ✨ Identité visuelle et charte graphique — ArcIA
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[🎨 Assets](../README.md)** › **Branding (`assets/branding/`)**
 
@@ -12,7 +12,7 @@ Ce dossier regroupe les vecteurs officiels SVG et la définition chromatique de 
 
 ---
 
-## 🖼️ Fichiers Vectoriels & Palette
+## 🖼️ Fichiers vectoriels et palette
 
 | Fichier | Format | Usage |
 |---|---|---|

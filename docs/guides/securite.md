@@ -1,10 +1,10 @@
-# Sécurité et Gouvernance des Données — ArcIA v0.4
+# Sécurité et gouvernance des données — ArcIA v0.5.0
 
-Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.4**.
+Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.5.0**.
 
 ---
 
-## 1. Frontières et Niveaux de Contrôle
+## 1. Frontières et niveaux de contrôle
 
 | Frontière | Mécanisme de Protection Déployé | Garanties Apportées |
 |---|---|---|
@@ -18,7 +18,7 @@ Ce document définit les frontières de sécurité, les mécanismes d'isolation 
 
 ---
 
-## 2. Cycle de Traitement des Données et Préservation de la Confidentialité
+## 2. Cycle de traitement des données et préservation de la confidentialité
 
 ```mermaid
 flowchart LR
@@ -38,7 +38,7 @@ flowchart LR
 
 ---
 
-## 3. Gestion des Secrets et Bonnes Pratiques
+## 3. Gestion des secrets et bonnes pratiques
 
 - **Jamais de secrets dans Git** : Les modèles de fichiers `.example` et `.template` définissent les variables attendues. Les vraies clés sont conservées dans `secrets/arcia.env` (protégé par `.gitignore`).
 - **Validation Automatisée en CI** : Le test de barrière de confidentialité (`tests/test_privacy.py`) s'assure qu'aucun identifiant de tenant privé, IP WAN ou sous-réseau d'exploitation n'est commité dans Git.

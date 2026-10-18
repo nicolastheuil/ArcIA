@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🧠_Skills-Catalogue_Natif-0C2762?style=flat-square" alt="Skills"></a>
   <img src="https://img.shields.io/badge/Discipline-YAGNI_&_Sobriété-F1C557?style=flat-square&logoColor=050712" alt="Ponytail">
 </p>
 
-# 🦄 Ponytail — Sobriété Logicielle, Anti-Overengineering & YAGNI
+# 🦄 Ponytail — sobriété logicielle, anti-overengineering et YAGNI
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[🧠 Compétences](../README.md)** › **Ponytail (`skills/ponytail/`)**
 
@@ -12,7 +12,7 @@ Ce dossier abrite la compétence native **Ponytail**, le garde-fou méthodologiq
 
 ---
 
-## 🎯 Philosophie : « Économe en code, intraitable sur la sécurité »
+## 🎯 Philosophie : « économe en code, intraitable sur la sécurité »
 
 Par défaut, les modèles de langage ont tendance à sur-architecturer leurs réponses (abstractions prématurées, dépendances tierces inutiles, pavés de code verbeux). **Ponytail** impose un principe simple :
 
@@ -22,7 +22,7 @@ Par défaut, les modèles de langage ont tendance à sur-architecturer leurs ré
 
 ---
 
-## 🪜 L'Échelle de Décision en 7 Échelons (*The Decision Ladder*)
+## 🪜 L'échelle de décision en 7 échelons (*The Decision Ladder*)
 
 Avant d'écrire du code ou d'ajouter une dépendance, Hermes parcourt séquentiellement ces 7 échelons :
 
@@ -41,9 +41,9 @@ flowchart LR
     style E7 fill:#0F172A,stroke:#10B981,stroke-width:2px,color:#F8FAFC
 ```
 
-### Exemples Concrets d'Arbitrage Ponytail
+### Exemples concrets d'arbitrage Ponytail
 
-| Situation | Réflexe LLM Classique (Rejeté ❌) | Arbitrage Ponytail (Appliqué ✅) |
+| Situation | Réflexe LLM classique (rejeté ❌) | Arbitrage Ponytail (appliqué ✅) |
 |---|---|---|
 | **Parsing CLI** | Installer `click`, `typer` ou `commander` | Utiliser `argparse` (Python) ou `util.parseArgs` (Node.js) |
 | **Requête HTTP** | Installer `requests` ou `axios` | Utiliser `urllib.request` ou `fetch()` natif |
@@ -52,5 +52,5 @@ flowchart LR
 
 ---
 
-## 📖 Fichiers Associés
+## 📖 Fichiers associés
 * 📄 **[SKILL.md](SKILL.md)** : Fiche d'instructions opérationnelles injectée dans le prompt d'Hermes Agent.

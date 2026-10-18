@@ -1,15 +1,15 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Kubernetes-Déploiement_Universel-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
   <img src="https://img.shields.io/badge/Setup_Wizard-3_Parcours_Dédiés-6BE7DD?style=flat-square&logoColor=050712" alt="Setup Wizard">
 </p>
 
-# Guide de Déploiement Universel d'ArcIA v0.4 sur Kubernetes
+# Guide de déploiement universel d'ArcIA v0.5.0 sur Kubernetes
 
-> **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement Universel**
+> **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement universel**
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.4** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.5.0** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
 
 ---
 
@@ -26,16 +26,16 @@ Pour déployer ArcIA, vous devez disposer de :
 
 ---
 
-## 2. Déploiement en 3 Étapes
+## 2. Déploiement en 3 étapes
 
-### Étape 1 : Cloner le dépôt
+### Étape 1 : cloner le dépôt
 
 ```bash
 git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### Étape 2 : Lancer le Centre de Pilotage Graphique (Setup & Update Wizard)
+### Étape 2 : lancer le centre de pilotage graphique (Setup & Update Wizard)
 
 Pour une expérience guidée sans manipulation manuelle de fichiers YAML, lancez le Centre de Pilotage Graphique à la racine du dépôt :
 
@@ -69,11 +69,11 @@ Ouvrez `arcia.config.yaml` et renseignez les sections ci-dessous.
 
 ---
 
-## 3. Détail du Fichier de Configuration Unique
+## 3. Détail du fichier de configuration unique
 
 Le fichier est structuré en deux catégories clairement séparées :
 
-### A. Éléments OBLIGATOIRES
+### A. Éléments obligatoires
 
 | Section | Paramètre | Description | Exemple |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Le fichier est structuré en deux catégories clairement séparées :
 | `hermes` | `api_token` | Jeton PAT pour Hermes Desktop Gateway (:8642) | `"arcia-pat-secret-key"` |
 | `presidio` | `enabled` | Active la double barrière DLP de caviardage PII et clés | `true` |
 
-### B. Éléments OPTIONNELS
+### B. Éléments optionnels
 
 | Section | Paramètre | Description |
 |---|---|---|
@@ -103,11 +103,11 @@ Le fichier est structuré en deux catégories clairement séparées :
 
 ---
 
-## 4. Lancement du Déploiement
+## 4. Lancement du déploiement
 
 Exécutez le script selon votre système d'exploitation :
 
-### Sous Windows (PowerShell) :
+### Sous Windows (PowerShell)
 ```powershell
 .\scripts\Deploy-ArcIA.ps1
 ```
@@ -117,7 +117,7 @@ Pour tester la configuration sans l'appliquer :
 .\scripts\Deploy-ArcIA.ps1 -DryRun
 ```
 
-### Sous Linux / macOS / Serveur CI :
+### Sous Linux / macOS / serveur CI
 ```bash
 chmod +x ./scripts/deploy-arcia.sh
 ./scripts/deploy-arcia.sh
@@ -128,7 +128,7 @@ Pour tester la configuration sans l'appliquer :
 ./scripts/deploy-arcia.sh arcia.config.yaml --dry-run
 ```
 
-### Alternative Kustomize Déclarative :
+### Alternative Kustomize déclarative
 Pour les environnements GitOps (ArgoCD, Flux) ou déploiements natifs :
 ```bash
 kubectl apply -k deploy/manifests/
@@ -136,7 +136,7 @@ kubectl apply -k deploy/manifests/
 
 ---
 
-## 5. Ce que fait le Script Automatiquement
+## 5. Ce que fait le script automatiquement
 
 Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py)) :
 1. **Teste la connectivité** avec le cluster Kubernetes et inspecte les nœuds disponibles.
@@ -151,7 +151,7 @@ Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py
 
 ---
 
-## 6. Vérification & Provisionnement Power Users
+## 6. Vérification et provisionnement Power Users
 
 Dès que le déploiement est terminé :
 1. Créez l'enregistrement DNS de type A pour votre FQDN pointant vers l'adresse IP publique de votre Ingress.
@@ -170,7 +170,7 @@ Dès que le déploiement est terminé :
 
 ---
 
-## 7. Documentation & Guides Associés
+## 7. Documentation et guides associés
 
 * 🚀 **[Runbook d'Installation & Cycle de Vie (`docs/runbooks/quickstart.md`)](../runbooks/quickstart.md)** — Guide pas-à-pas illustré détaillant les 3 parcours du Setup Wizard et la recette.
 * 🏛️ **[Spécification d'Architecture (`docs/architecture.md`)](../architecture.md)** — Topologie détaillée des Pods, Ingress Traefik et flux réseau.

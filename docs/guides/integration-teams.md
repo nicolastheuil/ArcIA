@@ -1,10 +1,10 @@
-# Intégration Microsoft Teams — Bot ArcIA (v0.4)
+# Intégration Microsoft Teams — bot ArcIA (v0.5.0)
 
 L'adaptateur Microsoft Teams permet d'amener les capacités d'ArcIA directement dans le flux de travail quotidien des équipes sous Microsoft 365 (messages privés 1:1, mentions d'équipe et canaux partagés).
 
 ---
 
-## 1. Vue d'Ensemble & Règle d'Or
+## 1. Vue d'ensemble et règle d'or
 
 > [!IMPORTANT]
 > **Règle d'or de l'ordre des opérations :**
@@ -24,7 +24,7 @@ flowchart LR
 
 ---
 
-## 2. Architecture Technique & Routage Hybride
+## 2. Architecture technique et routage hybride
 
 L'adaptateur est implémenté en Python asynchrone (`aiohttp` + `botbuilder-core`) dans [services/teams/app.py](../../services/teams/app.py) et synchronisé automatiquement dans le ConfigMap `teams-bot-code` par `scripts/deploy.py` :
 
@@ -62,11 +62,11 @@ sequenceDiagram
 ---
 
 <a id="creation-azure-bot"></a>
-## 3. Étape 1 : Enregistrer le Bot auprès de Microsoft
+## 3. Étape 1 : enregistrer le bot auprès de Microsoft
 
 Deux parcours équivalents sont disponibles pour créer l'identité du bot :
 
-### Parcours A : Via le Portail Développeur Teams *(Gratuit, sans abonnement Azure — Recommandé)*
+### Parcours A : via le portail développeur Teams *(gratuit, sans abonnement Azure — recommandé)*
 
 Ce parcours ne nécessite aucun abonnement Azure facturé.
 
@@ -89,7 +89,7 @@ Ce parcours ne nécessite aucun abonnement Azure facturé.
 
 ---
 
-### Parcours B : Via le Portail Azure *(Si vous disposez d'un abonnement Azure)*
+### Parcours B : via le portail Azure *(si vous disposez d'un abonnement Azure)*
 
 1. Rendez-vous sur le **[Portail Azure](https://portal.azure.com/)**.
 2. Recherchez **Azure Bot** et cliquez sur **Créer**.
@@ -108,7 +108,7 @@ Ce parcours ne nécessite aucun abonnement Azure facturé.
 
 ---
 
-## 4. Étape 2 : Générer le Package d'Application Teams avec votre Bot ID
+## 4. Étape 2 : générer le package d'application Teams avec votre Bot ID
 
 Maintenant que le bot existe dans le registre Microsoft, vous pouvez générer le package d'application `.zip` qui associe le bot aux logos, commandes et métadonnées d'ArcIA.
 
@@ -130,7 +130,7 @@ Le script réalise automatiquement :
 
 ---
 
-## 5. Étape 3 : Importer le Package dans dev.teams
+## 5. Étape 3 : importer le package dans dev.teams
 
 1. Rendez-vous sur **[Portail Développeur Microsoft Teams > Apps](https://dev.teams.microsoft.com/apps)**.
 2. Cliquez sur **Importer une application** (*Import app*).
@@ -140,11 +140,11 @@ Le script réalise automatiquement :
 
 ---
 
-## 6. Étape 4 : Configurer ArcIA avec les Secrets
+## 6. Étape 4 : configurer ArcIA avec les secrets
 
 Pour que l'adaptateur ArcIA puisse authentifier les messages envoyés par Microsoft Teams :
 
-### Option A : Via `arcia.config.yaml`
+### Option A : via `arcia.config.yaml`
 ```yaml
 teams_bot:
   enabled: true
@@ -154,7 +154,7 @@ teams_bot:
   tenant_id: "VOTRE-TENANT-ID-GUID"
 ```
 
-### Option B : Via variables d'environnement (`.env` ou secrets Kubernetes)
+### Option B : via variables d'environnement (`.env` ou secrets Kubernetes)
 ```bash
 TEAMS_BOT_APP_ID="VOTRE-BOT-ID-GUID"
 TEAMS_BOT_APP_PASSWORD="VOTRE-CLIENT-SECRET"
@@ -168,7 +168,7 @@ Appliquez les secrets sur votre cluster K3s :
 
 ---
 
-## 7. Étape 5 : Tester et Déployer dans Teams
+## 7. Étape 5 : tester et déployer dans Teams
 
 1. **Test immédiat individuel (*Preview*)** :
    - Dans le Portail Développeur Teams, cliquez sur le bouton **Preview in Teams** (en haut à droite).
@@ -184,7 +184,7 @@ Appliquez les secrets sur votre cluster K3s :
 
 ---
 
-## 8. Dépannage & Diagnostic Systématique
+## 8. Dépannage et diagnostic systématique
 
 Si le bot ne répond pas lorsque vous lui écrivez dans Teams, suivez cette grille de diagnostic méthodique en 4 points :
 
@@ -199,4 +199,4 @@ Si le bot ne répond pas lorsque vous lui écrivez dans Teams, suivez cette gril
 | :--- | :--- | :--- |
 | **« Bot non valide : Veuillez vérifier que le bot est enregistré et que le canal Teams est activé »** | Vous avez tenté d'importer le ZIP avant de créer le bot, ou avec un Bot ID inexistant. | Suivez l'**Étape 1** pour créer le bot dans *Bot management*, puis régénérez le ZIP avec votre vrai Bot ID (Étape 2). |
 | **Erreur HTTP 401 / 500 sur le webhook** | Le mot de passe client (`TEAMS_BOT_APP_PASSWORD`) est expiré, incorrect ou le tenant ne correspond pas. | Régénérez un secret client dans *Bot management > Client secrets* ou vérifiez `tenant_id`. |
-| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.4 (routage double `/api/teams/messages` et `/api/teams/messages/`). |
+| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.5.0 (routage double `/api/teams/messages` et `/api/teams/messages/`). |

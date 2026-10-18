@@ -1,21 +1,21 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
-  <img src="https://img.shields.io/badge/Tests-104_Unit_&_Integration_Checks-10B981?style=flat-square" alt="104 Tests">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Tests-141_Unit_&_Integration_Checks-10B981?style=flat-square" alt="141 Tests">
   <img src="https://img.shields.io/badge/Docs_Validator-100%25_Links_Checked-6BE7DD?style=flat-square&logoColor=050712" alt="Docs Validated">
 </p>
 
-# 🧪 Suite de Tests Automatisés & Qualification — ArcIA
+# 🧪 Suite de tests automatisés et qualification — ArcIA
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Tests (`tests/`)**
 
-Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.4**.
+Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.5.0**.
 
 ---
 
-## ⚡ Exécution Rapide
+## ⚡ Exécution rapide
 
 ```bash
-# 1. Exécuter les 104 tests unitaires et d'intégration :
+# 1. Exécuter les 141 tests unitaires et d'intégration :
 python -m unittest discover -s tests -v
 
 # 2. Vérifier l'intégrité de 100 % des liens et ancres documentaires :
@@ -24,9 +24,9 @@ python scripts/validate_docs.py
 
 ---
 
-## 🗂️ Cartographie des Suites de Tests
+## 🗂️ Cartographie des suites de tests
 
-| Fichier de Test | Périmètre Contrôlé |
+| Fichier de test | Périmètre contrôlé |
 |---|---|
 | **[test_wizard.py](test_wizard.py)** | Centre de pilotage [`scripts/wizard.py`](../scripts/wizard.py) : page d'accueil, **3 parcours dédiés** (Installation, Mise à jour, Restauration), chargement YAML contextuel, **vérificateur en direct des versions amont**, **séquence Zero-Downtime RollingUpdate**, tableau sans retour à la ligne, chiffrement `AES-256-GCM`, audit K8s et dimensionnement VMware. *(Détail : [Runbook Quickstart](../docs/runbooks/quickstart.md))* |
 | **[test_deploy.py](test_deploy.py)** | Orchestrateur [`scripts/deploy.py`](../scripts/deploy.py) : validation de `arcia.config.yaml`, synchronisation des ConfigMaps (`sync_service_configmaps`) et simulation `--dry-run`. |
@@ -40,6 +40,6 @@ python scripts/validate_docs.py
 
 ---
 
-## 🔄 Intégration Continue (GitHub Actions)
+## 🔄 Intégration continue (GitHub Actions)
 
 Cette suite est exécutée automatiquement à chaque commit et Pull Request via le pipeline CI documenté dans [`.github/WORKFLOWS.md`](../.github/WORKFLOWS.md).

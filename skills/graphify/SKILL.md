@@ -1,4 +1,4 @@
-# Skill : Graphify (Cartographie Structurelle de Code & GraphRAG Local)
+# Skill : Graphify (cartographie structurelle de code et GraphRAG local)
 
 ## Présentation
 
@@ -13,7 +13,7 @@ Il permet à l'agent Hermes d'explorer rapidement l'architecture d'un projet, se
 
 ---
 
-## Déclenchement & Utilisation
+## Déclenchement et utilisation
 
 Lorsque Hermes doit comprendre l'architecture d'un dépôt ou localiser les composants centraux :
 
@@ -31,7 +31,7 @@ Lorsque Hermes doit comprendre l'architecture d'un dépôt ou localiser les comp
 
 ---
 
-## Directives d'Intégrité ArcIA
+## Directives d'intégrité ArcIA
 
 - Ne jamais inclure dans le graphe des répertoires contenant des secrets (`secrets/`, `.personal/`, `.env`).
 - Les fichiers générés (`graph.json`, `GRAPH_REPORT.md`) sont des artefacts de travail locaux et ne doivent pas être exposés sur des endpoints publics non authentifiés.

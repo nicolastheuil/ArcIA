@@ -1,12 +1,12 @@
-# Outillage d’ArcIA : Moteur Hermes & Compétences Intégrées
+# Outillage d'ArcIA : moteur Hermes et compétences intégrées
 
-> **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.4**.
+Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.5.0**.
 
 ---
 
-## 1. Outils et Modules Déployés
+## 1. Outils et modules déployés
 
 | Outil / Compétence | Type | Emplacement | Rôle dans l'Architecture |
 |---|---|---|---|
@@ -18,7 +18,7 @@ Ce guide décrit l'outillage intégré, les extensions et les compétences agent
 
 ---
 
-## 2. Tokenmaxing et Sobriété de Contexte
+## 2. Tokenmaxing et sobriété de contexte
 
 Le plugin natif ArcIA ([services/hermes/plugin.py](../../services/hermes/plugin.py)) intercepte et optimise automatiquement les flux d'entrée d'Hermes :
 1. **Réécriture `git log` (RTK)** : Simplifie les sorties verbeuses vers un format concis sans impacter les paramètres métier.
@@ -27,7 +27,7 @@ Le plugin natif ArcIA ([services/hermes/plugin.py](../../services/hermes/plugin.
 
 ---
 
-## 3. Analyse Déterministe de Codebase (ArcIA Graphify)
+## 3. Analyse déterministe de codebase (ArcIA Graphify)
 
 Pour comprendre l'architecture d'un projet sans consommer des millions de tokens en RAG naïf :
 - L'analyseur AST Python ([scripts/arcia_graphify.py](../../scripts/arcia_graphify.py)) extrait classes, méthodes, fonctions, imports et dépendances de manière purement algorithmique.
@@ -36,7 +36,7 @@ Pour comprendre l'architecture d'un projet sans consommer des millions de tokens
 
 ---
 
-## 4. Synchronisation des Compétences
+## 4. Synchronisation des compétences
 
 La mise à jour du catalogue de compétences s'effectue via les scripts dédiés :
 - Sous Windows PowerShell :

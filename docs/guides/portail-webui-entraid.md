@@ -1,12 +1,12 @@
-# Portail Collaborateur Open-WebUI & SSO Microsoft Entra ID (v0.4)
+# Portail collaborateur Open-WebUI et SSO Microsoft Entra ID (v0.5.0)
 
-> **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collaborateurs de votre organisation (Utilisateurs Standards et Power Users). Elle offre une expérience moderne et ergonomique pour dialoguer avec les modèles directs (`simple/*`) et les agents autonomes (`agentic/*`), sous une gouvernance d'accès strictement verrouillée.
 
 ---
 
-## 1. Caractéristiques Principales & Verrouillage d'Accès v0.4
+## 1. Caractéristiques principales et verrouillage d'accès v0.5.0
 
 - **Accès Verrouillé & Zéro Auto-Inscription Publique** :
   - `WEBUI_AUTH=true` : Authentification obligatoire pour tout accès à l'interface.
@@ -40,7 +40,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 
 ---
 
-## 2. Déploiement Kubernetes & Ingress
+## 2. Déploiement Kubernetes et Ingress
 
 - **Manifeste** : [deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml).
 - **Service** : `open-webui.arcia.svc:8080`.
@@ -50,11 +50,11 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 ---
 
 <a id="creation-app-entraid"></a>
-## 3. Procédure Détaillée : Création de l'Application Microsoft Entra ID (SSO)
+## 3. Procédure détaillée : création de l'application Microsoft Entra ID (SSO)
 
 Cette étape permet d'authentifier les collaborateurs avec leurs identifiants Microsoft 365 professionnels.
 
-### Étape 1 : Créer l'inscription d'application
+### Étape 1 : créer l'inscription d'application
 1. Rendez-vous sur le [Portail Azure](https://portal.azure.com/) et connectez-vous avec un compte administrateur.
 2. Recherchez et sélectionnez **Microsoft Entra ID** (anciennement Azure AD).
 3. Dans le menu de gauche, cliquez sur **Inscriptions d'applications** (*App registrations*), puis sur **+ Nouvelle inscription** (*+ New registration*).
@@ -68,7 +68,7 @@ Cette étape permet d'authentifier les collaborateurs avec leurs identifiants Mi
 ---
 
 Voir également :
-- [Chaîne de Routage & Cycle de Vie](chaine-de-routage.md)
-- [Passerelle d'Inférence LiteLLM](inference-litellm.md)
+- [Chaîne de routage et cycle de vie](chaine-de-routage.md)
+- [Passerelle d'inférence LiteLLM](inference-litellm.md)
 - [Gouvernance Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.4](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.5.0](../etat-des-fonctionnalites.md)

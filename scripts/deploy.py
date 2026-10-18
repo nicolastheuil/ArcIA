@@ -220,6 +220,12 @@ def cast_scalar(val: str) -> Any:
         return False
     if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
         return val[1:-1]
+    if (val.startswith("[") and val.endswith("]")) or (val.startswith("{") and val.endswith("}")):
+        try:
+            import json
+            return json.loads(val)
+        except Exception:
+            pass
     try:
         if "." in val:
             return float(val)

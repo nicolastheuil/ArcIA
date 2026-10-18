@@ -109,7 +109,7 @@ spec:
         fsGroup: 10000
       initContainers:
       - name: init-user-state
-        image: nousresearch/hermes-agent:latest
+        image: nousresearch/hermes-agent:v0.2.0
         command:
         - /bin/sh
         - -c
@@ -151,7 +151,7 @@ spec:
           mountPath: /etc/hermes-init
       containers:
       - name: hermes
-        image: nousresearch/hermes-agent:latest
+        image: nousresearch/hermes-agent:v0.2.0
         imagePullPolicy: IfNotPresent
 {{VPN_CONTAINER_SECURITY_CONTEXT}}
         command:

@@ -1,12 +1,12 @@
-# ArcIA v0.4 — État Réel des Fonctionnalités & Traçabilité
+# ArcIA v0.5.0 — État réel des fonctionnalités et traçabilité
 
-Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique initial et consigne leur statut officiel dans la version **v0.4**.
+Ce tableau de bord de référence reprend l'ensemble des 25 écarts relevés lors de l'audit technique initial et consigne leur statut officiel dans la version **v0.5.0**.
 
 La documentation d'ArcIA respecte une stricte transparence entre l'existant prouvé par le code et les cibles futures.
 
 ---
 
-## Tableau de Traçabilité Technique
+## Tableau de traçabilité technique
 
 | # | Constat Initial | Statut v0.4 | Implémentation effective dans le code |
 |:---:|---|:---:|---|
@@ -29,27 +29,28 @@ La documentation d'ArcIA respecte une stricte transparence entre l'existant prou
 | **17**| « Hermes Studio » confondu avec un projet tiers | **Clarifié (v0.4)** | Studio documenté comme le tableau de bord officiel `hermes dashboard`. |
 | **18**| Plugin Tokenmaxing non chargeable (pas de `register(ctx)`) | **Résolu (v0.4)** | `services/hermes/plugin.py` implémente `register(ctx)` avec double barrière DLP fail-closed, compression réversible CCR (cache SHA-256 + `arcia_restore_tool_result`) et compaction RTK `git log`. |
 | **19**| Mode Power User et pods dédiés non harmonisés | **Résolu (v0.4)** | Simplification en 2 profils (Utilisateurs Standards & Power Users) avec pods Hermes dédiés sur K8s (`.\scripts\Spawn-PowerUser.ps1`) et accès `/v1` (`scripts/arcia_keys.py`). |
-| **20**| Serveurs MCP `arcia_knowledge` et ChromaDB 50Gi dédiés absents | **Cible (v0.5)** | RAG embarqué dans Open-WebUI en v0.4. Les connecteurs MCP dédiés sont planifiés pour la v0.5. |
+| **20**| Serveurs MCP `arcia_knowledge` et ChromaDB 50Gi dédiés absents | **Cible (v0.5.0)** | RAG embarqué dans Open-WebUI. Les connecteurs MCP dédiés sont gérés nativement dans le Setup Wizard et le catalogue de compétences. |
 | **21**| Synchronisation non contrôlée de skills externes en tâche de fond | **Résolu (v0.4)** | Suppression du CronJob automatique. Synchronisation contrôlée via `scripts/Sync-Skills.ps1` / `skills/sync-skills.sh` et compétences natives montées par ConfigMap. |
 | **22**| Duplication du code Python entre `services/` et les ConfigMaps K8s | **Résolu (v0.4)** | Source unique dans `services/*/app.py` et `plugin.py`, synchronisée automatiquement en ConfigMaps par `scripts/deploy.py` (`sync_service_configmaps`). |
-| **23**| Versions officielles annoncées mais images flottantes (`:main`, `:latest`) | **Résolu (v0.4)** | Versions épinglées avec tags stables (`berriai/litellm:main-v1.61.16`, `open-webui:v0.5.10`, `hermes-agent:v0.2.0`, `postgres:16-alpine`). |
+| **23**| Versions officielles annoncées mais images flottantes (`:main`, `:latest`) | **Résolu (v0.4)** | Versions épinglées avec tags stables (`berriai/litellm:main-v1.72.6-stable`, `open-webui:v0.5.10`, `hermes-agent:v0.2.0`, `postgres:16-alpine`). |
 | **24**| « Cluster K3s HA » annoncé alors que les pods sont en réplique 1 et RWO | **Clarifié (v0.4)** | Déploiement compatible avec n'importe quel cluster Kubernetes, avec un propriétaire unique par état SQLite (`state.db`). |
-| **25**| « Tests DLP » ne testant pas le comportement réel | **Résolu (v0.4)** | Suite de 87 tests unitaires (`tests/test_dlp.py`, `test_manifests.py`, `test_deploy.py`, `test_poweruser.py`, `test_privacy.py`, `test_wizard.py`, `test_public_apis.py`). |
+| **25**| « Tests DLP » ne testant pas le comportement réel | **Résolu (v0.4)** | Suite complète de 141 tests unitaires (`tests/test_dlp.py`, `test_manifests.py`, `test_deploy.py`, `test_poweruser.py`, `test_privacy.py`, `test_wizard.py`, `test_public_apis.py`, `test_error_handler.py`). |
+| **26**| Traces d'erreurs Python brutes et fuites d'identifiants exposées dans Open-WebUI et Hermes | **Résolu (v0.4)** | Gestionnaires d'erreurs dédiés : `services/litellm/error_handler.py` (hook `async_post_call_failure_hook` avec masquage de clés et messages conviviaux en français) et `services/hermes/plugin.py` (`format_hermes_error` pour les Power Users). |
 
 ---
 
-## Profils Utilisateurs v0.4
+## Profils utilisateurs v0.5.0
 
-| Profil | Environnements & Canaux | Modèles Disponibles | Isolation & Persistance | Contrôle DLP |
+| Profil | Environnements & canaux | Modèles configurés à l'installation | Isolation & persistance | Contrôle DLP |
 |---|---|---|---|---|
-| **Utilisateur Standard** | Open-WebUI (`/`) + Microsoft Teams | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | Sessions Open-WebUI & Hermes partagé | Double barrière DLP obligatoire |
-| **Power User** | Open-WebUI (`/`) + Pod Hermes dédié (`/poweruser/<slug>/studio`) | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | Pod K8s isolé + PVC 10Gi + `SOUL.md` propre | Double barrière DLP obligatoire |
+| **Utilisateur standard** | Open-WebUI (`/`) + Microsoft Teams | Alias configurés par l'admin (`simple/*`, `agentic/*`) | Sessions Open-WebUI & Hermes partagé | Double barrière DLP obligatoire |
+| **Power user** | Open-WebUI (`/`) + Pod Hermes dédié (`/poweruser/<slug>/studio`) | Alias configurés par l'admin (`simple/*`, `agentic/*`) | Pod K8s isolé + PVC 10Gi + `SOUL.md` propre | Double barrière DLP obligatoire |
 
 ---
 
-## Synthèse des Durcissements de Sécurité (v0.4)
+## Synthèse des durcissements de sécurité (v0.5.0)
 
-| Domaine | Mesure Appliquée | Fichiers & Manifests | Bénéfice Sécurité |
+| Domaine | Mesure appliquée | Fichiers et manifests | Bénéfice de sécurité |
 |---|---|---|---|
 | **Verrouillage Portail WebUI** | Inscription publique coupée (`ENABLE_SIGNUP=false`), rôle par défaut utilisateur standard (`DEFAULT_USER_ROLE=user`), contrôle des modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`), auth locale manuelle ou SSO O365/Entra ID obligatoire. | `07-open-webui.yaml`, `docker-compose.lab.yml` | Aucun compte non autorisé ne peut consommer de modèles ou s'auto-enregistrer. |
 | **Double Barrière DLP** | Barrière 1 amont dans Hermes (`plugin.py` → `/sanitize` fail-closed avant SQLite/LLM) + Barrière 2 aval dans LiteLLM (`pre_call` → `/analyze` + `/anonymize`). | `services/hermes/plugin.py`, `05-litellm.yaml`, `03-presidio.yaml` | Aucun secret ni PII n'est stocké en clair dans `state.db` ni transmis à un fournisseur cloud. |

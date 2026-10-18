@@ -1,12 +1,12 @@
-# LiteLLM Proxy — Passerelle d'Inférence d'Entreprise (v0.4)
+# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.0)
 
-> **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
 LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les composants de la plateforme ArcIA (Open-WebUI en flux directs `simple/*`, Hermes Agent pour les flux `agentic/*`, Bot Teams, ainsi que les pods dédiés des Power Users).
 
 ---
 
-## 1. Rôles et Architecture v0.4
+## 1. Rôles et architecture v0.5.0
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
@@ -25,7 +25,7 @@ LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les 
 
 ---
 
-## 2. Déploiement Kubernetes & Base Comptable
+## 2. Déploiement Kubernetes et base comptable
 
 Le service est déployé via :
 - **Passerelle LiteLLM** : [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) (Service interne `litellm-proxy.arcia.svc:4000`, portail d'administration NodePort `30400`, API `/v1` avec RateLimit).
@@ -35,7 +35,7 @@ Le service est déployé via :
 
 ---
 
-## 3. Configuration du Routage v0.4
+## 3. Configuration du routage v0.5.0
 
 Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles et le guardrail Presidio :
 
@@ -125,18 +125,18 @@ litellm_settings:
 
 ---
 
-## 4. Portail d'Administration Graphique LiteLLM UI
+## 4. Portail d'administration graphique LiteLLM UI
 
 LiteLLM intègre nativement une interface web de gestion des modèles, des clés virtuelles et de la comptabilité adossée à PostgreSQL.
 
-### Sécurité & Périmètre d'Exposition
+### Sécurité et périmètre d'exposition
 * **Zéro exposition Internet** : L'interface d'administration LiteLLM n'est **JAMAIS** exposée sur le nom de domaine public ou sur l'Ingress Internet.
 * **Accès réseau interne exclusif** : Le portail est accessible uniquement depuis le réseau d'administration interne ou VPN sur le NodePort `30400` :
   ```text
   http://<IP_NOEUD_K8S>:30400/ui/
   ```
 
-### Authentification par Master Key
+### Authentification par clé maître (master key)
 La connexion requiert la **Master Key** cryptographique générée au déploiement (`sk-arcia-...`), stockée dans le Secret Kubernetes `litellm-secret`.
 
 * **Copie directe dans le presse-papiers (PowerShell)** :
@@ -150,7 +150,7 @@ La connexion requiert la **Master Key** cryptographique générée au déploieme
 
 ---
 
-## 5. Gestion des Clés Virtuelles et Budgets
+## 5. Gestion des clés virtuelles et budgets
 
 L'administration des clés virtuelles nominatives s'effectue via le portail UI (onglet **Virtual Keys**) ou via le script [scripts/arcia_keys.py](../../scripts/arcia_keys.py) :
 
@@ -167,8 +167,32 @@ python scripts/arcia_keys.py revoke --key sk-xxxx
 
 ---
 
+## 6. Gestionnaire d'erreurs d'inférence et messages conviviaux
+
+LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([services/litellm/error_handler.py](../../services/litellm/error_handler.py)) activé via le hook `async_post_call_failure_hook` dans `litellm_settings.callbacks`.
+
+### 6.1 Objectifs et sécurité
+1. **Zéro fuite de données sensibles** : Les identifiants de clés d'API, les URLs de workspaces privées et les traces internes de réessais ou de filtres de routage (`Filter by Data Policy`, `routing_funnel`) ne sont jamais exposés aux utilisateurs d'Open-WebUI ou de Microsoft Teams.
+2. **Journalisation serveur exhaustive** : L'ingénieur plateforme et les administrateurs conservent la trace technique complète dans les journaux du pod (`kubectl logs -n arcia -l app=litellm-proxy` ou `docker logs arcia-litellm-lab`), avec masquage automatique des clés (`sk-[MASQUÉ]`).
+3. **Pédagogie et orientation utilisateur** : Les erreurs techniques sont traduites en messages clairs en français structurés en Markdown, indiquant la cause réelle et l'action recommandée.
+
+### 6.2 Matrice de correspondance des erreurs
+
+| Cause technique sous-jacente | Statut HTTP | Message convivial affiché dans Open-WebUI / Teams |
+| :--- | :---: | :--- |
+| **Quota / Solde épuisé** (`Key limit exceeded`, `daily limit`) | 429 | ⚠️ **Quota d'inférence atteint** : La limite journalière d'utilisation ou le solde de crédits de la clé d'API fournisseur a été atteint. Veuillez contacter votre administrateur ArcIA ou patienter jusqu'à la réinitialisation du quota. |
+| **Incompatibilité ZDR** (`Zero data retention`, modèle gratuit) | 400 | 🔒 **Politique de confidentialité (ZDR)** : Aucun modèle public gratuit ne garantit actuellement le Zéro Rétention de Données (ZDR) exigé par la gouvernance de sécurité ArcIA. Veuillez sélectionner le profil standard `simple/auto` ou un profil agentique qualifié. |
+| **Blocage DLP Presidio** (`FAIL_CLOSED_SECRET_REJECTED`) | 422 | 🛡️ **Bouclier DLP ArcIA (Fail-Closed)** : Votre message a été bloqué par mesure de protection souveraine car il contient des secrets d'infrastructure sensibles (clé privée SSH/PEM, kubeconfig ou token). Aucune donnée n'a été transmise vers l'extérieur. |
+| **Surcharge fournisseur** (`RateLimitError`, `429`) | 429 | ⏳ **Service momentanément surchargé** : Le fournisseur de modèles d'IA fait face à une forte affluence. Veuillez patienter quelques instants avant de relancer votre demande. |
+| **Dépassement de contexte** (`ContextWindowExceededError`) | 400 | 📄 **Message trop volumineux** : Votre échange dépasse la capacité de contexte maximale acceptée par ce modèle. Veuillez raccourcir votre message ou démarrer une nouvelle conversation. |
+| **Modèle indisponible** (`No deployments available`, `503`) | 503 | 🛠️ **Modèle temporairement indisponible** : Aucun point d'accès n'est actuellement opérationnel pour ce profil d'IA. Veuillez basculer sur un autre modèle du catalogue ou réessayer dans un instant. |
+| **Authentification invalide** (`AuthenticationError`, clé révoquée) | 401 | 🔑 **Erreur d'authentification** : La clé d'API fournisseur configurée sur la passerelle est invalide ou a expiré. Veuillez contacter l'administrateur de la plateforme ArcIA. |
+| **Délai dépassé** (`Timeout`) | 504 | ⏱️ **Délai de réponse dépassé** : Le modèle d'IA a mis trop de temps à répondre. Veuillez relancer votre message ou choisir un modèle plus réactif. |
+
+---
+
 Voir également :
-- [Chaîne de Routage Complète & Cycle de Vie d'une Requête](chaine-de-routage.md)
-- [Gouvernance & Confidentialité Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.4](../etat-des-fonctionnalites.md)
-- [Quickstart & Configuration Pratique](../runbooks/quickstart.md)
+- [Chaîne de routage complète et cycle de vie d'une requête](chaine-de-routage.md)
+- [Gouvernance et confidentialité Presidio DLP](confidentialite-presidio.md)
+- [État des fonctionnalités v0.5.0](../etat-des-fonctionnalites.md)
+- [Quickstart et configuration pratique](../runbooks/quickstart.md)

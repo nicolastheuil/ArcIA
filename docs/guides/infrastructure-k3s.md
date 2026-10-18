@@ -1,10 +1,10 @@
-# Infrastructure Kubernetes, Stockage & Déploiement
+# Infrastructure Kubernetes, stockage et déploiement
 
 ArcIA est conçu pour être déployé sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s sur VMware/Debian, kubeadm) ou en local via Docker Compose.
 
 ---
 
-## 1. Cibles d'Hébergement & Déploiement
+## 1. Cibles d'hébergement et déploiement
 
 L'installeur interactif (`.\wizard.ps1` / `./wizard.sh`) et le moteur universel (`.\scripts\Deploy-ArcIA.ps1` / `./scripts/deploy-arcia.sh`) supportent trois modes d'infrastructure adaptés aux différents contextes d'entreprise :
 
@@ -14,18 +14,18 @@ L'installeur interactif (`.\wizard.ps1` / `./wizard.sh`) et le moteur universel 
 
 ---
 
-## 2. Dimensionnement Matériel par Tranche d'Utilisateurs
+## 2. Dimensionnement matériel par tranche d'utilisateurs
 
 Pour garantir la réactivité d'Open-WebUI, du proxy LiteLLM, du filtre Presidio DLP et des agents autonomes Hermes, l'infrastructure doit être dimensionnée selon l'effectif actif, **en intégrant spécifiquement l'espace requis pour le RAG (Retrieval-Augmented Generation)** :
 
-### Architecture de Stockage RAG dans ArcIA
+### Architecture de stockage RAG dans ArcIA
 Le RAG d'entreprise sous Open-WebUI requiert du stockage pour :
 1. **Le corpus documentaire brut** : PDFs, présentations, documents bureautiques, procédures, code source.
 2. **Le texte extrait et découpé** : Chunks de 500 à 1000 tokens avec overlap et métadonnées.
 3. **La base vectorielle ChromaDB** : Embeddings denses avec index **HNSW** (Hierarchical Navigable Small World) assurant des recherches de similarité cosinus en moins de 10 ms.
 4. **Le cache local d'inférence et d'embeddings** : Poids des modèles d'embedding et SQLite `webui.db` pour l'historique et les citations.
 
-### Matrice de Dimensionnement (Cluster, Hermes et RAG Dédié)
+### Matrice de dimensionnement (cluster, Hermes et RAG dédié)
 
 | Tranche d'utilisateurs | Type de Déploiement | Nœuds | CPU / RAM / Disque par VM | Ressources Totales | Espace Dédié RAG & Vecteurs | PVC `open-webui-pvc` | Recommandation |
 |---|---|---|---|---|---|---|---|
@@ -36,7 +36,7 @@ Le RAG d'entreprise sous Open-WebUI requiert du stockage pour :
 
 ---
 
-## 3. Grille d'Audit & Qualification Kubernetes
+## 3. Grille d'audit et qualification Kubernetes
 
 Avant tout déploiement sur un cluster existant, le Wizard exécute un audit de qualification automatisé en 6 volets :
 
@@ -49,7 +49,7 @@ Avant tout déploiement sur un cluster existant, le Wizard exécute un audit de 
 
 ---
 
-## 4. Mode Lab Local (Docker Compose)
+## 4. Mode lab local (Docker Compose)
 
 Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 - Fichier de stack : [docker-compose.lab.yml](../../docker-compose.lab.yml)
@@ -59,7 +59,7 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 
 ---
 
-## 5. Topologie de Référence & Volumes Persistants
+## 5. Topologie de référence et volumes persistants
 
 - **Namespace Dédié** : `arcia` (Namespace applicatif unifié pour tous les services).
 - **Stockage Persistant** :
@@ -72,7 +72,7 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 
 ---
 
-## 6. Ingress & Certificats TLS Automatiques
+## 6. Ingress et certificats TLS automatiques
 
 1. **Contrôleur d'Ingress (Traefik ou NGINX)** :
    - Route les flux HTTP (`80`) et HTTPS (`443`).
@@ -84,7 +84,7 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
 
 ---
 
-## 7. Outils d'Administration & Scripts
+## 7. Outils d'administration et scripts
 
 Les opérations sur le cluster sont entièrement outillées dans le dossier `scripts/` :
 

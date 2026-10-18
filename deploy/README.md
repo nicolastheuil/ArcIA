@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/IaC-Kubernetes_&_Docker_Lab-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="IaC Kubernetes">
   <img src="https://img.shields.io/badge/Rollout-Zero--Downtime-10B981?style=flat-square" alt="Zero-Downtime">
 </p>
 
-# ☸️ Déploiement & Infrastructure-as-Code — ArcIA
+# ☸️ Déploiement et infrastructure-as-code — ArcIA
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Déploiement (`deploy/`)**
 
@@ -12,7 +12,7 @@ Ce répertoire rassemble les définitions *Infrastructure-as-Code (IaC)* et les 
 
 ---
 
-## 📂 Structure du Dossier
+## 📂 Structure du dossier
 
 ```text
 deploy/
@@ -23,19 +23,19 @@ deploy/
 
 ---
 
-## 🚀 Cibles & Modes d'Exécution
+## 🚀 Cibles et modes d'exécution
 
-| Mode | Cible | Commande de Lancement | Description |
+| Mode | Cible | Commande de lancement | Description |
 |---|---|---|---|
-| **1. Assistant Graphique & Updates** | Tout cluster Kubernetes ou Docker Lab | `.\wizard.ps1` / `./wizard.sh` | Interface web complète en **3 parcours dédiés** (Installation guidée, **mise à jour Zero-Downtime RollingUpdate**, Restauration chiffrée) avec chargement YAML contextuel. |
-| **2. Déploiement Kubernetes Headless** | Tout cluster Kubernetes (namespace `arcia`) | `.\scripts\Deploy-ArcIA.ps1` / `./scripts/deploy-arcia.sh` | Applique séquentiellement les manifestes de [`deploy/manifests/`](manifests/README.md) et synchronise les ConfigMaps à chaud. |
-| **3. Mode Laboratoire Local** | Poste développeur (Docker Desktop / Engine) | `docker compose -f docker-compose.lab.yml up -d` | Lance rapidement la pile locale avec `litellm-lab.yaml` pour qualifier les modèles et les skills hors cluster. |
+| **1. Assistant graphique & updates** | Tout cluster Kubernetes ou Docker Lab | `.\wizard.ps1` / `./wizard.sh` | Interface web complète en **3 parcours dédiés** (Installation guidée, **mise à jour Zero-Downtime RollingUpdate**, Restauration chiffrée) avec chargement YAML contextuel. |
+| **2. Déploiement Kubernetes headless** | Tout cluster Kubernetes (namespace `arcia`) | `.\scripts\Deploy-ArcIA.ps1` / `./scripts/deploy-arcia.sh` | Applique séquentiellement les manifestes de [`deploy/manifests/`](manifests/README.md) et synchronise les ConfigMaps à chaud. |
+| **3. Mode laboratoire local** | Poste développeur (Docker Desktop / Engine) | `docker compose -f docker-compose.lab.yml up -d` | Lance rapidement la pile locale avec `litellm-lab.yaml` pour qualifier les modèles et les skills hors cluster. |
 
 ---
 
-## 🔗 Documentation Associée
+## 🔗 Documentation associée
 
-* 📘 [ Catalogue des Manifestes Kubernetes (`deploy/manifests/README.md`)](manifests/README.md)
-* 🌐 [Guide du Déploiement Universel (`docs/guides/deploiement-universel.md`)](../docs/guides/deploiement-universel.md)
-* 🏛️ [Architecture Technique (`docs/architecture.md`)](../docs/architecture.md)
-* 🛠️ [Runbook Quickstart (`docs/runbooks/quickstart.md`)](../docs/runbooks/quickstart.md)
+* 📘 [Catalogue des manifestes Kubernetes (`deploy/manifests/README.md`)](manifests/README.md)
+* 🌐 [Guide du déploiement universel (`docs/guides/deploiement-universel.md`)](../docs/guides/deploiement-universel.md)
+* 🏛️ [Architecture technique (`docs/architecture.md`)](../docs/architecture.md)
+* 🛠️ [Runbook quickstart (`docs/runbooks/quickstart.md`)](../docs/runbooks/quickstart.md)

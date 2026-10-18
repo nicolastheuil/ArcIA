@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🎨_Assets-Design_System-0C2762?style=flat-square" alt="Assets"></a>
   <img src="https://img.shields.io/badge/Teams_App-Manifest_v1.25-5B5FC7?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Manifest">
 </p>
 
-# 💬 Package d'Application Microsoft Teams — ArcIA
+# 💬 Package d'application Microsoft Teams — ArcIA
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[🎨 Assets](../README.md)** › **Microsoft Teams (`assets/teams/`)**
 
@@ -12,7 +12,7 @@ Ce dossier regroupe le manifeste, les icônes réglementaires et les archives `.
 
 ---
 
-## 📦 Fichiers du Package
+## 📦 Fichiers du package
 
 | Fichier | Dimensions / Format | Rôle |
 |---|---|---|
@@ -24,14 +24,14 @@ Ce dossier regroupe le manifeste, les icônes réglementaires et les archives `.
 
 ---
 
-## 🚀 Procédure d'Importation dans Microsoft Teams
+## 🚀 Procédure d'importation dans Microsoft Teams
 
-### Option A : Import direct dans le Portail Développeur (Sans Bot pré-créé)
+### Option A : import direct dans le portail développeur (sans bot pré-créé)
 1. Ouvrez le **[Portail Développeur Microsoft Teams](https://dev.teams.microsoft.com/apps)** et cliquez sur **Importer une application**.
 2. Sélectionnez `assets/teams/arcia-teams-ui.zip`.
 3. Dans **App features › Bot**, liez ou créez votre bot Azure en 1 clic.
 
-### Option B : Empaquetage automatisé avec votre `BotId`
+### Option B : empaquetage automatisé avec votre `BotId`
 ```powershell
 .\scripts\Package-TeamsApp.ps1 -BotId "VOTRE-APP-ID-GUID"
 ```

@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🏛️_Public--APIs-Compétence_Souveraine-0C2762?style=flat-square" alt="Public-APIs"></a>
   <img src="https://img.shields.io/badge/Runtime-Python_Stdlib_Only-6BE7DD?style=flat-square&logoColor=050712" alt="Python Stdlib">
 </p>
 
-# 🐍 Scripts Utilitaires Open Data & Public-APIs — ArcIA
+# 🐍 Scripts utilitaires open data et public-APIs — ArcIA
 
 > **[🏠 Accueil ArcIA](../../../README.md)** › **[🧠 Compétences](../../README.md)** › **[🏛️ Public-APIs](../README.md)** › **Scripts (`scripts/`)**
 
@@ -12,7 +12,7 @@ Ce dossier contient le moteur d'interrogation autonome associé à la compétenc
 
 ---
 
-## ⚡ Utilisation Directe (`public_apis.py`)
+## ⚡ Utilisation directe (`public_apis.py`)
 
 Le script **[public_apis.py](public_apis.py)** fonctionne exclusivement avec la bibliothèque standard Python (`urllib.request`, `json`, `hashlib`) et met en cache les réponses pendant 24 heures :
 

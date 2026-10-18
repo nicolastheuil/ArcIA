@@ -38,7 +38,7 @@ Le contexte chargé continue de passer par la double barrière Presidio DLP avan
 
 Hermes est le responsable de la mémoire personnelle, du profil et de la délégation. Chaque runtime conserve son état sur son propre PVC (`state.db`). Les mécanismes ECC de mémoire, instincts, apprentissage ou export ne sont pas activés ; leurs skills restent consultables comme méthodes. Les connaissances communes vivent dans le RAG sous ACL, pas dans une mémoire globale de conversations.
 
-La gestion de contexte native Hermes est complétée par le plugin de gouvernance ([services/hermes/plugin.py](../../services/hermes/plugin.py)) qui assure la compression réversible CCR (> 8 Ko JSON) et la compaction RTK `git log`. La passerelle d'inférence LiteLLM Proxy unifiée gère l'ensemble des flux d'inférence en v0.4. Aucune instruction de skill ne crée un droit réseau, un budget, un fournisseur ou une autorisation d'action externe.
+La gestion de contexte native Hermes est complétée par le plugin de gouvernance ([services/hermes/plugin.py](../../services/hermes/plugin.py)) qui assure la compression réversible CCR (> 8 Ko JSON) et la compaction RTK `git log`. La passerelle d'inférence LiteLLM Proxy unifiée gère l'ensemble des flux d'inférence en v0.5.0. Aucune instruction de skill ne crée un droit réseau, un budget, un fournisseur ou une autorisation d'action externe.
 
 ## Versions, cycle d'installation et mises à jour
 

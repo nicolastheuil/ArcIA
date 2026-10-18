@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🧠_Skills-Catalogue_Natif-0C2762?style=flat-square" alt="Skills"></a>
   <img src="https://img.shields.io/badge/Open_Data-api.gouv.fr_&_SIRENE-6BE7DD?style=flat-square&logoColor=050712" alt="Open Data">
 </p>
 
-# 🏛️ Public-APIs — Passerelle Souveraine Open Data & Entreprises
+# 🏛️ Public-APIs — passerelle souveraine open data et entreprises
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[🧠 Compétences](../README.md)** › **Public-APIs (`skills/public-apis/`)**
 
@@ -35,9 +35,9 @@ flowchart LR
 
 ---
 
-## 🚀 Commandes & Exemples d'Utilisation
+## 🚀 Commandes et exemples d'utilisation
 
-| Commande | Exemple d'Exécution | Résultat |
+| Commande | Exemple d'exécution | Résultat |
 |---|---|---|
 | **Recherche d'entreprise** | `python skills/public-apis/scripts/public_apis.py company "130025265"` | Raison sociale, SIREN/SIRET, TVA intracommunautaire calculée, code NAF, statut actif/radié, siège et dirigeants. |
 | **Géocodage d'adresse (BAN)** | `python skills/public-apis/scripts/public_apis.py address "20 avenue de segur paris"` | Adresse postale normalisée, code INSEE et coordonnées GPS. |
@@ -46,7 +46,7 @@ flowchart LR
 
 ---
 
-## 📖 Fichiers Associés
+## 📖 Fichiers associés
 * 📄 **[SKILL.md](SKILL.md)** : Directives opérationnelles pour Hermes Agent.
 * 🗂️ **[catalog.json](catalog.json)** : Annuaire structuré des APIs publiques souveraines.
 * 🐍 **[scripts/public_apis.py](scripts/public_apis.py)** : Moteur d'exécution avec cache 24h ([documentation scripts](scripts/README.md)).

@@ -1,6 +1,6 @@
-# Quickstart ArcIA v0.4
+# Quickstart ArcIA v0.5.0
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.4** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.0** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
@@ -17,16 +17,16 @@ Pour déployer ArcIA, vous devez disposer de :
 
 ---
 
-## 2. Déploiement Simplifié en 2 Étapes
+## 2. Déploiement simplifié en 2 étapes
 
-### Étape 1 : Cloner le dépôt
+### Étape 1 : cloner le dépôt
 
 ```bash
 git clone https://github.com/votre-org/ArcIA.git
 cd ArcIA
 ```
 
-### Étape 2 : Lancer le Setup Wizard Graphique
+### Étape 2 : lancer le Setup Wizard graphique
 
 Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez le Wizard interactif depuis la racine du dépôt :
 
@@ -39,15 +39,15 @@ Pour une installation fluide sans manipulation manuelle de fichiers YAML, lancez
 ./wizard.sh
 ```
 
-Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wizard_ui/index.html](../../scripts/wizard_ui/index.html)) s'ouvre sur une **page d'accueil dédiée** présentant le projet **ArcIA**, le rôle de l'assistant et **trois options** renvoyant chacune vers sa page dédiée (avec chargement contextuel d'un fichier `arcia.config.yaml` directement dans la page choisie) :
+Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wizard_ui/index.html](../../scripts/wizard_ui/index.html)) s'ouvre sur un **centre de pilotage graphique épuré** (conforme à la charte *taste-skill v2* / *minimalist-ui*), doté d'une barre de navigation supérieure fluide et de **cinq espaces dédiés** :
 
-#### Parcours A : Installer une nouvelle instance
+#### Parcours A : installer une nouvelle instance
 Dans la page dédiée d'installation (munie d'un bandeau supérieur permettant de pré-remplir toutes les étapes depuis un fichier `arcia.config.yaml` ou `arcia.env` existant) :
-1. **Dépôt Git d'Instance Privé** :
+1. **Dépôt Git d'instance privé** :
    - Connectez votre compte **GitHub** ou **GitLab** avec un jeton personnel (PAT).
    - Le Wizard teste les permissions et **crée automatiquement le dépôt privé** d'instance (ex: `ArcIA-instance-prod`).
    - Définissez un **mot de passe maître de chiffrement** : tous les secrets d'instance (`instance-secrets.enc`) sont chiffrés en **AES-256-GCM** (dérivation PBKDF2 100 000 itérations) avant d'être sauvegardés sur votre Git privé. Le dépôt racine ArcIA reste ainsi 100% générique et inviolable.
-2. **Cible & Infrastructure d'Hébergement** :
+2. **Cible & infrastructure d'hébergement** :
    Le Wizard propose trois cibles d'hébergement selon vos besoins :
    - **Connexion à un environnement Kubernetes existant (EKS, AKS, GKE, K3s, kubeadm...)** :
      - Connexion via contexte `kubeconfig` local ou accès SSH distant.
@@ -58,29 +58,56 @@ Dans la page dédiée d'installation (munie d'un bandeau supérieur permettant d
    - **Déploiement local sur ce poste avec Docker (Mode Lab)** :
      - Démarrage instantané via Docker Compose ([docker-compose.lab.yml](../../docker-compose.lab.yml)) sans cluster Kubernetes.
      - Détection en direct du daemon Docker Engine et accès immédiat sur `http://localhost:3000`.
-3. **Réseau & Certificats** : FQDN public (`https://assistant.example.org/`) et émission automatique Let's Encrypt (ou port local `3000` en mode Lab).
-4. **Passerelle LLM & Sélection des 5 Profils Canoniques** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) et choix du profil par défaut (`simple/auto`, `simple/free`, `agentic/auto`, `agentic/free`, `agentic/expert`).
-5. **Hermes Studio & Desktop** : Génération automatique des mots de passe admin et du jeton PAT.
-6. **Modules Optionnels Ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
+3. **Réseau et certificats** : FQDN public (`https://assistant.example.org/`) et émission automatique Let's Encrypt (ou port local `3000` en mode Lab).
+4. **Passerelle LLM et sélection des 5 profils canoniques** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) et choix du profil par défaut (`simple/auto`, `simple/free`, `agentic/auto`, `agentic/free`, `agentic/expert`).
+5. **Hermes Studio et desktop** : Génération automatique des mots de passe admin et du jeton PAT.
+6. **Modules optionnels ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
 7. **Auto-configuration intégrale** : Presidio DLP (double barrière), Open-WebUI, LiteLLM (avec base PostgreSQL 16), le plugin CCR/RTK (`services/hermes/plugin.py`) et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
-8. **Déploiement & Sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
+8. **Déploiement et sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
 
-#### Parcours B : Mettre à jour mon instance (Zero-Downtime)
-1. Sur la page d'accueil du Wizard, cliquez sur **« Mettre à jour mon instance »** pour ouvrir la page dédiée de mise à jour.
-2. Vous pouvez y charger votre fichier `arcia.config.yaml` si vous souhaitez cibler un contexte Kubernetes ou nœud SSH spécifique.
+#### Parcours B : gérer les power users
+Accessible via l'onglet **Power users** ou la carte d'accueil correspondante :
+1. **Supervision des pods et volumes** : Affichage bento des métriques clés (utilisateurs nominatifs, pods actifs vs en veille, stockage PVC total alloué).
+2. **Tableau interactif des collaborateurs** :
+   - Statut en temps réel du Pod (`Actif (Running)`, `En veille (0/0)`, `Démarrage (Pending)`, `Erreur`).
+   - Jauge visuelle de remplissage et capacité du PVC avec code couleur dynamique (vert &lt; 70%, ambre &ge; 70%, rouge &ge; 85%).
+   - Accès direct au Studio web du collaborateur (`/poweruser/<slug>/studio`).
+3. **Actions unitaires et administration** :
+   - **Mise en veille / réveil instantané** via `kubectl scale deployment --replicas=0/1` pour optimiser la mémoire RAM du cluster.
+   - **Agrandissement du PVC à chaud** sans interruption de service (*Kubernetes Online Volume Expansion*) avec validation de dimensionnement (10Gi, 20Gi, 50Gi, 100Gi+).
+   - **Provisionnement d'un nouveau collaborateur** (nom, slug K8s, email, template de personnalité `SOUL.md` et capacité initiale).
+   - **Suppression sécurisée** avec option de conservation ou destruction du volume de données.
+   - **Synchronisation globale des modèles** vers tous les pods Power Users.
+
+#### Parcours C : routage des modèles et passerelle d'inférence
+Accessible via l'onglet **Routage des modèles** ou la carte d'accueil :
+1. **Fournisseurs et clés d'API** :
+   - Cartes dédiées pour chaque fournisseur d'inférence : **OpenRouter** (ZDR Cloud recommandé), **OpenAI**, **Anthropic**, **Mistral AI**, **Google Gemini** et **vLLM / Ollama local** (souverain sur site).
+   - Test de connectivité en un clic avec validation des clés et des quotas en direct.
+   - Masquage sécurisé des clés d'API et sauvegarde protégée dans `arcia.config.yaml`.
+2. **Noms communs d'entreprise et correspondance vers les vrais modèles** :
+   - Définition des identifiants vus par les utilisateurs dans Open-WebUI et Teams (`simple/auto`, `simple/free`, `agentic/auto`, `agentic/free`, `agentic/expert`, + alias personnalisés).
+   - Association vers le vrai modèle amont (ex: `openrouter/anthropic/claude-3-5-sonnet`, `openrouter/deepseek/deepseek-v4.1-flash`, `local_vllm/mistral-large-instruct`).
+   - Configuration du modèle de repli automatique (*fallback*) en cas d'indisponibilité du modèle principal.
+   - Boutons de préréglages instantanés (*Tout OpenRouter ZDR*, *Hybride souverain vLLM local*, *Multi-fournisseurs directs*).
+   - Synchronisation à chaud de la ConfigMap `litellm-config` sur le cluster Kubernetes.
+
+#### Parcours D : mettre à jour mon instance (Zero-Downtime)
+1. Sur la page d'accueil ou l'onglet **Mises à jour**, ouvrez le centre de mise à jour.
+2. Vous pouvez y charger votre fichier `arcia.config.yaml` pour cibler votre contexte Kubernetes.
 3. Le Wizard interroge en direct les dépôts officiels amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy, Teams Bot, ArcIA Core & Skills*) et compare avec les versions de vos manifestes locaux.
 4. Sélectionnez les composants souhaités et lancez la séquence (ou testez-la via **Simuler la séquence (Dry-Run)**).
 5. L'orchestrateur exécute les **6 phases séquentielles** en `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes `readinessProbe` et rollback automatique (`kubectl rollout undo`) en cas d'anomalie, sans aucune coupure de service.
 
-#### Parcours C : Restaurer une instance
-1. Sur la page d'accueil du Wizard, cliquez sur **« Restaurer une instance »** pour ouvrir la page dédiée de reprise.
+#### Parcours E : restaurer une instance (PRA)
+1. Sur la page d'accueil ou l'onglet **Sauvegarde et PRA**, ouvrez la page de reprise.
 2. Choisissez entre le chargement direct d'un fichier `arcia.config.yaml` / `arcia.env` local (**Option A**) ou la récupération depuis votre dépôt Git d'instance privé chiffré (**Option B**).
 3. En Option B, indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`), votre token d'accès PAT et votre **mot de passe maître de déchiffrement**.
 4. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc`, pré-remplit l'intégralité de la configuration et vous permet de redéployer l'instance sur le cluster cible.
 
 ---
 
-### Alternative en ligne de commande (Mode Headless)
+### Alternative en ligne de commande (mode headless)
 
 Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
 1. Copiez `arcia.config.yaml.example` vers `arcia.config.yaml` :
@@ -99,7 +126,7 @@ Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
 
 ---
 
-## 3. Configuration de LiteLLM & Catalogue des 5 Profils Canoniques
+## 3. Configuration de LiteLLM et catalogue des 5 profils canoniques
 
 ### Où renseigner les clés d'entreprise ?
 
@@ -123,9 +150,9 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
    .\scripts\Invoke-K3s.ps1 "rollout restart deployment litellm-proxy -n arcia"
    ```
 
-### Les 5 Profils Canoniques Disponibles
+### Les 5 profils canoniques disponibles
 
-Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.4** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
+Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.0** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
 - **`simple/free`** : Chat direct rapide sans coût via OpenRouter Free (`openrouter/openrouter/free`).
 - **`simple/auto`** *(Défaut)* : Chat direct polyvalent équilibrant performance et coût (`openrouter/auto`).
 - **`agentic/free`** : Session autonome Hermes outillée sur palier gratuit (`openrouter/openrouter/free`).
@@ -139,9 +166,9 @@ Toutes les requêtes sortant vers des modèles cloud bénéficient de :
 
 ---
 
-## 4. Portail Open-WebUI, SSO Entra ID & Pods Dédiés Power Users
+## 4. Portail Open-WebUI, SSO Entra ID et pods dédiés Power Users
 
-### Accès au Portail Web & Configuration SSO Entra ID
+### Accès au portail web et configuration SSO Entra ID
 
 Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.example.org`).
 
@@ -152,9 +179,9 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
     - `https://<public_fqdn>/oauth2/callback` *(Callback OAuth2-Proxy pour Hermes Studio `/studio`)*
 - **Sans SSO (Mode local)** : Le premier compte créé devient le compte administrateur d'Open-WebUI (`ENABLE_SIGNUP=false` verrouille ensuite toute auto-inscription publique).
 
-### Utilisateurs Standards vs Power Users
+### Utilisateurs standards vs power users
 
-- **Utilisateurs Standards** : Accèdent directement à Open-WebUI (profils `simple/*` et `agentic/*`) ainsi qu'au bot Microsoft Teams.
+- **Utilisateurs standards** : Accèdent directement à Open-WebUI (profils `simple/*` et `agentic/*`) ainsi qu'au bot Microsoft Teams.
 - **Power Users** : En plus d'Open-WebUI (`simple/*` + `agentic/*`), chaque Power User dispose d'un **Pod Hermes dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionné via [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) :
   ```powershell
   .\scripts\Spawn-PowerUser.ps1 dev-lead@example.org -Team engineering
@@ -163,7 +190,7 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
 
 ---
 
-## 5. Hermes Studio (Port 9119) & Gateway (Port 8642)
+## 5. Hermes Studio (port 9119) et Gateway (port 8642)
 
 - **Hermes Studio (Kanban)** : Accessible à `https://<public_fqdn>/studio` (protégé par SSO Entra ID et mot de passe admin). Permet de suivre l'exécution des missions longues, les réflexions (Chain of Thought) et l'utilisation des outils.
 - **Hermes Gateway & Desktop** : L'application client lourd **Hermes Desktop** se connecte sur `https://<public_fqdn>/gateway` avec votre jeton PAT.
@@ -171,7 +198,7 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
 
 ---
 
-## 6. Intégration Microsoft Teams (Optionnel)
+## 6. Intégration Microsoft Teams (optionnel)
 
 1. Dans `arcia.config.yaml`, configurez la section `teams_bot` :
    ```yaml
@@ -187,7 +214,7 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
 
 ---
 
-## 7. Vérification & Recette Automatisée
+## 7. Vérification et recette automatisée
 
 Pour valider l'intégrité opérationnelle de la plateforme déployée, exécutez la suite de recette complète :
 
@@ -209,7 +236,7 @@ Cette suite valide automatiquement :
 
 ---
 
-## 8. Exploitation Quotidienne & Liens Utiles
+## 8. Exploitation quotidienne et liens utiles
 
 - [Runbook d'Exploitation & Maintenance](exploitation.md) : Consultation des logs, redémarrage des services, injection de secrets.
 - [Sauvegarde et Reconstruction](sauvegarde-reconstruction.md) : Sauvegarde d'etcd, persistance des PVC et reprise après incident.

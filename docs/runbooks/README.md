@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Runbooks-Exploitation_&_PRA-FA7B4E?style=flat-square" alt="Runbooks">
 </p>
 
-# 🛠️ Runbooks d'Exploitation & Procédures Opérationnelles — ArcIA
+# 🛠️ Runbooks d'exploitation et procédures opérationnelles — ArcIA
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **Runbooks Opérationnels**
 
@@ -12,9 +12,9 @@ Ce dossier regroupe les procédures opérationnelles pas-à-pas destinées aux �
 
 ---
 
-## 📋 Sommaire des Runbooks
+## 📋 Sommaire des runbooks
 
-| Procédure | Fichier | Objectif Opérationnel |
+| Procédure | Fichier | Objectif opérationnel |
 |---|---|---|
 | 🚀 **Démarrage Rapide (Quickstart)** | **[quickstart.md](quickstart.md)** | Installation complète via le Wizard en **3 parcours dédiés** (`.\wizard.ps1` ou `./wizard.sh`), mise à jour en ligne Zero-Downtime, création de Pods Power Users (`.\scripts\Spawn-PowerUser.ps1`) et recette. |
 | 🔍 **Exploitation & Maintenance (MCO)** | **[exploitation.md](exploitation.md)** | Supervision quotidienne des Pods, consultation des journaux, rotation des secrets, gestion des quotas LiteLLM et mises à jour RollingUpdate. |
@@ -22,7 +22,7 @@ Ce dossier regroupe les procédures opérationnelles pas-à-pas destinées aux �
 
 ---
 
-## 🛡️ Règle de Qualification des Opérations
+## 🛡️ Règle de qualification des opérations
 
 > [!IMPORTANT]
 > Conformément à la charte d'ingénierie ArcIA ([`AGENTS.md`](../../AGENTS.md)), tout état rapporté en exploitation distingue strictement :

@@ -151,5 +151,23 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
         self.assertEqual(parsed["kubernetes"]["remote_ssh"]["ssh_key"], "~/.ssh/custom_key")
         self.assertEqual(parsed["kubernetes"]["remote_ssh"]["ssh_user"], "ubuntu")
 
+    def test_sync_service_configmaps_includes_litellm_error_handler(self):
+        """Vérifie que sync_service_configmaps intègre litellm-error-handler."""
+        class DummyRunner:
+            def __init__(self):
+                self.applied = []
+            def apply_manifest(self, manifest_yaml):
+                self.applied.append(manifest_yaml)
+
+        runner = DummyRunner()
+        checksums = deploy.sync_service_configmaps(runner, "arcia", self.root_dir)
+        self.assertIn("litellm-error-handler", checksums)
+        self.assertIn("presidio-code", checksums)
+        self.assertIn("teams-bot-code", checksums)
+        self.assertIn("hermes-governance-plugin", checksums)
+        applied_names = "\n".join(runner.applied)
+        self.assertIn("name: litellm-error-handler", applied_names)
+        self.assertIn("error_handler.py: |", applied_names)
+
 if __name__ == "__main__":
     unittest.main()

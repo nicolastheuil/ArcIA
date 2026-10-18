@@ -1,0 +1,111 @@
+{
+  "arcia_release": "v0.5.0",
+  "arcia_version": "v0.5.0",
+  "published_at": "2026-10-18",
+  "channel": "stable",
+  "repository": "nicolastheuil/ArcIA",
+  "components": {
+    "arcia-core": {
+      "version": "v0.5.0",
+      "image": "nicolastheuil/ArcIA",
+      "release_notes": "Synchronisation des compétences, ConfigMaps DLP, images stables épinglées et connecteur Teams."
+    },
+    "presidio-dlp": {
+      "version": "2.2.355",
+      "image": "python:3.11-slim",
+      "release_notes": "Règles PII françaises enrichies et rejet fail-closed des secrets PEM/SSH."
+    },
+    "oauth2-proxy": {
+      "version": "v7.8.1",
+      "image": "quay.io/oauth2-proxy/oauth2-proxy:v7.8.1",
+      "release_notes": "ForwardAuth Traefik pour l'authentification Microsoft Entra ID."
+    },
+    "litellm-proxy": {
+      "version": "v1.72.6-stable",
+      "image": "ghcr.io/berriai/litellm:main-v1.72.6-stable",
+      "release_notes": "Passerelle d'inférence unifiée avec ZDR granulaire par modèle et guardrail Presidio."
+    },
+    "hermes-agent": {
+      "version": "v0.2.0",
+      "image": "nousresearch/hermes-agent:v0.2.0",
+      "release_notes": "Moteur d'agents autonomes, Studio Kanban et mémoire SQLite state.db isolée."
+    },
+    "teams-bot": {
+      "version": "v4.16.0",
+      "image": "python:3.11-slim",
+      "release_notes": "Adaptateur Bot Framework Microsoft Teams avec délégation /agent vers Hermes."
+    },
+    "open-webui": {
+      "version": "v0.5.10",
+      "image": "ghcr.io/open-webui/open-webui:v0.5.10",
+      "release_notes": "Portail collaborateur hybride avec routage switch simple/agentic et RAG."
+    }
+  },
+  "version_registry": {
+    "sync_script": "scripts/sync_versions.py",
+    "tracked_files": [
+      "README.md",
+      "AGENTS.md",
+      "assets/README.md",
+      "assets/branding/README.md",
+      "assets/installer/README.md",
+      "assets/teams/README.md",
+      "deploy/README.md",
+      "deploy/manifests/README.md",
+      "docs/README.md",
+      "docs/architecture.md",
+      "docs/etat-des-fonctionnalites.md",
+      "docs/runbooks/README.md",
+      "docs/runbooks/quickstart.md",
+      "docs/runbooks/exploitation.md",
+      "docs/runbooks/sauvegarde-reconstruction.md",
+      "docs/guides/README.md",
+      "docs/guides/versions-officielles.md",
+      "docs/guides/deploiement-universel.md",
+      "docs/guides/hermes-agent.md",
+      "docs/guides/inference-litellm.md",
+      "docs/guides/integration-teams.md",
+      "docs/guides/portail-webui-entraid.md",
+      "docs/guides/securite.md",
+      "docs/guides/tokenmaxing.md",
+      "docs/guides/outillage-builder.md",
+      "docs/guides/plateforme-arcia.md",
+      "docs/guides/skills.md",
+      "docs/guides/confidentialite-presidio.md",
+      "docs/guides/chaine-de-routage.md",
+      "docs/guides/connecteurs-mcp.md",
+      "scripts/README.md",
+      "scripts/wizard_ui/index.html",
+      "scripts/wizard.py",
+      "secrets/README.md",
+      "services/README.md",
+      "services/hermes/README.md",
+      "services/litellm/README.md",
+      "services/presidio/README.md",
+      "services/teams/README.md",
+      "services/teams/app.py",
+      "services/hermes/plugin.py",
+      "skills/README.md",
+      "skills/graphify/README.md",
+      "skills/graphify/SKILL.md",
+      "skills/ponytail/README.md",
+      "skills/ponytail/SKILL.md",
+      "skills/public-apis/README.md",
+      "skills/public-apis/SKILL.md",
+      "skills/public-apis/scripts/README.md",
+      "tests/README.md",
+      "tests/test_dlp.py",
+      "tests/test_manifests.py",
+      "deploy/manifests/03-presidio.yaml",
+      "deploy/manifests/05-litellm-db.yaml",
+      "deploy/manifests/05-litellm.yaml",
+      "deploy/manifests/06-hermes-agent.yaml",
+      "deploy/manifests/08-teams-bot.yaml",
+      "deploy/manifests/09-network-policy.yaml",
+      "deploy/litellm-lab.yaml",
+      "scripts/arcia_keys.py",
+      "scripts/arcia_poweruser.py",
+      "scripts/test-validation.sh"
+    ]
+  }
+}

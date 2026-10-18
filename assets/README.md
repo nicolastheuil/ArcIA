@@ -1,9 +1,9 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Design_System-ArcIA_Brand_Kit-6BE7DD?style=flat-square&logoColor=050712" alt="Brand Kit">
 </p>
 
-# 🎨 Ressources Graphiques, Identité Visuelle & Packages — ArcIA
+# 🎨 Ressources graphiques, identité visuelle et packages — ArcIA
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Assets (`assets/`)**
 
@@ -11,7 +11,7 @@ Ce dossier centralise la charte graphique officielle d'**ArcIA**, les ressources
 
 ---
 
-## 📂 Structure des Ressources
+## 📂 Structure des ressources
 
 ```text
 assets/
@@ -20,7 +20,7 @@ assets/
 └── teams/        # Icônes officielles (192x192 / 32x32), manifest.json et archives .zip Teams
 ```
 
-| Sous-Dossier | Contenu Principal | Rôle |
+| Sous-dossier | Contenu principal | Rôle |
 |---|---|---|
 | 🎨 **[branding/](branding/README.md)** | `banner-github-dark.svg`, `logo-arcia-dark.svg`, `logo-arcia-light.svg`, `logo-arcia-symbol.svg`, `palette.json` | Identité visuelle officielle injectée dans Open-WebUI (`arcia-webui-branding`), le Setup Wizard et la documentation. |
 | 💿 **[installer/](installer/README.md)** | `app.ico`, `wizard-header.bmp`, `wizard-side.bmp`, `installer-sample.iss` | Ressources visuelles et script de packaging pour les exécutables d'installation Windows. |

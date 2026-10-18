@@ -1,4 +1,4 @@
-FROM nousresearch/hermes-agent:latest
+FROM nousresearch/hermes-agent:v0.2.0
 
 LABEL org.opencontainers.image.title="ArcIA Hermes Agent Runtime"
 LABEL org.opencontainers.image.description="Hermes Agent with ArcIA Tokenmaxing (RTK, Headroom CCR, Graphify, Ponytail) and Presidio DLP"

@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.4 — Base de Données Comptable & Clés Virtuelles LiteLLM (PostgreSQL)
+# ArcIA v0.5.0 — Base de Données Comptable & Clés Virtuelles LiteLLM (PostgreSQL)
 # ==============================================================================
 # Porte la persistance des clés virtuelles nominatives (PAT), des budgets
 # par équipe/utilisateur, et de l'historique d'inférence sécurisé.

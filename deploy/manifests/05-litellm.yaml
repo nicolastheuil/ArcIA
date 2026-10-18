@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.4 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
+# ArcIA v0.5.0 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
 # Catalogue canonique :
 #   - Direct LiteLLM : simple/free, simple/auto
 #   - Moteur Hermes  : agentic/free, agentic/auto, agentic/expert

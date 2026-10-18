@@ -58,7 +58,7 @@ class TestPowerUserSpawner(unittest.TestCase):
 
         self.assertIn("kind: Deployment", rendered)
         self.assertIn("name: hermes-poweruser-claire-dubois", rendered)
-        self.assertIn("image: nousresearch/hermes-agent:latest", rendered)
+        self.assertIn("image: nousresearch/hermes-agent:v0.2.0", rendered)
         self.assertIn("HERMES_HOME", rendered)
         self.assertIn("http://litellm-proxy.arcia.svc:4000/v1", rendered)
 

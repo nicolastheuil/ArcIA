@@ -182,9 +182,11 @@ class TestArcIAWizard(unittest.TestCase):
         self.assertIn("500", tiers)
         self.assertIn("1000", tiers)
 
-        # Vérifier que le profil 100 utilisateurs est HA et recommandé
+        # Vérifier que le profil 100 utilisateurs s'intitule PME et n'affiche plus de recommandation
         tier_100 = tiers["100"]
-        self.assertTrue(tier_100["recommended"])
+        self.assertEqual(tier_100["title"], "PME")
+        self.assertEqual(tier_100["users_label"], "21 à 100 utilisateurs")
+        self.assertFalse(tier_100["recommended"])
         self.assertEqual(tier_100["nodes"], 3)
         self.assertEqual(tier_100["total_vcpu"], 12)
         self.assertEqual(tier_100["total_ram_gb"], 48)
@@ -433,7 +435,8 @@ llm_gateway:
         handler.send_json = MagicMock()
         handler.is_safe_origin = MagicMock(return_value=True)
 
-        handler._handle_post_internal()
+        with patch("wizard.save_config_to_files"):
+            handler._handle_post_internal()
         handler.send_json.assert_called_once()
         status_code, data = handler.send_json.call_args[0]
         self.assertEqual(status_code, 200)
@@ -658,7 +661,677 @@ llm_gateway:
             self.assertIn("updates", data)
             self.assertEqual(data["updates"]["components"][0]["id"], "arcia-core")
 
+    def test_powerusers_and_models_routing_html(self):
+        """Vérifie la présence des sections Power Users et Routage Modèles dans le HTML du Wizard."""
+        html = wizard.get_wizard_html_page()
+        # Header navigation tabs
+        self.assertIn('id="mainHeaderNav"', html)
+        self.assertIn('id="navTabPowerUsers"', html)
+        self.assertIn('id="navTabModels"', html)
+        self.assertIn("switchMainTab", html)
+
+        # Home cards
+        self.assertIn('id="cardPowerUsers"', html)
+        self.assertIn('id="cardModelsRouting"', html)
+
+        # Sections
+        self.assertIn('id="powerUsersSection"', html)
+        self.assertIn('id="modelsRoutingSection"', html)
+
+        # Tables
+        self.assertIn('id="powerUsersTable"', html)
+        self.assertIn('id="modelsRoutingTable"', html)
+
+        # Modals
+        self.assertIn('id="modalCreatePowerUser"', html)
+        self.assertIn('id="modalResizePvc"', html)
+        self.assertIn('id="modalDeletePowerUser"', html)
+        self.assertIn('id="modalEditProviderKey"', html)
+
+        # Direction 1 elements (Bento grid, central YAML, compact provider pills, ZDR switch)
+        self.assertIn('id="centralYamlTrigger"', html)
+        self.assertIn('id="centralYamlFilename"', html)
+        self.assertIn('class="bento-summary-grid"', html)
+        self.assertIn('class="providers-strip"', html)
+        self.assertIn('class="zdr-switch"', html)
+        self.assertIn("Sauvegarde et restauration", html)
+
+        # Key JS functions
+        self.assertIn("fetchPowerUsers", html)
+        self.assertIn("renderPowerUsersTable", html)
+        self.assertIn("openResizePvcModal", html)
+        self.assertIn("fetchModelRouting", html)
+        self.assertIn("renderProvidersGrid", html)
+        self.assertIn("openEditProviderModal", html)
+        self.assertIn("onZdrToggled", html)
+        self.assertIn("saveModelRouting", html)
+        self.assertIn("applyModelPreset", html)
+
+    def test_list_powerusers_mocked(self):
+        """Vérifie que list_powerusers extrait les Power Users, l'état de leurs pods et le volume PVC."""
+        mock_deps_json = json.dumps({
+            "items": [
+                {
+                    "metadata": {
+                        "name": "hermes-poweruser-alice",
+                        "labels": {
+                            "app.kubernetes.io/name": "hermes-poweruser",
+                            "app.kubernetes.io/instance": "alice",
+                            "arcia.io/role": "poweruser",
+                            "arcia.io/user-slug": "alice",
+                            "arcia.io/user-name": "Alice Martin",
+                            "arcia.io/user-email": "alice@example.com",
+                            "arcia.io/user-team": "DevOps"
+                        }
+                    },
+                    "spec": {"replicas": 1},
+                    "status": {"replicas": 1, "readyReplicas": 1}
+                },
+                {
+                    "metadata": {
+                        "name": "hermes-poweruser-bob",
+                        "labels": {
+                            "app.kubernetes.io/name": "hermes-poweruser",
+                            "app.kubernetes.io/instance": "bob",
+                            "arcia.io/role": "poweruser",
+                            "arcia.io/user-slug": "bob",
+                            "arcia.io/user-name": "Bob Dupont",
+                            "arcia.io/user-email": "bob@example.com",
+                            "arcia.io/user-team": "Finance"
+                        }
+                    },
+                    "spec": {"replicas": 0},
+                    "status": {"replicas": 0}
+                }
+            ]
+        })
+
+        mock_pvcs_json = json.dumps({
+            "items": [
+                {
+                    "metadata": {"name": "hermes-user-alice-pvc"},
+                    "spec": {"resources": {"requests": {"storage": "10Gi"}}},
+                    "status": {"phase": "Bound", "capacity": {"storage": "10Gi"}}
+                },
+                {
+                    "metadata": {"name": "hermes-user-bob-pvc"},
+                    "spec": {"resources": {"requests": {"storage": "20Gi"}}},
+                    "status": {"phase": "Bound", "capacity": {"storage": "20Gi"}}
+                }
+            ]
+        })
+
+        mock_pods_json = json.dumps({
+            "items": [
+                {
+                    "metadata": {
+                        "name": "hermes-poweruser-alice-7f89d",
+                        "labels": {"arcia.io/user-slug": "alice"}
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [{"name": "hermes-agent", "ready": True, "state": {"running": {}}}]
+                    }
+                }
+            ]
+        })
+
+        def mock_k8s_run(cmd, **kwargs):
+            cmd_str = " ".join(cmd)
+            if "get deployment" in cmd_str:
+                return (0, mock_deps_json, "")
+            elif "get pvc" in cmd_str:
+                return (0, mock_pvcs_json, "")
+            elif "get pod" in cmd_str:
+                return (0, mock_pods_json, "")
+            elif "exec" in cmd_str:
+                return (0, "Filesystem Size Used Avail Use% Mounted\n/dev/sdb 10G 1.5G 8.5G 15% /opt/data\n", "")
+            return (0, "", "")
+
+        with patch("deploy.K8sRunner.run", side_effect=mock_k8s_run):
+            res = wizard.list_powerusers()
+            self.assertEqual(res["status"], "ok")
+            users = res["powerusers"]
+            self.assertEqual(len(users), 2)
+
+            alice = next(u for u in users if u["slug"] == "alice")
+            self.assertEqual(alice["name"], "Alice Martin")
+            self.assertEqual(alice["pod_status"], "Running")
+            self.assertEqual(alice["pvc_capacity"], "10Gi")
+            self.assertEqual(alice["pvc_used_human"], "1.5G")
+            self.assertEqual(alice["pvc_percent"], 15.0)
+
+            bob = next(u for u in users if u["slug"] == "bob")
+            self.assertEqual(bob["name"], "Bob Dupont")
+            self.assertEqual(bob["pod_status"], "Sleeping")
+            self.assertEqual(bob["pvc_capacity"], "20Gi")
+
+            stats = res["stats"]
+            self.assertEqual(stats["total"], 2)
+            self.assertEqual(stats["running"], 1)
+            self.assertEqual(stats["sleeping"], 1)
+            self.assertEqual(stats["total_storage_gi"], 30)
+
+    def test_poweruser_operations_create_scale_resize_delete(self):
+        """Vérifie les opérations unitaires sur un Power User (création, veille, agrandissement PVC, suppression)."""
+        calls = []
+        def mock_run(cmd, **kwargs):
+            calls.append(" ".join(cmd))
+            return (0, "", "")
+
+        with patch("deploy.K8sRunner.run", side_effect=mock_run):
+            # 1. Création
+            res_create = wizard.create_poweruser({
+                "name": "Camille Leroy",
+                "slug": "camille-leroy",
+                "email": "camille@example.com",
+                "team": "Data Science",
+                "pvc_size": "20Gi"
+            })
+            self.assertTrue(res_create["success"])
+            self.assertTrue(any("apply" in c for c in calls))
+
+            # 2. Mise en veille / réveil (scale)
+            calls.clear()
+            res_scale = wizard.scale_poweruser("camille-leroy", replicas=0)
+            self.assertTrue(res_scale["success"])
+            self.assertEqual(res_scale["replicas"], 0)
+            self.assertTrue(any("scale deployment/hermes-poweruser-camille-leroy --replicas=0" in c for c in calls))
+
+            # 3. Agrandissement PVC
+            calls.clear()
+            res_resize = wizard.resize_poweruser_pvc("camille-leroy", new_size="40Gi")
+            self.assertTrue(res_resize["success"])
+            self.assertEqual(res_resize["new_size"], "40Gi")
+            self.assertTrue(any("patch pvc hermes-user-camille-leroy-pvc" in c for c in calls))
+
+            # Test rejet taille invalide
+            res_invalid = wizard.resize_poweruser_pvc("camille-leroy", new_size="invalid-size")
+            self.assertFalse(res_invalid["success"])
+
+            # 4. Suppression
+            calls.clear()
+            res_del = wizard.delete_poweruser("camille-leroy", keep_pvc=False)
+            self.assertTrue(res_del["success"])
+            self.assertTrue(any("delete deployment hermes-poweruser-camille-leroy" in c for c in calls))
+            self.assertTrue(any("delete pvc hermes-user-camille-leroy-pvc" in c for c in calls))
+
+    def test_model_routing_config_and_test_provider(self):
+        """Vérifie la configuration du routage de modèles, les mappings canoniques et le testeur de clé."""
+        cfg = wizard.get_default_config_dict()
+        cfg["llm_gateway"]["openrouter_api_key"] = "sk-or-v1-dummykey123456"
+        cfg["llm_gateway"]["default_model"] = "simple/auto"
+
+        routing = wizard.get_model_routing_config(cfg)
+        self.assertEqual(routing["status"], "ok")
+        self.assertEqual(routing["default_model"], "simple/auto")
+
+        # Fournisseurs
+        providers = {p["id"]: p for p in routing["providers"]}
+        self.assertIn("openrouter", providers)
+        self.assertTrue(providers["openrouter"]["configured"])
+        self.assertIn("openai", providers)
+        self.assertFalse(providers["openai"]["configured"])
+        self.assertNotIn("local_vllm", providers)
+
+        # Vérification qu'un serveur local vLLM/Ollama personnalisé s'intègre via custom_providers
+        cfg["llm_gateway"]["custom_providers"] = [
+            {"id": "custom-vllm", "name": "Mon vLLM Local", "endpoint": "http://192.168.1.50:8000/v1"}
+        ]
+        routing_custom = wizard.get_model_routing_config(cfg)
+        provs_custom = {p["id"]: p for p in routing_custom["providers"]}
+        self.assertIn("custom-vllm", provs_custom)
+        self.assertTrue(provs_custom["custom-vllm"]["is_custom"])
+
+        # Mappings canoniques
+        aliases = [m["alias"] for m in routing["mappings"]]
+        self.assertIn("simple/auto", aliases)
+        self.assertIn("simple/free", aliases)
+        self.assertIn("agentic/auto", aliases)
+        self.assertIn("agentic/free", aliases)
+        self.assertIn("agentic/expert", aliases)
+
+        # Enregistrement
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
+            tmp_path = tmp.name
+
+        try:
+            mock_runner = MagicMock()
+            mock_runner.run.return_value = (0, "", "")
+            with patch("wizard.DEFAULT_CONFIG_PATH", tmp_path), \
+                 patch("wizard.get_k8s_runner", return_value=mock_runner), \
+                 patch("wizard.sync_litellm_configmap") as mock_sync:
+                mock_sync.return_value = {"success": True}
+                save_data = {
+                    "providers": {
+                        "openrouter_api_key": "sk-or-v1-savedkey",
+                        "openai_api_key": "sk-proj-realopenai123456789"
+                    },
+                    "custom_providers": [
+                        {"id": "vllm-local", "name": "vLLM", "endpoint": "http://192.168.1.100:8000/v1"}
+                    ],
+                    "default_model": "agentic/auto",
+                    "mappings": routing["mappings"]
+                }
+                res_save = wizard.save_model_routing_config(save_data, cfg_path=tmp_path)
+                self.assertTrue(res_save["success"])
+                mock_sync.assert_called_once()
+
+                # Recharger et vérifier
+                loaded = wizard.get_model_routing_config()
+                p_loaded = {p["id"]: p for p in loaded["providers"]}
+                self.assertTrue(p_loaded["openrouter"]["configured"])
+                self.assertTrue(p_loaded["openai"]["configured"])
+                self.assertIn("vllm-local", p_loaded)
+                self.assertEqual(p_loaded["vllm-local"]["endpoint"], "http://192.168.1.100:8000/v1")
+                self.assertEqual(loaded["default_model"], "agentic/auto")
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+        # Test connectivité
+        res_test_empty = wizard.test_provider_connectivity("openrouter", "")
+        self.assertFalse(res_test_empty["valid"])
+
+        res_test_vllm = wizard.test_provider_connectivity("custom-test", "", endpoint="invalid-url")
+        self.assertFalse(res_test_vllm["valid"])
+
+    def test_powerusers_and_models_http_endpoints(self):
+        """Vérifie les routes HTTP GET et POST dédiées aux Power Users et au Routage Modèles."""
+        import io
+
+        # 1. GET /api/powerusers/list
+        h_get_pu = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        h_get_pu.path = "/api/powerusers/list"
+        h_get_pu.send_json = MagicMock()
+        h_get_pu.is_safe_origin = MagicMock(return_value=True)
+        with patch("wizard.list_powerusers", return_value={"status": "ok", "powerusers": []}):
+            h_get_pu.do_GET()
+            h_get_pu.send_json.assert_called_once()
+            code, data = h_get_pu.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertEqual(data["status"], "ok")
+
+        # 2. GET /api/models/routing
+        h_get_mod = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        h_get_mod.path = "/api/models/routing"
+        h_get_mod.send_json = MagicMock()
+        h_get_mod.is_safe_origin = MagicMock(return_value=True)
+        with patch("wizard.get_model_routing_config", return_value={"status": "ok", "providers": []}):
+            h_get_mod.do_GET()
+            h_get_mod.send_json.assert_called_once()
+            code, data = h_get_mod.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertEqual(data["status"], "ok")
+
+        # 3. POST /api/powerusers/create
+        h_post_pu = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        pu_data = {"name": "Test User", "slug": "test-user", "email": "test@example.com"}
+        h_post_pu.rfile = io.BytesIO(json.dumps(pu_data).encode("utf-8"))
+        h_post_pu.headers = {"Content-Length": str(len(h_post_pu.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        h_post_pu.path = "/api/powerusers/create"
+        h_post_pu.send_json = MagicMock()
+        h_post_pu.is_safe_origin = MagicMock(return_value=True)
+        with patch("wizard.create_poweruser", return_value={"success": True, "slug": "test-user"}):
+            h_post_pu._handle_post_internal()
+            h_post_pu.send_json.assert_called_once()
+            code, data = h_post_pu.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertTrue(data["success"])
+
+        # 4. POST /api/powerusers/delete avec delete_pvc
+        h_post_del = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        del_data = {"slug": "test-user", "delete_pvc": True}
+        h_post_del.rfile = io.BytesIO(json.dumps(del_data).encode("utf-8"))
+        h_post_del.headers = {"Content-Length": str(len(h_post_del.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        h_post_del.path = "/api/powerusers/delete"
+        h_post_del.send_json = MagicMock()
+        h_post_del.is_safe_origin = MagicMock(return_value=True)
+        with patch("wizard.delete_poweruser", return_value={"success": True, "slug": "test-user"}) as mock_del:
+            h_post_del._handle_post_internal()
+            mock_del.assert_called_once_with("test-user", keep_pvc=False)
+            h_post_del.send_json.assert_called_once()
+            code, data = h_post_del.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertTrue(data["success"])
+
+        # 5. POST /api/models/test-provider
+        h_post_test = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        test_data = {"provider": "openrouter", "api_key": "sk-or-v1-xyz"}
+        h_post_test.rfile = io.BytesIO(json.dumps(test_data).encode("utf-8"))
+        h_post_test.headers = {"Content-Length": str(len(h_post_test.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        h_post_test.path = "/api/models/test-provider"
+        h_post_test.send_json = MagicMock()
+        h_post_test.is_safe_origin = MagicMock(return_value=True)
+        with patch("wizard.test_provider_connectivity", return_value={"status": "ok", "valid": True}):
+            h_post_test._handle_post_internal()
+            h_post_test.send_json.assert_called_once()
+            code, data = h_post_test.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertTrue(data["valid"])
+
+    def test_sync_litellm_configmap_with_per_model_zdr(self):
+        """Vérifie que la synchronisation du ConfigMap LiteLLM applique l'option ZDR individuellement par modèle."""
+        cfg = wizard.get_default_config_dict()
+        cfg["llm_gateway"]["models_routing"] = [
+            {
+                "alias": "simple/auto",
+                "real_model": "openrouter/anthropic/claude-3.5-haiku",
+                "target_model": "openrouter/anthropic/claude-3.5-haiku",
+                "provider": "openrouter",
+                "zdr": True,
+                "fallback": "openrouter/openai/gpt-4o-mini"
+            },
+            {
+                "alias": "simple/free",
+                "real_model": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                "target_model": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                "provider": "openrouter",
+                "zdr": False,
+                "fallback": ""
+            }
+        ]
+        mock_runner = MagicMock()
+        mock_runner.run.return_value = (0, "", "")
+
+        res = wizard.sync_litellm_configmap(cfg, mock_runner, "arcia")
+        self.assertTrue(res)
+        mock_runner.run.assert_called_once()
+        call_args = mock_runner.run.call_args[0][0]
+        self.assertEqual(call_args[0], "patch")
+        self.assertEqual(call_args[1], "configmap")
+        self.assertEqual(call_args[2], "litellm-config")
+
+        patch_idx = call_args.index("-p") + 1
+        patch_json = json.loads(call_args[patch_idx])
+        config_yaml = patch_json["data"]["config.yaml"]
+
+        self.assertIn('model_name: "simple/auto"', config_yaml)
+        self.assertIn("zdr: true", config_yaml)
+
+        self.assertIn('model_name: "simple/free"', config_yaml)
+        self.assertIn("zdr: false", config_yaml)
+
+    def test_homepage_dual_default_models_and_gauges_in_html(self):
+        """Vérifie la présence des 2 modèles par défaut et des jauges de charge sur le dashboard d'accueil."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn('id="dashDefaultModelSimple"', html)
+        self.assertIn('id="dashDefaultModelAgentic"', html)
+        self.assertIn('class="resource-gauges-grid"', html)
+        self.assertIn('id="gaugeCpuValue"', html)
+        self.assertIn('id="gaugeRamValue"', html)
+        self.assertIn('id="gaugeStorageValue"', html)
+        self.assertIn("setGaugeValue", html)
+
+    def test_check_instance_connectivity_returns_metrics_and_webui_url(self):
+        """Vérifie que check_instance_connectivity renvoie l'URL WebUI, les modèles par défaut et les métriques de charge."""
+        cfg = {
+            "infra_target": "docker_lab",
+            "network": {"public_fqdn": "arcia.example.com"},
+            "llm_gateway": {"default_model": "simple/auto"},
+            "hermes": {"default_model": "agentic/auto"}
+        }
+        res = wizard.check_instance_connectivity(cfg)
+        self.assertIn("webui_url", res)
+        self.assertEqual(res["webui_url"], "http://localhost:3000")
+        self.assertIn("metrics", res)
+        self.assertIn("cpu", res["metrics"])
+        self.assertIn("ram", res["metrics"])
+        self.assertIn("storage", res["metrics"])
+        self.assertEqual(res["default_model_simple"], "simple/auto")
+        self.assertEqual(res["default_model_agentic"], "agentic/auto")
+
+    def test_update_center_single_component_update_and_has_update_in_html(self):
+        """Vérifie la mise à jour unitaire par composant et la fonction triggerSingleComponentUpdate dans le HTML."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("triggerSingleComponentUpdate", html)
+        self.assertIn("<th>Action</th>", html)
+        self.assertIn("Mettre à jour", html)
+
+    def test_unified_model_routing_block_in_html(self):
+        """Vérifie la présence du bloc unifié de routage des modèles montable dans l'installation et en post-déploiement."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn('id="modelRoutingUnifiedBlock"', html)
+        self.assertIn('id="installModelRoutingMount"', html)
+        self.assertIn('id="postDeployModelRoutingMount"', html)
+        self.assertIn("mountModelRoutingBlock", html)
+
+
+    def test_loading_screen_and_light_sidebar_in_html(self):
+        """Vérifie la présence de l'écran de chargement initial et de la sidebar claire à gauche dans le HTML."""
+        html = wizard.get_wizard_html_page()
+        # Écran de chargement et étapes
+        self.assertIn('id="appLoadingScreen"', html)
+        self.assertIn('id="stepLoadConfig"', html)
+        self.assertIn('id="stepConnectCluster"', html)
+        self.assertIn('id="stepDiscoverComponents"', html)
+        self.assertIn('id="stepScanVersions"', html)
+        self.assertIn('id="stepInitReady"', html)
+        self.assertIn("runInitialLoadingSequence", html)
+
+        # Bandeau latéral clair à gauche
+        self.assertIn('class="app-shell"', html)
+        self.assertIn('class="app-sidebar"', html)
+        self.assertIn('class="app-main-area"', html)
+        self.assertIn('class="app-sidebar-nav"', html)
+        self.assertIn('class="sidebar-brand-wrap"', html)
+        self.assertIn('class="sidebar-yaml-badge"', html)
+        self.assertIn('class="sidebar-footer"', html)
+
+    def test_load_arcia_official_versions_from_json(self):
+        """Vérifie le chargement du référentiel des versions officielles ArcIA depuis deploy/versions.json."""
+        versions = wizard.load_arcia_official_versions(check_online=False)
+        self.assertIsInstance(versions, dict)
+        self.assertIn("arcia_version", versions)
+        self.assertIn("components", versions)
+        comps = versions["components"]
+        self.assertIn("presidio-dlp", comps)
+        self.assertIn("litellm-proxy", comps)
+        self.assertIn("hermes-agent", comps)
+        self.assertIn("open-webui", comps)
+
+    def test_scale_cluster_resources_scale_out_and_up(self):
+        """Vérifie le dimensionnement horizontal (scale-out) et vertical (scale-up)."""
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
+            tmp.write(wizard.serialize_yaml_config(wizard.get_default_config_dict()))
+            tmp_path = tmp.name
+
+        try:
+            # Test scale-out
+            res_out = wizard.scale_cluster_resources({
+                "scale_type": "out",
+                "nodes": 5
+            }, cfg_path=tmp_path)
+            self.assertTrue(res_out.get("success"))
+            self.assertEqual(res_out["sizing"]["nodes"], 5)
+
+            # Test scale-up
+            res_up = wizard.scale_cluster_resources({
+                "scale_type": "up",
+                "vcpu_per_node": 8,
+                "ram_per_node_gb": 32,
+                "disk_per_node_gb": 300,
+                "rag_storage": "500Gi"
+            }, cfg_path=tmp_path)
+            self.assertTrue(res_up.get("success"))
+            self.assertEqual(res_up["sizing"]["vcpu_per_node"], 8)
+            self.assertEqual(res_up["sizing"]["ram_per_node_gb"], 32)
+            self.assertEqual(res_up["sizing"]["disk_per_node_gb"], 300)
+            self.assertEqual(res_up["sizing"]["rag_storage"], "500Gi")
+
+            # Test palier
+            res_tier = wizard.scale_cluster_resources({
+                "scale_type": "full",
+                "tier": "100"
+            }, cfg_path=tmp_path)
+            self.assertTrue(res_tier.get("success"))
+            self.assertEqual(res_tier["sizing"]["nodes"], 3)
+            self.assertEqual(res_tier["sizing"]["vcpu_per_node"], 4)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_scaling_scale_out_scale_up_in_html(self):
+        """Vérifie la présence des volets scale-out et scale-up dans le HTML du wizard."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("Scale-out (dimensionnement horizontal)", html)
+        self.assertIn("Scale-up (dimensionnement vertical)", html)
+        self.assertIn("applyClusterScaling('out')", html)
+        self.assertIn("applyClusterScaling('up')", html)
+        self.assertIn("applyClusterScaling('full')", html)
+        self.assertIn("loadClusterSizing", html)
+
+    def test_get_provider_models_catalog(self):
+        """Vérifie la récupération dynamique ou de secours des modèles par fournisseur."""
+        models_or = wizard.get_provider_models_catalog("openrouter")
+        self.assertIsInstance(models_or, list)
+        self.assertGreater(len(models_or), 0)
+        self.assertTrue(any("openrouter/" in m["id"] for m in models_or))
+
+        models_oa = wizard.get_provider_models_catalog("openai")
+        self.assertIsInstance(models_oa, list)
+        self.assertTrue(any("openai/" in m["id"] for m in models_oa))
+
+    def test_sidebar_nowrap_and_pme_tier_in_html(self):
+        """Vérifie l'absence de retour à la ligne sur les boutons du menu et l'intitulé PME sans recommandation."""
+        html = wizard.get_wizard_html_page()
+        # Non-retour à la ligne dans la sidebar
+        self.assertIn("white-space: nowrap;", html)
+        self.assertIn("Dimensionnement cluster", html)
+
+        # Palier PME avec nombre d'utilisateurs et sans badge Recommandé
+        self.assertIn("PME", html)
+        self.assertIn("21 à 100", html)
+        self.assertNotIn("PME / Direction métier", html)
+
+    def test_generate_ssh_key_pair(self):
+        """Vérifie la fonction de génération de clés SSH Ed25519/RSA."""
+        res = wizard.generate_ssh_key_pair("test-arcia-key")
+        self.assertIsInstance(res, dict)
+        if res.get("success"):
+            self.assertTrue(os.path.isfile(res["key_path"]))
+            self.assertIn("public_key", res)
+            self.assertIn("private_key", res)
+            # Nettoyage
+            try:
+                os.remove(res["key_path"])
+                if os.path.isfile(res["key_path"] + ".pub"):
+                    os.remove(res["key_path"] + ".pub")
+            except Exception:
+                pass
+        else:
+            self.assertIn("error", res)
+
+    def test_vmware_network_and_ssh_in_html(self):
+        """Vérifie la présence des champs réseau VMware et authentification VM dans l'interface."""
+        html = wizard.get_wizard_html_page()
+        # Configuration réseau
+        self.assertIn("vmware_ip_mode", html)
+        self.assertIn("vmware_node_ips", html)
+        self.assertIn("vmware_gateway", html)
+        self.assertIn("vmware_netmask", html)
+        self.assertIn("vmware_dns", html)
+        self.assertIn("vmware_ntp", html)
+        self.assertIn("vmware_domain", html)
+        # Authentification VMs
+        self.assertIn("vmware_vm_user", html)
+        self.assertIn("vmware_vm_password", html)
+        self.assertIn("vmware_root_password", html)
+        self.assertIn("vmware_ssh_key_mode", html)
+        self.assertIn("generateVmwareSshKey", html)
+        self.assertIn("downloadPrivateKeyFile", html)
+
+    def test_deploy_credentials_recap_in_html(self):
+        """Vérifie la présence de la carte récapitulative des identifiants et des fonctions de téléchargement."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("deployCredentialsRecapCard", html)
+        self.assertIn("credentialsRecapContent", html)
+        self.assertIn("renderDeploymentCredentials", html)
+        self.assertIn("copyAllCredentialsToClipboard", html)
+        self.assertIn("downloadCredentialsSummaryFile", html)
+        self.assertIn("generateCredentialsText", html)
+        self.assertIn("arcia-credentials.txt", html)
+
+    def test_detect_fallback_loops(self):
+        """Vérifie la détection rigoureuse des cycles et boucles infinies de repli."""
+        no_loop = [{"alias": "simple/auto", "fallback": "simple/free"}, {"alias": "simple/free", "fallback": ""}]
+        self.assertIsNone(wizard.detect_fallback_loops(no_loop))
+
+        direct_loop = [{"alias": "A", "fallback": "B"}, {"alias": "B", "fallback": "A"}]
+        self.assertEqual(wizard.detect_fallback_loops(direct_loop), "A -> B -> A")
+
+        transitive_loop = [{"alias": "A", "fallback": "B"}, {"alias": "B", "fallback": "C"}, {"alias": "C", "fallback": "A"}]
+        self.assertEqual(wizard.detect_fallback_loops(transitive_loop), "A -> B -> C -> A")
+
+    def test_vmware_config_serialization_and_reload(self):
+        """Vérifie que la configuration VMware est fidèlement sérialisée et rechargée pour le scale-up/scale-out."""
+        cfg = wizard.get_default_config_dict()
+        cfg["vmware"] = {
+            "host": "vcenter.arcia.internal",
+            "port": 443,
+            "username": "administrator@vsphere.local",
+            "insecure_tls": False,
+            "datacenter": "Datacenter-ArcIA",
+            "cluster": "Cluster-Production",
+            "datastore": "datastore-purestorage-nvme",
+            "portgroup": "DVS-VLAN-150",
+            "tier": "250",
+            "network": {
+                "mode": "static",
+                "node_ips": "10.10.150.11,10.10.150.12,10.10.150.13",
+                "netmask": "255.255.255.0",
+                "gateway": "10.10.150.1",
+                "dns": "10.10.150.254",
+                "ntp": "10.10.150.253",
+                "domain": "arcia.internal"
+            },
+            "auth": {
+                "vm_user": "debian",
+                "ssh_key_mode": "generate",
+                "ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGeneratedTestKey"
+            },
+            "resources_override": {
+                "nodes": 3,
+                "vcpu_per_node": 8,
+                "ram_per_node_gb": 32,
+                "disk_per_node_gb": 300
+            }
+        }
+        yaml_str = wizard.serialize_yaml_config(cfg)
+        self.assertIn("vcenter.arcia.internal", yaml_str)
+        self.assertIn("10.10.150.1", yaml_str)
+        self.assertIn("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGeneratedTestKey", yaml_str)
+
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
+            tmp.write(yaml_str)
+            tmp_path = tmp.name
+
+        try:
+            reloaded, exists = wizard.load_config_data(tmp_path)
+            self.assertTrue(exists)
+            self.assertEqual(reloaded.get("vmware", {}).get("host"), "vcenter.arcia.internal")
+            self.assertEqual(reloaded.get("vmware", {}).get("network", {}).get("gateway"), "10.10.150.1")
+            self.assertEqual(reloaded.get("vmware", {}).get("resources_override", {}).get("vcpu_per_node"), 8)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_vmware_ssh_key_generation_native(self):
+        """Vérifie la génération autonome d'une paire de clés SSH Ed25519 OpenSSH."""
+        res = wizard.generate_ssh_key_pair("test_ed25519_unit")
+        self.assertTrue(res.get("success"), res.get("error"))
+        self.assertTrue(res.get("public_key", "").startswith("ssh-ed25519 "))
+        self.assertIn("BEGIN OPENSSH PRIVATE KEY", res.get("private_key", ""))
+
+    def test_toggle_password_visibility_in_html(self):
+        """Vérifie que la fonction togglePasswordVisibility est définie dans le script JS."""
+        html = wizard.get_wizard_html_page()
+        self.assertIn("function togglePasswordVisibility(fieldId)", html)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
 

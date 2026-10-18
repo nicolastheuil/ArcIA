@@ -1,6 +1,6 @@
-# Skill : Ponytail (Sobriété Logicielle, Anti-Overengineering & YAGNI)
+# Skill : Ponytail (sobriété logicielle, anti-overengineering et YAGNI)
 
-## Présentation et Philosophie
+## Présentation et philosophie
 
 **Ponytail** est une compétence méthodologique inspirée de l'archétype du « développeur senior pragmatique et économe ».
 Elle impose une discipline stricte de sobriété logicielle aux agents d'ingénierie Hermes afin de proscrire l'over-engineering, la prolifération de fichiers inutiles, l'introduction de dépendances superflues (`npm install` ou `pip install` pour des fonctions triviales) et la surconsommation de tokens.
@@ -15,7 +15,7 @@ Elle impose une discipline stricte de sobriété logicielle aux agents d'ingéni
 
 ---
 
-## L'Échelle de Décision (The Decision Ladder)
+## L'échelle de décision (The Decision Ladder)
 
 Avant d'écrire la moindre ligne de code ou de proposer un composant, l'agent **doit gravir rigoureusement chaque échelon** dans l'ordre strict suivant :
 
@@ -49,16 +49,16 @@ Avant d'écrire la moindre ligne de code ou de proposer un composant, l'agent **
 
 ---
 
-## Modes d'Application
+## Modes d'application
 
 - **Mode Standard (Défaut)** :
-  Appliquer l'échelle de décision à chaque instruction de modification de code ou de création de fichier.
+   Appliquer l'échelle de décision à chaque instruction de modification de code ou de création de fichier.
 - **Mode Revue / Audit** :
-  Examiner un module pour identifier le code mort, les dépendances inutilisées et les abstractions excessives. Proposer des simplifications mesurées.
+   Examiner un module pour identifier le code mort, les dépendances inutilisées et les abstractions excessives. Proposer des simplifications mesurées.
 
 ---
 
-## Intégration ArcIA & Tokenmaxing
+## Intégration ArcIA et tokenmaxing
 
 Dans ArcIA, Ponytail agit en synergie directe avec :
 - **Tokenmaxing** : En limitant le volume de code écrit et les traces de débogage, il réduit drastiquement les tokens consommés par Hermes.

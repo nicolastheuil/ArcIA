@@ -1,46 +1,48 @@
-# 🔀 Chaîne de Routage IA & Cycle de Vie d'une Requête dans ArcIA v0.4
+# Chaîne de routage IA et cycle de vie d'une requête dans ArcIA v0.5.0
 
-> **Statut : Implémenté (v0.4)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.4**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
+Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.5.0**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
 
 ---
 
-## 1. Principes Fondamentaux de la Chaîne v0.4
+## 1. Principes fondamentaux de la chaîne
 
-Dans ArcIA v0.4, la chaîne de routage répond à **cinq principes directeurs stricts** :
-1. **Un seul point de sortie vers le cloud : LiteLLM.** Aucun composant — navigateur client compris (`ENABLE_DIRECT_CONNECTIONS=false`) — ne parle directement à un fournisseur externe.
-2. **Double Barrière DLP 100 % Fail-Closed** :
+Dans ArcIA v0.5.0, la chaîne de routage répond à **cinq principes directeurs stricts** :
+1. **Un seul point de sortie vers le cloud : LiteLLM.** Aucun composant — navigateur client compris (`ENABLE_DIRECT_CONNECTIONS=false`) — ne communique directement avec un fournisseur externe.
+2. **Double barrière DLP 100 % fail-closed** :
    - **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance ([services/hermes/plugin.py](../../services/hermes/plugin.py)) appelle `POST /sanitize` sur Presidio DLP *avant* toute persistance dans SQLite (`state.db`) et *avant* tout appel LLM.
    - **Barrière 2 (Aval — LiteLLM Proxy)** : Tout prompt sortant vers un LLM externe passe par le guardrail `pre_call` (`POST /analyze` et `POST /anonymize`). En cas d'indisponibilité de Presidio, la requête est bloquée net.
-3. **Routage Hybride Optimal (`simple/*` vs `agentic/*`)** :
-   - **Open-WebUI** dispose d'un double raccordement (`OPENAI_API_BASE_URLS`) vers **LiteLLM** (`:4000/v1`) pour les discussions rapides sans surcharge agentique (`simple/free`, `simple/auto`), et vers **Hermes Agent** (`:8642/v1`) pour les sessions autonomes outillées (`agentic/free`, `agentic/auto`, `agentic/expert`).
-   - **Microsoft Teams Bot** utilise `simple/auto` par défaut pour les échanges rapides en canal/DM, et délègue les commandes `/agent <mission>` au runtime Hermes (`agentic/auto`).
-4. **Catalogue Unifié à 5 Profils Canoniques** : Les collaborateurs disposent de 5 profils explicites (`simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert`), avec Zéro Rétention de Données (`zdr: true`) et suppression transparente des paramètres non supportés (`drop_params: true`).
-5. **Deux Profils Utilisateurs Clairs** :
-   - **Utilisateurs Standards** : Accès à Open-WebUI (Simple + Agentic) et au bot Microsoft Teams.
-   - **Power Users** : Accès à Open-WebUI (Simple + Agentic) **+ une instance Hermes en Pod dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionnée via `.\scripts\Spawn-PowerUser.ps1`.
+3. **Routage hybride par commutateur de configuration (Simple vs Agentic)** :
+   - Le comportement d'exécution ne dépend plus de préfixes ou conventions de nommage rigides. Chaque modèle configuré possède un commutateur de cible explicite dans la configuration (`arcia.config.yaml` / interface d'administration) :
+     - **Cible Simple** : acheminement direct vers **LiteLLM Proxy** (`:4000/v1`) pour les discussions rapides sans boucle agentique (avec bouclier Presidio DLP aval).
+     - **Cible Agentic** : acheminement garanti vers **Hermes Agent** (`:8642/v1`) pour les sessions autonomes outillées (avec mémoire persistante SQLite `state.db`, boucle autonome de raisonnement, compétences et bouclier Presidio DLP amont).
+4. **Double modèle par défaut indépendant** :
+   - **Modèle par défaut pour Open-WebUI** (`llm_gateway.default_model`) : Modèle conversationnel réactif sélectionné d'emblée à l'ouverture du portail collaboratif (par exemple `simple/auto` ou `auto`).
+   - **Modèle par défaut pour Hermes Agent** (`hermes.default_model`) : Modèle d'orchestration autonome utilisé pour les sessions Power User dans Hermes Studio, les délégations de mission depuis Open-WebUI, et les commandes `/agent` dans Microsoft Teams (par exemple `agentic/auto` ou `auto`).
+5. **Contrôle granulaire du ZDR (Zéro Rétention de Données) par modèle** :
+   - L'activation du ZDR n'est pas imposée aveuglément à l'échelle du fournisseur : chaque ligne de modèle dispose de son propre interrupteur `zdr: true/false`, injectant l'en-tête de protection `provider: { zdr: true }` uniquement sur les modèles sélectionnés.
 
 ```mermaid
 flowchart TD
-    subgraph Clients ["👥 Profils Utilisateurs"]
-        UserStd["Utilisateur Standard (Open-WebUI Simple + Agentic & Teams)"]
-        PowerUser["Power User (Open-WebUI + Pod Hermes dédié K8s)"]
+    subgraph Clients ["👥 Profils d'utilisateurs"]
+        UserStd["Utilisateur standard (Open-WebUI & Teams)"]
+        PowerUser["Power user (Open-WebUI + Pod Hermes dédié K8s)"]
     end
 
-    subgraph SecurityGate ["🛡️ Périmètre Souverain ArcIA (Cluster Kubernetes)"]
-        WebUIGate["Open-WebUI (:8080)<br/>• Catalogue 5 profils canoniques<br/>• Connexions directes désactivées"]
-        TeamsGate["Teams Bot Adapter (:3978)<br/>• Chat rapide simple/auto<br/>• Commande /agent vers Hermes"]
-        HermesAgent["Hermes Agent Runtime (:8642)<br/>• Sessions agentic/* & outils<br/>• Plugin DLP + CCR + RTK"]
+    subgraph SecurityGate ["🛡️ Périmètre souverain ArcIA (Cluster Kubernetes)"]
+        WebUIGate["Open-WebUI (:8080)<br/>• Modèle par défaut WebUI<br/>• Double raccordement 4000/8642"]
+        TeamsGate["Teams Bot Adapter (:3978)<br/>• Chat rapide LiteLLM<br/>• Commande /agent vers Hermes"]
+        HermesAgent["Hermes Agent Runtime (:8642)<br/>• Sessions cibles Agentic<br/>• Plugin DLP + CCR + RTK"]
         HermesPU["Pods Hermes Power Users<br/>• /poweruser/slug/studio<br/>• PVC 10Gi & SOUL.md dédiés"]
-        LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Pivot central d'inférence<br/>• Fallbacks, ZDR & Quotas"]
-        PresidioGate["Presidio DLP (:8080)<br/>• Double Barrière Fail-Closed<br/>• Caviardage Secrets, IP & PII"]
+        LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Sessions cibles Simple<br/>• Sortie unifiée vers les LLM"]
+        PresidioGate["Presidio DLP (:8080)<br/>• Double barrière fail-closed<br/>• Caviardage secrets & PII"]
         LiteLLMDB[("LiteLLM DB PostgreSQL (:5432)<br/>• Clés virtuelles nominatives<br/>• Budgets et traçabilité spend")]
     end
 
-    subgraph CloudInference ["☁️ Fournisseurs Cloud & Outils Externes"]
-        OpenRouterHub["OpenRouter d'Entreprise<br/>(Free, Auto, DeepSeek V4.1 Flash - ZDR forcé)"]
-        ExtTools["Outils & APIs Externes<br/>(API Recherche, Données Publiques SIRET...)"]
+    subgraph CloudInference ["☁️ Fournisseurs d'inférence (Cloud ou Local)"]
+        LLMHub["Fournisseur d'inférence (OpenRouter / Ollama / Cloud Direct)<br/>• Protection ZDR granulaire par modèle"]
+        ExtTools["Outils & API externes<br/>(Recherche web, Graphify, SIRET...)"]
     end
 
     UserStd -->|Session OIDC Entra ID| WebUIGate
@@ -48,10 +50,10 @@ flowchart TD
     PowerUser -->|Session OIDC Entra ID| WebUIGate
     PowerUser -->|Studio dédié /poweruser/slug| HermesPU
 
-    WebUIGate -->|Chat Direct simple/* :4000| LiteLLMGate
-    WebUIGate -->|Session Agentique agentic/* :8642| HermesAgent
-    TeamsGate -->|Chat Direct simple/auto :4000| LiteLLMGate
-    TeamsGate -->|Mission /agent :8642| HermesAgent
+    WebUIGate -->|Modèles avec cible Simple :4000| LiteLLMGate
+    WebUIGate -->|Modèles avec cible Agentic :8642| HermesAgent
+    TeamsGate -->|Chat direct :4000| LiteLLMGate
+    TeamsGate -->|Commande /agent :8642| HermesAgent
 
     HermesAgent -->|Barrière 1 DLP /sanitize| PresidioGate
     HermesAgent -->|Inférence LLM :4000| LiteLLMGate
@@ -61,49 +63,87 @@ flowchart TD
 
     LiteLLMGate <--> LiteLLMDB
     LiteLLMGate -->|Barrière 2 DLP /analyze + /anonymize| PresidioGate
-    LiteLLMGate -->|Inférence Sécurisée ZDR| OpenRouterHub
+    LiteLLMGate -->|Inférence avec ZDR configuré par modèle| LLMHub
 ```
 
 ---
 
-## 2. Le Catalogue des 5 Profils Canoniques v0.4
+## 2. Gestion des modèles et sélecteur de cible d'exécution
 
-Open-WebUI ([deploy/manifests/07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml)) est configuré avec un **double raccordement d'infrastructure** (`OPENAI_API_BASE_URLS`) lui permettant d'offrir à la fois des flux directs légers (LiteLLM) et des flux agentiques outillés (Hermes Agent) :
+Dans ArcIA, un modèle est défini par son identifiant ou alias, son modèle amont réel, sa cible d'exécution (`category: simple` ou `category: agentic`), et son statut ZDR (`zdr: true/false`).
 
-| Modèle dans Open-WebUI | Moteur Réel | Cible Amont | Usage & Caractéristiques |
-|---|---|---|---|
-| **`simple/free`** | **LiteLLM Direct** (`:4000/v1`) | `openrouter/openrouter/free` | Chat instantané sans boucle agentique. Zéro consommation de quota. |
-| **`simple/auto`** *(Défaut)* | **LiteLLM Direct** (`:4000/v1`) | `openrouter/auto` | Chat réactif direct avec routage intelligent LiteLLM. Idéal pour 80 % des demandes textuelles (rédaction, résumé, traduction). |
-| **`agentic/free`** | **Hermes Agent** (`:8642/v1`) | `openrouter/openrouter/free` | Session agentique complète avec exécution d'outils, web search, compétences et persistance sur palier gratuit. |
-| **`agentic/auto`** | **Hermes Agent** (`:8642/v1`) | `openrouter/auto` | Agent autonome complet avec auto-correction, calculs Python, recherche web, compression CCR et skills d'entreprise. |
-| **`agentic/expert`** | **Hermes Agent** (`:8642/v1`) | `openrouter/deepseek/deepseek-v4.1-flash` | Agent autonome haute performance adossé au modèle haute précision DeepSeek V4.1 Flash pour l'architecture et le code complexe. |
+### Structure déclarative dans `arcia.config.yaml`
 
-### Rétro-compatibilité des Alias LiteLLM
-Pour assurer la continuité des scripts et des configurations historiques, les alias suivants sont maintenus (et masqués de la liste UI via `hidden: true`) dans `router_settings.model_group_alias` de LiteLLM :
-- `arcia/free` → `simple/free`
-- `arcia/auto` → `simple/auto`
-- `arcia/expert` → `openrouter/deepseek/deepseek-v4.1-flash`
-- `arcia/standard` → `simple/auto`
-- `arcia/reasoning` → `openrouter/deepseek/deepseek-v4.1-flash`
-- `auto` → `simple/auto`
-- `hermes-agent` → `simple/auto`
+```yaml
+llm_gateway:
+  openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxx"
+  # Modèle pré-sélectionné dans Open-WebUI pour le chat collaborateur :
+  default_model: "simple/auto"
+  
+  # Catalogue des modèles et politique de routage :
+  models_routing:
+    - name: "auto"
+      alias: "simple/auto"
+      category: "simple"     # Cible Simple -> acheminement direct LiteLLM
+      target_model: "openrouter/anthropic/claude-3.5-haiku"
+      fallback: "openrouter/openai/gpt-4o-mini"
+      zdr: true              # Zéro rétention activé pour ce modèle
+
+    - name: "free"
+      alias: "simple/free"
+      category: "simple"     # Cible Simple -> acheminement direct LiteLLM
+      target_model: "openrouter/meta-llama/llama-3.3-70b-instruct:free"
+      fallback: "openrouter/google/gemini-2.0-flash-exp:free"
+      zdr: true
+
+    - name: "agentic-auto"
+      alias: "agentic/auto"
+      category: "agentic"    # Cible Agentic -> traitement garanti par Hermes Agent
+      target_model: "openrouter/anthropic/claude-3.7-sonnet"
+      fallback: "openrouter/openai/gpt-4o"
+      zdr: true
+
+    - name: "agentic-expert"
+      alias: "agentic/expert"
+      category: "agentic"    # Cible Agentic -> traitement garanti par Hermes Agent
+      target_model: "openrouter/anthropic/claude-3.7-sonnet:thinking"
+      fallback: "openrouter/deepseek/deepseek-r1"
+      zdr: false             # Exemple de ZDR optionnel désactivé pour un modèle spécifique
+
+hermes:
+  # Modèle utilisé par défaut pour les sessions Hermes Agent (Studio, forward WebUI, Teams /agent) :
+  default_model: "agentic/auto"
+  admin_password: "ChangeThisToAStrongPassword2026!"
+  api_token: "arcia-pat-secret-key-32b-secure"
+  storage_size: "20Gi"
+```
+
+### Distinction entre cible Simple et cible Agentic
+
+| Caractéristique | Cible Simple (`category: simple`) | Cible Agentic (`category: agentic`) |
+|---|---|---|
+| **Moteur d'exécution** | **LiteLLM Proxy** (`:4000/v1`) | **Hermes Agent Runtime** (`:8642/v1`) |
+| **Cas d'usage optimal** | Chat instantané, rédaction, résumé, traduction, Q&A rapide | Tâches complexes, recherche web, exécution de scripts Python, planification multi-étapes |
+| **Latence** | Immédiate (zéro latence de boucle agentique) | Variable selon le nombre de tours de raisonnement et d'outils appelés |
+| **Mémoire de session** | Contexte de fenêtre de discussion standard | Mémoire persistant SQLite (`state.db`), compétences locales et tokenmaxing (CCR, RTK) |
+| **Protection DLP** | Barrière aval Presidio avant sortie vers le cloud | Double barrière : amont (avant écriture dans `state.db`) et aval (avant sortie LLM) |
 
 ---
 
-## 3. Profils Utilisateurs (Utilisateurs Standards & Power Users)
+## 3. Profils d'utilisateurs (utilisateurs standards et power users)
 
-| Critère | Utilisateur Standard | Power User |
+| Critère | Utilisateur standard | Power user |
 |---|---|---|
-| **Canaux d'accès** | **Open-WebUI** (`/`) + **Microsoft Teams** (`simple/auto` & `/agent`) | **Open-WebUI** (`/`) + **Pod Hermes dédié** (`/poweruser/<slug>/studio`) |
-| **Modèles accessibles** | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` | `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert` |
-| **Moteur d'exécution** | LiteLLM direct (`simple/*`) et Hermes partagé (`agentic/*`) | LiteLLM direct, Hermes partagé **+ Pod Hermes dédié K8s (PVC 10Gi, `SOUL.md`)** |
-| **Identité & Auth** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID + Jeton PAT nominatif |
+| **Canaux d'accès** | **Open-WebUI** (`/`) + **Microsoft Teams** (chat direct & `/agent`) | **Open-WebUI** (`/`) + **Pod Hermes dédié** (`/poweruser/<slug>/studio`) |
+| **Modèles accessibles** | Tous les modèles configurés (Simple et Agentic) | Tous les modèles configurés **+ environnement Hermes isolé** |
+| **Moteur d'exécution** | LiteLLM direct (Simple) et Hermes partagé (Agentic) | LiteLLM direct, Hermes partagé **+ Pod Hermes dédié K8s (PVC 10Gi, `SOUL.md`)** |
+| **Identité & authentification** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID + Jeton PAT nominatif |
 | **Couverture DLP** | Double barrière fail-closed | Double barrière fail-closed |
 | **Provisionnement** | Automatique via SSO Entra ID | `.\scripts\Spawn-PowerUser.ps1 <email>` |
 
 ---
 
-## 4. Diagramme de Séquence : Cycle de Vie d'une Session Agentique
+## 4. Diagramme de séquence : cycle de vie d'une session agentique
 
 ```mermaid
 sequenceDiagram
@@ -113,31 +153,31 @@ sequenceDiagram
     participant Hermes as Hermes Agent Runtime (:8642)
     participant DLP as Presidio DLP (:8080)
     participant Gateway as LiteLLM Proxy (:4000)
-    participant Cloud as OpenRouter API (ZDR)
+    participant Cloud as Fournisseur d'inférence (ZDR)
 
-    User->>Front: Saisie du prompt (ex: "Quel est le SIRET de la DINUM ?")
-    Front->>Hermes: POST /v1/chat/completions (model="agentic/auto")
+    User->>Front: Saisie du prompt (modèle qualifié d'Agentic)
+    Front->>Hermes: POST /v1/chat/completions
     
-    Note over Hermes: Barrière 1 DLP (Plugin Amont)<br/>Avant persistance state.db
+    Note over Hermes: Barrière 1 DLP (Plugin amont)<br/>Avant persistance state.db
     Hermes->>DLP: POST /sanitize (Pseudonymisation cohérente [TYPE_01])
-    alt Détection Clé Privée / Kubeconfig brut
+    alt Détection clé privée / Kubeconfig brut
         DLP-->>Hermes: HTTP 422 Fail-Closed (Blocage immédiat)
         Hermes-->>Front: Erreur explicite (Traitement local requis)
     else Assainissement réussi
         DLP-->>Hermes: Prompt assaini [IPV4_01, HOST_01...] + Session ID
         
-        Hermes->>Gateway: POST /v1/chat/completions (model="simple/auto")
+        Hermes->>Gateway: POST /v1/chat/completions
         Gateway->>DLP: Barrière 2 DLP : POST /analyze + POST /anonymize
         alt Presidio DLP indisponible (Fail-Closed)
             Gateway-->>Hermes: HTTP 503 Guardrail Unavailable
             Hermes-->>Front: Requête bloquée par sécurité DLP
         else Analyse réussie
             DLP-->>Gateway: Prompt vérifié
-            Gateway->>Cloud: POST /v1/chat/completions (ZDR forcé : data_collection=deny)
+            Gateway->>Cloud: POST /v1/chat/completions (avec ZDR si activé pour ce modèle)
             Cloud-->>Gateway: Réponse / Tool Call (avec jetons [TYPE_01])
             Gateway-->>Hermes: Réponse intermédiaire
             
-            opt Appel d'Outil Autonome & CCR Tokenmaxing
+            opt Appel d'outil autonome & CCR Tokenmaxing
                 Hermes->>Hermes: Exécution skill local ou API (HTTPS :443)
                 Hermes->>Hermes: Compression CCR (> 8 Ko JSON) + Cache SHA-256
                 Hermes->>DLP: POST /sanitize (Assainissement sortie d'outil)
@@ -158,57 +198,26 @@ sequenceDiagram
 
 ---
 
-## 5. Comment Modifier ou Ajouter des Modèles dans le Catalogue
+## 5. Comment modifier ou ajouter des modèles au catalogue
 
-L'ajout d'un modèle dans ArcIA v0.4 s'effectue selon qu'il s'agit d'un modèle de chat direct (`simple/*`) ou d'un profil agentique (`agentic/*`) :
+L'ajout ou l'ajustement d'un modèle s'effectue en quelques secondes depuis l'assistant graphique ou directement dans `arcia.config.yaml` :
 
-### Étape 1 : Déclarer le modèle amont dans LiteLLM
-Deux méthodes sont possibles pour enregistrer le modèle dans LiteLLM :
-1. **Via l'interface graphique LiteLLM (port 30400)** :
-   - Connectez-vous sur `http://<NOEUD_K8S>:30400/ui/` avec la Master Key du secret `litellm-secret`.
-   - Rendez-vous dans **Models + Endpoints** > **+ Add Model**.
-   - Définissez le **Model Name** et le **LiteLLM Model Name** amont (ex: `openrouter/google/gemini-2.5-pro`).
-   - Activez `drop_params: true`, le guardrail `presidio` et le forçage ZDR (`extra_body: {"provider": {"zdr": true}}`).
-2. **Via le manifeste déclaratif GitOps ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml))** :
-   ```yaml
-   model_list:
-     - model_name: "simple/vision"
-       litellm_params:
-         model: openrouter/google/gemini-2.5-pro
-         api_key: os.environ/OPENROUTER_API_KEY
-         extra_body:
-           provider:
-             zdr: true
-   ```
-
-### Étape 2 : Exposer en mode Agentique dans Hermes (Optionnel)
-Si le modèle doit être exécuté avec la boucle autonome Hermes (`agentic/*`), ajoutez la route dans `platforms.api_server.model_routes` de [06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml) :
-```yaml
-platforms:
-  api_server:
-    direct_model_requests: true
-    model_name: "agentic/auto"
-    model_routes:
-      agentic/free:
-        model: "simple/free"
-      agentic/auto:
-        model: "simple/auto"
-      agentic/expert:
-        model: "openrouter/deepseek/deepseek-v4.1-flash"
-      agentic/vision:
-        model: "simple/vision"
-```
-
-Enfin, ajoutez le nom du profil dans `MODEL_FILTER_LIST` de [07-open-webui.yaml](../../deploy/manifests/07-open-webui.yaml) pour l'afficher dans le sélecteur des collaborateurs.
+1. **Nom et alias** : Définissez le libellé présenté aux collaborateurs dans l'interface (ex: `auto`, `raisonnement`, `code-expert`).
+2. **Cible d'exécution** :
+   - Basculez sur **Simple** pour un chat direct et réactif via LiteLLM.
+   - Basculez sur **Agentic** pour confier la requête au moteur Hermes Agent avec mémoire persistante et boucle multi-tours.
+3. **Modèle amont effectif** : Indiquez l'identifiant du modèle chez le fournisseur (ex: `openrouter/anthropic/claude-3.7-sonnet`, `ollama/qwen2.5-coder:32b`).
+4. **Interrupteur ZDR** : Activez ou désactivez la garantie de Zéro Rétention de Données selon les exigences contractuelles et de conformité de ce modèle.
+5. **Repli (Fallback)** : Définissez le modèle de secours en cas de congestion ou d'indisponibilité du modèle principal.
 
 ---
 
-## 6. Caviardage DLP Presidio : Ce qui est réellement masqué
+## 6. Caviardage DLP Presidio : ce qui est réellement masqué
 
-Le bouclier Presidio DLP d'ArcIA v0.4 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
+Le bouclier Presidio DLP d'ArcIA v0.5.0 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
 1. **Secrets techniques** : Clés privées PEM, tokens Bearer, tokens GitHub (`ghp_`), clés d'API (`sk-`), clés AWS (`AKIA`), mots de passe explicites (`password=`) → Remplacés par `[SECRET_REMOVED]`.
 2. **Adresses IP** : Détection active IPv4 (`\b(?:\d{1,3}\.){3}\d{1,3}\b`) → Remplacées par `[ARCIA_IP_ADDRESS_n]`.
-3. **Données Personnelles (PII)** :
+3. **Données personnelles (PII)** :
    - Emails professionnels et personnels → `[ARCIA_EMAIL_n]`
    - Numéros de téléphone français et internationaux → `[ARCIA_PHONE_n]`
    - Coordonnées bancaires (IBAN, cartes) → `[ARCIA_IBAN_n]`, `[ARCIA_CREDIT_CARD_n]`

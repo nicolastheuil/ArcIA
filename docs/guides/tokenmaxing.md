@@ -1,10 +1,10 @@
-# Tokenmaxing v0.4 : CCR, RTK et Sobriété de Contexte dans Hermes
+# Tokenmaxing v0.5.0 : CCR, RTK et sobriété de contexte dans Hermes
 
 > [!NOTE]
-> **Statut en v0.4 : Implémenté et Actif.**
+> **Statut en v0.5.0 : Implémenté et Actif.**
 > Le plugin natif de gouvernance et d'économie de tokens ([services/hermes/plugin.py](../../services/hermes/plugin.py)) est synchronisé automatiquement par `scripts/deploy.py` dans le ConfigMap `hermes-governance-plugin` et monté dans [deploy/manifests/06-hermes-agent.yaml](../../deploy/manifests/06-hermes-agent.yaml) ainsi que dans les pods Power Users ([deploy/manifests/templates/hermes-poweruser.template.yaml](../../deploy/manifests/templates/hermes-poweruser.template.yaml)).
 
-Le socle **ArcIA v0.4** articule quatre leviers complémentaires d'économie de tokens et de sobriété :
+Le socle **ArcIA v0.5.0** articule quatre leviers complémentaires d'économie de tokens et de sobriété :
 1. **CCR (Compress-Cache-Retrieve)** : Compression réversible des fichiers et résultats JSON volumineux (> 8 Ko) avant leur injection dans la fenêtre de contexte du LLM, avec mise en cache mémoire SHA-256 et récupération paginée de l'original à la demande.
 2. **RTK (Rust Token Killer)** : Réécriture bornée des commandes `git log` verbeuses pour réduire le bruit des historiques Git.
 3. **Graphify** : Cartographie structurelle AST locale de bases de code ([scripts/arcia_graphify.py](../../scripts/arcia_graphify.py)) sans consommer un seul token LLM.
@@ -14,7 +14,7 @@ Ces mécanismes opèrent conjointement avec la **Barrière 1 DLP Presidio** int�
 
 ---
 
-## 1. Mesures de Référence sur Fixtures Synthétiques
+## 1. Mesures de référence sur fixtures synthétiques
 
 Mesures exécutées sur fixtures synthétiques sans appel modèle externe :
 
@@ -26,7 +26,7 @@ Mesures exécutées sur fixtures synthétiques sans appel modèle externe :
 
 ---
 
-## 2. RTK : Compaction Bornée des Journaux Git
+## 2. RTK : compaction bornée des journaux Git
 
 Le hook `transform_command` de [services/hermes/plugin.py](../../services/hermes/plugin.py) intercepte les commandes shell simples `git log ...` :
 - Lorsque le binaire `rtk` est disponible dans le conteneur, la commande est réécrite vers `rtk git log ...`.
@@ -35,9 +35,9 @@ Le hook `transform_command` de [services/hermes/plugin.py](../../services/hermes
 
 ---
 
-## 3. CCR (Compress-Cache-Retrieve) : Compression JSON Réversible
+## 3. CCR (Compress-Cache-Retrieve) : compression JSON réversible
 
-### 3.1 Interception Automatique (`transform_tool_result`)
+### 3.1 Interception automatique (`transform_tool_result`)
 Avant qu'un résultat d'outil de lecture (`read_file`, `fetch_url`, `terminal`, `bash`, `mcp_call`) n'entre dans le contexte du modèle :
 1. **Assainissement DLP préalable** : La sortie passe par `http://presidio-dlp.arcia.svc:8080/sanitize` en mode *fail-closed*.
 2. **Détection et Compression (> 8 Kio)** : Si la charge est un JSON valide de plus de 8 Kio, le moteur CCR construit un résumé structurel préservant :
@@ -49,16 +49,16 @@ Avant qu'un résultat d'outil de lecture (`read_file`, `fetch_url`, `terminal`, 
    - Le cache est borné à **32 entrées** ou **4 Mio** maximum par processus avec expiration TTL automatique à **300 secondes (5 minutes)**.
    - Aucun cache n'est partagé entre différents pods Power Users.
 
-### 3.2 Outils Natifs Exposés à l'Agent (`register(ctx)`)
+### 3.2 Outils natifs exposés à l'agent (`register(ctx)`)
 Le plugin enregistre deux outils directement invocables par Hermes Agent :
 - **`arcia_compress_json_file(file_path)`** : Lit et compresse un fichier JSON situé dans `/opt/data/workspace` (jusqu'à 512 Kio, protection stricte contre toute traversée de répertoire) avant que l'agent ne charge le fichier brut en contexte. Retourne la vue CCR et son `ccr_hash`.
 - **`arcia_restore_tool_result(ccr_hash, offset=0, limit=4000)`** : Permet à l'agent de récupérer à la demande une tranche paginée de l'original exact à partir de son `ccr_hash` lorsqu'un détail spécifique lui est nécessaire.
 
 ---
 
-## 4. Architecture de Sécurité & Non-Recouvrement
+## 4. Architecture de sécurité et non-recouvrement
 
-| Fonction | Implémentation ArcIA v0.4 | Principe de Sobriété |
+| Fonction | Implémentation ArcIA v0.5.0 | Principe de Sobriété |
 |---|---|---|
 | **Mémoire de session** | Hermes natif (`state.db` sur PVC RWO dédié) | Un seul propriétaire SQLite par pod ; pas de mémoire globale inter-utilisateurs |
 | **Compression de contexte** | Plugin natif `services/hermes/plugin.py` (CCR + RTK) | Zéro proxy externe ; cache RAM éphémère isolé par runtime |

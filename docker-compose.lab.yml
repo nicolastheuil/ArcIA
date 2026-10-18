@@ -16,7 +16,7 @@
 services:
   # 1. Portail Utilisateur Open-WebUI
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.5.10
     container_name: arcia-webui-lab
     restart: unless-stopped
     ports:
@@ -55,6 +55,7 @@ services:
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-sk-or-v1-arcia-lab}
     volumes:
       - ./deploy/litellm-lab.yaml:/app/config.yaml:ro
+      - ./services/litellm/error_handler.py:/app/error_handler.py:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
 
   # 3. Guardrail DLP Microsoft Presidio Anonymizer

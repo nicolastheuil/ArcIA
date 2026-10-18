@@ -14,9 +14,9 @@ triggers:
   - météo locale
 ---
 
-# Skill : Public-APIs (Passerelle Souveraine Open Data & Entreprises)
+# Skill : Public-APIs (passerelle souveraine open data et entreprises)
 
-## 1. Présentation & Périmètre
+## 1. Présentation et périmètre
 
 La skill **public-apis** fournit un accès **instantané, 100% gratuit, sans clé d'API et mis en cache localement** aux référentiels publics officiels de l'État français et aux données ouvertes européennes :
 
@@ -37,7 +37,7 @@ La skill **public-apis** fournit un accès **instantané, 100% gratuit, sans cl�
 
 ---
 
-## 2. Quand Déclencher cette Skill ? (Règles pour l'Agent)
+## 2. Quand déclencher cette skill ? (règles pour l'agent)
 
 L'agent doit exécuter le helper `public_apis.py` dès que l'utilisateur pose une question relative à :
 - **Un numéro SIRET ou SIREN** : *"Vérifie le SIRET 13002526500013"*, *"Qui dirige l'entité au SIREN 130025265 ?"*.
@@ -48,7 +48,7 @@ L'agent doit exécuter le helper `public_apis.py` dès que l'utilisateur pose un
 
 ---
 
-## 3. Commandes d'Exécution Autonome
+## 3. Commandes d'exécution autonome
 
 L'agent exécute le script en ligne de commande via l'interpréteur Python :
 
@@ -60,32 +60,32 @@ PYTHON_SCRIPT="/opt/data/skills/public-apis/scripts/public_apis.py"
 # python skills/public-apis/scripts/public_apis.py ...
 ```
 
-### A. Recherche & Vérification d'Entreprise
+### A. Recherche et vérification d'entreprise
 ```bash
 python3 $PYTHON_SCRIPT company "<nom_ou_siren_ou_siret>"
 ```
 *Exemple :* `python3 $PYTHON_SCRIPT company "DINUM"` ou `python3 $PYTHON_SCRIPT company "130025265"`
 
-### B. Validation & Géocodage d'Adresse (BAN)
+### B. Validation et géocodage d'adresse (BAN)
 ```bash
 python $PYTHON_SCRIPT address "<adresse_complete>"
 ```
 *Exemple :* `python $PYTHON_SCRIPT address "20 avenue de segur paris"`
 
-### C. Météo Ouverte
+### C. Météo ouverte
 ```bash
 python $PYTHON_SCRIPT meteo "<ville_ou_coordonnees>"
 ```
 *Exemple :* `python $PYTHON_SCRIPT meteo "Paris"`
 
-### D. Consultation du Catalogue des APIs
+### D. Consultation du catalogue des APIs
 ```bash
 python $PYTHON_SCRIPT catalog
 ```
 
 ---
 
-## 4. Protocole de Réponse de l'Agent
+## 4. Protocole de réponse de l'agent
 
 1. **Exécution transparente** : L'agent lance le helper avec la commande adéquate.
 2. **Restitution directe** : L'agent intègre directement la fiche Markdown générée dans sa réponse conversationnelle à l'utilisateur, sans reformuler inutilement ni tronquer les numéros légaux (SIREN, SIRET, TVA).
@@ -93,7 +93,7 @@ python $PYTHON_SCRIPT catalog
 
 ---
 
-## 5. Gouvernance, Filtrage Presidio DLP & Réseau (NetworkPolicy)
+## 5. Gouvernance, filtrage Presidio DLP et réseau (NetworkPolicy)
 
 - **Protection DLP Presidio** : Aucun secret d'entreprise, mot de passe ou PII confidentielle ne doit être envoyé en paramètre d'URL vers une API externe. Le filtre Presidio DLP valide les requêtes sortantes.
 - **Hermétisme Réseau & NetworkPolicy** : L'accès aux domaines publics homologués (`*.api.gouv.fr`, `api.open-meteo.com`, `apicarto.ign.fr`) est strictement délimité au niveau du cluster Kubernetes par `NetworkPolicy` d'egress pour interdire tout flux non maîtrisé.

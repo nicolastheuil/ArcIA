@@ -1,10 +1,10 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.4-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Skills-Catalogue_Souverain-6BE7DD?style=flat-square&logoColor=050712" alt="Catalogue Skills">
   <img src="https://img.shields.io/badge/Air--Gapped-Compatible-10B981?style=flat-square" alt="Air-Gapped">
 </p>
 
-# 🧠 Catalogue de Compétences (Skills) — ArcIA
+# 🧠 Catalogue de compétences (skills) — ArcIA
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Compétences (`skills/`)**
 
@@ -12,7 +12,7 @@ Ce document détaille l'architecture, l'inventaire qualifié, le cycle d'install
 
 ---
 
-## 1. Qu'est-ce qu'une « Skill » dans ArcIA ?
+## 1. Qu'est-ce qu'une « skill » dans ArcIA ?
 
 Dans ArcIA et Hermes Agent, une **Skill** est une **procédure opérationnelle standardisée rédigée en Markdown** (`SKILL.md`). Elle formalise un savoir-faire méthodique pour l'agent :
 * Des étapes séquentielles de raisonnement, d'analyse et d'exécution.
@@ -26,9 +26,9 @@ Dans ArcIA et Hermes Agent, une **Skill** est une **procédure opérationnelle s
 
 ---
 
-## 2. Inventaire des Compétences Natives & Communautaires Qualifiées
+## 2. Inventaire des compétences natives et communautaires qualifiées
 
-| Projet / Répertoire | Ce que le projet propose à l'origine | Ce qu'ArcIA utilise réellement | Ce qu'ArcIA neutralise / rejette | Rôle dans ArcIA |
+| Projet / répertoire | Ce que le projet propose à l'origine | Ce qu'ArcIA utilise réellement | Ce qu'ArcIA neutralise / rejette | Rôle dans ArcIA |
 |---|---|---|---|---|
 | **Ponytail (ArcIA Natif)**<br/>[`skills/ponytail/`](ponytail/README.md) | Compétence native ArcIA pour la sobriété logicielle et l'anti-overengineering. | **L'échelle de décision YAGNI** (*Decision Ladder*) en 7 échelons avant toute écriture de code. | Aucune dépendance externe (100 % natif ArcIA). | Économie de tokens, code minimaliste, réutilisation de la stdlib. |
 | **Graphify (ArcIA Natif)**<br/>[`skills/graphify/`](graphify/README.md) | Cartographie structurelle AST de bases de code et GraphRAG déterministe local. | **Fiche couplée à [`scripts/arcia_graphify.py`](../scripts/arcia_graphify.py)** générant `graph.json` et `GRAPH_REPORT.md`. | 0 token d'inférence consommé, 0 fuite de code vers le cloud. | Compréhension instantanée d'architectures complexes. |
@@ -40,7 +40,7 @@ Dans ArcIA et Hermes Agent, une **Skill** est une **procédure opérationnelle s
 
 ---
 
-## 3. Cycle de Vie & Synchronisation vers Kubernetes
+## 3. Cycle de vie et synchronisation vers Kubernetes
 
 ```mermaid
 flowchart LR
@@ -58,10 +58,10 @@ flowchart LR
     style Community fill:#0F172A,stroke:#6BE7DD,stroke-width:2px,color:#F8FAFC
 ```
 
-### Étape 1 : Activation native dès le déploiement (`deploy.py` / Setup Wizard)
+### Étape 1 : activation native dès le déploiement (`deploy.py` / Setup Wizard)
 Le manifeste [`deploy/manifests/06-hermes-agent.yaml`](../deploy/manifests/06-hermes-agent.yaml) monte le ConfigMap `arcia-native-skills` ainsi que `/var/data/arcia/shared-skills` en lecture seule (`/opt/shared-skills`). Dès le démarrage du Pod, **Ponytail**, **Graphify** et **Public-APIs** sont immédiatement actifs, même en environnement **100 % déconnecté (*air-gapped*)**.
 
-### Étape 2 : Mise à jour à la demande (sans appel externe pendant les chats)
+### Étape 2 : mise à jour à la demande (sans appel externe pendant les chats)
 ```powershell
 # Sous Windows (PowerShell) :
 .\scripts\Sync-Skills.ps1 -Update
@@ -76,7 +76,7 @@ bash skills/sync-skills.sh --update
 
 ---
 
-## 4. Ajouter une Compétence Métier Propre à Votre Organisation
+## 4. Ajouter une compétence métier propre à votre organisation
 
 1. Créez un sous-dossier dans `skills/` (ou dans votre dépôt d'instance privé).
 2. Rédigez un fichier `SKILL.md` avec son en-tête YAML (`name`, `description`, `version`).

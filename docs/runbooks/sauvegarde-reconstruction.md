@@ -1,10 +1,10 @@
-# Sauvegarde et Reconstruction de la Plateforme ArcIA v0.4
+# Sauvegarde et reconstruction de la plateforme ArcIA v0.5.0
 
-Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.4**.
+Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.5.0**.
 
 ---
 
-## 1. Cartographie des Données et État Persistant
+## 1. Cartographie des données et état persistant
 
 | Donnée / Composant | Emplacement | Mode de Persistance | Procédure de Sauvegarde |
 |---|---|---|---|
@@ -18,7 +18,7 @@ Ce runbook détaille les procédures de sauvegarde, de restauration et de repris
 
 ---
 
-## 2. Procédure de Sauvegarde
+## 2. Procédure de sauvegarde
 
 ### A. Snapshot etcd K3s
 
@@ -28,13 +28,13 @@ sudo k3s etcd-snapshot save --name arcia-backup-$(date +%Y%m%d%H%M%S)
 ```
 Les snapshots sont stockés par défaut dans `/var/lib/rancher/k3s/server/db/snapshots/`.
 
-### B. Sauvegarde des Volumes Persistants (PVC)
+### B. Sauvegarde des volumes persistants (PVC)
 
 Les volumes applicatifs (`hermes-user-pvc`, `open-webui-pvc`) sont hébergés sur le datastore VMware via la StorageClass CSI.
 - Exécuter un snapshot VMware du datastore ou des disques virtuels attachés.
 - En cas de sauvegarde au niveau fichier, arrêter temporairement les écritures ou planifier la sauvegarde en heures creuses.
 
-### C. Sauvegarde Chiffrée dans le Dépôt Git d'Instance
+### C. Sauvegarde chiffrée dans le dépôt Git d'instance
 
 Le Setup Wizard (`wizard.sh` / `wizard.ps1`) synchronise automatiquement votre instance vers votre dépôt privé (GitHub ou GitLab) :
 - Les métadonnées et choix d'architecture sont stockés dans `instance.json`.
@@ -43,9 +43,9 @@ Le Setup Wizard (`wizard.sh` / `wizard.ps1`) synchronise automatiquement votre i
 
 ---
 
-## 3. Procédure de Reconstruction sur Nouveau Cluster
+## 3. Procédure de reconstruction sur nouveau cluster
 
-### Méthode Recommandée : Restauration 1-Clic via le Setup Wizard
+### Méthode recommandée : restauration 1-clic via le Setup Wizard
 
 En cas de reconstruction ou de migration sur un cluster vierge :
 1. **Provisionner le cluster K3s**.
@@ -68,7 +68,7 @@ En cas de reconstruction ou de migration sur un cluster vierge :
    - Le Wizard télécharge `instance-secrets.enc`, déchiffre les clés et réinjecte instantanément la configuration.
 5. **Cliquer sur Déployer** : l'instance est redéployée à 100% sur le nouveau cluster avec récapitulatif complet des URLs.
 
-### Méthode Manuelle Alternative (Ligne de commande)
+### Méthode manuelle alternative (ligne de commande)
 
 1. Restaurer manuellement `arcia.config.yaml` et `secrets/arcia.env`.
 2. Restaurer les volumes PVC si nécessaire (rattacher les snapshots CSI existants).

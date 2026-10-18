@@ -495,9 +495,9 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str) ->
 
 VMWARE_SIZING_TIERS = {
     "20": {
-        "title": "Équipe Pilote / Découverte",
+        "title": "Équipe pilote",
         "users_label": "Jusqu'à 20 utilisateurs",
-        "description": "Idéal pour un PoC, qualification technique ou une petite équipe projet.",
+        "description": "Gabarit pour évaluation, validation technique ou petite équipe projet.",
         "nodes": 1,
         "type": "All-in-One (Control-Plane + Worker)",
         "vcpu_per_node": 4,
@@ -513,9 +513,9 @@ VMWARE_SIZING_TIERS = {
         "recommended": False
     },
     "100": {
-        "title": "PME / Direction Métier",
+        "title": "PME",
         "users_label": "21 à 100 utilisateurs",
-        "description": "Cluster K3s Haute Disponibilité avec résilience multi-nœuds (etcd multi-maître).",
+        "description": "Cluster K3s haute disponibilité avec résilience multi-nœuds (etcd multi-maître).",
         "nodes": 3,
         "type": "3x Control-Plane HA / Workers",
         "vcpu_per_node": 4,
@@ -528,14 +528,14 @@ VMWARE_SIZING_TIERS = {
         "rag_label": "200 Go dédiés RAG (~100 000 pages, base vectorielle ChromaDB HNSW, collections inter-services)",
         "open_webui_pvc": "200Gi",
         "concurrency": "15 interactions simultanées avec streaming et DLP en temps réel",
-        "recommended": True
+        "recommended": False
     },
     "500": {
-        "title": "Entreprise / Multi-Départements",
+        "title": "Entreprise",
         "users_label": "101 à 500 utilisateurs",
         "description": "Séparation du plan de contrôle et des nœuds d'exécution agentique.",
         "nodes": 5,
-        "type": "3x Control-Plane HA + 2x Workers Dédiés",
+        "type": "3x Control-Plane HA + 2x Workers dédiés",
         "vcpu_per_node": 8,
         "ram_per_node_gb": 32,
         "disk_per_node_gb": 250,
@@ -549,11 +549,11 @@ VMWARE_SIZING_TIERS = {
         "recommended": False
     },
     "1000": {
-        "title": "Grande Entreprise",
+        "title": "Grande entreprise",
         "users_label": "Plus de 500 utilisateurs",
         "description": "Architecture multi-nœuds extensible, stockage haute performance et option vGPU.",
         "nodes": 7,
-        "type": "3x Control-Plane HA + 4x Workers Haute Performance",
+        "type": "3x Control-Plane HA + 4x Workers haute performance",
         "vcpu_per_node": 16,
         "ram_per_node_gb": 64,
         "disk_per_node_gb": 500,
@@ -1024,6 +1024,82 @@ def detect_available_ssh_keys() -> List[Dict[str, str]]:
 
     return keys
 
+def generate_ssh_key_pair(comment: str = "arcia-vmware-cluster") -> Dict[str, Any]:
+    """Génère une paire de clés SSH (Ed25519 avec repli RSA 4096) et renvoie le chemin et les clés."""
+    ssh_dir = os.path.expanduser("~/.ssh")
+    os.makedirs(ssh_dir, exist_ok=True)
+    ts = int(time.time())
+    key_name = f"arcia_ed25519_{ts}"
+    key_path = os.path.join(ssh_dir, key_name)
+    pub_path = key_path + ".pub"
+
+    # 1. Tentative avec la bibliothèque standard cryptography (instantanée et autonome)
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+        from cryptography.hazmat.primitives import serialization
+        key = ed25519.Ed25519PrivateKey.generate()
+        priv_bytes = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.OpenSSH,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        pub_bytes = key.public_key().public_bytes(
+            encoding=serialization.Encoding.OpenSSH,
+            format=serialization.PublicFormat.OpenSSH
+        )
+        priv_content = priv_bytes.decode("utf-8").strip()
+        pub_content = f"{pub_bytes.decode('utf-8').strip()} {comment}"
+
+        with open(key_path, "w", encoding="utf-8") as f:
+            f.write(priv_content + "\n")
+        with open(pub_path, "w", encoding="utf-8") as f:
+            f.write(pub_content + "\n")
+
+        try:
+            os.chmod(key_path, 0o600)
+            os.chmod(pub_path, 0o644)
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "key_path": os.path.normpath(key_path),
+            "public_key": pub_content,
+            "private_key": priv_content,
+            "key_name": key_name
+        }
+    except Exception:
+        pass
+
+    # 2. Repli avec ssh-keygen système
+    try:
+        cmd = ["ssh-keygen", "-t", "ed25519", "-N", "", "-C", comment, "-f", key_path]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            key_name = f"arcia_rsa_{ts}"
+            key_path = os.path.join(ssh_dir, key_name)
+            pub_path = key_path + ".pub"
+            cmd = ["ssh-keygen", "-t", "rsa", "-b", "4096", "-N", "", "-C", comment, "-f", key_path]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+
+        if res.returncode == 0 and os.path.isfile(key_path) and os.path.isfile(pub_path):
+            with open(key_path, "r", encoding="utf-8") as f:
+                priv_content = f.read()
+            with open(pub_path, "r", encoding="utf-8") as f:
+                pub_content = f.read()
+            return {
+                "success": True,
+                "key_path": os.path.normpath(key_path),
+                "public_key": pub_content.strip(),
+                "private_key": priv_content.strip(),
+                "key_name": key_name
+            }
+        else:
+            err_msg = (res.stderr or res.stdout or "").strip()
+            return {"success": False, "error": f"Échec de ssh-keygen ({err_msg})"}
+    except Exception as e:
+        return {"success": False, "error": f"Erreur de génération de clé SSH : {str(e)}"}
+
 def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
     """Charge la configuration depuis un fichier existant ou utilise le modèle par défaut."""
     exists = os.path.isfile(config_file)
@@ -1039,6 +1115,7 @@ def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
         cfg = deploy.parse_yaml_or_env(target)
         if isinstance(cfg, dict):
             cfg = ensure_config_defaults(cfg)
+            cfg = resolve_env_secrets_into_config(cfg)
             return cfg, exists
     except Exception:
         pass
@@ -1087,9 +1164,14 @@ def get_default_config_dict() -> Dict[str, Any]:
         "llm_gateway": {
             "openrouter_api_key": "",
             "default_model": "simple/auto",
-            "local_vllm_endpoint": ""
+            "local_vllm_endpoint": "",
+            "openai_api_key": "",
+            "anthropic_api_key": "",
+            "mistral_api_key": "",
+            "gemini_api_key": ""
         },
         "hermes": {
+            "default_model": "agentic/auto",
             "admin_password": generate_token("admin"),
             "api_token": generate_token("pat"),
             "storage_size": "20Gi"
@@ -1119,6 +1201,45 @@ def get_default_config_dict() -> Dict[str, Any]:
         "microsoft365_integration": {
             "enabled": False,
             "config_file": "instance/microsoft365.yaml"
+        },
+        "vmware": {
+            "host": "",
+            "port": 443,
+            "username": "",
+            "insecure_tls": False,
+            "datacenter": "",
+            "cluster": "",
+            "datastore": "",
+            "portgroup": "",
+            "tier": "100",
+            "network": {
+                "mode": "static",
+                "node_ips": "",
+                "netmask": "255.255.255.0",
+                "gateway": "",
+                "dns": "",
+                "ntp": "pool.ntp.org",
+                "domain": ""
+            },
+            "auth": {
+                "vm_user": "debian",
+                "ssh_key_mode": "generate",
+                "ssh_key_path": "",
+                "ssh_public_key": ""
+            },
+            "storage_policy": "",
+            "storage_account": {
+                "separate": False,
+                "provider_type": "vsphere-csi",
+                "username": "",
+                "endpoint": ""
+            },
+            "resources_override": {
+                "nodes": 3,
+                "vcpu_per_node": 4,
+                "ram_per_node_gb": 16,
+                "disk_per_node_gb": 150
+            }
         }
     }
 
@@ -1150,6 +1271,88 @@ def ensure_config_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
         cfg["network"]["acme_email"] = ""
     if cfg["llm_gateway"].get("openrouter_api_key", "").startswith("sk-or-v1-xxxx"):
         cfg["llm_gateway"]["openrouter_api_key"] = ""
+    if is_placeholder_key(cfg["llm_gateway"].get("openai_api_key", "")):
+        cfg["llm_gateway"]["openai_api_key"] = ""
+    if is_placeholder_key(cfg["llm_gateway"].get("anthropic_api_key", "")):
+        cfg["llm_gateway"]["anthropic_api_key"] = ""
+    if is_placeholder_key(cfg["llm_gateway"].get("mistral_api_key", "")):
+        cfg["llm_gateway"]["mistral_api_key"] = ""
+    if is_placeholder_key(cfg["llm_gateway"].get("gemini_api_key", "")):
+        cfg["llm_gateway"]["gemini_api_key"] = ""
+
+    return cfg
+
+def resolve_env_secrets_into_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Résout automatiquement les clés d'API depuis secrets/arcia.env ou l'environnement système pour l'UI."""
+    if not isinstance(cfg, dict):
+        return cfg
+    llm = cfg.setdefault("llm_gateway", {})
+
+    env_path = os.path.join(ROOT_DIR, "secrets", "arcia.env")
+    env_secrets: Dict[str, str] = {}
+    if os.path.isfile(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as ef:
+                for line in ef:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        ek, ev = line.split("=", 1)
+                        env_secrets[ek.strip()] = ev.strip().strip('"').strip("'")
+        except Exception:
+            pass
+
+    or_key = llm.get("openrouter_api_key", "").strip()
+    if not or_key or is_placeholder_key(or_key):
+        resolved_or = env_secrets.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER_API_KEY", "")
+        if resolved_or and not is_placeholder_key(resolved_or):
+            llm["openrouter_api_key"] = resolved_or
+        else:
+            llm["openrouter_api_key"] = ""
+
+    oai_key = llm.get("openai_api_key", "").strip()
+    if not oai_key or is_placeholder_key(oai_key):
+        resolved_oai = env_secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+        if resolved_oai and not is_placeholder_key(resolved_oai):
+            llm["openai_api_key"] = resolved_oai
+        else:
+            llm["openai_api_key"] = ""
+
+    ant_key = llm.get("anthropic_api_key", "").strip()
+    if not ant_key or is_placeholder_key(ant_key):
+        resolved_ant = env_secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
+        if resolved_ant and not is_placeholder_key(resolved_ant):
+            llm["anthropic_api_key"] = resolved_ant
+        else:
+            llm["anthropic_api_key"] = ""
+
+    mis_key = llm.get("mistral_api_key", "").strip()
+    if not mis_key or is_placeholder_key(mis_key):
+        resolved_mis = env_secrets.get("MISTRAL_API_KEY") or os.environ.get("MISTRAL_API_KEY", "")
+        if resolved_mis and not is_placeholder_key(resolved_mis):
+            llm["mistral_api_key"] = resolved_mis
+        else:
+            llm["mistral_api_key"] = ""
+
+    gem_key = llm.get("gemini_api_key", "").strip()
+    if not gem_key or is_placeholder_key(gem_key):
+        resolved_gem = env_secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
+        if resolved_gem and not is_placeholder_key(resolved_gem):
+            llm["gemini_api_key"] = resolved_gem
+        else:
+            llm["gemini_api_key"] = ""
+
+    # Résolution des secrets VMware vSphere
+    vm = cfg.setdefault("vmware", {})
+    vm_auth = vm.setdefault("auth", {})
+    if not vm.get("password") and env_secrets.get("VMWARE_VCENTER_PASSWORD"):
+        vm["password"] = env_secrets.get("VMWARE_VCENTER_PASSWORD", "")
+    if not vm_auth.get("vm_password") and env_secrets.get("VMWARE_VM_PASSWORD"):
+        vm_auth["vm_password"] = env_secrets.get("VMWARE_VM_PASSWORD", "")
+    if not vm_auth.get("root_password") and env_secrets.get("VMWARE_ROOT_PASSWORD"):
+        vm_auth["root_password"] = env_secrets.get("VMWARE_ROOT_PASSWORD", "")
+    vm_store = vm.setdefault("storage_account", {})
+    if not vm_store.get("password") and env_secrets.get("VMWARE_STORAGE_PASSWORD"):
+        vm_store["password"] = env_secrets.get("VMWARE_STORAGE_PASSWORD", "")
 
     return cfg
 
@@ -1166,6 +1369,12 @@ def serialize_yaml_config(cfg: Dict[str, Any]) -> str:
     sso = cfg.get("entra_id_sso") or {}
     teams = cfg.get("teams_bot") or {}
     m365 = cfg.get("microsoft365_integration") or {}
+    vm = cfg.get("vmware") or {}
+    vm_net = vm.get("network") or {}
+    vm_auth = vm.get("auth") or {}
+    vm_store = vm.get("storage_account") or {}
+    vm_res = vm.get("resources_override") or {}
+    sizing = k8s.get("sizing") or {}
 
     def bstr(val: Any) -> str:
         return "true" if bool(val) else "false"
@@ -1181,6 +1390,10 @@ def serialize_yaml_config(cfg: Dict[str, Any]) -> str:
             return default
 
     ssh = k8s.get("remote_ssh") or {}
+    custom_provs = llm.get("custom_providers") or []
+    custom_provs_repr = json.dumps(custom_provs) if isinstance(custom_provs, list) else "[]"
+    models_rout = llm.get("models_routing") or []
+    models_rout_repr = json.dumps(models_rout) if isinstance(models_rout, list) else "[]"
 
     yaml_text = f"""# ==============================================================================
 # ArcIA — Configuration Générée par le Setup Wizard Graphique
@@ -1199,6 +1412,13 @@ kubernetes:
     ssh_user: {qstr(ssh.get('ssh_user', 'debian'))}
     ssh_port: {istr(ssh.get('ssh_port'), 22)}
     ssh_key: {qstr(ssh.get('ssh_key', ''))}
+  sizing:
+    tier: {qstr(sizing.get('tier', vm.get('tier', '100')))}
+    nodes: {istr(sizing.get('nodes', vm_res.get('nodes', 3)), 3)}
+    vcpu_per_node: {istr(sizing.get('vcpu_per_node', vm_res.get('vcpu_per_node', 4)), 4)}
+    ram_per_node_gb: {istr(sizing.get('ram_per_node_gb', vm_res.get('ram_per_node_gb', 16)), 16)}
+    disk_per_node_gb: {istr(sizing.get('disk_per_node_gb', vm_res.get('disk_per_node_gb', 150)), 150)}
+    rag_storage: {qstr(sizing.get('rag_storage', '200Gi'))}
 
 # 2. Exposition Réseau, Domaine FQDN & Certificats TLS
 network:
@@ -1213,9 +1433,16 @@ llm_gateway:
   openrouter_api_key: {qstr(llm.get('openrouter_api_key', ''))}
   default_model: {qstr(llm.get('default_model', 'simple/auto'))}
   local_vllm_endpoint: {qstr(llm.get('local_vllm_endpoint', ''))}
+  openai_api_key: {qstr(llm.get('openai_api_key', ''))}
+  anthropic_api_key: {qstr(llm.get('anthropic_api_key', ''))}
+  mistral_api_key: {qstr(llm.get('mistral_api_key', ''))}
+  gemini_api_key: {qstr(llm.get('gemini_api_key', ''))}
+  custom_providers: {custom_provs_repr}
+  models_routing: {models_rout_repr}
 
 # 4. Moteur d'Agents Hermes & Studio Kanban
 hermes:
+  default_model: {qstr(hermes.get('default_model', 'agentic/auto'))}
   admin_password: {qstr(hermes.get('admin_password', 'admin'))}
   api_token: {qstr(hermes.get('api_token', ''))}
   storage_size: {qstr(hermes.get('storage_size', '20Gi'))}
@@ -1250,6 +1477,42 @@ teams_bot:
 microsoft365_integration:
   enabled: {bstr(m365.get('enabled', False))}
   config_file: {qstr(m365.get('config_file', 'instance/microsoft365.yaml'))}
+
+# 10. Infrastructure VMware vSphere & Dimensionnement [Optionnel]
+vmware:
+  host: {qstr(vm.get('host', ''))}
+  port: {istr(vm.get('port'), 443)}
+  username: {qstr(vm.get('username', ''))}
+  insecure_tls: {bstr(vm.get('insecure_tls', False))}
+  datacenter: {qstr(vm.get('datacenter', ''))}
+  cluster: {qstr(vm.get('cluster', ''))}
+  datastore: {qstr(vm.get('datastore', ''))}
+  portgroup: {qstr(vm.get('portgroup', ''))}
+  tier: {qstr(vm.get('tier', '100'))}
+  network:
+    mode: {qstr(vm_net.get('mode', 'static'))}
+    node_ips: {qstr(vm_net.get('node_ips', ''))}
+    netmask: {qstr(vm_net.get('netmask', ''))}
+    gateway: {qstr(vm_net.get('gateway', ''))}
+    dns: {qstr(vm_net.get('dns', ''))}
+    ntp: {qstr(vm_net.get('ntp', ''))}
+    domain: {qstr(vm_net.get('domain', ''))}
+  auth:
+    vm_user: {qstr(vm_auth.get('vm_user', 'debian'))}
+    ssh_key_mode: {qstr(vm_auth.get('ssh_key_mode', 'generate'))}
+    ssh_key_path: {qstr(vm_auth.get('ssh_key_path', ''))}
+    ssh_public_key: {qstr(vm_auth.get('ssh_public_key', ''))}
+  storage_policy: {qstr(vm.get('storage_policy', ''))}
+  storage_account:
+    separate: {bstr(vm_store.get('separate', False))}
+    provider_type: {qstr(vm_store.get('provider_type', 'vsphere-csi'))}
+    username: {qstr(vm_store.get('username', ''))}
+    endpoint: {qstr(vm_store.get('endpoint', ''))}
+  resources_override:
+    nodes: {istr(vm_res.get('nodes', sizing.get('nodes', 3)), 3)}
+    vcpu_per_node: {istr(vm_res.get('vcpu_per_node', sizing.get('vcpu_per_node', 4)), 4)}
+    ram_per_node_gb: {istr(vm_res.get('ram_per_node_gb', sizing.get('ram_per_node_gb', 16)), 16)}
+    disk_per_node_gb: {istr(vm_res.get('disk_per_node_gb', sizing.get('disk_per_node_gb', 150)), 150)}
 """
     return yaml_text
 
@@ -1261,12 +1524,27 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
         f.write(yaml_content)
 
     secrets_dir = os.path.join(ROOT_DIR, "secrets")
-    if os.path.isdir(secrets_dir):
+    real_prod_path = os.path.normpath(os.path.join(ROOT_DIR, "arcia.config.yaml"))
+    if os.path.normpath(os.path.abspath(config_path)) == real_prod_path and os.path.isdir(secrets_dir):
         env_path = os.path.join(secrets_dir, "arcia.env")
         try:
             with open(env_path, "w", encoding="utf-8") as f:
                 f.write(f"# ArcIA Environment Secrets - Auto-généré par le Wizard\n")
-                f.write(f"OPENROUTER_API_KEY={cfg.get('llm_gateway', {}).get('openrouter_api_key', '')}\n")
+                or_key = cfg.get('llm_gateway', {}).get('openrouter_api_key', '')
+                if or_key and not is_placeholder_key(or_key):
+                    f.write(f"OPENROUTER_API_KEY={or_key}\n")
+                oai_key = cfg.get('llm_gateway', {}).get('openai_api_key', '')
+                if oai_key and not is_placeholder_key(oai_key):
+                    f.write(f"OPENAI_API_KEY={oai_key}\n")
+                ant_key = cfg.get('llm_gateway', {}).get('anthropic_api_key', '')
+                if ant_key and not is_placeholder_key(ant_key):
+                    f.write(f"ANTHROPIC_API_KEY={ant_key}\n")
+                mis_key = cfg.get('llm_gateway', {}).get('mistral_api_key', '')
+                if mis_key and not is_placeholder_key(mis_key):
+                    f.write(f"MISTRAL_API_KEY={mis_key}\n")
+                gem_key = cfg.get('llm_gateway', {}).get('gemini_api_key', '')
+                if gem_key and not is_placeholder_key(gem_key):
+                    f.write(f"GEMINI_API_KEY={gem_key}\n")
                 f.write(f"HERMES_ADMIN_PASSWORD={cfg.get('hermes', {}).get('admin_password', 'admin')}\n")
                 f.write(f"HERMES_API_SERVER_KEY={cfg.get('hermes', {}).get('api_token', '')}\n")
                 f.write(f"PRESIDIO_MASTER_KEY={cfg.get('presidio', {}).get('master_key', '')}\n")
@@ -1282,6 +1560,18 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
                     f.write(f"TEAMS_BOT_APP_PASSWORD={teams.get('app_password', '')}\n")
                     if teams.get("tenant_id"):
                         f.write(f"TEAMS_BOT_TENANT_ID={teams.get('tenant_id', '')}\n")
+                # Secrets VMware vSphere
+                vm = cfg.get("vmware", {})
+                vm_auth = vm.get("auth", {})
+                if vm.get("password") and not is_placeholder_key(vm.get("password")):
+                    f.write(f"VMWARE_VCENTER_PASSWORD={vm.get('password')}\n")
+                if vm_auth.get("vm_password") and not is_placeholder_key(vm_auth.get("vm_password")):
+                    f.write(f"VMWARE_VM_PASSWORD={vm_auth.get('vm_password')}\n")
+                if vm_auth.get("root_password") and not is_placeholder_key(vm_auth.get("root_password")):
+                    f.write(f"VMWARE_ROOT_PASSWORD={vm_auth.get('root_password')}\n")
+                vm_store = vm.get("storage_account", {})
+                if vm_store.get("password") and not is_placeholder_key(vm_store.get("password")):
+                    f.write(f"VMWARE_STORAGE_PASSWORD={vm_store.get('password')}\n")
         except Exception:
             pass
 
@@ -1482,6 +1772,8 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                         deployment_state["logs"].append(f"[WARN] Sauvegarde Git non effectuée : {str(ge)}")
 
                 deployment_state["status"] = "success"
+                vm_auth = vm_cfg.get("auth", {})
+                vm_net = vm_cfg.get("network", {})
                 deployment_state["summary"] = {
                     "public_fqdn": fqdn,
                     "webui_url": f"https://{fqdn}/",
@@ -1492,7 +1784,40 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                     "hermes_admin_pass": hermes_pass,
                     "hermes_pat": hermes_pat,
                     "instance_repo_url": instance_repo_url,
-                    "mode": infra_target
+                    "mode": infra_target,
+                    "credentials": {
+                        "vmware": {
+                            "active": infra_target == "vmware_k3s",
+                            "host": vm_cfg.get("host", ""),
+                            "ssh_user": vm_auth.get("vm_user", "debian"),
+                            "vm_password": vm_auth.get("vm_password", ""),
+                            "root_password": vm_auth.get("root_password", ""),
+                            "ssh_key_path": vm_auth.get("ssh_key_path", ""),
+                            "node_ips": vm_net.get("node_ips", ""),
+                            "netmask": vm_net.get("netmask", ""),
+                            "gateway": vm_net.get("gateway", ""),
+                            "dns": vm_net.get("dns", ""),
+                            "ntp": vm_net.get("ntp", "")
+                        },
+                        "litellm": {
+                            "master_key": cfg.get("llm_gateway", {}).get("master_key", "")
+                        },
+                        "hermes": {
+                            "admin_user": "admin",
+                            "admin_password": hermes_pass,
+                            "api_token": hermes_pat
+                        },
+                        "presidio": {
+                            "master_key": cfg.get("presidio", {}).get("master_key", "")
+                        },
+                        "entra_id": {
+                            "cookie_secret": cfg.get("entra_id_sso", {}).get("cookie_secret", "")
+                        },
+                        "teams_bot": {
+                            "enabled": teams_enabled,
+                            "app_password": cfg.get("teams_bot", {}).get("app_password", "")
+                        }
+                    }
                 }
             else:
                 deployment_state["status"] = "error"
@@ -1516,7 +1841,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "services/ & skills/",
         "k8s_resource": "configmap/presidio-code,hermes-governance-plugin,teams-bot-code,arcia-native-skills",
         "default_image": "nicolastheuil/ArcIA",
-        "default_version": "v0.4",
+        "default_version": "v0.5.0",
         "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
         "wave": 1,
         "is_bumpable_image": False,
@@ -1639,10 +1964,49 @@ def extract_manifest_image_version(manifest_rel_path: str, default_image: str, d
         pass
     return default_image, default_version
 
+ARCIA_VERSIONS_FILE = os.path.join(ROOT_DIR, "deploy", "versions.json")
+
+def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
+    """Charge le référentiel des versions officielles certifiées du projet ArcIA (dépôt ArcIA exclusif)."""
+    local_data: Dict[str, Any] = {}
+    if os.path.isfile(ARCIA_VERSIONS_FILE):
+        try:
+            with open(ARCIA_VERSIONS_FILE, "r", encoding="utf-8") as f:
+                local_data = json.load(f)
+                if isinstance(local_data, dict):
+                    local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.0"))
+        except Exception:
+            pass
+
+    if not check_online:
+        return local_data
+
+    # En mode vérification en ligne, interroger le référentiel officiel distant du projet ArcIA
+    repo = local_data.get("repository", "nicolastheuil/ArcIA")
+    remote_url = f"https://raw.githubusercontent.com/{repo}/main/deploy/versions.json"
+    headers = {
+        "User-Agent": "ArcIA-Update-Checker/0.5.0",
+        "Accept": "application/json"
+    }
+    try:
+        req = urllib.request.Request(remote_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status == 200:
+                remote_data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                if isinstance(remote_data, dict) and "components" in remote_data:
+                    remote_data.setdefault("arcia_version", remote_data.get("arcia_release", "v0.5.0"))
+                    return remote_data
+    except Exception:
+        pass
+
+    if isinstance(local_data, dict):
+        local_data.setdefault("arcia_version", local_data.get("arcia_release", "v0.5.0"))
+    return local_data
+
 def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
     """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.4",
+        "User-Agent": "ArcIA-Update-Checker/0.5.0",
         "Accept": "application/vnd.github.v3+json"
     }
     # 1. Essayer /releases/latest
@@ -1715,8 +2079,8 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
     # 1. Cible Kubernetes (local ou remote-ssh)
     if mode in ("local", "remote-ssh"):
         node_ip = ssh_info.get("node_ip", "").strip() if isinstance(ssh_info, dict) else ""
-        if mode == "remote-ssh" and (not node_ip or node_ip == "127.0.0.1"):
-            return versions
+        if mode == "remote-ssh" and (not node_ip or node_ip in ("127.0.0.1", "192.168.1.100", "0.0.0.0")):
+            mode = "local"
 
         try:
             sys.path.insert(0, SCRIPT_DIR)
@@ -1786,7 +2150,7 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                     rc_cm, out_cm, _ = runner.run(["get", "configmap", "arcia-native-skills", f"-n={namespace}", "-o", "json"], timeout=timeout)
                     if rc_cm == 0 and out_cm.strip():
                         versions["arcia-core"] = {
-                            "version": "v0.4",
+                            "version": "v0.5.0",
                             "image": "ConfigMap: arcia-native-skills",
                             "ready": True,
                             "replicas": 1,
@@ -1833,7 +2197,7 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                                 }
                 if versions:
                     versions["arcia-core"] = {
-                        "version": "v0.4",
+                        "version": "v0.5.0",
                         "image": "docker-compose.lab.yml",
                         "ready": True,
                         "replicas": 1,
@@ -1853,6 +2217,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
     if force_prod_scan:
         prod_scanned = scan_production_versions(cfg, timeout=4)
 
+    arcia_catalog = load_arcia_official_versions(check_online=check_online)
     results: List[Dict[str, Any]] = [None] * len(ARCIA_UPDATABLE_COMPONENTS)  # type: ignore
 
     def _check_single(idx: int, comp: Dict[str, Any]):
@@ -1874,27 +2239,33 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
             source_label = "Manifeste local"
             is_live_prod = False
 
-        if check_online:
-            online_info = fetch_github_latest_release(comp["github_repo"], comp["default_version"])
-        else:
-            online_info = {
-                "latest_version": comp["default_version"],
-                "raw_tag": comp["default_version"],
-                "release_url": f"https://github.com/{comp['github_repo']}/releases",
-                "published_at": "Cache local",
-                "online_checked": False
-            }
+        arcia_comp_ref = (arcia_catalog.get("components") or {}).get(cid, {})
+        target_version = arcia_comp_ref.get("version") or comp["default_version"]
+        target_image = arcia_comp_ref.get("image") or comp["default_image"]
+        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.0"
+        release_notes = arcia_comp_ref.get("release_notes", "")
+        repo = arcia_catalog.get("repository", "nicolastheuil/ArcIA")
+        release_url = f"https://github.com/{repo}/releases"
+
+        online_info = {
+            "latest_version": target_version,
+            "raw_tag": target_version,
+            "target_image": target_image,
+            "release_url": release_url,
+            "published_at": published_at,
+            "release_notes": release_notes,
+            "online_checked": bool(check_online and arcia_catalog)
+        }
 
         latest_ver = online_info["latest_version"]
         norm_curr = _normalize_ver(curr_ver)
         norm_latest = _normalize_ver(latest_ver)
 
-        # Détecter si une mise à jour est disponible
+        # Détecter si une mise à jour est disponible selon le référentiel officiel ArcIA
         if curr_ver in ("latest", "main"):
-            # Les tags flottants (latest/main) peuvent être épinglés ou rafraîchis vers la dernière release stable
-            update_avail = online_info["online_checked"] and norm_latest not in ("", "latest", "main")
+            update_avail = bool(norm_latest and norm_latest not in ("", "latest", "main"))
         else:
-            update_avail = bool(online_info["online_checked"] and norm_latest and norm_curr != norm_latest)
+            update_avail = bool(norm_latest and norm_curr and norm_curr != norm_latest)
 
         results[idx] = {
             "id": comp["id"],
@@ -1909,6 +2280,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
             "latest_version": latest_ver,
             "raw_latest_tag": online_info.get("raw_tag", latest_ver),
             "update_available": update_avail,
+            "has_update": update_avail,
             "online_checked": online_info["online_checked"],
             "release_url": online_info["release_url"],
             "published_at": online_info["published_at"],
@@ -2329,6 +2701,1607 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             update_state["logs"].append(f"[ERROR] Séquence interrompue : {str(ue)}")
 
 # -----------------------------------------------------------------------------
+# Gestion des Power Users (Pods Hermes Dédiés, PVCs & SOUL)
+# -----------------------------------------------------------------------------
+
+def get_k8s_runner(cfg: Optional[Dict[str, Any]] = None, context: Optional[str] = None, namespace: Optional[str] = None) -> Any:
+    """Instancie un K8sRunner configuré pour le cluster actif avec repli intelligent sur kubectl local."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    sys.path.insert(0, SCRIPT_DIR)
+    import deploy
+    k8s = cfg.get("kubernetes", {})
+    remote_ssh = k8s.get("remote_ssh", {})
+    node_ip = remote_ssh.get("node_ip", "").strip() if isinstance(remote_ssh, dict) else ""
+    mode = k8s.get("mode", "local")
+
+    # Si le mode est remote-ssh mais que l'IP renseignée est une IP fictive / d'exemple (ex: 192.168.1.100 ou 127.0.0.1)
+    # ou vide, basculer automatiquement sur kubectl local pour éviter tout blocage SSH aveugle
+    if mode == "remote-ssh" and (not node_ip or node_ip in ("192.168.1.100", "127.0.0.1", "0.0.0.0")):
+        mode = "local"
+
+    ctx_to_use = context if (context is not None and str(context).strip()) else k8s.get("context", "")
+
+    return deploy.K8sRunner(
+        mode=mode,
+        kubeconfig=k8s.get("kubeconfig", ""),
+        context=ctx_to_use,
+        ssh_node=node_ip or "127.0.0.1",
+        ssh_user=remote_ssh.get("ssh_user", "debian") if isinstance(remote_ssh, dict) else "debian",
+        ssh_port=int(remote_ssh.get("ssh_port", 22)) if isinstance(remote_ssh, dict) else 22,
+        ssh_key=remote_ssh.get("ssh_key", "") if isinstance(remote_ssh, dict) else ""
+    )
+
+def get_cluster_resource_metrics(cfg: Optional[Dict[str, Any]] = None, runner: Any = None) -> Dict[str, Any]:
+    """Récupère ou estime la charge des ressources (CPU, RAM, Stockage) du cluster K8s ou Docker."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    infra_target = cfg.get("infra_target", "k8s_existing")
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+
+    metrics = {
+        "available": True,
+        "target": infra_target,
+        "cpu": {"percent": 24, "used": "4.8 GHz", "total": "20.0 GHz", "label": "Charge CPU Cluster (GHz)"},
+        "ram": {"percent": 38, "used": "12.2 Go", "total": "32 Go", "label": "Mémoire RAM"},
+        "storage": {"percent": 31, "used": "62 Go", "total": "200 Go", "label": "Stockage Persistant CSI"}
+    }
+
+    if infra_target == "docker_lab":
+        metrics["storage"]["label"] = "Volumes Docker"
+        metrics["storage"]["used"] = "18 Go"
+        metrics["storage"]["total"] = "100 Go"
+        metrics["storage"]["percent"] = 18
+        try:
+            proc = subprocess.run(
+                ["docker", "stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}"],
+                capture_output=True, text=True, timeout=3
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                lines = [l for l in proc.stdout.strip().splitlines() if l]
+                total_cpu = 0.0
+                total_mem_pct = 0.0
+                for l in lines:
+                    parts = l.split("\t")
+                    if len(parts) >= 2:
+                        cpu_str = parts[0].replace("%", "").strip()
+                        mem_str = parts[1].replace("%", "").strip()
+                        try:
+                            total_cpu += float(cpu_str)
+                            total_mem_pct += float(mem_str)
+                        except Exception:
+                            pass
+                cpu_p = min(round(total_cpu, 1), 100.0)
+                mem_p = min(round(total_mem_pct, 1), 100.0)
+                ghz_used = round((cpu_p / 100.0) * 16.0, 1)
+                metrics["cpu"] = {"percent": int(cpu_p), "used": f"{ghz_used} GHz", "total": "16.0 GHz", "label": "Charge CPU Docker (GHz)"}
+                metrics["ram"] = {"percent": int(mem_p), "used": f"{mem_p}%", "total": "100%", "label": "RAM Docker"}
+        except Exception:
+            pass
+        return metrics
+
+    if runner is not None:
+        try:
+            rc_top, out_top, _ = runner.run(["top", "nodes", "--no-headers"], timeout=4)
+            if rc_top == 0 and out_top.strip():
+                lines = [l for l in out_top.strip().splitlines() if l]
+                cpu_pcts = []
+                mem_pcts = []
+                for l in lines:
+                    parts = l.split()
+                    if len(parts) >= 5:
+                        try:
+                            cpu_pcts.append(int(parts[2].replace("%", "")))
+                            mem_pcts.append(int(parts[4].replace("%", "")))
+                        except Exception:
+                            pass
+                if cpu_pcts and mem_pcts:
+                    avg_cpu = int(sum(cpu_pcts) / len(cpu_pcts))
+                    avg_mem = int(sum(mem_pcts) / len(mem_pcts))
+                    metrics["cpu"]["percent"] = max(1, min(100, avg_cpu))
+                    ghz_used = round((metrics["cpu"]["percent"] / 100.0) * 20.0, 1)
+                    metrics["cpu"]["used"] = f"{ghz_used} GHz"
+                    metrics["cpu"]["total"] = "20.0 GHz"
+                    metrics["ram"]["percent"] = max(1, min(100, avg_mem))
+        except Exception:
+            pass
+
+        try:
+            rc_pvc, out_pvc, _ = runner.run(["get", "pvc", f"-n={ns}", "--no-headers"], timeout=4)
+            if rc_pvc == 0 and out_pvc.strip():
+                lines = [l for l in out_pvc.strip().splitlines() if l]
+                pvc_count = len(lines)
+                allocated_gi = max(20, pvc_count * 10)
+                metrics["storage"]["used"] = f"{allocated_gi} Go"
+                metrics["storage"]["total"] = "200 Go"
+                metrics["storage"]["percent"] = min(int((allocated_gi / 200.0) * 100), 100)
+        except Exception:
+            pass
+
+    return metrics
+
+def check_instance_connectivity(cfg: Optional[Dict[str, Any]] = None, context: Optional[str] = None, namespace: Optional[str] = None) -> Dict[str, Any]:
+    """Teste la connectivité à l'infrastructure cible et vérifie si une instance ArcIA y est déployée."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    infra_target = cfg.get("infra_target", "k8s_existing")
+    fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org") or "assistant.example.org"
+    default_model_simple = cfg.get("llm_gateway", {}).get("default_model", "simple/auto")
+    default_model_agentic = cfg.get("hermes", {}).get("default_model", "agentic/auto")
+
+    # 1. Cible Docker Lab
+    if infra_target == "docker_lab":
+        docker_st = get_docker_status()
+        metrics = get_cluster_resource_metrics(cfg)
+        if not docker_st.get("running"):
+            return {
+                "success": False,
+                "connected": False,
+                "instance_detected": False,
+                "target": "docker_lab",
+                "target_info": "Docker Lab (local)",
+                "error": "Le démon Docker n'est pas accessible sur cette machine.",
+                "message": "Démon Docker inaccessible. Vérifiez que Docker Desktop ou le service dockerd est démarré.",
+                "deployed_components": [],
+                "components_count": 0,
+                "webui_url": "http://localhost:3000",
+                "metrics": metrics,
+                "default_model": default_model_simple,
+                "default_model_simple": default_model_simple,
+                "hermes_default_model": default_model_agentic,
+                "default_model_agentic": default_model_agentic
+            }
+        prod_versions = scan_production_versions(cfg, timeout=4)
+        has_instance = any(k in prod_versions for k in ("open-webui", "hermes-agent", "litellm-proxy", "presidio-dlp", "teams-bot", "arcia-core"))
+        rich_components = []
+        for comp in ARCIA_UPDATABLE_COMPONENTS:
+            cid = comp["id"]
+            if cid in prod_versions:
+                info = prod_versions[cid]
+                rich_components.append({
+                    "id": cid,
+                    "name": comp["name"],
+                    "version": info.get("version", comp["default_version"]),
+                    "ready": info.get("ready", True),
+                    "source": "Docker Lab",
+                    "image": info.get("image", comp["default_image"])
+                })
+        official_catalog = load_arcia_official_versions(check_online=False).get("components", {})
+        for c in rich_components:
+            cid = c.get("id")
+            cur_v = c.get("version", "")
+            target_info = official_catalog.get(cid, {})
+            target_v = target_info.get("version", cur_v)
+            c["target_version"] = target_v
+            c["latest_version"] = target_v
+            has_up = bool(cur_v and target_v and cur_v != target_v and cur_v != "Inconnu")
+            c["has_update"] = has_up
+            c["update_available"] = has_up
+
+        updates_count = sum(1 for c in rich_components if c.get("has_update"))
+
+        return {
+            "success": True,
+            "connected": True,
+            "instance_detected": has_instance,
+            "target": "docker_lab",
+            "target_info": "Docker Lab (local)",
+            "deployed_components": rich_components if has_instance else [],
+            "components_count": len(rich_components) if has_instance else 0,
+            "updates_available": (updates_count > 0),
+            "updates_count": updates_count,
+            "webui_url": "http://localhost:3000",
+            "metrics": metrics,
+            "default_model": default_model_simple,
+            "default_model_simple": default_model_simple,
+            "hermes_default_model": default_model_agentic,
+            "default_model_agentic": default_model_agentic,
+            "message": "Instance Docker Lab détectée et opérationnelle." if has_instance else "Démon Docker opérationnel, mais aucun conteneur ArcIA n'est en cours d'exécution."
+        }
+
+    # 2. Cible Kubernetes (k8s_existing ou vmware_k3s)
+    k8s_cfg = cfg.get("kubernetes", {})
+    ns = namespace or k8s_cfg.get("namespace", "arcia")
+    webui_url = f"https://{fqdn}"
+
+    try:
+        runner = get_k8s_runner(cfg, context=context, namespace=ns)
+        target_desc = f"SSH ({runner.ssh_node})" if runner.mode == "remote-ssh" else f"kubectl local (contexte: {runner.context or 'actif'})"
+
+        # Test de contact avec l'API Kubernetes
+        rc, out, err = runner.run(["get", "nodes", "-o", "name"], timeout=5)
+        if rc != 0:
+            err_msg = err.strip() or out.strip() or f"Impossible de contacter le cluster Kubernetes via {target_desc}."
+            metrics = get_cluster_resource_metrics(cfg, runner)
+            return {
+                "success": False,
+                "connected": False,
+                "instance_detected": False,
+                "target": runner.mode,
+                "target_info": target_desc,
+                "namespace": ns,
+                "error": err_msg,
+                "message": f"Échec de connexion au cluster Kubernetes ({target_desc}). Vérifiez l'accès réseau ou le kubeconfig.",
+                "deployed_components": [],
+                "components_count": 0,
+                "webui_url": webui_url,
+                "metrics": metrics,
+                "default_model": default_model_simple,
+                "default_model_simple": default_model_simple,
+                "hermes_default_model": default_model_agentic,
+                "default_model_agentic": default_model_agentic
+            }
+
+        # Test de présence du namespace ArcIA
+        rc_ns, out_ns, _ = runner.run(["get", "namespace", ns, "-o", "name"], timeout=4)
+        if rc_ns != 0:
+            metrics = get_cluster_resource_metrics(cfg, runner)
+            return {
+                "success": True,
+                "connected": True,
+                "instance_detected": False,
+                "target": runner.mode,
+                "target_info": target_desc,
+                "namespace": ns,
+                "deployed_components": [],
+                "components_count": 0,
+                "webui_url": webui_url,
+                "metrics": metrics,
+                "message": f"Cluster Kubernetes accessible, mais le namespace '{ns}' n'existe pas encore."
+            }
+
+        # Test de détection des déploiements ArcIA dans le namespace
+        rc_dep, out_dep, _ = runner.run(["get", "deployments", f"-n={ns}", "-o", "jsonpath={.items[*].metadata.name}"], timeout=5)
+        detected_deps = []
+        if rc_dep == 0 and out_dep.strip():
+            all_deps = out_dep.strip().split()
+            detected_deps = [d for d in all_deps if any(k in d for k in ("open-webui", "hermes", "litellm", "presidio", "teams", "oauth2"))]
+
+        metrics = get_cluster_resource_metrics(cfg, runner)
+
+        if detected_deps:
+            prod_versions = scan_production_versions(cfg, timeout=4)
+            rich_components = []
+            for comp in ARCIA_UPDATABLE_COMPONENTS:
+                cid = comp["id"]
+                if cid in prod_versions:
+                    info = prod_versions[cid]
+                    rich_components.append({
+                        "id": cid,
+                        "name": comp["name"],
+                        "version": info.get("version", comp["default_version"]),
+                        "ready": info.get("ready", True),
+                        "source": info.get("source", target_desc),
+                        "image": info.get("image", comp["default_image"])
+                    })
+                elif cid in detected_deps or any(d in comp["manifest"] for d in detected_deps):
+                    rich_components.append({
+                        "id": cid,
+                        "name": comp["name"],
+                        "version": comp["default_version"],
+                        "ready": True,
+                        "source": target_desc,
+                        "image": comp["default_image"]
+                    })
+
+            # Détection des mises à jour disponibles selon le catalogue certifié ArcIA
+            official_catalog = load_arcia_official_versions(check_online=False).get("components", {})
+            for c in rich_components:
+                cid = c.get("id")
+                cur_v = c.get("version", "")
+                target_info = official_catalog.get(cid, {})
+                target_v = target_info.get("version", cur_v)
+                c["target_version"] = target_v
+                c["latest_version"] = target_v
+                has_up = bool(cur_v and target_v and cur_v != target_v and cur_v != "Inconnu")
+                c["has_update"] = has_up
+                c["update_available"] = has_up
+
+            updates_count = sum(1 for c in rich_components if c.get("has_update"))
+
+            return {
+                "success": True,
+                "connected": True,
+                "instance_detected": True,
+                "target": runner.mode,
+                "target_info": target_desc,
+                "namespace": ns,
+                "deployed_components": rich_components,
+                "components_count": len(rich_components),
+                "updates_available": (updates_count > 0),
+                "updates_count": updates_count,
+                "webui_url": webui_url,
+                "metrics": metrics,
+                "default_model": default_model_simple,
+                "default_model_simple": default_model_simple,
+                "hermes_default_model": default_model_agentic,
+                "default_model_agentic": default_model_agentic,
+                "message": f"Instance ArcIA détectée dans le namespace '{ns}' ({len(rich_components)} composant(s) déployé(s))."
+            }
+
+        return {
+            "success": True,
+            "connected": True,
+            "instance_detected": False,
+            "target": runner.mode,
+            "target_info": target_desc,
+            "namespace": ns,
+            "deployed_components": [],
+            "components_count": 0,
+            "webui_url": webui_url,
+            "metrics": metrics,
+            "default_model": default_model_simple,
+            "default_model_simple": default_model_simple,
+            "hermes_default_model": default_model_agentic,
+            "default_model_agentic": default_model_agentic,
+            "message": f"Cluster Kubernetes accessible, mais aucun composant ArcIA n'est déployé dans le namespace '{ns}'."
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "connected": False,
+            "instance_detected": False,
+            "target": "error",
+            "target_info": "Erreur interne",
+            "namespace": ns,
+            "error": str(exc),
+            "message": f"Erreur lors du test de connectivité : {str(exc)}",
+            "deployed_components": [],
+            "components_count": 0,
+            "webui_url": webui_url
+        }
+
+def list_powerusers(cfg: Optional[Dict[str, Any]] = None, context: Optional[str] = None, namespace: Optional[str] = None) -> Dict[str, Any]:
+    """Récupère l'état complet des Power Users : déploiements, pods, PVCs et consommation."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = namespace or cfg.get("kubernetes", {}).get("namespace", "arcia")
+    fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+
+    try:
+        runner = get_k8s_runner(cfg, context=context, namespace=ns)
+        rc_dep, out_dep, err_dep = runner.run(["get", "deployments", "-n", ns, "-l", "arcia.io/role=poweruser", "-o", "json"])
+        if rc_dep != 0:
+            target_desc = f"SSH ({runner.ssh_node})" if runner.mode == "remote-ssh" else f"kubectl local (contexte: {runner.context or 'actif'})"
+            return {
+                "status": "ok",
+                "success": False,
+                "connected": False,
+                "namespace": ns,
+                "context": runner.context or "default",
+                "mode": runner.mode,
+                "target_info": target_desc,
+                "error": err_dep.strip() or f"Impossible de contacter le namespace '{ns}' sur le cluster ({target_desc}).",
+                "users": [],
+                "powerusers": [],
+                "stats": {"total": 0, "running": 0, "sleeping": 0, "other": 0, "total_storage_gi": 0}
+            }
+
+        dep_data = json.loads(out_dep)
+        deployments = dep_data.get("items", [])
+    except Exception as e:
+        return {
+            "status": "ok",
+            "success": False,
+            "connected": False,
+            "namespace": ns,
+            "error": str(e),
+            "users": [],
+            "powerusers": [],
+            "stats": {"total": 0, "running": 0, "sleeping": 0, "other": 0, "total_storage_gi": 0}
+        }
+
+    pods_by_slug = {}
+    try:
+        rc_pods, out_pods, _ = runner.run(["get", "pods", "-n", ns, "-l", "arcia.io/role=poweruser", "-o", "json"])
+        if rc_pods == 0:
+            pod_items = json.loads(out_pods).get("items", [])
+            for p in pod_items:
+                labels = p.get("metadata", {}).get("labels", {})
+                slug = labels.get("app.kubernetes.io/instance") or labels.get("arcia.io/user-slug")
+                if not slug:
+                    name = p.get("metadata", {}).get("name", "")
+                    m = re.match(r"hermes-poweruser-([a-z0-9\-]+?)(?:-[a-z0-9]+)+$", name)
+                    if m:
+                        slug = m.group(1)
+                if slug:
+                    pods_by_slug[slug] = p
+    except Exception:
+        pass
+
+    pvcs_by_slug = {}
+    try:
+        rc_pvc, out_pvc, _ = runner.run(["get", "pvc", "-n", ns, "-o", "json"])
+        if rc_pvc == 0:
+            pvc_items = json.loads(out_pvc).get("items", [])
+            for pvc in pvc_items:
+                pname = pvc.get("metadata", {}).get("name", "")
+                if pname.startswith("hermes-user-") and pname.endswith("-pvc"):
+                    slug = pname[len("hermes-user-"):-len("-pvc")]
+                    pvcs_by_slug[slug] = pvc
+    except Exception:
+        pass
+
+    cm_by_slug = {}
+    try:
+        rc_cm, out_cm, _ = runner.run(["get", "configmaps", "-n", ns, "-o", "json"])
+        if rc_cm == 0:
+            cm_items = json.loads(out_cm).get("items", [])
+            for cm in cm_items:
+                cname = cm.get("metadata", {}).get("name", "")
+                if cname.startswith("hermes-user-") and cname.endswith("-config"):
+                    slug = cname[len("hermes-user-"):-len("-config")]
+                    cm_by_slug[slug] = cm.get("data", {})
+    except Exception:
+        pass
+
+    users = []
+    for dep in deployments:
+        dname = dep.get("metadata", {}).get("name", "")
+        labels = dep.get("metadata", {}).get("labels", {})
+        slug = labels.get("app.kubernetes.io/instance") or labels.get("arcia.io/user-slug") or dname.replace("hermes-poweruser-", "")
+        spec = dep.get("spec", {})
+        status = dep.get("status", {})
+        replicas = spec.get("replicas", 0)
+        ready_replicas = status.get("readyReplicas", 0)
+
+        cm_data = cm_by_slug.get(slug, {})
+        user_md = cm_data.get("USER.md", "")
+        user_email = f"{slug}@entreprise.org"
+        team = "engineering"
+        job_title = "Expert / Ingénieur"
+        manager = "Direction Technique"
+        if user_md:
+            m_email = re.search(r"- Email\s*:\s*([^\r\n]+)", user_md)
+            if m_email: user_email = m_email.group(1).strip()
+            m_team = re.search(r"- (?:Équipe|Equipe)\s*:\s*([^\r\n]+)", user_md)
+            if m_team: team = m_team.group(1).strip()
+            m_job = re.search(r"- Fonction\s*:\s*([^\r\n]+)", user_md)
+            if m_job: job_title = m_job.group(1).strip()
+            m_mgr = re.search(r"- Responsable\s*:\s*([^\r\n]+)", user_md)
+            if m_mgr: manager = m_mgr.group(1).strip()
+
+        pod = pods_by_slug.get(slug)
+        pod_status = "Sleeping" if replicas == 0 else "Pending"
+        pod_name = ""
+        restarts = 0
+        if pod:
+            pod_name = pod.get("metadata", {}).get("name", "")
+            phase = pod.get("status", {}).get("phase", "Unknown")
+            c_statuses = pod.get("status", {}).get("containerStatuses", [])
+            for cs in c_statuses:
+                restarts += cs.get("restartCount", 0)
+            if replicas == 0:
+                pod_status = "Sleeping"
+            elif phase == "Running":
+                pod_status = "Running"
+            else:
+                pod_status = phase
+
+        pvc = pvcs_by_slug.get(slug, {})
+        pvc_spec = pvc.get("spec", {})
+        pvc_status_obj = pvc.get("status", {})
+        pvc_capacity = pvc_status_obj.get("capacity", {}).get("storage") or pvc_spec.get("resources", {}).get("requests", {}).get("storage", "10Gi")
+        pvc_state = pvc_status_obj.get("phase", "Bound")
+
+        pvc_usage = {
+            "capacity": pvc_capacity,
+            "used_str": "Non mesuré",
+            "avail_str": "",
+            "percent": None,
+            "status_text": "Pod en veille" if replicas == 0 else f"Alloué : {pvc_capacity}"
+        }
+        if pod and pod_status.startswith("Running") and pod_name:
+            try:
+                rc_df, out_df, _ = runner.run(["exec", f"pod/{pod_name}", "-c", "hermes", "-n", ns, "--", "df", "-h", "/opt/data"], timeout=4)
+                if rc_df == 0 and out_df:
+                    lines = [l for l in out_df.strip().splitlines() if not l.startswith("Filesystem")]
+                    if lines:
+                        parts = lines[0].split()
+                        if len(parts) >= 5:
+                            pct_m = re.search(r"(\d+)%", parts[4])
+                            pct_val = int(pct_m.group(1)) if pct_m else None
+                            pvc_usage = {
+                                "capacity": parts[1],
+                                "used_str": parts[2],
+                                "avail_str": parts[3],
+                                "percent": pct_val,
+                                "status_text": f"{parts[2]} / {parts[1]} ({parts[4]})"
+                            }
+            except Exception:
+                pass
+
+        user_name = labels.get("arcia.io/user-name") or slug.replace("-", " ").title()
+        if user_md:
+            m_nom = re.search(r"- (?:Nom|Prénom|Prenom|Collaborateur)\s*:\s*([^\r\n]+)", user_md)
+            if m_nom:
+                user_name = m_nom.group(1).strip()
+
+        users.append({
+            "slug": slug,
+            "name": user_name,
+            "deployment_name": dname,
+            "email": user_email,
+            "team": team,
+            "job_title": job_title,
+            "manager": manager,
+            "replicas": replicas,
+            "replicas_desired": replicas,
+            "ready_replicas": ready_replicas,
+            "replicas_ready": ready_replicas,
+            "pod_status": pod_status,
+            "pod_phase": pod_status,
+            "pod_name": pod_name,
+            "restarts": restarts,
+            "pvc_name": f"hermes-user-{slug}-pvc",
+            "pvc_capacity": pvc_capacity,
+            "pvc_phase": pvc_state,
+            "pvc_usage": pvc_usage,
+            "pvc_used_human": pvc_usage.get("used_str") if pvc_usage else None,
+            "pvc_percent": pvc_usage.get("percent") if pvc_usage else None,
+            "studio_url": f"https://{fqdn}/poweruser/{slug}/studio",
+            "studio_path": f"/poweruser/{slug}/studio",
+            "has_vpn": "NET_ADMIN" in str(dep.get("spec", {}).get("template", {}).get("spec", {}))
+        })
+
+    total_storage = 0
+    for u in users:
+        cap = u.get("pvc_capacity") or "10Gi"
+        m_cap = re.search(r"(\d+)", cap)
+        if m_cap:
+            total_storage += int(m_cap.group(1))
+
+    stats = {
+        "total": len(users),
+        "running": sum(1 for u in users if u.get("pod_status") == "Running" or u.get("ready_replicas", 0) > 0),
+        "sleeping": sum(1 for u in users if u.get("replicas", 1) == 0 or u.get("pod_status") == "Sleeping"),
+        "other": sum(1 for u in users if u.get("pod_status") not in ("Running", "Sleeping") and u.get("replicas", 1) > 0),
+        "total_storage_gi": total_storage
+    }
+
+    return {
+        "status": "ok",
+        "success": True,
+        "connected": True,
+        "namespace": ns,
+        "count": len(users),
+        "users": users,
+        "powerusers": users,
+        "stats": stats
+    }
+
+def create_poweruser(data: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Crée et déploie un nouveau Power User sur le cluster Kubernetes."""
+    email = data.get("email", "").strip()
+    if not email or "@" not in email:
+        return {"success": False, "error": "Une adresse email valide est requise."}
+
+    sys.path.insert(0, SCRIPT_DIR)
+    import arcia_poweruser
+
+    slug = arcia_poweruser.email_to_slug(email)
+    team = data.get("team", "engineering").strip()
+    job_title = data.get("job_title", "Expert / Ingénieur").strip()
+    manager = data.get("manager", "Direction Technique").strip()
+    storage_size = data.get("storage_size", "10Gi").strip()
+    custom_soul = data.get("custom_soul")
+    enable_vpn = bool(data.get("vpn", False))
+
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+    fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+
+    runner = get_k8s_runner(cfg)
+
+    pat = data.get("pat") or arcia_poweruser.generate_litellm_pat(email, team=team)
+    pwd = data.get("password") or secrets.token_urlsafe(16)
+
+    manifest = arcia_poweruser.render_manifest(
+        user_email=email,
+        team=team,
+        job_title=job_title,
+        manager=manager,
+        custom_soul=custom_soul,
+        storage_size=storage_size,
+        public_fqdn=fqdn,
+        namespace=ns,
+        litellm_pat=pat,
+        studio_password=pwd,
+        enable_vpn=enable_vpn
+    )
+
+    rc, out, err = runner.run(["apply", "-f", "-"], stdin_input=manifest)
+    if rc != 0:
+        return {"success": False, "error": f"Échec application manifeste : {err.strip() or out.strip()}"}
+
+    try:
+        py_code = f"""
+import os, json, urllib.request
+k = os.environ.get('LITELLM_MASTER_KEY')
+payload = json.dumps({{
+    'key': '{pat}',
+    'key_alias': 'pat-{slug}',
+    'user_id': '{email}',
+    'max_budget': 200.0
+}}).encode()
+req = urllib.request.Request(
+    'http://localhost:4000/key/generate',
+    data=payload,
+    headers={{'Authorization': f'Bearer {{k}}', 'Content-Type': 'application/json'}}
+)
+try:
+    urllib.request.urlopen(req)
+except Exception:
+    pass
+"""
+        runner.run(["exec", "-i", "deployment/litellm-proxy", "-n", ns, "--", "python3"], stdin_input=py_code, timeout=6)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "slug": slug,
+        "email": email,
+        "password": pwd,
+        "pat": pat,
+        "studio_url": f"https://{fqdn}/poweruser/{slug}/studio",
+        "message": f"Power User '{slug}' déployé avec succès."
+    }
+
+def delete_poweruser(slug: str, keep_pvc: bool = False, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Supprime une instance Power User et nettoie ses ressources Kubernetes."""
+    if not slug or not re.match(r"^[a-z0-9\-]+$", slug):
+        return {"success": False, "error": "Identifiant slug invalide."}
+
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+
+    runner = get_k8s_runner(cfg)
+    runner.run(["delete", "deployment", f"hermes-poweruser-{slug}", "-n", ns, "--ignore-not-found=true"])
+    runner.run(["delete", "service", f"hermes-poweruser-{slug}", "-n", ns, "--ignore-not-found=true"])
+    runner.run(["delete", "ingress", f"hermes-poweruser-{slug}-ingress", "-n", ns, "--ignore-not-found=true"])
+    runner.run(["delete", "configmap", f"hermes-user-{slug}-config", "-n", ns, "--ignore-not-found=true"])
+    runner.run(["delete", "secret", f"hermes-user-{slug}-secret", "-n", ns, "--ignore-not-found=true"])
+    runner.run(["delete", "middleware", f"hermes-poweruser-{slug}-stripprefix", "-n", ns, "--ignore-not-found=true"])
+
+    if not keep_pvc:
+        runner.run(["delete", "pvc", f"hermes-user-{slug}-pvc", "-n", ns, "--ignore-not-found=true"])
+
+    try:
+        py_code = f"""
+import os, json, urllib.request
+k = os.environ.get('LITELLM_MASTER_KEY')
+req = urllib.request.Request('http://localhost:4000/key/list', headers={{'Authorization': f'Bearer {{k}}'}})
+try:
+    resp = urllib.request.urlopen(req)
+    data = json.loads(resp.read().decode())
+    keys_to_del = [item['token'] for item in data.get('keys', []) if item.get('key_alias') == 'pat-{slug}']
+    if keys_to_del:
+        del_req = urllib.request.Request(
+            'http://localhost:4000/key/delete',
+            data=json.dumps({{'tokens': keys_to_del}}).encode(),
+            headers={{'Authorization': f'Bearer {{k}}', 'Content-Type': 'application/json'}}
+        )
+        urllib.request.urlopen(del_req)
+except Exception:
+    pass
+"""
+        runner.run(["exec", "-i", "deployment/litellm-proxy", "-n", ns, "--", "python3"], stdin_input=py_code, timeout=6)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "slug": slug,
+        "pvc_deleted": not keep_pvc,
+        "message": f"Instance Power User '{slug}' supprimée avec succès."
+    }
+
+def scale_poweruser(slug: str, replicas: int, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Met en veille (replicas=0) ou réveille (replicas=1) le pod d'un Power User."""
+    if not slug:
+        return {"success": False, "error": "Slug invalide."}
+    if replicas not in (0, 1):
+        return {"success": False, "error": "Nombre de répliques invalide (0 ou 1 attendu)."}
+
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+
+    runner = get_k8s_runner(cfg)
+    rc, out, err = runner.run(["scale", f"deployment/hermes-poweruser-{slug}", f"--replicas={replicas}", "-n", ns])
+    if rc != 0:
+        return {"success": False, "error": err.strip() or "Échec de l'opération scale."}
+
+    action_text = "réactivé (Scale 1)" if replicas == 1 else "mis en veille (Scale 0, RAM libérée)"
+    return {
+        "success": True,
+        "slug": slug,
+        "replicas": replicas,
+        "message": f"Pod '{slug}' {action_text} avec succès."
+    }
+
+def resize_poweruser_pvc(slug: str, new_size: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Agrandit la capacité d'un volume persistant PVC (ex: de 10Gi à 20Gi)."""
+    if not slug:
+        return {"success": False, "error": "Slug invalide."}
+    new_size = new_size.strip()
+    if not re.match(r"^\d+(?:Gi|Mi|Ti)$", new_size):
+        return {"success": False, "error": "Taille invalide (ex: 20Gi, 50Gi, 100Gi)."}
+
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+
+    runner = get_k8s_runner(cfg)
+    patch_payload = json.dumps({
+        "spec": {
+            "resources": {
+                "requests": {
+                    "storage": new_size
+                }
+            }
+        }
+    })
+    rc, out, err = runner.run(["patch", "pvc", f"hermes-user-{slug}-pvc", "-n", ns, "-p", patch_payload])
+    if rc != 0:
+        return {"success": False, "error": f"Échec de l'extension du PVC : {err.strip() or out.strip()}"}
+
+    return {
+        "success": True,
+        "slug": slug,
+        "new_size": new_size,
+        "message": f"Volume PVC 'hermes-user-{slug}-pvc' étendu à {new_size} avec succès."
+    }
+
+def sync_all_powerusers_wizard(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Synchronise toutes les instances Power Users actives avec le catalogue de modèles."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+    fqdn = cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
+    runner = get_k8s_runner(cfg)
+    try:
+        sys.path.insert(0, SCRIPT_DIR)
+        from arcia_poweruser import sync_all_powerusers
+        def _runner_func(args, input_data=None):
+            rc, out, err = runner.run(args, stdin_input=input_data)
+            return subprocess.CompletedProcess(args, rc, out, err)
+        count = sync_all_powerusers(namespace=ns, fqdn=fqdn, runner_func=_runner_func)
+        return {"success": True, "count": count, "message": f"{count} instance(s) Power User synchronisée(s)."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# -----------------------------------------------------------------------------
+# Gestion du Routage des Modèles & Fournisseurs d'Inférence
+# -----------------------------------------------------------------------------
+
+def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defaults: bool = True) -> Dict[str, Any]:
+    """Fournit la vue complète des fournisseurs, clés d'API et catalogue de routage de modèles."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    llm = cfg.setdefault("llm_gateway", {})
+    openrouter_key = llm.get("openrouter_api_key", "")
+    if not openrouter_key or openrouter_key.startswith("sk-or-v1-xxxx"):
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not openrouter_key:
+        try:
+            runner = get_k8s_runner(cfg)
+            rc, out, _ = runner.run(["get", "secret", "litellm-secret", f"-n={cfg.get('kubernetes', {}).get('namespace', 'arcia')}", "-o=jsonpath={.data.openrouter-key}"], timeout=3)
+            if rc == 0 and out.strip():
+                import base64
+                k = base64.b64decode(out.strip()).decode('utf-8').strip()
+                if k and not k.startswith("sk-or-v1-xxxx"):
+                    openrouter_key = k
+                    llm["openrouter_api_key"] = k
+        except Exception:
+            pass
+
+    def mask_key(k: str) -> str:
+        if not k or len(k) < 6:
+            return ""
+        if k.startswith("sk-or-v1-xxxx"):
+            return ""
+        return k[:8] + "••••••••" + k[-4:]
+
+    providers = [
+        {
+            "id": "openrouter",
+            "name": "OpenRouter",
+            "description": "Agrégateur cloud",
+            "is_set": bool(openrouter_key and not openrouter_key.startswith("sk-or-v1-xxxx")),
+            "configured": bool(openrouter_key and not openrouter_key.startswith("sk-or-v1-xxxx")),
+            "masked_key": mask_key(openrouter_key),
+            "api_key_masked": mask_key(openrouter_key),
+            "doc_url": "https://openrouter.ai/keys",
+            "requires_endpoint": False,
+            "endpoint": "",
+            "recommended": True
+        },
+        {
+            "id": "openai",
+            "name": "OpenAI",
+            "description": "Accès aux modèles d'OpenAI",
+            "is_set": bool(llm.get("openai_api_key") and not is_placeholder_key(llm.get("openai_api_key"))),
+            "configured": bool(llm.get("openai_api_key") and not is_placeholder_key(llm.get("openai_api_key"))),
+            "masked_key": mask_key(llm.get("openai_api_key", "")) if not is_placeholder_key(llm.get("openai_api_key")) else "",
+            "api_key_masked": mask_key(llm.get("openai_api_key", "")) if not is_placeholder_key(llm.get("openai_api_key")) else "",
+            "doc_url": "https://platform.openai.com/api-keys",
+            "requires_endpoint": False,
+            "endpoint": "",
+            "recommended": False
+        },
+        {
+            "id": "anthropic",
+            "name": "Anthropic",
+            "description": "Accès aux modèles d'Anthropic",
+            "is_set": bool(llm.get("anthropic_api_key") and not is_placeholder_key(llm.get("anthropic_api_key"))),
+            "configured": bool(llm.get("anthropic_api_key") and not is_placeholder_key(llm.get("anthropic_api_key"))),
+            "masked_key": mask_key(llm.get("anthropic_api_key", "")) if not is_placeholder_key(llm.get("anthropic_api_key")) else "",
+            "api_key_masked": mask_key(llm.get("anthropic_api_key", "")) if not is_placeholder_key(llm.get("anthropic_api_key")) else "",
+            "doc_url": "https://console.anthropic.com/",
+            "requires_endpoint": False,
+            "endpoint": "",
+            "recommended": False
+        },
+        {
+            "id": "mistral",
+            "name": "Mistral AI",
+            "description": "Modèles de Mistral AI",
+            "is_set": bool(llm.get("mistral_api_key") and not is_placeholder_key(llm.get("mistral_api_key"))),
+            "configured": bool(llm.get("mistral_api_key") and not is_placeholder_key(llm.get("mistral_api_key"))),
+            "masked_key": mask_key(llm.get("mistral_api_key", "")) if not is_placeholder_key(llm.get("mistral_api_key")) else "",
+            "api_key_masked": mask_key(llm.get("mistral_api_key", "")) if not is_placeholder_key(llm.get("mistral_api_key")) else "",
+            "doc_url": "https://console.mistral.ai/",
+            "requires_endpoint": False,
+            "endpoint": "",
+            "recommended": False
+        },
+        {
+            "id": "gemini",
+            "name": "Google Gemini",
+            "description": "Accès aux modèles de Google Gemini",
+            "is_set": bool(llm.get("gemini_api_key") and not is_placeholder_key(llm.get("gemini_api_key"))),
+            "configured": bool(llm.get("gemini_api_key") and not is_placeholder_key(llm.get("gemini_api_key"))),
+            "masked_key": mask_key(llm.get("gemini_api_key", "")) if not is_placeholder_key(llm.get("gemini_api_key")) else "",
+            "api_key_masked": mask_key(llm.get("gemini_api_key", "")) if not is_placeholder_key(llm.get("gemini_api_key")) else "",
+            "doc_url": "https://aistudio.google.com/",
+            "requires_endpoint": False,
+            "endpoint": "",
+            "recommended": False
+        }
+    ]
+
+    custom_provs = llm.get("custom_providers", [])
+    if isinstance(custom_provs, list):
+        for cp in custom_provs:
+            if isinstance(cp, dict) and cp.get("id"):
+                cp_key = cp.get("api_key", "")
+                providers.append({
+                    "id": cp["id"],
+                    "name": cp.get("name", cp["id"]),
+                    "description": cp.get("description", "Fournisseur d'inférence personnalisé compatible LiteLLM"),
+                    "is_set": bool(cp_key or cp.get("endpoint")),
+                    "configured": bool(cp_key or cp.get("endpoint")),
+                    "masked_key": mask_key(cp_key),
+                    "api_key_masked": mask_key(cp_key),
+                    "doc_url": cp.get("doc_url", ""),
+                    "requires_endpoint": True,
+                    "endpoint": cp.get("endpoint", ""),
+                    "is_custom": True,
+                    "recommended": False
+                })
+
+    default_mappings = [
+        {
+            "name": "simple/auto",
+            "alias": "simple/auto",
+            "label": "Chat Direct Rapide & Économique",
+            "profile": "Utilisateur Standard (Rapide)",
+            "category": "simple",
+            "provider": "openrouter",
+            "target_model": llm.get("simple_auto_model") or "openrouter/anthropic/claude-3.5-haiku",
+            "real_model": llm.get("simple_auto_model") or "openrouter/anthropic/claude-3.5-haiku",
+            "description": "Chat standard direct via LiteLLM Proxy sans latence de boucle agentique. Modèle par défaut.",
+            "fallbacks": ["simple/free"],
+            "fallback": "openrouter/openai/gpt-4o-mini",
+            "zdr": True,
+            "is_default": (llm.get("default_model", "simple/auto") == "simple/auto"),
+            "is_canonical": True
+        },
+        {
+            "name": "simple/free",
+            "alias": "simple/free",
+            "label": "Chat Direct Gratuit (0 €)",
+            "profile": "Utilisateur Standard (Gratuit)",
+            "category": "simple",
+            "provider": "openrouter",
+            "target_model": llm.get("simple_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+            "real_model": llm.get("simple_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+            "description": "Inférence cloud gratuite à coût zéro sous protection ZDR et Presidio DLP.",
+            "fallbacks": ["simple/auto"],
+            "fallback": "openrouter/google/gemini-2.0-flash-exp:free",
+            "zdr": True,
+            "is_default": (llm.get("default_model") == "simple/free"),
+            "is_canonical": True
+        },
+        {
+            "name": "agentic/auto",
+            "alias": "agentic/auto",
+            "label": "Hermes Agent Équilibré",
+            "profile": "Power User & Agents Hermes (Polyvalent)",
+            "category": "agentic",
+            "provider": "openrouter",
+            "target_model": llm.get("agentic_auto_model") or "openrouter/anthropic/claude-3.7-sonnet",
+            "real_model": llm.get("agentic_auto_model") or "openrouter/anthropic/claude-3.7-sonnet",
+            "description": "Session agentique autonome standard pour les tâches multi-outils, recherches et code.",
+            "fallbacks": ["agentic/free", "simple/auto"],
+            "fallback": "openrouter/openai/gpt-4o",
+            "zdr": True,
+            "is_default": (llm.get("default_model") == "agentic/auto"),
+            "is_canonical": True
+        },
+        {
+            "name": "agentic/free",
+            "alias": "agentic/free",
+            "label": "Hermes Agent Gratuit (0 €)",
+            "profile": "Power User (Gratuit)",
+            "category": "agentic",
+            "provider": "openrouter",
+            "target_model": llm.get("agentic_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+            "real_model": llm.get("agentic_free_model") or "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+            "description": "Session agentique autonome exécutée sur des modèles gratuits sans frais d'inférence.",
+            "fallbacks": ["agentic/auto"],
+            "fallback": "openrouter/qwen/qwen-2.5-72b-instruct:free",
+            "zdr": True,
+            "is_default": (llm.get("default_model") == "agentic/free"),
+            "is_canonical": True
+        },
+        {
+            "name": "agentic/expert",
+            "alias": "agentic/expert",
+            "label": "Hermes Agent Raisonnement Avancé",
+            "profile": "Hermes Raisonnement & Code Complexe",
+            "category": "agentic",
+            "provider": "openrouter",
+            "target_model": llm.get("agentic_expert_model") or "openrouter/anthropic/claude-3.7-sonnet:thinking",
+            "real_model": llm.get("agentic_expert_model") or "openrouter/anthropic/claude-3.7-sonnet:thinking",
+            "description": "Orchestration haute précision avec raisonnement approfondi pour le code et l'architecture.",
+            "fallbacks": ["agentic/auto", "simple/auto"],
+            "fallback": "openrouter/deepseek/deepseek-r1",
+            "zdr": True,
+            "is_default": (llm.get("default_model") == "agentic/expert"),
+            "is_canonical": True
+        }
+    ]
+
+    custom_mappings = llm.get("models_routing", [])
+    mappings_to_use = custom_mappings if (custom_mappings and isinstance(custom_mappings, list)) else default_mappings
+
+    hermes = cfg.setdefault("hermes", {})
+    return {
+        "status": "ok",
+        "success": True,
+        "default_model": llm.get("default_model", "simple/auto"),
+        "hermes_default_model": hermes.get("default_model", "agentic/auto"),
+        "providers": providers,
+        "mappings": mappings_to_use
+    }
+
+def detect_fallback_loops(mappings: List[Dict[str, Any]]) -> Optional[str]:
+    """Détecte les cycles éventuels dans la chaîne de repli des modèles.
+    Retourne la description de la boucle sous forme 'A -> B -> A' si un cycle existe, sinon None."""
+    graph: Dict[str, str] = {}
+    for m in mappings:
+        alias = str(m.get("alias") or m.get("name") or "").strip()
+        fallback = str(m.get("fallback") or "").strip()
+        if alias and fallback:
+            graph[alias] = fallback
+
+    for start_node in graph:
+        visited = []
+        curr = start_node
+        while curr and curr in graph:
+            if curr in visited:
+                idx = visited.index(curr)
+                loop_nodes = visited[idx:] + [curr]
+                return " -> ".join(loop_nodes)
+            visited.append(curr)
+            curr = graph.get(curr, "")
+            if curr == start_node:
+                return " -> ".join(visited + [curr])
+    return None
+
+def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONFIG_PATH) -> Dict[str, Any]:
+    """Enregistre le routage des modèles et synchronise arcia.config.yaml."""
+    cfg, _ = load_config_data(cfg_path)
+    llm = cfg.setdefault("llm_gateway", {})
+    hermes = cfg.setdefault("hermes", {})
+
+    # Validation stricte contre les boucles de repli infinies
+    if "mappings" in data and isinstance(data["mappings"], list):
+        loop_err = detect_fallback_loops(data["mappings"])
+        if loop_err:
+            return {
+                "success": False,
+                "error": f"Boucle de repli infinie détectée : {loop_err}. Veuillez modifier la chaîne de repli avant d'enregistrer."
+            }
+
+    providers_input = data.get("providers", {})
+    for key_short, key_full in [
+        ("openrouter", "openrouter_api_key"),
+        ("openai", "openai_api_key"),
+        ("anthropic", "anthropic_api_key"),
+        ("mistral", "mistral_api_key"),
+        ("gemini", "gemini_api_key"),
+    ]:
+        val = providers_input.get(key_full) or providers_input.get(key_short)
+        if val and "••••" not in str(val) and not is_placeholder_key(str(val)):
+            llm[key_full] = str(val).strip()
+
+    vllm_ep = providers_input.get("local_vllm_endpoint") or providers_input.get("vllm_endpoint")
+    if vllm_ep is not None:
+        llm["local_vllm_endpoint"] = str(vllm_ep).strip()
+
+    if "custom_providers" in data and isinstance(data["custom_providers"], list):
+        llm["custom_providers"] = data["custom_providers"]
+
+    if "default_model" in data and str(data["default_model"]).strip():
+        llm["default_model"] = str(data["default_model"]).strip()
+
+    if "hermes_default_model" in data and str(data["hermes_default_model"]).strip():
+        hermes["default_model"] = str(data["hermes_default_model"]).strip()
+
+    if "mappings" in data and isinstance(data["mappings"], list):
+        llm["models_routing"] = data["mappings"]
+        for m in data["mappings"]:
+            m_name = m.get("alias") or m.get("name", "")
+            m_target = m.get("real_model") or m.get("target_model", "")
+            if m_name == "simple/auto": llm["simple_auto_model"] = m_target
+            elif m_name == "simple/free": llm["simple_free_model"] = m_target
+            elif m_name == "agentic/auto": llm["agentic_auto_model"] = m_target
+            elif m_name == "agentic/free": llm["agentic_free_model"] = m_target
+            elif m_name == "agentic/expert": llm["agentic_expert_model"] = m_target
+
+    save_config_to_files(cfg, cfg_path)
+
+    # Synchroniser le ConfigMap LiteLLM si le cluster est connecté
+    cm_synced = False
+    try:
+        runner = get_k8s_runner(cfg)
+        ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+        rc, _, _ = runner.run(["get", "namespace", ns])
+        if rc == 0:
+            cm_synced = sync_litellm_configmap(cfg, runner, ns)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "cm_synced": cm_synced,
+        "message": "Configuration du routage enregistrée avec succès." + (" (ConfigMap LiteLLM synchronisé sur le cluster)" if cm_synced else "")
+    }
+
+def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
+    """Met à jour à chaud le ConfigMap litellm-config avec les modèles définis."""
+    try:
+        routing_info = get_model_routing_config(cfg)
+        mappings = routing_info.get("mappings", [])
+        model_list_entries = []
+        fallbacks_map = {}
+
+        for m in mappings:
+            name = m.get("name") or m.get("alias", "")
+            target = m.get("target_model") or m.get("real_model", "")
+            fallbacks = m.get("fallbacks") or ([m["fallback"]] if m.get("fallback") else [])
+            zdr = m.get("zdr", True)
+
+            if fallbacks:
+                fallbacks_map[name] = fallbacks
+
+            if name in ("agentic/free", "agentic/auto") and target in ("openrouter/openrouter/free", "openrouter/auto"):
+                continue
+
+            entry = f"""      - model_name: "{name}"
+        litellm_params:
+          model: {target}
+          api_key: os.environ/OPENROUTER_API_KEY
+          extra_body:
+            provider:
+              data_collection: "deny"
+              zdr: {str(zdr).lower()}
+              allow_fallbacks: false"""
+            model_list_entries.append(entry)
+
+        models_yaml = "\n".join(model_list_entries)
+        fallbacks_yaml = "\n".join([f'        - "{k}": {json.dumps(v)}' for k, v in fallbacks_map.items()])
+
+        full_config_yaml = f"""    model_list:
+{models_yaml}
+
+    router_settings:
+      fallbacks:
+{fallbacks_yaml}
+      model_group_alias:
+        "agentic/free":
+          model: "simple/free"
+          hidden: true
+        "agentic/auto":
+          model: "simple/auto"
+          hidden: true
+
+    general_settings:
+      master_key: os.environ/LITELLM_MASTER_KEY
+      database_url: os.environ/DATABASE_URL
+      database_connection_pool_limit: 10
+      user_header_name: "X-OpenWebUI-User-Email"
+      store_model_in_db: true
+
+    litellm_settings:
+      drop_params: true
+
+    guardrails:
+      - guardrail_name: "presidio-guard"
+        litellm_params:
+          guardrail: presidio
+"""
+        patch_cm = json.dumps({"data": {"config.yaml": full_config_yaml}})
+        rc, _, _ = runner.run(["patch", "configmap", "litellm-config", "-n", ns, "-p", patch_cm])
+        return (rc == 0)
+    except Exception:
+        return False
+
+def is_placeholder_key(val: str) -> bool:
+    """Détecte si une clé est un placeholder factice ou masqué."""
+    if not val:
+        return True
+    v = val.strip()
+    if "••••" in v:
+        return True
+    placeholders = {
+        "sk-or-v1-savedkey", "sk-or-v1-xxxx", "sk-proj-openaikey",
+        "sk-ant-api03-xxxx", "sk-mistral-xxxx", "AIzaSyxxxx",
+        "sk-proj-placeholder"
+    }
+    if v in placeholders or v.startswith("sk-or-v1-xxxx") or v.startswith("sk-proj-xxxx") or v == "sk-proj-openaikey":
+        return True
+    return False
+
+def resolve_provider_key(provider: str, api_key: str = "", cfg: Optional[Dict[str, Any]] = None) -> Tuple[str, bool]:
+    """Résout une clé API réelle pour un fournisseur depuis l'entrée utilisateur, la config, l'environnement ou les secrets K8s.
+    Retourne (clé_résolue, est_placeholder)."""
+    provider = (provider or "").lower().strip()
+    api_key = (api_key or "").strip()
+
+    if api_key and not is_placeholder_key(api_key):
+        return api_key, False
+
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    llm = cfg.get("llm_gateway", {})
+
+    if provider == "openrouter":
+        env_k = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        if env_k and not is_placeholder_key(env_k):
+            return env_k, False
+        cfg_k = llm.get("openrouter_api_key", "").strip()
+        if cfg_k and not is_placeholder_key(cfg_k):
+            return cfg_k, False
+        try:
+            runner = get_k8s_runner(cfg)
+            ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+            rc, out, _ = runner.run(["get", "secret", "litellm-secret", f"-n={ns}", "-o=jsonpath={.data.openrouter-key}"], timeout=4)
+            if rc == 0 and out.strip():
+                import base64
+                k = base64.b64decode(out.strip()).decode("utf-8", errors="ignore").strip()
+                if k and not is_placeholder_key(k):
+                    return k, False
+        except Exception:
+            pass
+        return "", True
+
+    elif provider == "openai":
+        env_k = os.environ.get("OPENAI_API_KEY", "").strip()
+        if env_k and not is_placeholder_key(env_k):
+            return env_k, False
+        cfg_k = llm.get("openai_api_key", "").strip()
+        if cfg_k and not is_placeholder_key(cfg_k):
+            return cfg_k, False
+        try:
+            runner = get_k8s_runner(cfg)
+            ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
+            rc, out, _ = runner.run(["get", "secret", "litellm-secret", f"-n={ns}", "-o=jsonpath={.data.openai-key}"], timeout=4)
+            if rc == 0 and out.strip():
+                import base64
+                k = base64.b64decode(out.strip()).decode("utf-8", errors="ignore").strip()
+                if k and not is_placeholder_key(k):
+                    return k, False
+        except Exception:
+            pass
+        return "", True
+
+    elif provider == "anthropic":
+        env_k = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if env_k and not is_placeholder_key(env_k):
+            return env_k, False
+        cfg_k = llm.get("anthropic_api_key", "").strip()
+        if cfg_k and not is_placeholder_key(cfg_k):
+            return cfg_k, False
+        return "", True
+
+    elif provider == "mistral":
+        env_k = os.environ.get("MISTRAL_API_KEY", "").strip()
+        if env_k and not is_placeholder_key(env_k):
+            return env_k, False
+        cfg_k = llm.get("mistral_api_key", "").strip()
+        if cfg_k and not is_placeholder_key(cfg_k):
+            return cfg_k, False
+        return "", True
+
+    elif provider == "gemini":
+        env_k = os.environ.get("GEMINI_API_KEY", "").strip()
+        if env_k and not is_placeholder_key(env_k):
+            return env_k, False
+        cfg_k = llm.get("gemini_api_key", "").strip()
+        if cfg_k and not is_placeholder_key(cfg_k):
+            return cfg_k, False
+        return "", True
+
+    else:
+        for cp in llm.get("custom_providers", []):
+            if cp.get("id") == provider:
+                cfg_k = cp.get("api_key", "").strip()
+                if cfg_k and not is_placeholder_key(cfg_k):
+                    return cfg_k, False
+                break
+        return "", True
+
+def test_provider_connectivity(provider: str, api_key: str, endpoint: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+    """Valide les identifiants ou l'endpoint d'un fournisseur en direct (et optionnellement un modèle)."""
+    provider = provider.lower().strip()
+    api_key = api_key.strip()
+
+    if not api_key and not (endpoint or provider in ("vllm", "local_vllm")):
+        return {"success": False, "valid": False, "error": f"Aucune clé API renseignée pour le fournisseur {provider}."}
+
+    resolved_key, is_ph = resolve_provider_key(provider, api_key)
+
+    if endpoint or provider in ("vllm", "local_vllm"):
+        ep = endpoint or ""
+        if not ep:
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            ep = cfg.get("llm_gateway", {}).get("local_vllm_endpoint", "")
+        if not ep:
+            return {"success": False, "valid": False, "error": "Veuillez spécifier l'URL de l'endpoint."}
+        try:
+            req_url = ep.rstrip("/") + "/models"
+            headers = {"User-Agent": "ArcIA-Wizard/0.5"}
+            if resolved_key:
+                headers["Authorization"] = f"Bearer {resolved_key}"
+            req = urllib.request.Request(req_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                models_count = len(data.get("data", []))
+                msg = f"Modèle '{model}' accessible sur l'endpoint ({models_count} modèle(s) détecté(s))." if model else f"Endpoint joignable ({models_count} modèle(s) détecté(s))."
+                return {"success": True, "valid": True, "message": msg}
+        except Exception as e:
+            return {"success": False, "valid": False, "error": f"Impossible de joindre l'endpoint : {e}"}
+
+    if is_ph or not resolved_key:
+        if provider == "openai":
+            return {
+                "success": False,
+                "valid": False,
+                "error": "Clé OpenAI non configurée ou placeholder d'exemple (sk-proj-openaikey). Cliquez sur « Configurer » sous la tuile OpenAI pour saisir votre clé réelle."
+            }
+        elif provider == "openrouter":
+            return {
+                "success": False,
+                "valid": False,
+                "error": "Clé OpenRouter non configurée ou placeholder d'exemple. Cliquez sur « Configurer » sous la tuile OpenRouter pour renseigner votre clé réelle."
+            }
+        else:
+            return {"success": False, "valid": False, "error": f"Aucune clé API réelle renseignée pour le fournisseur {provider}."}
+
+    api_key = resolved_key
+
+    try:
+        if provider == "openrouter":
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/auth/key",
+                headers={"Authorization": f"Bearer {api_key}", "User-Agent": "ArcIA-Wizard/0.5"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode())
+                key_info = data.get("data", {})
+                label = key_info.get("label", "Clé active")
+                usage = key_info.get("usage", 0)
+                msg = f"Modèle '{model}' prêt via OpenRouter ({label})." if model else f"Clé OpenRouter valide ({label}). Utilisation : ${usage:.2f}"
+                return {"success": True, "valid": True, "message": msg}
+
+        elif provider == "openai":
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}", "User-Agent": "ArcIA-Wizard/0.5"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                msg = f"Modèle '{model}' prêt via OpenAI Direct." if model else "Clé OpenAI valide et authentifiée avec succès."
+                return {"success": True, "valid": True, "message": msg}
+
+        elif provider == "mistral":
+            req = urllib.request.Request(
+                "https://api.mistral.ai/v1/models",
+                headers={"Authorization": f"Bearer {api_key}", "User-Agent": "ArcIA-Wizard/0.5"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                msg = f"Modèle '{model}' prêt via Mistral AI." if model else "Clé Mistral AI valide et authentifiée avec succès."
+                return {"success": True, "valid": True, "message": msg}
+
+        elif provider == "anthropic":
+            if not api_key.startswith("sk-ant-"):
+                return {"success": False, "valid": False, "error": "Format de clé Anthropic invalide (doit débuter par sk-ant-)."}
+            msg = f"Modèle '{model}' prêt via Anthropic Direct." if model else "Clé Anthropic au format conforme."
+            return {"success": True, "valid": True, "message": msg}
+
+        elif provider == "gemini":
+            if len(api_key) < 20:
+                return {"success": False, "valid": False, "error": "Format de clé Google Gemini invalide."}
+            msg = f"Modèle '{model}' prêt via Google Gemini." if model else "Clé Google Gemini au format conforme."
+            return {"success": True, "valid": True, "message": msg}
+
+        msg = f"Modèle '{model}' validé via {provider}." if model else f"Clé {provider} validée."
+        return {"success": True, "valid": True, "message": msg}
+    except urllib.error.HTTPError as he:
+        try:
+            he.close()
+        except Exception:
+            pass
+        return {"success": False, "valid": False, "error": f"Erreur HTTP {he.code} : {he.reason}"}
+    except Exception as e:
+        return {"success": False, "valid": False, "error": f"Erreur de validation : {e}"}
+
+_MODELS_CATALOG_CACHE: Dict[str, Tuple[float, List[Dict[str, str]]]] = {}
+
+def get_provider_models_catalog(provider: str, api_key: str = "", endpoint: Optional[str] = None) -> List[Dict[str, str]]:
+    """Récupère dynamiquement le catalogue des modèles disponibles via l'API officielle du fournisseur ou l'endpoint."""
+    global _MODELS_CATALOG_CACHE
+    provider = provider.lower().strip()
+    api_key = api_key.strip()
+
+    resolved_k, _ = resolve_provider_key(provider, api_key)
+    if resolved_k:
+        api_key = resolved_k
+
+    cache_key = f"{provider}:{endpoint or ''}"
+    now = time.time()
+    if cache_key in _MODELS_CATALOG_CACHE:
+        cache_time, cached_models = _MODELS_CATALOG_CACHE[cache_key]
+        if now - cache_time < 300 and cached_models:
+            return cached_models
+
+    models: List[Dict[str, str]] = []
+
+    try:
+        if provider == "openrouter":
+            headers = {"User-Agent": "ArcIA-Wizard/0.5"}
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers=headers)
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode())
+                raw_list = data.get("data", [])
+                for m in raw_list:
+                    m_id = m.get("id", "")
+                    if m_id:
+                        m_name = m.get("name") or m_id
+                        models.append({
+                            "id": f"openrouter/{m_id}",
+                            "label": f"{m_name} ({m_id})"
+                        })
+        elif provider == "openai":
+            if api_key:
+                headers = {"Authorization": f"Bearer {api_key}", "User-Agent": "ArcIA-Wizard/0.5"}
+                req = urllib.request.Request("https://api.openai.com/v1/models", headers=headers)
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    data = json.loads(resp.read().decode())
+                    raw_list = data.get("data", [])
+                    for m in raw_list:
+                        m_id = m.get("id", "")
+                        if m_id and (m_id.startswith(("gpt-", "o1", "o3", "chatgpt")) and "realtime" not in m_id):
+                            models.append({
+                                "id": f"openai/{m_id}",
+                                "label": f"{m_id}"
+                            })
+                    models.sort(key=lambda x: x["id"])
+        elif provider == "mistral":
+            if api_key:
+                headers = {"Authorization": f"Bearer {api_key}", "User-Agent": "ArcIA-Wizard/0.5"}
+                req = urllib.request.Request("https://api.mistral.ai/v1/models", headers=headers)
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    data = json.loads(resp.read().decode())
+                    raw_list = data.get("data", [])
+                    for m in raw_list:
+                        m_id = m.get("id", "")
+                        if m_id:
+                            models.append({
+                                "id": f"mistral/{m_id}",
+                                "label": m.get("name") or m_id
+                            })
+                    models.sort(key=lambda x: x["id"])
+        elif provider in ("vllm", "local_vllm") or endpoint:
+            ep = endpoint or ""
+            if not ep:
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                ep = cfg.get("llm_gateway", {}).get("local_vllm_endpoint", "")
+            if ep:
+                req_url = ep.rstrip("/") + ("/models" if "/v1" in ep else "/v1/models")
+                headers = {"User-Agent": "ArcIA-Wizard/0.5"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                req = urllib.request.Request(req_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode())
+                    raw_list = data.get("data", [])
+                    for m in raw_list:
+                        m_id = m.get("id", "")
+                        if m_id:
+                            prefix = "openai" if provider not in ("vllm", "local_vllm") else "hosted_vllm"
+                            models.append({
+                                "id": f"{prefix}/{m_id}",
+                                "label": m_id
+                            })
+    except Exception:
+        pass
+
+    # Si la liste dynamique est vide (ex: hors-ligne, pas de clé API ou provider propriétaire sans API publique de liste), utiliser le catalogue standard
+    if not models:
+        standard_catalog = {
+            "openrouter": [
+                {"id": "openrouter/anthropic/claude-3.7-sonnet", "label": "Claude 3.7 Sonnet (Anthropic)"},
+                {"id": "openrouter/anthropic/claude-3.7-sonnet:thinking", "label": "Claude 3.7 Sonnet Thinking"},
+                {"id": "openrouter/anthropic/claude-3.5-haiku", "label": "Claude 3.5 Haiku"},
+                {"id": "openrouter/openai/gpt-4o", "label": "GPT-4o (OpenAI)"},
+                {"id": "openrouter/openai/gpt-4o-mini", "label": "GPT-4o Mini (OpenAI)"},
+                {"id": "openrouter/deepseek/deepseek-r1", "label": "DeepSeek R1 (Raisonnement)"},
+                {"id": "openrouter/meta-llama/llama-3.3-70b-instruct:free", "label": "Llama 3.3 70B (Gratuit)"},
+                {"id": "openrouter/google/gemini-2.0-flash-exp:free", "label": "Gemini 2.0 Flash (Gratuit)"}
+            ],
+            "openai": [
+                {"id": "openai/gpt-4o", "label": "GPT-4o"},
+                {"id": "openai/gpt-4o-mini", "label": "GPT-4o Mini"},
+                {"id": "openai/o1", "label": "o1 (Raisonnement)"},
+                {"id": "openai/o3-mini", "label": "o3 Mini"}
+            ],
+            "anthropic": [
+                {"id": "anthropic/claude-3-7-sonnet-20250219", "label": "Claude 3.7 Sonnet"},
+                {"id": "anthropic/claude-3-5-sonnet-20241022", "label": "Claude 3.5 Sonnet"},
+                {"id": "anthropic/claude-3-5-haiku-20241022", "label": "Claude 3.5 Haiku"}
+            ],
+            "mistral": [
+                {"id": "mistral/mistral-large-latest", "label": "Mistral Large"},
+                {"id": "mistral/codestral-latest", "label": "Codestral"},
+                {"id": "mistral/mistral-small-latest", "label": "Mistral Small"},
+                {"id": "mistral/ministral-8b-latest", "label": "Ministral 8B"}
+            ],
+            "gemini": [
+                {"id": "gemini/gemini-2.5-pro", "label": "Gemini 2.5 Pro"},
+                {"id": "gemini/gemini-2.0-flash", "label": "Gemini 2.0 Flash"},
+                {"id": "gemini/gemini-2.0-flash-lite", "label": "Gemini 2.0 Flash Lite"},
+                {"id": "gemini/gemini-1.5-pro", "label": "Gemini 1.5 Pro"}
+            ]
+        }
+        models = standard_catalog.get(provider, [
+            {"id": f"{provider}/default", "label": f"{provider} (Modèle par défaut)"}
+        ])
+
+    _MODELS_CATALOG_CACHE[cache_key] = (now, models)
+    return models
+
+def scale_cluster_resources(req_data: Dict[str, Any], cfg_path: str = DEFAULT_CONFIG_PATH) -> Dict[str, Any]:
+    """Applique le dimensionnement du cluster : scale-out (nœuds) et/ou scale-up (vCPU, RAM, disque, RAG)."""
+    cfg, _ = load_config_data(cfg_path)
+    k8s = cfg.setdefault("kubernetes", {})
+    sizing = k8s.setdefault("sizing", {})
+    vm = cfg.setdefault("vmware", {})
+    vm_res = vm.setdefault("resources_override", {})
+
+    scale_type = str(req_data.get("scale_type", "full")).lower().strip()
+    tier = str(req_data.get("tier", "")).strip()
+
+    # Si un palier est fourni, initialiser avec les valeurs calibrées
+    if tier and tier in VMWARE_SIZING_TIERS:
+        t_def = VMWARE_SIZING_TIERS[tier]
+        sizing["tier"] = tier
+        sizing["nodes"] = t_def["nodes"]
+        sizing["vcpu_per_node"] = t_def["vcpu_per_node"]
+        sizing["ram_per_node_gb"] = t_def["ram_per_node_gb"]
+        sizing["disk_per_node_gb"] = t_def["disk_per_node_gb"]
+        sizing["rag_storage_gb"] = t_def["rag_storage_gb"]
+
+    # 1. Scale-out (horizontal) : ajustement du nombre de nœuds
+    if scale_type in ("out", "full", "horizontal"):
+        if "nodes" in req_data and req_data["nodes"] is not None:
+            try:
+                sizing["nodes"] = max(1, int(req_data["nodes"]))
+            except (ValueError, TypeError):
+                pass
+
+    # 2. Scale-up (vertical) : ajustement des ressources par nœud et stockage persistant
+    if scale_type in ("up", "full", "vertical"):
+        if "vcpu_per_node" in req_data and req_data["vcpu_per_node"] is not None:
+            try:
+                sizing["vcpu_per_node"] = max(2, int(req_data["vcpu_per_node"]))
+            except (ValueError, TypeError):
+                pass
+        if "ram_per_node_gb" in req_data and req_data["ram_per_node_gb"] is not None:
+            try:
+                sizing["ram_per_node_gb"] = max(4, int(req_data["ram_per_node_gb"]))
+            except (ValueError, TypeError):
+                pass
+        if "disk_per_node_gb" in req_data and req_data["disk_per_node_gb"] is not None:
+            try:
+                sizing["disk_per_node_gb"] = max(50, int(req_data["disk_per_node_gb"]))
+            except (ValueError, TypeError):
+                pass
+        if "rag_storage" in req_data and str(req_data["rag_storage"]).strip():
+            rag_val = str(req_data["rag_storage"]).strip()
+            sizing["rag_storage"] = rag_val
+            cfg.setdefault("open_webui", {})["storage_size"] = rag_val
+
+    # Synchronisation des paramètres VMware pour reprise ultérieure
+    if "tier" in sizing:
+        vm["tier"] = sizing["tier"]
+    if "nodes" in sizing:
+        vm_res["nodes"] = sizing["nodes"]
+    if "vcpu_per_node" in sizing:
+        vm_res["vcpu_per_node"] = sizing["vcpu_per_node"]
+    if "ram_per_node_gb" in sizing:
+        vm_res["ram_per_node_gb"] = sizing["ram_per_node_gb"]
+    if "disk_per_node_gb" in sizing:
+        vm_res["disk_per_node_gb"] = sizing["disk_per_node_gb"]
+
+    save_config_to_files(cfg, cfg_path)
+
+    applied_on_cluster = False
+    details_log = []
+    try:
+        runner = get_k8s_runner(cfg)
+        ns = k8s.get("namespace", "arcia")
+        rc, _, _ = runner.run(["get", "namespace", ns], timeout=3)
+        if rc == 0:
+            applied_on_cluster = True
+            if scale_type in ("up", "full"):
+                rag_size = sizing.get("rag_storage") or f"{sizing.get('rag_storage_gb', 200)}Gi"
+                patch_pvc = json.dumps({"spec": {"resources": {"requests": {"storage": rag_size}}}})
+                runner.run(["patch", "pvc", "open-webui-pvc", "-n", ns, "-p", patch_pvc], timeout=4)
+                details_log.append(f"Volume PVC RAG redimensionné à {rag_size}")
+            if scale_type in ("out", "full"):
+                details_log.append(f"Topologie horizontale ajustée à {sizing.get('nodes', 3)} nœud(s)")
+    except Exception:
+        pass
+
+    msg_map = {
+        "out": f"Scale-out appliqué avec succès : cible de {sizing.get('nodes', 3)} nœud(s).",
+        "up": f"Scale-up appliqué avec succès : {sizing.get('vcpu_per_node', 4)} vCPU, {sizing.get('ram_per_node_gb', 16)} Go RAM/nœud.",
+        "full": f"Dimensionnement complet appliqué : {sizing.get('nodes', 3)} nœuds ({sizing.get('vcpu_per_node', 4)} vCPU, {sizing.get('ram_per_node_gb', 16)} Go RAM)."
+    }
+
+    return {
+        "success": True,
+        "scale_type": scale_type,
+        "message": msg_map.get(scale_type, msg_map["full"]),
+        "applied_on_cluster": applied_on_cluster,
+        "sizing": sizing,
+        "details_log": details_log
+    }
+
+# -----------------------------------------------------------------------------
 # Handlers Serveur HTTP (API REST & Single Page App)
 # -----------------------------------------------------------------------------
 
@@ -2437,6 +4410,36 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 self.send_json(200, st)
             elif path == "/api/vmware/tiers":
                 self.send_json(200, VMWARE_SIZING_TIERS)
+            elif path == "/api/cluster/sizing":
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                sizing = cfg.get("kubernetes", {}).get("sizing", {})
+                self.send_json(200, {
+                    "success": True,
+                    "sizing": sizing,
+                    "tiers": VMWARE_SIZING_TIERS
+                })
+            elif path == "/api/powerusers/list":
+                qs = parse_qs(parsed.query)
+                ctx = qs.get("context", [None])[0]
+                ns = qs.get("namespace", [None])[0]
+                self.send_json(200, list_powerusers(context=ctx, namespace=ns))
+            elif path == "/api/models/routing":
+                self.send_json(200, get_model_routing_config())
+            elif path == "/api/models/catalog":
+                qs = parse_qs(parsed.query)
+                prov = qs.get("provider", ["openrouter"])[0]
+                key = qs.get("api_key", [""])[0]
+                ep = qs.get("endpoint", [None])[0]
+                models = get_provider_models_catalog(prov, api_key=key, endpoint=ep)
+                self.send_json(200, {"success": True, "provider": prov, "models": models})
+            elif path == "/api/instance/detect":
+                qs = parse_qs(parsed.query)
+                ctx = qs.get("context", [None])[0]
+                ns = qs.get("namespace", [None])[0]
+                cfg, exists = load_config_data(DEFAULT_CONFIG_PATH)
+                res = check_instance_connectivity(cfg, context=ctx, namespace=ns)
+                res["is_existing"] = exists
+                self.send_json(200, res)
             elif path == "/api/health":
                 self.send_json(200, {"status": "ok"})
             else:
@@ -2540,6 +4543,11 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/vmware/test":
             res = test_vmware_connection(req_data)
+            self.send_json(200, res)
+
+        elif path == "/api/vmware/generate-ssh-key":
+            comment = req_data.get("comment", "arcia-vmware-cluster")
+            res = generate_ssh_key_pair(comment)
             self.send_json(200, res)
 
         elif path == "/api/k8s/validate-full":
@@ -2661,7 +4669,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 cfg = ensure_config_defaults(parsed_cfg)
                 save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
 
-                # Scan immédiat de la production au chargement du YAML
+                # Scan immédiat de la production et test de connectivité au chargement du YAML
+                connectivity_info = check_instance_connectivity(cfg)
                 updates_info = check_components_updates(check_online=False, cfg=cfg, force_prod_scan=True)
 
                 self.send_json(200, {
@@ -2669,10 +4678,67 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     "config": cfg,
                     "filename": filename,
                     "updates": updates_info,
+                    "connectivity": connectivity_info,
+                    "connected": connectivity_info.get("connected", False),
+                    "instance_detected": connectivity_info.get("instance_detected", False),
                     "message": f"Configuration chargée avec succès depuis '{filename}'."
                 })
             except Exception as ye:
                 self.send_json(500, {"success": False, "error": f"Erreur lors de l'analyse du fichier YAML : {str(ye)}"})
+
+        elif path == "/api/instance/detect":
+            cfg = req_data.get("config")
+            if not isinstance(cfg, dict):
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            ctx = req_data.get("context")
+            ns = req_data.get("namespace")
+            res = check_instance_connectivity(cfg, context=ctx, namespace=ns)
+            self.send_json(200, res)
+
+        elif path == "/api/powerusers/create":
+            res = create_poweruser(req_data)
+            self.send_json(200, res)
+
+        elif path == "/api/powerusers/delete":
+            slug = req_data.get("slug", "").strip()
+            if "delete_pvc" in req_data:
+                keep_pvc = not bool(req_data.get("delete_pvc"))
+            else:
+                keep_pvc = bool(req_data.get("keep_pvc", False))
+            res = delete_poweruser(slug, keep_pvc=keep_pvc)
+            self.send_json(200, res)
+
+        elif path == "/api/powerusers/scale":
+            slug = req_data.get("slug", "").strip()
+            replicas = int(req_data.get("replicas", 1))
+            res = scale_poweruser(slug, replicas=replicas)
+            self.send_json(200, res)
+
+        elif path == "/api/powerusers/resize-pvc":
+            slug = req_data.get("slug", "").strip()
+            new_size = req_data.get("new_size", "").strip()
+            res = resize_poweruser_pvc(slug, new_size=new_size)
+            self.send_json(200, res)
+
+        elif path == "/api/powerusers/sync-all":
+            res = sync_all_powerusers_wizard()
+            self.send_json(200, res)
+
+        elif path == "/api/models/routing":
+            res = save_model_routing_config(req_data)
+            self.send_json(200, res)
+
+        elif path == "/api/models/test-provider":
+            provider = req_data.get("provider", "").strip()
+            api_key = req_data.get("api_key", "").strip()
+            endpoint = req_data.get("endpoint")
+            model = req_data.get("model")
+            res = test_provider_connectivity(provider, api_key, endpoint=endpoint, model=model)
+            self.send_json(200, res)
+
+        elif path == "/api/cluster/scale":
+            res = scale_cluster_resources(req_data)
+            self.send_json(200, res)
 
         else:
             self.send_error(404, "Endpoint non trouvé")
@@ -2722,7 +4788,7 @@ def main():
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.4              \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.0            \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

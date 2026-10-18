@@ -1,12 +1,12 @@
-# Architecture ArcIA v0.4
+# Architecture ArcIA v0.5.0
 
-> **Statut : Implémenté (v0.4)** · [Consulter le tableau de bord des fonctionnalités](etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.5.0)** · [Consulter le tableau de bord des fonctionnalités](etat-des-fonctionnalites.md)
 
 ArcIA est la plateforme d'IA agentique d'entreprise conçue pour concilier autonomie des agents, gouvernance stricte des données et expérience utilisateur unifiée sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
-## 1. Principes Fondateurs v0.4
+## 1. Principes fondateurs v0.5.0
 
 1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
 2. **Routage Hybride & Catalogue à 5 Profils Canoniques** :
@@ -33,7 +33,7 @@ ArcIA est la plateforme d'IA agentique d'entreprise conçue pour concilier auton
 
 ---
 
-## 2. Diagramme d'Architecture Globale
+## 2. Diagramme d'architecture globale
 
 ```mermaid
 flowchart TD
@@ -101,7 +101,7 @@ flowchart TD
 ---
 
 <a id="carte-du-dépôt"></a>
-## 3. Cartographie des Composants & Ports (v0.4)
+## 3. Cartographie des composants et ports (v0.5.0)
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
 |---|---|---|---|---|---|
@@ -110,15 +110,15 @@ flowchart TD
 | **Hermes Gateway** | `nousresearch/hermes-agent:v0.2.0` | `8642` | `/gateway` (Protégé PAT) | Partagé PVC 20Gi (`state.db`) | Serveur API `/v1` (`agentic/*`) avec plugin DLP/CCR/RTK & WebSocket Desktop |
 | **Pods Power Users** | `nousresearch/hermes-agent:v0.2.0` | `9119` / `8642` | `/poweruser/<slug>/studio` | PVC 10Gi (`hermes-user-<slug>-pvc`) | Instance Hermes dédiée par Power User (`.\scripts\Spawn-PowerUser.ps1`) |
 | **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle Microsoft Teams (`simple/auto` par défaut, `/agent` vers Hermes `agentic/auto`) |
-| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.61.16` | `4000` | `/v1` (PAT + RateLimit) | Stateless | Passerelle LLM, catalogue 5 profils, fallbacks, guardrail DLP et clés virtuelles |
+| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.72.6-stable` | `4000` | `/v1` (PAT + RateLimit) | Stateless | Passerelle LLM, catalogue profils, fallbacks, guardrail DLP, gestionnaire d'erreurs convivial et clés virtuelles |
 | **LiteLLM DB** | `postgres:16-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
 | **Presidio DLP** | `python:3.11-slim` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII (`/sanitize`, `/analyze`, `/anonymize`) |
 | **NetworkPolicy** | `networking.k8s.io/v1` | N/A | Interne cluster | N/A | Isolation réseau périmétrique et intra-cluster (Default DenyAll) |
-| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.6.0` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
+| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
 
 ---
 
-## 4. Documentation par Domaine
+## 4. Documentation par domaine
 
 Pour approfondir chaque brique :
 - [État des Fonctionnalités & Traçabilité](etat-des-fonctionnalites.md)
