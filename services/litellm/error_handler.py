@@ -150,7 +150,9 @@ def format_user_friendly_error(raw_error_text: str, default_status_code: int = 5
         "authenticationerror",
         "invalid_api_key",
         "invalid api key",
-        "unauthorized"
+        "unauthorized",
+        "expired_key",
+        "expired key"
     ]):
         msg = (
             "🔑 **Erreur d'authentification** : La clé d'API fournisseur configurée sur la passerelle est invalide "

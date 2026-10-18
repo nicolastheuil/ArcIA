@@ -64,11 +64,11 @@ spec:
         - name: OPENAI_API_BASE_URLS
           value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
         - name: OPENAI_API_KEYS
-          value: "sk-arcia-openwebui-direct-token;$(HERMES_API_TOKEN)"
+          value: "$(LITELLM_MASTER_KEY);$(HERMES_API_TOKEN)"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEY
-          value: "sk-arcia-openwebui-direct-token"
+          value: "$(LITELLM_MASTER_KEY)"
         - name: ENABLE_OLLAMA_API
           value: "false"
         - name: ENABLE_OPENAI_API
@@ -78,7 +78,7 @@ spec:
         - name: TASK_MODEL
           value: "simple/auto"
         - name: ENABLE_MODEL_FILTER
-          value: "true"
+          value: "false"
         - name: MODEL_FILTER_LIST
           value: "simple/free;simple/auto;agentic/free;agentic/auto;agentic/expert"
         - name: ENABLE_SUBAGENTS

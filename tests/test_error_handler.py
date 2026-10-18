@@ -81,6 +81,13 @@ class TestLiteLLMErrorHandler(unittest.TestCase):
         self.assertEqual(status_code, 400)
         self.assertIn("Message trop volumineux", msg)
 
+    def test_expired_key_formatting(self):
+        """Vérifie qu'une clé d'API expirée renvoie une erreur d'authentification 401."""
+        err = 'Authentication Error - Expired Key for token 61ba5f3c799a21989d2027d51b20246c'
+        status_code, msg = format_user_friendly_error(err)
+        self.assertEqual(status_code, 401)
+        self.assertIn("Erreur d'authentification", msg)
+
     def test_mask_sensitive_tokens(self):
         """Vérifie que les clés d'API et URLs privées sont caviardées dans les logs."""
         raw = "Error with key sk-abcdef1234567890123456 and url https://openrouter.ai/workspaces/default/keys/secret123"

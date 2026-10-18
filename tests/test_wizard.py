@@ -1045,11 +1045,14 @@ llm_gateway:
 
         res = wizard.sync_litellm_configmap(cfg, mock_runner, "arcia")
         self.assertTrue(res)
-        mock_runner.run.assert_called_once()
-        call_args = mock_runner.run.call_args[0][0]
+        self.assertEqual(mock_runner.run.call_count, 2)
+        call_args = mock_runner.run.call_args_list[0][0][0]
         self.assertEqual(call_args[0], "patch")
         self.assertEqual(call_args[1], "configmap")
         self.assertEqual(call_args[2], "litellm-config")
+
+        restart_args = mock_runner.run.call_args_list[1][0][0]
+        self.assertEqual(restart_args[:3], ["rollout", "restart", "deployment/litellm-proxy"])
 
         patch_idx = call_args.index("-p") + 1
         patch_json = json.loads(call_args[patch_idx])

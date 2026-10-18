@@ -3833,7 +3833,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     }
 
 def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
-    """Met à jour à chaud le ConfigMap litellm-config avec les modèles définis."""
+    """Met à jour à chaud le ConfigMap litellm-config avec les modèles définis et redémarre LiteLLM."""
     try:
         routing_info = get_model_routing_config(cfg)
         mappings = routing_info.get("mappings", [])
@@ -3847,57 +3847,94 @@ def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
             zdr = m.get("zdr", True)
 
             if fallbacks:
-                fallbacks_map[name] = fallbacks
+                fallbacks_map[name] = [f for f in fallbacks if f]
 
             if name in ("agentic/free", "agentic/auto") and target in ("openrouter/openrouter/free", "openrouter/auto"):
                 continue
 
-            entry = f"""      - model_name: "{name}"
-        litellm_params:
-          model: {target}
-          api_key: os.environ/OPENROUTER_API_KEY
-          extra_body:
-            provider:
-              data_collection: "deny"
-              zdr: {str(zdr).lower()}
-              allow_fallbacks: false"""
+            entry = f"""  - model_name: "{name}"
+    litellm_params:
+      model: {target}
+      api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider:
+          data_collection: "deny"
+          zdr: {str(zdr).lower()}
+          allow_fallbacks: false"""
             model_list_entries.append(entry)
 
-        models_yaml = "\n".join(model_list_entries)
-        fallbacks_yaml = "\n".join([f'        - "{k}": {json.dumps(v)}' for k, v in fallbacks_map.items()])
+        models_yaml = "\n".join(model_list_entries) if model_list_entries else "  []"
 
-        full_config_yaml = f"""    model_list:
+        fallbacks_lines = []
+        for k, v in fallbacks_map.items():
+            if v:
+                fallbacks_lines.append(f'    - "{k}": {json.dumps(v)}')
+        fallbacks_yaml = "\n".join(fallbacks_lines) if fallbacks_lines else "    []"
+
+        defined_names = {m.get("name") or m.get("alias", "") for m in mappings}
+        alias_entries = []
+        default_simple = routing_info.get("default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple"), None)
+        if default_simple and "simple/auto" not in defined_names and default_simple in defined_names:
+            alias_entries.append(f"""    "simple/auto":\n      model: "{default_simple}"\n      hidden: true""")
+
+        free_simple = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "simple" and m.get("zdr")), default_simple)
+        if free_simple and "simple/free" not in defined_names and free_simple in defined_names:
+            alias_entries.append(f"""    "simple/free":\n      model: "{free_simple}"\n      hidden: true""")
+
+        default_agentic = routing_info.get("hermes_default_model") or next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic"), default_simple)
+        if default_agentic and "agentic/auto" not in defined_names and default_agentic in defined_names:
+            alias_entries.append(f"""    "agentic/auto":\n      model: "{default_agentic}"\n      hidden: true""")
+
+        free_agentic = next((m.get("name") or m.get("alias") for m in mappings if m.get("category") == "agentic" and m.get("zdr")), default_agentic)
+        if free_agentic and "agentic/free" not in defined_names and free_agentic in defined_names:
+            alias_entries.append(f"""    "agentic/free":\n      model: "{free_agentic}"\n      hidden: true""")
+
+        if "simple/free" in defined_names and "agentic/free" not in defined_names:
+            alias_entries.append("""    "agentic/free":\n      model: "simple/free"\n      hidden: true""")
+        if "simple/auto" in defined_names and "agentic/auto" not in defined_names:
+            alias_entries.append("""    "agentic/auto":\n      model: "simple/auto"\n      hidden: true""")
+
+        aliases_yaml = "\n".join(alias_entries) if alias_entries else "    {}"
+
+        full_config_yaml = f"""model_list:
 {models_yaml}
 
-    router_settings:
-      fallbacks:
+router_settings:
+  fallbacks:
 {fallbacks_yaml}
-      model_group_alias:
-        "agentic/free":
-          model: "simple/free"
-          hidden: true
-        "agentic/auto":
-          model: "simple/auto"
-          hidden: true
+  model_group_alias:
+{aliases_yaml}
 
-    general_settings:
-      master_key: os.environ/LITELLM_MASTER_KEY
-      database_url: os.environ/DATABASE_URL
-      database_connection_pool_limit: 10
-      user_header_name: "X-OpenWebUI-User-Email"
-      store_model_in_db: true
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  database_connection_pool_limit: 10
+  user_header_name: "X-OpenWebUI-User-Email"
+  store_model_in_db: true
 
-    litellm_settings:
-      drop_params: true
+litellm_settings:
+  drop_params: true
+  callbacks: error_handler.proxy_handler_instance
+  request_timeout: 20
+  num_retries: 1
 
-    guardrails:
-      - guardrail_name: "presidio-guard"
-        litellm_params:
-          guardrail: presidio
+guardrails:
+  - guardrail_name: "presidio-guard"
+    litellm_params:
+      guardrail: presidio
+      mode: "pre_call"
+      default_on: true
+      presidio_analyzer_api_base: "http://presidio-dlp:8080"
+      presidio_anonymizer_api_base: "http://presidio-dlp:8080"
 """
         patch_cm = json.dumps({"data": {"config.yaml": full_config_yaml}})
         rc, _, _ = runner.run(["patch", "configmap", "litellm-config", "-n", ns, "-p", patch_cm])
-        return (rc == 0)
+        if rc != 0:
+            return False
+
+        # Redémarrage à chaud de LiteLLM Proxy pour prise en compte immédiate
+        runner.run(["rollout", "restart", "deployment/litellm-proxy", "-n", ns])
+        return True
     except Exception:
         return False
 
