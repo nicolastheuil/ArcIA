@@ -3488,7 +3488,7 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
 
     llm = cfg.setdefault("llm_gateway", {})
     openrouter_key = llm.get("openrouter_api_key", "")
-    if not openrouter_key or openrouter_key.startswith("sk-or-v1-xxxx"):
+    if not openrouter_key or is_placeholder_key(openrouter_key):
         openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not openrouter_key:
         try:
@@ -3497,7 +3497,7 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             if rc == 0 and out.strip():
                 import base64
                 k = base64.b64decode(out.strip()).decode('utf-8').strip()
-                if k and not k.startswith("sk-or-v1-xxxx"):
+                if k and not is_placeholder_key(k):
                     openrouter_key = k
                     llm["openrouter_api_key"] = k
         except Exception:
@@ -3506,7 +3506,7 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
     def mask_key(k: str) -> str:
         if not k or len(k) < 6:
             return ""
-        if k.startswith("sk-or-v1-xxxx"):
+        if is_placeholder_key(k):
             return ""
         return k[:8] + "••••••••" + k[-4:]
 
@@ -3515,8 +3515,8 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
             "id": "openrouter",
             "name": "OpenRouter",
             "description": "Agrégateur cloud",
-            "is_set": bool(openrouter_key and not openrouter_key.startswith("sk-or-v1-xxxx")),
-            "configured": bool(openrouter_key and not openrouter_key.startswith("sk-or-v1-xxxx")),
+            "is_set": bool(openrouter_key and not is_placeholder_key(openrouter_key)),
+            "configured": bool(openrouter_key and not is_placeholder_key(openrouter_key)),
             "masked_key": mask_key(openrouter_key),
             "api_key_masked": mask_key(openrouter_key),
             "doc_url": "https://openrouter.ai/keys",
@@ -3909,7 +3909,7 @@ def is_placeholder_key(val: str) -> bool:
     if "••••" in v:
         return True
     placeholders = {
-        "sk-or-v1-savedkey", "sk-or-v1-xxxx", "sk-proj-openaikey",
+        "sk-or-v1-xxxx", "sk-proj-openaikey",
         "sk-ant-api03-xxxx", "sk-mistral-xxxx", "AIzaSyxxxx",
         "sk-proj-placeholder"
     }

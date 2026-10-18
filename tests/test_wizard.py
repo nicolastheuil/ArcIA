@@ -892,6 +892,12 @@ llm_gateway:
         self.assertIn("agentic/expert", aliases)
 
         # Enregistrement
+        mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
+        orig_mb = None
+        if os.path.isfile(mb_path):
+            with open(mb_path, "r", encoding="utf-8") as f:
+                orig_mb = f.read()
+
         with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
             tmp_path = tmp.name
 
@@ -928,6 +934,9 @@ llm_gateway:
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+            if orig_mb is not None:
+                with open(mb_path, "w", encoding="utf-8") as f:
+                    f.write(orig_mb)
 
         # Test connectivité
         res_test_empty = wizard.test_provider_connectivity("openrouter", "")
@@ -1357,6 +1366,12 @@ llm_gateway:
 
     def test_save_model_routing_updates_models_branding_json(self):
         """Vérifie que save_model_routing_config enregistre la configuration et met à jour models-branding.json."""
+        mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
+        orig_mb = None
+        if os.path.isfile(mb_path):
+            with open(mb_path, "r", encoding="utf-8") as f:
+                orig_mb = f.read()
+
         with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
             tmp.write("llm_gateway:\n  default_model: simple/auto\n")
             tmp_path = tmp.name
@@ -1371,7 +1386,6 @@ llm_gateway:
             }
             res = wizard.save_model_routing_config(payload, cfg_path=tmp_path)
             self.assertTrue(res.get("success"))
-            mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
             self.assertTrue(os.path.isfile(mb_path))
             with open(mb_path, "r", encoding="utf-8") as f:
                 branding = json.load(f)
@@ -1382,6 +1396,9 @@ llm_gateway:
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+            if orig_mb is not None:
+                with open(mb_path, "w", encoding="utf-8") as f:
+                    f.write(orig_mb)
 
 
 if __name__ == "__main__":

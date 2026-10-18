@@ -539,6 +539,11 @@ def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir:
             "type": "zdr",
             "badge": "Bouclier argenté (Cloud ZDR)"
         }
+    models_map["local/model"] = {
+        "icon": local_icon,
+        "type": "local",
+        "badge": "Bouclier doré (Local souverain)"
+    }
 
     mappings = []
     if cfg and isinstance(cfg, dict):

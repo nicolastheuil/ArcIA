@@ -178,13 +178,24 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
                 self.applied.append(manifest_yaml)
 
         runner = DummyRunner()
-        deploy.sync_webui_branding(runner, "arcia", self.root_dir)
-        applied = "\n".join(runner.applied)
-        self.assertIn("name: arcia-webui-branding", applied)
-        self.assertIn("icon-model-default.svg: |", applied)
-        self.assertIn("icon-model-local.svg: |", applied)
-        self.assertIn("icon-model-zdr.svg: |", applied)
-        self.assertIn("models-branding.json: |", applied)
+        mb_path = os.path.join(self.root_dir, "assets", "branding", "models-branding.json")
+        orig_mb = None
+        if os.path.isfile(mb_path):
+            with open(mb_path, "r", encoding="utf-8") as f:
+                orig_mb = f.read()
+
+        try:
+            deploy.sync_webui_branding(runner, "arcia", self.root_dir)
+            applied = "\n".join(runner.applied)
+            self.assertIn("name: arcia-webui-branding", applied)
+            self.assertIn("icon-model-default.svg: |", applied)
+            self.assertIn("icon-model-local.svg: |", applied)
+            self.assertIn("icon-model-zdr.svg: |", applied)
+            self.assertIn("models-branding.json: |", applied)
+        finally:
+            if orig_mb is not None:
+                with open(mb_path, "w", encoding="utf-8") as f:
+                    f.write(orig_mb)
 
     def test_compute_models_branding_dict(self):
         """Vérifie le calcul dynamique du dictionnaire d'icônes de modèles."""
