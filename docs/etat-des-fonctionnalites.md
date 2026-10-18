@@ -68,3 +68,13 @@ distingue un catalogue inaccessible par session invalide d'un catalogue absent.
 | **Teams Bot & Sondes K8s** | Sonde de santé dédiée `/healthz`, routage hybride (`simple/auto` et `/agent` → Hermes `agentic/auto`), masquage des journaux et injection de `LITELLM_API_KEY`. | `services/teams/app.py`, `08-teams-bot.yaml` | Évite les crash loops Kubernetes et protège les données de conversation dans les logs. |
 | **Secrets & Moteur Déploiement** | Injection déclarative via `stringData` sur stdin, synchronisation automatique des ConfigMaps microservices (`sync_service_configmaps`) et câblage SSO `/studio`. | `scripts/deploy.py` | Zéro fuite de secret dans la table des processus (`ps`) et zéro dérive entre `services/` et les pods K8s. |
 | **Sécurisation du Wizard Web** | Séparation propre du backend (`scripts/wizard.py`) et de l'interface (`scripts/wizard_ui/index.html`), validation stricte de l'Origin/Host et chiffrement AES-256-GCM. | `scripts/wizard.py`, `scripts/wizard_ui/index.html` | Immunité contre les attaques DNS rebinding / CSRF et code maintenable. |
+
+
+## Correctif des icônes et des sauvegardes du wizard
+
+| Fonction | Implémentation | Limite de validation |
+|---|---|---|
+| Icônes normal/ZDR/local | Résolution commune, projection sur la route native avec filtrage d'accès, mapping privé et vérification HTTP des SVG | Recette navigateur authentifiée distincte ; laboratoire Docker historique sans adaptateur |
+| Sauvegarde/reprise d'instance | Dépôt déclaré conservé, AES-256-GCM, coffre DPAPI Windows ou mémoire de session, queue chiffrée et push limité à deux fichiers | Déverrouillage local requis ; configuration surveillée uniquement tant que le wizard fonctionne ; bases/PVC hors bundle |
+
+Voir le [correctif détaillé](brief-icones-modeles-wizard.md). Ces changements n'attestent pas une reconstruction sur cluster neuf.

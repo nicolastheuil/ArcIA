@@ -188,7 +188,7 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
                 orig_mb = f.read()
 
         try:
-            deploy.sync_webui_branding(runner, "arcia", self.root_dir)
+            deploy.sync_webui_branding(runner, "arcia", self.root_dir, cfg={})
             applied = "\n".join(runner.applied)
             self.assertIn("name: arcia-webui-branding", applied)
             self.assertIn("icon-model-default.svg: |", applied)

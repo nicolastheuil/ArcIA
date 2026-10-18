@@ -1,47 +1,7 @@
 {
-  "models": {
-    "simple/auto": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "simple/free": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "agentic/auto": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "agentic/free": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "agentic/expert": {
-      "icon": "/static/icon-model-zdr.svg",
-      "type": "zdr",
-      "badge": "Liseret argenté (Cloud ZDR)"
-    },
-    "local/model": {
-      "icon": "/static/icon-model-local.svg",
-      "type": "local",
-      "badge": "Liseret doré (Local souverain)"
-    },
-    "LLM Nemotron": {
-      "icon": "/static/icon-model-default.svg",
-      "type": "default",
-      "badge": "aIA classique (Défaut)"
-    },
-    "Agentic Nemotron": {
-      "icon": "/static/icon-model-default.svg",
-      "type": "default",
-      "badge": "aIA classique (Défaut)"
-    }
-  },
+  "models": {},
   "default_icon": "/static/icon-model-default.svg",
   "local_icon": "/static/icon-model-local.svg",
-  "zdr_icon": "/static/icon-model-zdr.svg"
+  "zdr_icon": "/static/icon-model-zdr.svg",
+  "revision": "e8ba986c1096122623cadf4dcd58729601644847ab71e1d384e755cde6b0b874"
 }

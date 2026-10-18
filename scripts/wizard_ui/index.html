@@ -2261,6 +2261,7 @@
             <div id="saveModelRoutingHint" style="font-size: 13px; color: var(--text-secondary);">
               ⚠ Vous devez tester et valider tous les modèles avec succès avant d'enregistrer le routage.
             </div>
+            <button class="btn secondary" onclick="syncModelAppearance()">Synchroniser les icônes enregistrées</button>
             <button id="btnSaveModelRouting" class="btn primary" onclick="saveModelRouting()" disabled>Enregistrer le routage &rarr;</button>
           </div>
         </div>
@@ -3017,10 +3018,18 @@
           </div>
         </div>
 
+        <div style="margin-top:16px;">
+          <label class="field-label" for="backup_repo_input">Dépôt privé de l'instance</label>
+          <input type="url" id="backup_repo_input" placeholder="https://github.com/organisation/depot-instance">
+        </div>
         <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;">
           <div style="flex:1; min-width:260px;">
-            <label class="field-label" for="backup_passphrase_input">Mot de passe maître pour sauvegarder maintenant</label>
-            <input type="password" id="backup_passphrase_input" placeholder="Mot de passe maître de chiffrement">
+            <label class="field-label" for="backup_passphrase_input">Déverrouiller les sauvegardes automatiques</label>
+            <input type="password" id="backup_passphrase_input" placeholder="Facultatif si le coffre est déjà déverrouillé"><p id="backup_status_text" role="status"></p>
+          </div>
+          <div style="flex:1; min-width:240px;">
+            <label class="field-label" for="backup_token_input">Accès Git (si absent du coffre)</label>
+            <input type="password" id="backup_token_input" autocomplete="off" placeholder="Jeton conservé dans le coffre local protégé">
           </div>
           <button class="btn primary" onclick="backupCurrentInstanceNow()">Sauvegarder l'état actuel maintenant</button>
         </div>
@@ -3278,9 +3287,9 @@
     }
 
     // Communication API avec gestion de timeout et tolérance aux pannes
-    async function api(path, payload = null, method = null, timeoutMs = 7000) {
+    async function api(path, payload = null, method = null, timeoutMs = null) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setTimeout(() => controller.abort(), timeoutMs ?? (payload ? 120000 : 7000));
       const opts = {
         method: method || (payload ? 'POST' : 'GET'),
         headers: { 'Content-Type': 'application/json' },
@@ -3290,7 +3299,13 @@
       try {
         const res = await fetch('/api/' + path, opts);
         clearTimeout(timer);
-        return await res.json();
+        const data = await res.json();
+        if (payload && data.backup_status && !data.backup_status.success && data.backup_status.state !== 'not_configured') {
+          const status = document.getElementById('backup_status_text');
+          if (status) status.textContent = data.backup_status.error || 'Sauvegarde en attente.';
+          setTimeout(() => showToast(data.backup_status.error || 'Configuration locale enregistrée ; sauvegarde en attente.'), 500);
+        }
+        return data;
       } catch (e) {
         clearTimeout(timer);
         console.warn('Erreur API sur /api/' + path, e);
@@ -4285,10 +4300,24 @@
     }
 
     const MODEL_ICONS = {
-      default: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMEEwRjFEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRTcXVpcmNsZUJnIiB4MT0iNjQiIHkxPSIzMiIgeDI9IjQ0OCIgeTI9IjQ4MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMTMxQjJFIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU1JSIgc3RvcC1jb2xvcj0iIzBBMEYxRCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDUwNzEyIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRDeWFuRmlsbCIgeDE9IjgwIiB5MT0iOTgiIHgyPSIyMjQiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM1QUQ4Q0UiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBIYWxvIGFtYmlhbnQgY2xhc3NpcXVlIC0tPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJhcmNpYURlZmF1bHRTdWJ0bGVHbG93IiBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMTAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgc3RvcC1vcGFjaXR5PSIwLjE0IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIHN0b3Atb3BhY2l0eT0iMCIgLz4KICAgIDwvcmFkaWFsR3JhZGllbnQ+CiAgPC9kZWZzPgoKICA8IS0tIENvbnRlbmV1ciBTcXVpcmNsZSBEYXJrIE1vZGUgb2ZmaWNpZWwgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYURlZmF1bHRTcXVpcmNsZUJnKSIgc3Ryb2tlPSIjMUUyOTNCIiBzdHJva2Utd2lkdGg9IjgiIC8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMTAiIGZpbGw9InVybCgjYXJjaWFEZWZhdWx0U3VidGxlR2xvdykiIC8+CgogIDwhLS0gTW9ub2dyYW1tZSBvZmZpY2llbCAiYUlBIiBjZW50csOpIC0tPgogIDxnIGlkPSJhcmNpYS1hSUEtbW9ub2dyYW0iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4LCAxNzQpIHNjYWxlKDEuNjgpIj4KICAgIDwhLS0gImEiIGVuIEJsYW5jICgjRjhGQUZDKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik00My42MSAyNkM0Ny43OCAyNi4wOSA1MS44IDI2LjU3IDU1LjY2IDI3LjQzIDU5LjUyIDI4LjI5IDYyLjk5IDMwLjI3IDY2LjA3IDMzLjM2IDY4LjcgMzUuOSA3MC41NCAzOC44OSA3MS41OCA0Mi4zNSA3Mi42MyA0NS44IDczLjE1IDQ5LjM0IDczLjE1IDUyLjk2TDczLjE1IDk3Ljc1IDIyLjI0IDk3Ljc1QzE0Ljg5IDk3Ljc1IDkuMjUgOTUuNzMgNS4zNSA5MS42OSAxLjQ1IDg3LjY2LTAuMzIgODIuMDYgMC4wNSA3NC44OCAwLjY4IDY2LjI2IDMuNzIgNjAuNjggOS4xNyA1OC4xMyAxNC42MiA1NS41OSAyMS4xMSA1NC4zMiAyOC42NCA1NC4zMkw1My41NSA1NC4xOUM1My44MiA0OC4yOSA1Mi4zIDQ0LjYxIDQ4Ljk5IDQzLjE2IDQ1LjY4IDQxLjcxIDQxLjQ4IDQwLjk4IDM2LjQgNDAuOThMNC44MSA0MC44NCA0LjgxIDI2IDQzLjYxIDI2Wk0yOS45OSA4My4zMiA1My42OCA4My4zMiA1My42OCA2OC40OCAzMS4zNSA2OC40OEMzMS4xNyA2OC41NyAzMC45OSA2OC42MiAzMC44MSA2OC42MkwzMC4yNyA2OC42MkMyNy43MyA2OC43MSAyNS4zNyA2OS4xOSAyMy4xOSA3MC4wNSAyMS4wMSA3MC45MSAxOS44NyA3Mi45MyAxOS43OCA3Ni4xIDE5LjYgNzkuNjQgMjAuNTcgODEuNzMgMjIuNzEgODIuMzcgMjQuODQgODMuMDEgMjcuMjcgODMuMzcgMjkuOTkgODMuNDZMMjkuOTkgODMuMzJaIgogICAgICBmaWxsPSIjRjhGQUZDIgogICAgLz4KCiAgICA8IS0tICJJIiBlbiBCbGV1IEN5YW4gQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTgyLjkyIDk3Ljc2IEwxMDAuMTYgMCBMMTIxLjY3IDAgTDEwNC40MyA5Ny43NiBaIgogICAgICBmaWxsPSJ1cmwoI2FyY2lhRGVmYXVsdEN5YW5GaWxsKSIKICAgIC8+CgogICAgPCEtLSAiQSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGZpbGwtcnVsZT0iZXZlbm9kZCIKICAgICAgY2xpcC1ydWxlPSJldmVub2RkIgogICAgICBkPSJNMTc3Ljg2IDAgTDE5OS42NSAwIEwyMjQuMDcgOTcuNzYgTDIwMS4yMCA5Ny43NiBMMTk2LjMyIDc0LjQ4IEwxNTMuODQgNzQuNDggTDE0MS4wMiA5Ny43NiBMMTE5LjM3IDk3Ljc2IEwxNzcuODYgMCBaIE0xODQuNTEgMTkuNDcgTDE2My41OCA1Ny4wNSBMMTkyLjcyIDU3LjA1IEwxODQuNTEgMTkuNDcgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYURlZmF1bHRDeWFuRmlsbCkiCiAgICAvPgogIDwvZz4KPC9zdmc+Cg==",
-      local: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMTgxRDJGIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYUxvY2FsU3F1aXJjbGVCZyIgeDE9IjY0IiB5MT0iMzIiIHgyPSI0NDgiIHkyPSI0ODAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzE4MUQyRiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1NSUiIHN0b3AtY29sb3I9IiMwRDEyMjIiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBMaXNlcmV0IGRvcsOpIG9mZmljaWVsIEFyY0lBIChTb3V2ZXJhaW4gTG9jYWwpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYUdvbGRCb3JkZXIiIHgxPSIzMiIgeTE9IjMyIiB4Mj0iNDgwIiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGQ0QzNEQiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMzUlIiBzdG9wLWNvbG9yPSIjRjU5RTBCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjcwJSIgc3RvcC1jb2xvcj0iI0I0NTMwOSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjRkNEMzREIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIHBvdXIgbGUgbW9ub2dyYW1tZSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFMb2NhbEN5YW5GaWxsIiB4MT0iODAiIHkxPSI5OCIgeDI9IjIyNCIgeTI9IjAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzVBRDhDRSIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNkJFN0REIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEhhbG8gYW1iaWFudCBkb3LDqSBjaGF1ZCAtLT4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYXJjaWFHb2xkSGFsbyIgY3g9IjI1NiIgY3k9IjI1NiIgcj0iMjMwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGNTlFMEIiIHN0b3Atb3BhY2l0eT0iMC4yMiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI2MCUiIHN0b3AtY29sb3I9IiNGNTlFMEIiIHN0b3Atb3BhY2l0eT0iMC4wNiIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDUwNzEyIiBzdG9wLW9wYWNpdHk9IjAiIC8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KCiAgPCEtLSBDb250ZW5ldXIgU3F1aXJjbGUgYXZlYyBsaXNlcmV0IGRvcsOpIG1hcnF1w6kgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwOCIgcnk9IjEwOCIgZmlsbD0idXJsKCNhcmNpYUxvY2FsU3F1aXJjbGVCZykiIHN0cm9rZT0idXJsKCNhcmNpYUdvbGRCb3JkZXIpIiBzdHJva2Utd2lkdGg9IjE0IiAvPgogIDwhLS0gQW5uZWF1IGludMOpcmlldXIgc3VidGlsIHJlbmZvcsOnYW50IGxlIGxpc2VyZXQgLS0+CiAgPHJlY3QgeD0iMzUiIHk9IjM1IiB3aWR0aD0iNDQyIiBoZWlnaHQ9IjQ0MiIgcng9Ijk4IiByeT0iOTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0ZERTY4QSIgc3Ryb2tlLXdpZHRoPSIyIiBvcGFjaXR5PSIwLjQiIC8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjU2IiByPSIyMzAiIGZpbGw9InVybCgjYXJjaWFHb2xkSGFsbykiIC8+CgogIDwhLS0gTW9ub2dyYW1tZSBvZmZpY2llbCAiYUlBIiBjZW50csOpIC0tPgogIDxnIGlkPSJhcmNpYS1hSUEtbW9ub2dyYW0iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDY4LCAxNzQpIHNjYWxlKDEuNjgpIj4KICAgIDwhLS0gImEiIGVuIEJsYW5jICgjRjhGQUZDKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik00My42MSAyNkM0Ny43OCAyNi4wOSA1MS44IDI2LjU3IDU1LjY2IDI3LjQzIDU5LjUyIDI4LjI5IDYyLjk5IDMwLjI3IDY2LjA3IDMzLjM2IDY4LjcgMzUuOSA3MC41NCAzOC44OSA3MS41OCA0Mi4zNSA3Mi42MyA0NS44IDczLjE1IDQ5LjM0IDczLjE1IDUyLjk2TDczLjE1IDk3Ljc1IDIyLjI0IDk3Ljc1QzE0Ljg5IDk3Ljc1IDkuMjUgOTUuNzMgNS4zNSA5MS42OSAxLjQ1IDg3LjY2LTAuMzIgODIuMDYgMC4wNSA3NC44OCAwLjY4IDY2LjI2IDMuNzIgNjAuNjggOS4xNyA1OC4xMyAxNC42MiA1NS41OSAyMS4xMSA1NC4zMiAyOC42NCA1NC4zMkw1My41NSA1NC4xOUM1My44MiA0OC4yOSA1Mi4zIDQ0LjYxIDQ4Ljk5IDQzLjE2IDQ1LjY4IDQxLjcxIDQxLjQ4IDQwLjk4IDM2LjQgNDAuOThMNC44MSA0MC44NCA0LjgxIDI2IDQzLjYxIDI2Wk0yOS45OSA4My4zMiA1My42OCA4My4zMiA1My42OCA2OC40OCAzMS4zNSA2OC40OEMzMS4xNyA2OC41NyAzMC45OSA2OC42MiAzMC44MSA2OC42MkwzMC4yNyA2OC42MkMyNy43MyA2OC43MSAyNS4zNyA2OS4xOSAyMy4xOSA3MC4wNSAyMS4wMSA3MC45MSAxOS44NyA3Mi45MyAxOS43OCA3Ni4xIDE5LjYgNzkuNjQgMjAuNTcgODEuNzMgMjIuNzEgODIuMzcgMjQuODQgODMuMDEgMjcuMjcgODMuMzcgMjkuOTkgODMuNDZMMjkuOTkgODMuMzJaIgogICAgICBmaWxsPSIjRjhGQUZDIgogICAgLz4KCiAgICA8IS0tICJJIiBlbiBCbGV1IEN5YW4gQXJjSUEgKCM2QkU3REQpIC0tPgogICAgPHBhdGgKICAgICAgZD0iTTgyLjkyIDk3Ljc2IEwxMDAuMTYgMCBMMTIxLjY3IDAgTDEwNC40MyA5Ny43NiBaIgogICAgICBmaWxsPSJ1cmwoI2FyY2lhTG9jYWxDeWFuRmlsbCkiCiAgICAvPgoKICAgIDwhLS0gIkEiIGVuIEJsZXUgQ3lhbiBBcmNJQSAoIzZCRTdERCkgLS0+CiAgICA8cGF0aAogICAgICBmaWxsLXJ1bGU9ImV2ZW5vZGQiCiAgICAgIGNsaXAtcnVsZT0iZXZlbm9kZCIKICAgICAgZD0iTTE3Ny44NiAwIEwxOTkuNjUgMCBMMjI0LjA3IDk3Ljc2IEwyMDEuMjAgOTcuNzYgTDE5Ni4zMiA3NC40OCBMMTUzLjg0IDc0LjQ4IEwxNDEuMDIgOTcuNzYgTDExOS4zNyA5Ny43NiBMMTc3Ljg2IDAgWiBNMTg0LjUxIDE5LjQ3IEwxNjMuNTggNTcuMDUgTDE5Mi43MiA1Ny4wNSBMMTg0LjUxIDE5LjQ3IFoiCiAgICAgIGZpbGw9InVybCgjYXJjaWFMb2NhbEN5YW5GaWxsKSIKICAgIC8+CiAgPC9nPgo8L3N2Zz4K",
-      zdr: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0ibm9uZSI+CiAgPGRlZnM+CiAgICA8IS0tIEZvbmQgU3F1aXJjbGUgRGFyayBNb2RlIHNvYnJlICgjMTQxQjJEIC0+ICMwNTA3MTIpIC0tPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJhcmNpYVpkclNxdWlyY2xlQmciIHgxPSI2NCIgeTE9IjMyIiB4Mj0iNDQ4IiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxNDFCMkQiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjMDkwRTFCIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwNTA3MTIiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgoKICAgIDwhLS0gTGlzZXJldCBhcmdlbnTDqSBvZmZpY2llbCBBcmNJQSAoQ2xvdWQgWkRSKSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFTaWx2ZXJCb3JkZXIiIHgxPSIzMiIgeTE9IjMyIiB4Mj0iNDgwIiB5Mj0iNDgwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGRkZGRkYiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMzAlIiBzdG9wLWNvbG9yPSIjRTJFOEYwIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjcwJSIgc3RvcC1jb2xvcj0iIzk0QTNCOCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjQ0JENUUxIiAvPgogICAgPC9saW5lYXJHcmFkaWVudD4KCiAgICA8IS0tIEN5YW4gb2ZmaWNpZWwgQXJjSUEgKCM2QkU3REQpIHBvdXIgbGUgbW9ub2dyYW1tZSAtLT4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYXJjaWFaZHJDeWFuRmlsbCIgeDE9IjgwIiB5MT0iOTgiIHgyPSIyMjQiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM1QUQ4Q0UiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzZCRTdERCIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CgogICAgPCEtLSBIYWxvIGFtYmlhbnQgYXJnZW50w6kgJiBjeWFuIC0tPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJhcmNpYVNpbHZlckhhbG8iIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjIzMCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRTJFOEYwIiBzdG9wLW9wYWNpdHk9IjAuMjAiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNDUlIiBzdG9wLWNvbG9yPSIjNkJFN0REIiBzdG9wLW9wYWNpdHk9IjAuMDgiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDcxMiIgc3RvcC1vcGFjaXR5PSIwIiAvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CgogIDwhLS0gQ29udGVuZXVyIFNxdWlyY2xlIGF2ZWMgbGlzZXJldCBhcmdlbnTDqSBtYXJxdcOpIC0tPgogIDxyZWN0IHg9IjI0IiB5PSIyNCIgd2lkdGg9IjQ2NCIgaGVpZ2h0PSI0NjQiIHJ4PSIxMDgiIHJ5PSIxMDgiIGZpbGw9InVybCgjYXJjaWFaZHJTcXVpcmNsZUJnKSIgc3Ryb2tlPSJ1cmwoI2FyY2lhU2lsdmVyQm9yZGVyKSIgc3Ryb2tlLXdpZHRoPSIxNCIgLz4KICA8IS0tIEFubmVhdSBpbnTDqXJpZXVyIHN1YnRpbCByZW5mb3LDp2FudCBsZSBsaXNlcmV0IC0tPgogIDxyZWN0IHg9IjM1IiB5PSIzNSIgd2lkdGg9IjQ0MiIgaGVpZ2h0PSI0NDIiIHJ4PSI5OCIgcnk9Ijk4IiBmaWxsPSJub25lIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMiIgb3BhY2l0eT0iMC40NSIgLz4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjIzMCIgZmlsbD0idXJsKCNhcmNpYVNpbHZlckhhbG8pIiAvPgoKICA8IS0tIE1vbm9ncmFtbWUgb2ZmaWNpZWwgImFJQSIgY2VudHLDqSAtLT4KICA8ZyBpZD0iYXJjaWEtYUlBLW1vbm9ncmFtIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg2OCwgMTc0KSBzY2FsZSgxLjY4KSI+CiAgICA8IS0tICJhIiBlbiBCbGFuYyAoI0Y4RkFGQykgLS0+CiAgICA8cGF0aAogICAgICBkPSJNNDMuNjEgMjZDNDcuNzggMjYuMDkgNTEuOCAyNi41NyA1NS42NiAyNy40MyA1OS41MiAyOC4yOSA2Mi45OSAzMC4yNyA2Ni4wNyAzMy4zNiA2OC43IDM1LjkgNzAuNTQgMzguODkgNzEuNTggNDIuMzUgNzIuNjMgNDUuOCA3My4xNSA0OS4zNCA3My4xNSA1Mi45Nkw3My4xNSA5Ny43NSAyMi4yNCA5Ny43NUMxNC44OSA5Ny43NSA5LjI1IDk1LjczIDUuMzUgOTEuNjkgMS40NSA4Ny42Ni0wLjMyIDgyLjA2IDAuMDUgNzQuODggMC42OCA2Ni4yNiAzLjcyIDYwLjY4IDkuMTcgNTguMTMgMTQuNjIgNTUuNTkgMjEuMTEgNTQuMzIgMjguNjQgNTQuMzJMNTMuNTUgNTQuMTlDNTMuODIgNDguMjkgNTIuMyA0NC42MSA0OC45OSA0My4xNiA0NS42OCA0MS43MSA0MS40OCA0MC45OCAzNi40IDQwLjk4TDQuODEgNDAuODQgNC44MSAyNiA0My42MSAyNlpNMjkuOTkgODMuMzIgNTMuNjggODMuMzIgNTMuNjggNjguNDggMzEuMzUgNjguNDhDMzEuMTcgNjguNTcgMzAuOTkgNjguNjIgMzAuODEgNjguNjJMMzAuMjcgNjguNjJDMjcuNzMgNjguNzEgMjUuMzcgNjkuMTkgMjMuMTkgNzAuMDUgMjEuMDEgNzAuOTEgMTkuODcgNzIuOTMgMTkuNzggNzYuMSAxOS42IDc5LjY0IDIwLjU3IDgxLjczIDIyLjcxIDgyLjM3IDI0Ljg0IDgzLjAxIDI3LjI3IDgzLjM3IDI5Ljk5IDgzLjQ2TDI5Ljk5IDgzLjMyWiIKICAgICAgZmlsbD0iI0Y4RkFGQyIKICAgIC8+CgogICAgPCEtLSAiSSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGQ9Ik04Mi45MiA5Ny43NiBMMTAwLjE2IDAgTDEyMS42NyAwIEwxMDQuNDMgOTcuNzYgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYVpkckN5YW5GaWxsKSIKICAgIC8+CgogICAgPCEtLSAiQSIgZW4gQmxldSBDeWFuIEFyY0lBICgjNkJFN0REKSAtLT4KICAgIDxwYXRoCiAgICAgIGZpbGwtcnVsZT0iZXZlbm9kZCIKICAgICAgY2xpcC1ydWxlPSJldmVub2RkIgogICAgICBkPSJNMTc3Ljg2IDAgTDE5OS42NSAwIEwyMjQuMDcgOTcuNzYgTDIwMS4yMCA5Ny43NiBMMTk2LjMyIDc0LjQ4IEwxNTMuODQgNzQuNDggTDE0MS4wMiA5Ny43NiBMMTE5LjM3IDk3Ljc2IEwxNzcuODYgMCBaIE0xODQuNTEgMTkuNDcgTDE2My41OCA1Ny4wNSBMMTkyLjcyIDU3LjA1IEwxODQuNTEgMTkuNDcgWiIKICAgICAgZmlsbD0idXJsKCNhcmNpYVpkckN5YW5GaWxsKSIKICAgIC8+CiAgPC9nPgo8L3N2Zz4K"
+      default: '/static/icon-model-default.svg',
+      local: '/static/icon-model-local.svg',
+      zdr: '/static/icon-model-zdr.svg'
     };
+
+    let iconPreviewSequence = 0;
+    async function refreshModelIconPreviews() {
+      const sequence = ++iconPreviewSequence;
+      try {
+        const res = await api('models/appearance', { models: state.models, custom_providers: state.customProviders });
+        if (sequence !== iconPreviewSequence || !res?.success) return;
+        res.icons.forEach((visual, index) => {
+          const image = document.getElementById('model_icon_' + index);
+          if (image) { image.src = visual.icon; image.title = visual.badge; }
+        });
+      } catch (e) { /* L'échec d'aperçu n'annonce pas une synchronisation réussie. */ }
+    }
+
 
     function renderModelRoutingTable() {
       const tbody = document.getElementById('modelsRoutingBody');
@@ -4310,18 +4339,8 @@
         const curTarget = m.target_model || m.real_model || '';
         const isCustomModel = !catalogModels.some(cm => cm.id === curTarget);
 
-        const isLocal = ['ollama', 'vllm', 'local'].includes(String(curProvider).toLowerCase()) ||
-                        curTarget.toLowerCase().includes('localhost') ||
-                        curTarget.toLowerCase().includes('127.0.0.1');
-        let iconSrc = MODEL_ICONS.default;
-        let iconTitle = 'Modèle standard : icône aIA classique par défaut dans Open-WebUI';
-        if (isLocal) {
-          iconSrc = MODEL_ICONS.local;
-          iconTitle = 'Modèle local souverain (Ollama / vLLM) : icône aIA avec liseret doré dans Open-WebUI';
-        } else if (m.zdr) {
-          iconSrc = MODEL_ICONS.zdr;
-          iconTitle = 'Modèle cloud avec ZDR activé : icône aIA avec liseret argenté dans Open-WebUI';
-        }
+        const iconSrc = m.icon || MODEL_ICONS.default;
+        const iconTitle = m.icon_badge || 'Type visuel en cours de résolution';
 
         const providerOptions = availableProviders.map(p =>
           `<option value="${p.id}" ${p.id === curProvider ? 'selected' : ''}>${escapeHtml(p.label)}</option>`
@@ -4378,7 +4397,7 @@
             <td>
               <div style="display:flex; align-items:center; gap:5px; width:100%;">
                 <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="flex:1; min-width:0; font-weight:500;" title="${escapeHtml(m.alias || m.name)}">
-                <img src="${iconSrc}" alt="Icône modèle" title="${escapeHtml(iconTitle)}" width="22" height="22" style="border-radius:4px; flex-shrink:0; cursor:help; vertical-align:middle;">
+                <img id="model_icon_${idx}" src="${iconSrc}" alt="Icône modèle" title="${escapeHtml(iconTitle)}" width="22" height="22" style="border-radius:4px; flex-shrink:0; cursor:help; vertical-align:middle;">
               </div>
             </td>
             <td>
@@ -4390,6 +4409,11 @@
             <td>
               <select onchange="onModelProviderChanged(${idx}, this.value)" style="width:100%;">
                 ${providerOptions}
+              </select>
+              <select aria-label="Hébergement pour l'icône" title="Type d'hébergement déclaré" onchange="updateModelRow(${idx}, 'hosting', this.value)" style="width:100%; margin-top:3px;">
+                <option value="" ${!m.hosting ? 'selected' : ''}>Type du fournisseur</option>
+                <option value="cloud" ${m.hosting === 'cloud' ? 'selected' : ''}>Cloud</option>
+                <option value="local" ${m.hosting === 'local' ? 'selected' : ''}>Local</option>
               </select>
             </td>
             <td>
@@ -4405,7 +4429,7 @@
             </td>
             <td class="text-center">
               <label class="switch-wrap zdr-switch">
-                <input type="checkbox" ${m.zdr ? 'checked' : ''} class="hidden" onchange="onZdrToggled(${idx}, this.checked)">
+                <input type="checkbox" ${m.zdr === true || m.zdr === 'true' ? 'checked' : ''} class="hidden" onchange="onZdrToggled(${idx}, this.checked)">
                 <span class="switch-toggle"></span>
               </label>
             </td>
@@ -4424,6 +4448,7 @@
 
       updateDefaultModelDropdowns();
       checkCanSaveModelRouting();
+      refreshModelIconPreviews();
     }
 
     async function fetchDynamicModelCatalog(provider) {
@@ -4483,7 +4508,7 @@
         state.models[idx][field] = val;
         if (field === 'target_model') state.models[idx].real_model = val;
         if (field === 'alias') state.models[idx].name = val;
-        if (field !== 'fallback') {
+        if (field !== 'fallback' && field !== 'hosting') {
           state.models[idx].testedOk = false;
           state.models[idx].lastLatency = null;
           state.models[idx].lastError = null;
@@ -4494,6 +4519,7 @@
         }
         refreshFallbackDropdowns();
         checkCanSaveModelRouting();
+        refreshModelIconPreviews();
       }
     }
 
@@ -5487,6 +5513,12 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       renderModelRoutingTable();
     }
 
+    async function syncModelAppearance() {
+      showToast('Publication des icônes enregistrées ; rechargement du portail en cours…');
+      const result = await api('models/sync-appearance', {}, 'POST', 120000);
+      showToast(result?.success ? 'Projection et SVG vérifiés. La recette visuelle reste à contrôler dans Open-WebUI.' : (result?.error || 'Synchronisation des icônes échouée.'));
+    }
+
     async function saveModelRouting() {
       const unverified = (state.models || []).filter(m => !m.testedOk);
       if (unverified.length > 0) {
@@ -5831,13 +5863,16 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       const tbody = document.getElementById('backupTimelineTableBody');
 
       try {
-        const res = await api('instance/backup-info');
-        if (res && res.success) {
+        const res = await api('instance/backup-info', null, 'GET', 90000);
+        if (res) {
+          state.backupUnlocked = !!res.unlocked;
           if (res.configured && res.repo_url) {
             if (repoText) repoText.textContent = res.repo_url;
+            const savedRepo = document.getElementById('backup_repo_input');
+            if (savedRepo && !savedRepo.value) savedRepo.value = res.repo_url;
             if (repoBadge) {
-              repoBadge.className = 'badge ok';
-              repoBadge.textContent = 'Dépôt connecté';
+              repoBadge.className = res.success ? 'badge ok' : 'badge danger';
+              repoBadge.textContent = res.success ? 'Dépôt connecté' : 'Dépôt déclaré · accès à vérifier';
             }
             const manUrl = document.getElementById('restore_git_url');
             if (manUrl && !manUrl.value) manUrl.value = res.repo_url;
@@ -5854,6 +5889,8 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
           }
 
           renderBackupTimeline(res.timeline || []);
+          const status = document.getElementById('backup_status_text');
+          if (status) status.textContent = res.error || res.backup_status?.error || (res.unlocked ? 'Sauvegarde automatique déverrouillée.' : 'Déverrouillez le coffre une fois pour activer les sauvegardes automatiques.');
         } else {
           if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger); padding:16px;">${escapeHtml(res?.error || 'Impossible de joindre le dépôt')}</td></tr>`;
         }
@@ -5871,7 +5908,7 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
         return;
       }
 
-      tbody.innerHTML = timeline.map(point => {
+      tbody.innerHTML = timeline.filter(point => /^[a-f0-9]{40,64}$/i.test(point.hash || '')).map(point => {
         const shortHash = point.short_hash || point.hash.substring(0, 7);
         const dt = point.datetime || '—';
         const msg = point.message || 'Sauvegarde chiffrée ArcIA';
@@ -5881,28 +5918,27 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
             <td><code>${escapeHtml(shortHash)}</code></td>
             <td>${escapeHtml(msg)}</td>
             <td style="text-align:right;">
-              <button class="btn secondary compact" onclick="restorePointInTime('${escapeHtml(point.hash)}', '${escapeHtml(dt)}')">
+              <button class="btn secondary compact" data-restore-hash="${point.hash}" data-restore-date="${escapeHtml(dt)}">
                 Restaurer ce point
               </button>
             </td>
           </tr>
         `;
       }).join('');
+      tbody.querySelectorAll('[data-restore-hash]').forEach(button => button.addEventListener('click', () => restorePointInTime(button.dataset.restoreHash, button.dataset.restoreDate)));
     }
 
     async function backupCurrentInstanceNow() {
-      const pass = document.getElementById('backup_passphrase_input')?.value?.trim();
-      if (!pass) {
-        showToast('Veuillez renseigner votre mot de passe maître de chiffrement.');
-        document.getElementById('backup_passphrase_input')?.focus();
-        return;
-      }
+      const pass = document.getElementById('backup_passphrase_input')?.value;
+
 
       showToast('Sauvegarde et chiffrement de l\'instance en cours vers Git…');
       try {
-        const res = await api('instance/backup-now', { passphrase: pass });
+        const res = await api('instance/backup-now', { passphrase: pass, token: document.getElementById('backup_token_input')?.value || '', repo_url: document.getElementById('backup_repo_input')?.value || '' }, 'POST', 120000);
         if (res && res.success) {
           showToast(`Sauvegarde chiffrée réussie (${res.timestamp || 'OK'}).`);
+          document.getElementById('backup_passphrase_input').value = '';
+          document.getElementById('backup_token_input').value = '';
           fetchBackupInfo();
         } else {
           showToast('Erreur sauvegarde : ' + (res?.error || 'échec git push'));
@@ -5913,18 +5949,16 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
     }
 
     async function restorePointInTime(commitHash, commitDate) {
-      let pass = document.getElementById('backup_passphrase_input')?.value?.trim();
-      if (!pass) {
-        pass = prompt(`Veuillez saisir votre mot de passe maître de déchiffrement pour restaurer l'instantané du ${commitDate} (${commitHash.substring(0, 7)}) :`);
+      let pass = document.getElementById('backup_passphrase_input')?.value;
+      if (!pass && !state.backupUnlocked) {
+        showToast('Saisissez le mot de passe maître dans le champ protégé ci-dessus.');
+        document.getElementById('backup_passphrase_input')?.focus();
+        return;
       }
-      if (!pass) return;
 
       showToast(`Restauration de l'instance au point ${commitHash.substring(0, 7)} (${commitDate})…`);
       try {
-        const res = await api('instance/restore', {
-          passphrase: pass,
-          commit_hash: commitHash
-        });
+        const res = await api('instance/restore', { passphrase: pass, commit_hash: commitHash }, 'POST', 120000);
         if (res && res.success) {
           showToast(`Instance restaurée au point du ${commitDate} !`);
           fetchInitialConfig();
@@ -5942,14 +5976,14 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       const token = document.getElementById('restore_git_token').value;
       const pass = document.getElementById('restore_git_passphrase').value;
 
-      if (!repo || !token || !pass) {
-        showToast('Veuillez renseigner l\'URL, le token et le mot de passe maître.');
+      if (!repo || (!pass && !state.backupUnlocked)) {
+        showToast('Veuillez renseigner le dépôt et déverrouiller le coffre local.');
         return;
       }
 
       showToast('Déchiffrement et récupération Git en cours…');
       try {
-        const res = await api('instance/restore', { repo_url: repo, token: token, passphrase: pass });
+        const res = await api('instance/restore', { repo_url: repo, token: token, passphrase: pass }, 'POST', 120000);
         if (res && res.success) {
           showToast('Instance restaurée et configuration appliquée avec succès.');
           fetchInitialConfig();
@@ -6143,7 +6177,6 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       const bkp = cfg.instance_backup || cfg.instance_git;
       if (bkp) {
         if (bkp.repo_url && document.getElementById('restore_git_url')) document.getElementById('restore_git_url').value = bkp.repo_url;
-        if ((bkp.git_token || bkp.token) && document.getElementById('restore_git_token')) document.getElementById('restore_git_token').value = bkp.git_token || bkp.token;
       }
     }
 

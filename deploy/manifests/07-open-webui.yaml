@@ -26,9 +26,12 @@ spec:
     metadata:
       labels:
         app: open-webui
+      annotations:
+        checksum/arcia-webui-branding: "default"
     spec:
       containers:
       - name: open-webui
+        command: ["python3", "/opt/arcia-webui/start.py"]
         image: ghcr.io/open-webui/open-webui:v0.12.3
         ports:
         - containerPort: 8080
@@ -155,9 +158,12 @@ spec:
         - name: arcia-branding
           mountPath: /app/build/static/icon-model-zdr.svg
           subPath: icon-model-zdr.svg
-        - name: arcia-branding
-          mountPath: /app/build/static/models-branding.json
-          subPath: models-branding.json
+        - name: arcia-branding-private
+          mountPath: /etc/arcia
+          readOnly: true
+        - name: arcia-webui-code
+          mountPath: /opt/arcia-webui
+          readOnly: true
       volumes:
       - name: webui-data
         persistentVolumeClaim:
@@ -166,6 +172,15 @@ spec:
         configMap:
           name: arcia-webui-branding
           optional: true
+      - name: arcia-branding-private
+        configMap:
+          name: arcia-webui-branding
+          items:
+          - key: models-branding.json
+            path: models-branding.json
+      - name: arcia-webui-code
+        configMap:
+          name: arcia-webui-code
 ---
 apiVersion: v1
 kind: Service

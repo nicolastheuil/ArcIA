@@ -82,3 +82,10 @@ En cas de reconstruction ou de migration sur un cluster vierge :
    ```
 
 Voir également : [Guide Quickstart](quickstart.md) · [Exploitation Quotidienne](exploitation.md) · [Infrastructure K3s](../guides/infrastructure-k3s.md).
+
+
+## Sauvegarde des configurations par le wizard
+
+Le menu **Sauvegarde et reprise** utilise le dépôt privé déclaré par l'administrateur, sans réutiliser le dépôt du harness. Après déverrouillage local du coffre, chaque enregistrement de configuration déclenche un bundle AES-256-GCM et un push limité à `instance-secrets.enc` et `instance.json`. Le processus ne force jamais l'historique Git ; les erreurs produisent un état `pending`, avec instantanés chiffrés locaux et nouvelle tentative après 30 secondes. Un état `locked` requiert le déverrouillage dans le formulaire local ; aucun mot de passe ne doit être transmis dans le chat.
+
+Le dépôt, l'historique et les états de sauvegarde sont affichés séparément. Une restauration déchiffre et valide les fichiers avant remplacement local et conserve les variables d'environnement supplémentaires. Elle ne réapplique pas automatiquement les workloads. Les sauvegardes de bases/PVC/etcd décrites dans ce runbook restent nécessaires. Voir le [détail du correctif](../brief-icones-modeles-wizard.md).

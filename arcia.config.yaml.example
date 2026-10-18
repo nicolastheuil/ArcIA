@@ -189,3 +189,12 @@ microsoft365_integration:
   enabled: false
   config_file: "instance/microsoft365.yaml"
 
+
+# Dépôt privé d'instance ; jamais le dépôt du harness générique.
+# Collecter les accès et le mot de passe maître dans Sauvegarde et reprise.
+instance_backup:
+  enabled: true
+  repo_url: ""
+# Option visuelle par entrée llm_gateway.models_routing :
+# hosting: "local" ou "cloud" (absent : type du fournisseur).
+# Ce champ de présentation ne change aucune politique DLP ou ZDR.

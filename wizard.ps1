@@ -28,6 +28,12 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
     exit 1
 }
 
+# Le wizard reste utilisable pour le diagnostic ; les sauvegardes exigent AES-GCM.
+& $PythonCmd -c "from cryptography.hazmat.primitives.ciphers.aead import AESGCM" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Sauvegarde indisponible : installez les dépendances avec python -m pip install -r requirements-wizard.txt."
+}
+
 # Lancement du Wizard
 $ArgsList = @($WizardPy) + $RemainingArgs
 & $PythonCmd @ArgsList

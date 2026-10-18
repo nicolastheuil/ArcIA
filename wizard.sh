@@ -17,5 +17,9 @@ else
     exit 1
 fi
 
+if ! "$PYTHON_BIN" -c 'from cryptography.hazmat.primitives.ciphers.aead import AESGCM' 2>/dev/null; then
+    echo "Sauvegarde indisponible : installez les dépendances avec python3 -m pip install -r requirements-wizard.txt."
+fi
+
 # Exécution du Setup Wizard graphique
 exec "$PYTHON_BIN" "${SCRIPT_DIR}/scripts/wizard.py" "$@"

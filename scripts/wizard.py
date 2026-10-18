@@ -2,7 +2,7 @@
 """
 ArcIA — Assistant & Moteur d'Installation Graphique Interactif (Wizard)
 ========================================================================
-Ce serveur web autonome (Python 3 standard library uniquement, 0 dépendance)
+Ce serveur web autonome (Python 3, cryptography requis pour les sauvegardes AES-256-GCM)
 guide pas-à-pas l'administrateur pour configurer, déployer et restaurer une instance
 ArcIA complète et 100% opérationnelle dès le clone initial du dépôt Git.
 
@@ -35,6 +35,7 @@ import urllib.request
 import urllib.error
 import tempfile
 import shutil
+from pathlib import Path
 try:
     from http.server import ThreadingHTTPServer as HttpServerClass, BaseHTTPRequestHandler
 except ImportError:
@@ -61,6 +62,9 @@ if hasattr(sys.stdout, "reconfigure"):
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
+sys.path.insert(0, ROOT_DIR)
+from services.instance_backup import storage as instance_storage
+from services.open_webui.branding import resolve_model_icon
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml")
 EXAMPLE_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml.example")
 
@@ -111,30 +115,17 @@ def encrypt_instance_bundle(payload_dict: dict, passphrase: str) -> str:
     """Chiffre les secrets et la configuration d'instance avec AES-256-GCM et dérivation PBKDF2."""
     if not passphrase:
         raise ValueError("Le mot de passe de chiffrement ne peut pas être vide.")
+    if not HAS_CRYPTOGRAPHY:
+        raise RuntimeError("Le module cryptography est requis pour AES-256-GCM ; aucune sauvegarde dégradée.")
 
     salt = secrets.token_bytes(16)
     nonce = secrets.token_bytes(12)
     plaintext = json.dumps(payload_dict, ensure_ascii=False).encode('utf-8')
 
-    if HAS_CRYPTOGRAPHY:
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
-        key = kdf.derive(passphrase.encode('utf-8'))
-        aesgcm = AESGCM(key)
-        ciphertext = aesgcm.encrypt(nonce, plaintext, b'ARCIA_INSTANCE_V1')
-        algo = "AES-256-GCM"
-    else:
-        import hashlib, hmac
-        key = hashlib.pbkdf2_hmac('sha256', passphrase.encode('utf-8'), salt, 100000, 64)
-        enc_key, mac_key = key[:32], key[32:]
-        keystream = bytearray()
-        block_idx = 0
-        while len(keystream) < len(plaintext):
-            keystream.extend(hmac.new(enc_key, nonce + block_idx.to_bytes(4, 'big'), hashlib.sha256).digest())
-            block_idx += 1
-        ct_bytes = bytes([p ^ k for p, k in zip(plaintext, keystream[:len(plaintext)])])
-        tag = hmac.new(mac_key, b'ARCIA_INSTANCE_V1' + nonce + ct_bytes, hashlib.sha256).digest()
-        ciphertext = ct_bytes + tag
-        algo = "HMAC-SHA256-STREAM"
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+    key = kdf.derive(passphrase.encode('utf-8'))
+    ciphertext = AESGCM(key).encrypt(nonce, plaintext, b'ARCIA_INSTANCE_V1')
+    algo = "AES-256-GCM"
 
     bundle = {
         'schema': 'arcia-instance-v1',
@@ -162,7 +153,7 @@ def decrypt_instance_bundle(bundle_str: str, passphrase: str) -> dict:
             key = kdf.derive(passphrase.encode('utf-8'))
             aesgcm = AESGCM(key)
             plaintext = aesgcm.decrypt(nonce, ciphertext, b'ARCIA_INSTANCE_V1')
-        else:
+        elif algo == "HMAC-SHA256-STREAM":
             import hashlib, hmac
             key = hashlib.pbkdf2_hmac('sha256', passphrase.encode('utf-8'), salt, 100000, 64)
             enc_key, mac_key = key[:32], key[32:]
@@ -181,6 +172,8 @@ def decrypt_instance_bundle(bundle_str: str, passphrase: str) -> dict:
                 block_idx += 1
             plaintext = bytes([c ^ k for c, k in zip(ct_bytes, keystream[:len(ct_bytes)])])
 
+        else:
+            raise ValueError("Algorithme inconnu ou cryptography absent.")
         return json.loads(plaintext.decode('utf-8'))
     except Exception:
         raise ValueError("Mot de passe de restauration incorrect ou données d'instance corrompues.")
@@ -357,124 +350,42 @@ def git_create_remote_repo(provider: str, token: str, repo_name: str, owner: str
     return {"success": False, "error": "Fournisseur Git non pris en charge."}
 
 def git_push_instance(repo_url: str, token: str, encrypted_bundle_str: str, instance_name: str, fqdn: str) -> dict:
-    """Commits et pousse le bundle d'instance chiffré vers le dépôt privé en préservant l'historique."""
-    temp_dir = tempfile.mkdtemp(prefix="arcia-instance-")
+    """Push limité au bundle et à son manifeste, depuis un clone isolé."""
     try:
-        auth_url = repo_url
-        if token and "https://" in repo_url:
-            if "github.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
-            elif "gitlab.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
-            else:
-                auth_url = repo_url.replace("https://", f"https://{token}@")
-
-        # Tenter un clone du dépôt existant pour préserver l'historique
-        clone_res = subprocess.run(["git", "clone", "--depth", "50", auth_url, temp_dir], capture_output=True, timeout=30)
-        if clone_res.returncode != 0:
-            subprocess.run(["git", "init"], cwd=temp_dir, capture_output=True, check=True)
-            subprocess.run(["git", "checkout", "-B", "main"], cwd=temp_dir, capture_output=True)
-            subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=temp_dir, capture_output=True)
-
-        meta = {
-            "instance_name": instance_name,
-            "public_fqdn": fqdn,
-            "schema_version": "0.5.1",
-            "encryption": "AES-256-GCM-PBKDF2-100K",
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        }
-        with open(os.path.join(temp_dir, "instance.json"), "w", encoding="utf-8") as f:
-            json.dump(meta, f, indent=2)
-
-        with open(os.path.join(temp_dir, "instance-secrets.enc"), "w", encoding="utf-8") as f:
-            f.write(encrypted_bundle_str)
-
-        readme_content = f"""# ArcIA — Dépôt d'Instance Privée : {instance_name}
-
-Ce dépôt privé contient la configuration et les secrets chiffrés de l'instance ArcIA **{instance_name}** (`https://{fqdn}/`).
-
-> [!IMPORTANT]
-> **Sécurité de bout en bout :** Tous les secrets (clés d'inférence, identifiants Entra ID, tokens Bot Teams, mots de passe Hermes) sont chiffrés avec **AES-256-GCM** et dérivation de clé **PBKDF2 (100 000 itérations)**.
-> Aucune valeur secrète n'est exposée en clair dans ce dépôt.
-
-## Procédure de Restauration Complète
-
-Pour restaurer cette instance sur un cluster Kubernetes neuf ou reconstruit :
-
-1. Clonez le dépôt du socle générique ArcIA :
-   ```bash
-   git clone https://github.com/nicolastheuil/ArcIA.git
-   cd ArcIA
-   ```
-2. Lancez le Setup Wizard :
-   ```bash
-   ./wizard.sh       # Linux / macOS
-   .\\wizard.ps1      # Windows PowerShell
-   ```
-3. Choisissez **Restaurer une instance existante**.
-4. Renseignez l'URL de ce dépôt (`{repo_url}`) et votre mot de passe maître de déchiffrement.
-5. Cliquez sur **Lancer la restauration complète sur Kubernetes**.
-"""
-        with open(os.path.join(temp_dir, "README.md"), "w", encoding="utf-8") as f:
-            f.write(readme_content)
-
-        subprocess.run(["git", "config", "user.name", "ArcIA Setup Wizard"], cwd=temp_dir, capture_output=True)
-        subprocess.run(["git", "config", "user.email", "admin@arcia.local"], cwd=temp_dir, capture_output=True)
-        subprocess.run(["git", "add", "."], cwd=temp_dir, capture_output=True, check=True)
-        timestamp_str = time.strftime("%Y-%m-%d %H:%M:%S")
-        subprocess.run(["git", "commit", "-m", f"chore(instance): sauvegarde chiffrée {timestamp_str}"], cwd=temp_dir, capture_output=True)
-
-        proc = subprocess.run(["git", "push", "-u", "origin", "main"], cwd=temp_dir, capture_output=True, timeout=30)
-        if proc.returncode != 0:
-            proc = subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=temp_dir, capture_output=True, timeout=30)
-            if proc.returncode != 0:
-                err = proc.stderr.decode("utf-8", errors="replace")
-                return {"success": False, "error": f"Erreur git push ({err.strip()})"}
-
-        # Enregistrer la sauvegarde dans arcia.config.yaml
-        try:
+        result = instance_storage.push_snapshot(repo_url, token, encrypted_bundle_str,
+                    {"schema_version": 1, "encryption": "AES-256-GCM", "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        if result.get("success"):
             cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
-            cfg.setdefault("instance_backup", {})["enabled"] = True
-            cfg["instance_backup"]["repo_url"] = repo_url
-            cfg["instance_backup"]["git_token"] = token
-            cfg["instance_backup"]["last_backup"] = timestamp_str
-            save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
-        except Exception:
-            pass
+            settings = instance_storage.normalize_settings(cfg)
+            settings.update({"enabled": True, "repo_url": repo_url})
+            cfg["instance_backup"] = settings
+            save_config_to_files(cfg, DEFAULT_CONFIG_PATH, trigger_backup=False)
+        return result
+    except Exception:
+        return {"success": False, "error": "Push du dépôt privé refusé ; vérifier les accès et la branche. Aucun force-push effectué."}
 
-        return {"success": True, "repo_url": repo_url, "timestamp": timestamp_str}
-
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
 
 def get_instance_backup_timeline(repo_url: str, token: str) -> dict:
     """Récupère l'historique des commits de sauvegarde chiffrée depuis le dépôt privé."""
     temp_dir = tempfile.mkdtemp(prefix="arcia-timeline-")
     try:
-        auth_url = repo_url
-        if token and "https://" in repo_url:
-            if "github.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
-            elif "gitlab.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
-            else:
-                auth_url = repo_url.replace("https://", f"https://{token}@")
-
-        proc = subprocess.run(["git", "clone", "--depth", "50", auth_url, temp_dir], capture_output=True, timeout=30)
+        instance_storage.validate_repo(repo_url)
+        git_env = instance_storage.git_environment(repo_url, token)
+        proc = subprocess.run(["git", "clone", "--depth", "50", repo_url, temp_dir], capture_output=True, timeout=30, env=git_env)
         if proc.returncode != 0:
             err = proc.stderr.decode("utf-8", errors="replace")
-            return {"success": False, "error": f"Impossible d'accéder au dépôt : {err.strip()}", "timeline": []}
+            return {"success": False, "error": "Dépôt inaccessible ; vérifier les accès locaux.", "timeline": []}
 
         log_proc = subprocess.run(
-            ["git", "log", "--format=%H|%ad|%s", "--date=iso"],
+            ["git", "log", "--format=%H|%ad|%s", "--date=iso", "--", "instance-secrets.enc"],
             cwd=temp_dir,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace"
         )
+        if log_proc.returncode:
+            return {"success": False, "error": "Historique de sauvegarde inaccessible.", "timeline": []}
         timeline = []
         if log_proc.returncode == 0 and log_proc.stdout.strip():
             for line in log_proc.stdout.strip().splitlines():
@@ -496,7 +407,7 @@ def get_instance_backup_timeline(repo_url: str, token: str) -> dict:
             "timeline": timeline
         }
     except Exception as e:
-        return {"success": False, "error": str(e), "timeline": []}
+        return {"success": False, "error": "Lecture du dépôt de sauvegarde impossible.", "timeline": []}
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -504,27 +415,24 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, co
     """Clone le dépôt d'instance privé et déchiffre la configuration avec le mot de passe maître."""
     temp_dir = tempfile.mkdtemp(prefix="arcia-restore-")
     try:
-        auth_url = repo_url
-        if token and "https://" in repo_url:
-            if "github.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
-            elif "gitlab.com" in repo_url:
-                auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
-            else:
-                auth_url = repo_url.replace("https://", f"https://{token}@")
-
+        instance_storage.validate_repo(repo_url)
+        git_env = instance_storage.git_environment(repo_url, token)
         depth_args = [] if commit_hash else ["--depth", "50"]
-        proc = subprocess.run(["git", "clone"] + depth_args + [auth_url, temp_dir], capture_output=True, timeout=30)
+        proc = subprocess.run(["git", "clone"] + depth_args + [repo_url, temp_dir], capture_output=True, timeout=30, env=git_env)
         if proc.returncode != 0:
             err = proc.stderr.decode("utf-8", errors="replace")
-            return {"success": False, "error": f"Impossible d'accéder au dépôt d'instance : {err.strip()}"}
+            return {"success": False, "error": "Dépôt d'instance inaccessible ; vérifier les accès locaux."}
 
+        if commit_hash and not re.fullmatch(r"[a-fA-F0-9]{7,64}", commit_hash):
+            raise ValueError("Révision de restauration invalide.")
         if commit_hash:
-            ck = subprocess.run(["git", "checkout", commit_hash], cwd=temp_dir, capture_output=True, timeout=15)
+            ck = subprocess.run(["git", "checkout", "--detach", commit_hash], cwd=temp_dir, capture_output=True, timeout=15)
             if ck.returncode != 0:
                 return {"success": False, "error": f"Point de restauration {commit_hash[:7]} introuvable."}
 
         enc_file = os.path.join(temp_dir, "instance-secrets.enc")
+        if os.path.islink(enc_file):
+            raise ValueError("Lien symbolique de sauvegarde interdit.")
         if not os.path.isfile(enc_file):
             return {"success": False, "error": "Fichier 'instance-secrets.enc' introuvable dans ce dépôt."}
 
@@ -534,56 +442,49 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, co
         decrypted = decrypt_instance_bundle(bundle_str, passphrase)
 
         config_yaml = decrypted.get("config_yaml", "")
-        if not config_yaml:
+        if not isinstance(decrypted.get("env_content", ""), str):
+            raise ValueError("Environnement restauré invalide.")
+        if not isinstance(config_yaml, str) or not config_yaml:
             return {"success": False, "error": "Le bundle d'instance ne contient pas de configuration valide."}
 
-        # Écriture immédiate dans arcia.config.yaml
-        with open(DEFAULT_CONFIG_PATH, "w", encoding="utf-8") as f:
-            f.write(config_yaml)
-
-        # Restauration de secrets/arcia.env
-        env_content = decrypted.get("env_content", "")
-        if env_content:
-            secrets_dir = os.path.join(ROOT_DIR, "secrets")
-            os.makedirs(secrets_dir, exist_ok=True)
-            with open(os.path.join(secrets_dir, "arcia.env"), "w", encoding="utf-8") as f:
-                f.write(env_content)
-
-        sys.path.insert(0, SCRIPT_DIR)
-        import deploy
-        cfg = deploy.parse_yaml_or_env(DEFAULT_CONFIG_PATH)
-
-        # Enregistrer la source de backup restaurée
+        # Valider avant écriture ; utiliser ensuite la même transaction que toute sauvegarde.
         try:
-            cfg.setdefault("instance_backup", {})["enabled"] = True
-            cfg["instance_backup"]["repo_url"] = repo_url
-            cfg["instance_backup"]["git_token"] = token
-            save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
-        except Exception:
-            pass
-
+            import yaml
+            cfg = yaml.safe_load(config_yaml)
+        except ImportError:
+            import deploy
+            cfg = deploy.parse_simple_yaml(config_yaml)
+        if not isinstance(cfg, dict):
+            raise ValueError("Configuration restaurée invalide.")
+        cfg = ensure_config_defaults(cfg)
+        settings = instance_storage.normalize_settings(cfg)
+        settings.update({"enabled": True, "repo_url": repo_url})
+        cfg["instance_backup"] = settings
+        instance_storage.unlock(ROOT_DIR, repo_url, token, passphrase)
+        backup_result = save_config_to_files(cfg, DEFAULT_CONFIG_PATH, restored_env=decrypted.get("env_content", ""))
         return {
             "success": True,
             "instance_name": decrypted.get("instance_name", "ArcIA-instance"),
             "public_fqdn": decrypted.get("public_fqdn", cfg.get("network", {}).get("public_fqdn", "")),
             "config": cfg,
+            "backup_status": backup_result,
             "commit_hash": commit_hash,
             "message": f"Instance '{decrypted.get('instance_name', '')}' restaurée avec succès !"
         }
 
     except ValueError as ve:
         return {"success": False, "error": str(ve)}
-    except Exception as e:
-        return {"success": False, "error": f"Erreur lors de la restauration : {str(e)}"}
+    except Exception:
+        return {"success": False, "error": "Restauration impossible ; vérifier le dépôt, le coffre et la configuration chiffrée."}
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 def get_instance_backup_info() -> dict:
     """Renvoie les informations actuelles sur le dépôt de sauvegarde d'instance et la timeline des commits."""
     cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
-    backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
+    backup_cfg = instance_storage.normalize_settings(cfg)
     repo_url = backup_cfg.get("repo_url", "").strip()
-    token = (backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
+    token = instance_storage.credentials(ROOT_DIR, backup_cfg)["token"]
     last_backup = backup_cfg.get("last_backup", None)
 
     if not repo_url:
@@ -597,11 +498,14 @@ def get_instance_backup_info() -> dict:
 
     timeline_res = get_instance_backup_timeline(repo_url, token)
     return {
-        "success": True,
+        "success": timeline_res.get("success", False),
         "configured": True,
         "repo_url": repo_url,
         "last_backup": timeline_res.get("last_backup") or last_backup,
-        "timeline": timeline_res.get("timeline", [])
+        "timeline": timeline_res.get("timeline", []),
+        "error": timeline_res.get("error"),
+        "backup_status": instance_storage.status(ROOT_DIR),
+        "unlocked": bool(instance_storage.credentials(ROOT_DIR, backup_cfg)["passphrase"])
     }
 
 def get_integrations_status(cfg: Optional[Dict[str, Any]] = None) -> dict:
@@ -1694,70 +1598,189 @@ vmware:
     ram_per_node_gb: {istr(vm_res.get('ram_per_node_gb', sizing.get('ram_per_node_gb', 16)), 16)}
     disk_per_node_gb: {istr(vm_res.get('disk_per_node_gb', sizing.get('disk_per_node_gb', 150)), 150)}
 """
-    return yaml_text
+    import deploy
+    rendered = deploy.parse_simple_yaml(yaml_text)
 
-def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_PATH) -> None:
+    def merge(target, source):
+        for key, value in source.items():
+            if isinstance(value, dict):
+                current = target.get(key)
+                if not isinstance(current, dict):
+                    current = target[key] = {}
+                merge(current, value)
+            elif value is not None and not (key == "ssh_port" and value == ""):
+                target[key] = value
+    merge(rendered, cfg)
+    for section in ("instance_backup", "instance_git"):
+        if isinstance(rendered.get(section), dict):
+            rendered[section].pop("passphrase", None)
+    lines = ["# ArcIA — Configuration d'instance générée par le wizard"]
+    def emit(mapping, depth=0):
+        for key, value in mapping.items():
+            safe_key = str(key) if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", str(key)) else json.dumps(str(key))
+            if isinstance(value, dict) and value:
+                lines.append(" " * depth + safe_key + ":")
+                emit(value, depth + 2)
+            else:
+                lines.append(" " * depth + safe_key + ": " + json.dumps(value, ensure_ascii=False))
+    emit(rendered)
+    return "\n".join(lines) + "\n"
+
+
+@instance_storage.serialized
+def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_PATH, trigger_backup: bool = True, restored_env: Optional[str] = None) -> dict:
     """Enregistre la configuration dans arcia.config.yaml et synchronise secrets/arcia.env."""
+    # Préserver le dépôt déclaré lorsque le formulaire ne transporte pas cette section.
+    if os.path.isfile(config_path):
+        import deploy
+        previous = deploy.parse_yaml_or_env(config_path)
+        if not instance_storage.normalize_settings(cfg).get("repo_url"):
+            for key in ("instance_backup", "instance_git"):
+                if key in previous:
+                    cfg[key] = previous[key]
+        # Un formulaire partiel ne doit pas effacer les autres réglages de l'instance.
+        def merge_saved(base, changes):
+            result = dict(base)
+            for key, value in changes.items():
+                result[key] = merge_saved(result.get(key, {}), value) if isinstance(value, dict) and isinstance(result.get(key), dict) else value
+            return result
+        merged = merge_saved(previous, cfg)
+        cfg.clear()
+        cfg.update(merged)
+    settings = instance_storage.normalize_settings(cfg)
+    if settings.get("repo_url") and settings.get("passphrase"):
+        instance_storage.unlock(ROOT_DIR, settings["repo_url"], settings.get("git_token") or settings.get("token") or "", settings["passphrase"])
     yaml_content = serialize_yaml_config(cfg)
     os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
-    with open(config_path, "w", encoding="utf-8") as f:
+    temporary = str(config_path) + ".part"
+    with open(temporary, "w", encoding="utf-8") as f:
         f.write(yaml_content)
+    env_temporary = None
 
     secrets_dir = os.path.join(ROOT_DIR, "secrets")
     real_prod_path = os.path.normpath(os.path.join(ROOT_DIR, "arcia.config.yaml"))
     if os.path.normpath(os.path.abspath(config_path)) == real_prod_path and os.path.isdir(secrets_dir):
         env_path = os.path.join(secrets_dir, "arcia.env")
+        import io
+        previous_env = restored_env
+        if previous_env is None:
+            previous_env = Path(env_path).read_text(encoding="utf-8") if os.path.isfile(env_path) else ""
+        f = io.StringIO()
+        f.write(f"# ArcIA Environment Secrets - Auto-généré par le Wizard\n")
+        for field, env_name in (("master_key", "LITELLM_MASTER_KEY"), ("salt_key", "LITELLM_SALT_KEY"), ("db_password", "LITELLM_DB_PASSWORD")):
+            value = cfg.get("llm_gateway", {}).get(field, "")
+            if value:
+                f.write(f"{env_name}={value}\n")
+        or_key = cfg.get('llm_gateway', {}).get('openrouter_api_key', '')
+        if or_key and not is_placeholder_key(or_key):
+            f.write(f"OPENROUTER_API_KEY={or_key}\n")
+        oai_key = cfg.get('llm_gateway', {}).get('openai_api_key', '')
+        if oai_key and not is_placeholder_key(oai_key):
+            f.write(f"OPENAI_API_KEY={oai_key}\n")
+        ant_key = cfg.get('llm_gateway', {}).get('anthropic_api_key', '')
+        if ant_key and not is_placeholder_key(ant_key):
+            f.write(f"ANTHROPIC_API_KEY={ant_key}\n")
+        mis_key = cfg.get('llm_gateway', {}).get('mistral_api_key', '')
+        if mis_key and not is_placeholder_key(mis_key):
+            f.write(f"MISTRAL_API_KEY={mis_key}\n")
+        gem_key = cfg.get('llm_gateway', {}).get('gemini_api_key', '')
+        if gem_key and not is_placeholder_key(gem_key):
+            f.write(f"GEMINI_API_KEY={gem_key}\n")
+        for section, field, env_name in (("hermes", "admin_password", "HERMES_ADMIN_PASSWORD"), ("hermes", "api_token", "HERMES_API_SERVER_KEY"), ("presidio", "master_key", "PRESIDIO_MASTER_KEY")):
+            if field in cfg.get(section, {}):
+                f.write(f"{env_name}={cfg[section][field]}\n")
+        sso = cfg.get("entra_id_sso", {})
+        if sso.get("enabled"):
+            f.write(f"ENTRA_TENANT_ID={sso.get('tenant_id', '')}\n")
+            f.write(f"ENTRA_CLIENT_ID={sso.get('client_id', '')}\n")
+            f.write(f"ENTRA_CLIENT_SECRET={sso.get('client_secret', '')}\n")
+            f.write(f"OAUTH2_PROXY_COOKIE_SECRET={sso.get('cookie_secret', '')}\n")
+        teams = cfg.get("teams_bot", {})
+        if teams.get("enabled"):
+            f.write(f"TEAMS_BOT_APP_ID={teams.get('app_id', '')}\n")
+            f.write(f"TEAMS_BOT_APP_PASSWORD={teams.get('app_password', '')}\n")
+            if teams.get("tenant_id"):
+                f.write(f"TEAMS_BOT_TENANT_ID={teams.get('tenant_id', '')}\n")
+        # Secrets VMware vSphere
+        vm = cfg.get("vmware", {})
+        vm_auth = vm.get("auth", {})
+        if vm.get("password") and not is_placeholder_key(vm.get("password")):
+            f.write(f"VMWARE_VCENTER_PASSWORD={vm.get('password')}\n")
+        if vm_auth.get("vm_password") and not is_placeholder_key(vm_auth.get("vm_password")):
+            f.write(f"VMWARE_VM_PASSWORD={vm_auth.get('vm_password')}\n")
+        if vm_auth.get("root_password") and not is_placeholder_key(vm_auth.get("root_password")):
+            f.write(f"VMWARE_ROOT_PASSWORD={vm_auth.get('root_password')}\n")
+        vm_store = vm.get("storage_account", {})
+        if vm_store.get("password") and not is_placeholder_key(vm_store.get("password")):
+            f.write(f"VMWARE_STORAGE_PASSWORD={vm_store.get('password')}\n")
+        updates = dict(line.split("=", 1) for line in f.getvalue().splitlines() if "=" in line and not line.startswith("#"))
+        preserved = []
+        for line in previous_env.splitlines():
+            key = line.split("=", 1)[0].strip() if "=" in line else ""
+            if key not in updates:
+                preserved.append(line)
+        env_content = "\n".join(preserved + [key + "=" + value for key, value in updates.items()]) + "\n"
+        env_temporary = env_path + ".part"
+        with open(env_temporary, "w", encoding="utf-8") as stream:
+            stream.write(env_content)
+    os.replace(temporary, config_path)
+    if env_temporary is not None:
+        os.replace(env_temporary, env_path)
+
+    if trigger_backup and os.path.normcase(os.path.abspath(config_path)) == os.path.normcase(os.path.abspath(DEFAULT_CONFIG_PATH)):
+        return backup_current_instance(cfg=cfg)
+    return {"success": True, "state": "local_only"}
+
+
+@instance_storage.serialized
+def backup_current_instance(cfg=None, passphrase="", token="", repo_url="", force=False):
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+    settings = instance_storage.normalize_settings(cfg)
+    repo_url = repo_url or settings.get("repo_url", "")
+    if repo_url:
+        instance_storage.validate_repo(repo_url)
+    auth_settings = settings if repo_url == settings.get("repo_url") else {"repo_url": repo_url}
+    stored = instance_storage.credentials(ROOT_DIR, auth_settings)
+    if passphrase and passphrase != stored["passphrase"]:
+        latest = instance_storage.read_latest_bundle(repo_url, token or stored["token"])
+        if latest is not None:
+            decrypt_instance_bundle(latest, passphrase)
+    if passphrase or (token and stored["passphrase"]):
+        instance_storage.unlock(ROOT_DIR, repo_url, token or stored["token"], passphrase or stored["passphrase"])
+    settings.update({"enabled": settings.get("enabled", True), "repo_url": repo_url})
+    cfg["instance_backup"] = settings
+    if passphrase or repo_url != instance_storage.normalize_settings(load_config_data(DEFAULT_CONFIG_PATH)[0]).get("repo_url", ""):
+        save_config_to_files(cfg, DEFAULT_CONFIG_PATH, trigger_backup=False)
+    env_path = os.path.join(ROOT_DIR, "secrets", "arcia.env")
+    env_content = ""
+    if os.path.isfile(env_path):
+        with open(env_path, encoding="utf-8") as stream:
+            env_content = stream.read()
+    return instance_storage.backup(ROOT_DIR, cfg, serialize_yaml_config(cfg), env_content, encrypt_instance_bundle, force=force)
+
+
+def watch_instance_configuration(stop_event):
+    previous = None
+    retry_at = 0
+    while not stop_event.wait(3):
         try:
-            with open(env_path, "w", encoding="utf-8") as f:
-                f.write(f"# ArcIA Environment Secrets - Auto-généré par le Wizard\n")
-                for field, env_name in (("master_key", "LITELLM_MASTER_KEY"), ("salt_key", "LITELLM_SALT_KEY"), ("db_password", "LITELLM_DB_PASSWORD")):
-                    value = cfg.get("llm_gateway", {}).get(field, "")
-                    if value:
-                        f.write(f"{env_name}={value}\n")
-                or_key = cfg.get('llm_gateway', {}).get('openrouter_api_key', '')
-                if or_key and not is_placeholder_key(or_key):
-                    f.write(f"OPENROUTER_API_KEY={or_key}\n")
-                oai_key = cfg.get('llm_gateway', {}).get('openai_api_key', '')
-                if oai_key and not is_placeholder_key(oai_key):
-                    f.write(f"OPENAI_API_KEY={oai_key}\n")
-                ant_key = cfg.get('llm_gateway', {}).get('anthropic_api_key', '')
-                if ant_key and not is_placeholder_key(ant_key):
-                    f.write(f"ANTHROPIC_API_KEY={ant_key}\n")
-                mis_key = cfg.get('llm_gateway', {}).get('mistral_api_key', '')
-                if mis_key and not is_placeholder_key(mis_key):
-                    f.write(f"MISTRAL_API_KEY={mis_key}\n")
-                gem_key = cfg.get('llm_gateway', {}).get('gemini_api_key', '')
-                if gem_key and not is_placeholder_key(gem_key):
-                    f.write(f"GEMINI_API_KEY={gem_key}\n")
-                f.write(f"HERMES_ADMIN_PASSWORD={cfg.get('hermes', {}).get('admin_password', 'admin')}\n")
-                f.write(f"HERMES_API_SERVER_KEY={cfg.get('hermes', {}).get('api_token', '')}\n")
-                f.write(f"PRESIDIO_MASTER_KEY={cfg.get('presidio', {}).get('master_key', '')}\n")
-                sso = cfg.get("entra_id_sso", {})
-                if sso.get("enabled"):
-                    f.write(f"ENTRA_TENANT_ID={sso.get('tenant_id', '')}\n")
-                    f.write(f"ENTRA_CLIENT_ID={sso.get('client_id', '')}\n")
-                    f.write(f"ENTRA_CLIENT_SECRET={sso.get('client_secret', '')}\n")
-                    f.write(f"OAUTH2_PROXY_COOKIE_SECRET={sso.get('cookie_secret', '')}\n")
-                teams = cfg.get("teams_bot", {})
-                if teams.get("enabled"):
-                    f.write(f"TEAMS_BOT_APP_ID={teams.get('app_id', '')}\n")
-                    f.write(f"TEAMS_BOT_APP_PASSWORD={teams.get('app_password', '')}\n")
-                    if teams.get("tenant_id"):
-                        f.write(f"TEAMS_BOT_TENANT_ID={teams.get('tenant_id', '')}\n")
-                # Secrets VMware vSphere
-                vm = cfg.get("vmware", {})
-                vm_auth = vm.get("auth", {})
-                if vm.get("password") and not is_placeholder_key(vm.get("password")):
-                    f.write(f"VMWARE_VCENTER_PASSWORD={vm.get('password')}\n")
-                if vm_auth.get("vm_password") and not is_placeholder_key(vm_auth.get("vm_password")):
-                    f.write(f"VMWARE_VM_PASSWORD={vm_auth.get('vm_password')}\n")
-                if vm_auth.get("root_password") and not is_placeholder_key(vm_auth.get("root_password")):
-                    f.write(f"VMWARE_ROOT_PASSWORD={vm_auth.get('root_password')}\n")
-                vm_store = vm.get("storage_account", {})
-                if vm_store.get("password") and not is_placeholder_key(vm_store.get("password")):
-                    f.write(f"VMWARE_STORAGE_PASSWORD={vm_store.get('password')}\n")
+            import hashlib
+            digest = hashlib.sha256()
+            for path in (DEFAULT_CONFIG_PATH, os.path.join(ROOT_DIR, "secrets", "arcia.env")):
+                if os.path.isfile(path):
+                    with open(path, "rb") as stream:
+                        digest.update(stream.read())
+            changed = digest.hexdigest() != previous
+            retry = instance_storage.status(ROOT_DIR).get("state") in {"pending", "locked"} and time.monotonic() >= retry_at
+            if changed or retry:
+                backup_current_instance()
+                previous = digest.hexdigest()
+                retry_at = time.monotonic() + 30
         except Exception:
-            pass
+            # Aucun contenu de configuration ou exception privée dans les journaux.
+            retry_at = time.monotonic() + 30
+
 
 # -----------------------------------------------------------------------------
 # Exécution du Déploiement en Tâche de Fond & Sauvegarde Git Chiffrée
@@ -1989,22 +2012,7 @@ def run_deployment_worker(dry_run: bool = False, instance_git_info: Optional[dic
                         passphrase = instance_git_info.get("passphrase", "")
                         inst_name = instance_git_info.get("instance_name", "ArcIA-instance")
 
-                        yaml_content = serialize_yaml_config(cfg)
-                        env_content = ""
-                        try:
-                            with open(os.path.join(ROOT_DIR, "secrets", "arcia.env"), "r", encoding="utf-8") as f:
-                                env_content = f.read()
-                        except Exception:
-                            pass
-
-                        payload = {
-                            "instance_name": inst_name,
-                            "public_fqdn": fqdn,
-                            "config_yaml": yaml_content,
-                            "env_content": env_content
-                        }
-                        enc_bundle = encrypt_instance_bundle(payload, passphrase)
-                        push_res = git_push_instance(repo_url, token, enc_bundle, inst_name, fqdn)
+                        push_res = backup_current_instance(cfg, passphrase=passphrase, token=token, repo_url=repo_url, force=True)
                         if push_res.get("success"):
                             deployment_state["logs"].append(f"[OK] Dépôt d'instance privé synchronisé et chiffré (AES-256-GCM) : {repo_url}")
                             instance_repo_url = repo_url
@@ -2824,8 +2832,11 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             _append_update_log("[OK] ConfigMaps de code microservices synchronisés à chaud sans coupure.")
             deploy.sync_native_skills(runner, namespace, ROOT_DIR)
             _append_update_log("[OK] Catalogue de compétences natives ('arcia-native-skills') synchronisé.")
-            deploy.sync_webui_branding(runner, namespace, ROOT_DIR)
-            _append_update_log("[OK] Identité visuelle 'arcia-webui-branding' synchronisée.")
+            visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
+            visual_result = deploy.activate_webui_branding(runner, namespace, visual)
+            if not visual_result.get("assets_served"):
+                raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
+            _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP.")
 
         if "arcia-core" in selected_components:
             with update_lock:
@@ -3844,6 +3855,7 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
                     "requires_endpoint": True,
                     "endpoint": cp.get("endpoint", ""),
                     "is_custom": True,
+                    "hosting": cp.get("hosting", ""),
                     "recommended": False
                 })
 
@@ -3933,24 +3945,10 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
     custom_mappings = llm.get("models_routing", [])
     mappings_to_use = custom_mappings if (custom_mappings and isinstance(custom_mappings, list)) else default_mappings
 
-    # Enrichissement avec les icônes officielles ArcIA pour Open-WebUI
+    # Même résolution serveur que la projection native d'avatars.
     for m in mappings_to_use:
-        prov = str(m.get("provider") or "").lower()
-        target = str(m.get("target_model") or m.get("real_model") or "").lower()
-        zdr = bool(m.get("zdr", True))
-        is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
-        if is_local:
-            m["icon"] = "/static/icon-model-local.svg"
-            m["icon_type"] = "local"
-            m["icon_badge"] = "Liseret doré (Local souverain)"
-        elif zdr:
-            m["icon"] = "/static/icon-model-zdr.svg"
-            m["icon_type"] = "zdr"
-            m["icon_badge"] = "Liseret argenté (Cloud ZDR)"
-        else:
-            m["icon"] = "/static/icon-model-default.svg"
-            m["icon_type"] = "default"
-            m["icon_badge"] = "aIA classique"
+        visual = resolve_model_icon(m, llm.get("custom_providers") or [])
+        m.update({"icon": visual["icon"], "icon_type": visual["type"], "icon_badge": visual["badge"]})
 
     hermes = cfg.setdefault("hermes", {})
     return {
@@ -4060,17 +4058,9 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 
     save_config_to_files(cfg, cfg_path)
 
-    # 1. Sauvegarde locale du fichier models-branding.json pour Open-WebUI & Docker Lab
+    # Projection privée : aucune écriture dans les assets suivis du harness.
     branding_synced = False
-    try:
-        sys.path.insert(0, SCRIPT_DIR)
-        import deploy
-        branding_dict = deploy.compute_models_branding_dict(cfg=cfg, root_dir=ROOT_DIR)
-        local_mb_path = os.path.join(ROOT_DIR, "assets", "branding", "models-branding.json")
-        with open(local_mb_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(branding_dict, indent=2, ensure_ascii=False))
-    except Exception:
-        pass
+    branding_status = {"assets_applied": False, "runtime_loaded": False, "avatars_verified": False}
 
     # 2. Synchronisation des 3 composants (LiteLLM, Hermes, Open-WebUI) et Power Users
     litellm_synced = False
@@ -4101,10 +4091,11 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
             # 4. Branding Open-WebUI
             try:
                 import deploy
-                deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
-                branding_synced = True
+                published = deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
+                branding_status = deploy.activate_webui_branding(runner, ns, published)
+                branding_synced = bool(branding_status.get("assets_served") and branding_status.get("runtime_loaded"))
             except Exception:
-                pass
+                branding_status["error"] = "Publication des icônes non aboutie ; relancer uniquement cette étape."
 
             # 5. Power Users
             try:
@@ -4131,7 +4122,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     else:
         msg_parts.append("Routage non appliqué au cluster : vérifiez la cible Kubernetes et relancez la synchronisation. La sauvegarde locale est conservée.")
     if branding_synced:
-        msg_parts.append("Icônes des modèles poussées dans Open-WebUI.")
+        msg_parts.append("Projection des icônes chargée et ressources HTTP vérifiées ; recette navigateur distincte.")
 
     return {
         "success": True,
@@ -4141,6 +4132,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
         "openwebui_synced": openwebui_synced,
         "powerusers_synced": powerusers_synced,
         "branding_synced": branding_synced,
+        "branding_status": branding_status,
         "all_synced": bool(litellm_synced and hermes_synced and openwebui_synced),
         "details": details,
         "message": " ".join(msg_parts)
@@ -4692,6 +4684,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
         super().end_headers()
 
     def send_json(self, status: int, data: Any):
+        if isinstance(data, dict) and getattr(self, "command", "") == "POST":
+            data.setdefault("backup_status", instance_storage.status(ROOT_DIR))
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -4900,30 +4894,33 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             self.send_json(200, res)
 
         elif path == "/api/instance/restore":
-            repo_url = req_data.get("repo_url", "").strip()
-            token = req_data.get("token", "").strip()
-            passphrase = req_data.get("passphrase", "").strip()
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            settings = instance_storage.normalize_settings(cfg)
+            repo_url = (req_data.get("repo_url") or settings.get("repo_url") or "").strip()
+            auth_settings = settings if repo_url == settings.get("repo_url") else {"repo_url": repo_url}
+            stored = instance_storage.credentials(ROOT_DIR, auth_settings)
+            token = (req_data.get("token") or stored["token"]).strip()
+            passphrase = req_data.get("passphrase") or stored["passphrase"]
             commit_hash = req_data.get("commit_hash", None)
             res = git_pull_and_decrypt_instance(repo_url, token, passphrase, commit_hash=commit_hash)
             self.send_json(200, res)
 
         elif path == "/api/instance/backup-now":
-            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
-            backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
-            repo_url = (req_data.get("repo_url") or backup_cfg.get("repo_url") or "").strip()
-            token = (req_data.get("token") or backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
-            passphrase = (req_data.get("passphrase") or backup_cfg.get("passphrase") or "").strip()
-            if not (repo_url and token and passphrase):
-                self.send_json(400, {"success": False, "error": "Paramètres de sauvegarde Git incomplets (dépôt, token ou mot de passe manquant)."})
-            else:
-                res = git_push_instance(repo_url, token, passphrase, cfg)
-                self.send_json(200, res)
+            try:
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                result = backup_current_instance(cfg, passphrase=req_data.get("passphrase", ""), token=req_data.get("token", ""), repo_url=req_data.get("repo_url", ""), force=True)
+                if result.get("success"):
+                    save_config_to_files(cfg, DEFAULT_CONFIG_PATH, trigger_backup=False)
+                self.send_json(200 if result.get("success") else 400, result)
+            except Exception:
+                self.send_json(400, {"success": False, "error": "Sauvegarde indisponible ; vérifier le coffre et le dépôt privé."})
 
         elif path == "/api/instance/timeline":
             cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
-            backup_cfg = cfg.get("instance_backup") or cfg.get("instance_git") or {}
+            backup_cfg = instance_storage.normalize_settings(cfg)
             repo_url = (req_data.get("repo_url") or backup_cfg.get("repo_url") or "").strip()
-            token = (req_data.get("token") or backup_cfg.get("git_token") or backup_cfg.get("token") or "").strip()
+            auth_settings = backup_cfg if repo_url == backup_cfg.get("repo_url") else {"repo_url": repo_url}
+            token = (req_data.get("token") or instance_storage.credentials(ROOT_DIR, auth_settings)["token"]).strip()
             if not repo_url:
                 self.send_json(400, {"success": False, "error": "URL de dépôt de sauvegarde manquante.", "timeline": []})
             else:
@@ -4988,11 +4985,21 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
 
             try:
                 cfg = req_data.get("config")
+                dry_run = req_data.get("dry_run", False)
+                git_info = req_data.get("instance_git", None)
+                if git_info and not dry_run:
+                    registered = instance_storage.normalize_settings({"instance_git": git_info})
+                    if not registered.get("repo_url"):
+                        raise ValueError("Dépôt privé de sauvegarde incomplet.")
+                    instance_storage.unlock(ROOT_DIR, registered["repo_url"], git_info.get("token", ""), git_info.get("passphrase", ""))
+                    registered = {k: v for k, v in registered.items() if k not in {"token", "git_token", "passphrase"}}
+                    registered["enabled"] = True
+                    cfg = cfg or load_config_data(DEFAULT_CONFIG_PATH)[0]
+                    cfg["instance_backup"] = registered
+                    git_info = {"enabled": True, "repo_url": registered["repo_url"]}
                 if cfg:
                     save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
 
-                dry_run = req_data.get("dry_run", False)
-                git_info = req_data.get("instance_git", None)
                 infra_target = req_data.get("infra_target", "k8s_existing")
                 infra_config = req_data.get("infra_config", None)
 
@@ -5130,6 +5137,23 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             res = sync_all_powerusers_wizard()
             self.send_json(200, res)
 
+        elif path == "/api/models/sync-appearance":
+            try:
+                import deploy
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                runner = get_k8s_runner(cfg)
+                namespace = cfg.get("kubernetes", {}).get("namespace", "arcia")
+                visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
+                result = deploy.activate_webui_branding(runner, namespace, visual)
+                result["success"] = bool(result.get("runtime_loaded") and result.get("assets_served"))
+                self.send_json(200 if result["success"] else 400, result)
+            except Exception:
+                self.send_json(400, {"success": False, "error": "Publication des icônes indisponible ; vérifier le cluster et le rollout Open-WebUI."})
+
+        elif path == "/api/models/appearance":
+            custom = req_data.get("custom_providers") or []
+            self.send_json(200, {"success": True, "icons": [resolve_model_icon(m, custom) for m in req_data.get("models", [])]})
+
         elif path == "/api/models/routing":
             res = save_model_routing_config(req_data)
             self.send_json(200, res)
@@ -5190,6 +5214,8 @@ def main():
     port = find_available_port(args.port)
     server_address = (args.host, port)
     httpd = HttpServerClass(server_address, WizardHTTPHandler)
+    watcher_stop = threading.Event()
+    threading.Thread(target=watch_instance_configuration, args=(watcher_stop,), daemon=True).start()
 
     wizard_url = f"http://{args.host}:{port}/"
 
@@ -5211,6 +5237,7 @@ def main():
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n[+] Arrêt du serveur Wizard.")
+        watcher_stop.set()
         httpd.server_close()
         sys.exit(0)
 

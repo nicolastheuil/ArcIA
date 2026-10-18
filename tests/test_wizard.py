@@ -26,6 +26,10 @@ class TestArcIAWizard(unittest.TestCase):
         ssh = patch("deploy.find_harness_ssh", return_value=(None, None))
         ssh.start()
         self.addCleanup(ssh.stop)
+        # Les tests généraux ne doivent jamais sauvegarder l'instance privée du poste.
+        backup = patch("wizard.backup_current_instance", return_value={"success": True, "state": "synthetic"})
+        backup.start()
+        self.addCleanup(backup.stop)
 
     def test_generate_token_kinds(self):
         """Vérifie la génération de tokens cryptographiques pour chaque usage."""
@@ -1370,8 +1374,8 @@ llm_gateway:
         self.assertEqual(plain_m["icon_type"], "default")
         self.assertEqual(plain_m["icon"], "/static/icon-model-default.svg")
 
-    def test_save_model_routing_updates_models_branding_json(self):
-        """Vérifie que save_model_routing_config enregistre la configuration et met à jour models-branding.json."""
+    def test_save_model_routing_keeps_instance_mapping_out_of_public_assets(self):
+        """Une sauvegarde privée ne doit pas publier les identifiants dans les assets du harness."""
         mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
         orig_mb = None
         if os.path.isfile(mb_path):
@@ -1397,10 +1401,11 @@ llm_gateway:
             self.assertTrue(os.path.isfile(mb_path))
             with open(mb_path, "r", encoding="utf-8") as f:
                 branding = json.load(f)
-            self.assertIn("simple/auto", branding.get("models", {}))
-            self.assertEqual(branding["models"]["simple/auto"]["type"], "zdr")
-            self.assertIn("local/model", branding.get("models", {}))
-            self.assertEqual(branding["models"]["local/model"]["type"], "local")
+            self.assertEqual(json.dumps(branding, sort_keys=True), json.dumps(json.loads(orig_mb), sort_keys=True))
+            projection = deploy.compute_models_branding_dict(cfg=deploy.parse_yaml_or_env(tmp_path))
+            self.assertEqual(set(projection["models"]), {"simple/auto", "local/model"})
+            self.assertEqual(projection["models"]["simple/auto"]["type"], "zdr")
+            self.assertEqual(projection["models"]["local/model"]["type"], "local")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

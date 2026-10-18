@@ -249,3 +249,12 @@ Cette suite valide automatiquement :
 - [Sauvegarde et Reconstruction](sauvegarde-reconstruction.md) : Sauvegarde d'etcd, persistance des PVC et reprise après incident.
 - [Gouvernance Presidio DLP](../guides/confidentialite-presidio.md) : Détail de la double barrière DLP et politiques de caviardage.
 - [Passerelle LiteLLM](../guides/inference-litellm.md) : Configuration avancée des quotas et des fournisseurs.
+
+
+## Icônes et sauvegardes depuis le wizard
+
+Le détail de l'intégration figure dans le [correctif du wizard](../brief-icones-modeles-wizard.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence.
+
+Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Après une première sauvegarde réussie, chaque modification de configuration du wizard déclenche un instantané chiffré et un push limité aux fichiers d'instance. Le YAML et l'environnement sont également surveillés tant que le wizard fonctionne. Les erreurs restent affichées ; les instantanés chiffrés en attente sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard.
+
+Le rechargement des icônes Kubernetes redémarre Open-WebUI selon sa stratégie `Recreate`. Le contrôle HTTP des ressources ne remplace pas une recette avec session authentifiée. La restauration remet les fichiers locaux ; réappliquer ensuite depuis le wizard pour mettre à jour le cluster.
