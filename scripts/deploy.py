@@ -267,7 +267,7 @@ class K8sRunner:
         if not self.ssh_key and self.ident_key:
             self.ssh_key = self.ident_key
 
-    def run(self, cmd_args: List[str], stdin_input: Optional[str] = None) -> Tuple[int, str, str]:
+    def run(self, cmd_args: List[str], stdin_input: Optional[str] = None, timeout: Optional[int] = None) -> Tuple[int, str, str]:
         """Exécute une commande kubectl soit en local, soit via SSH."""
         if self.mode == "local":
             base_cmd = ["kubectl"]
@@ -277,18 +277,22 @@ class K8sRunner:
                 base_cmd.extend(["--context", self.context])
             full_cmd = base_cmd + cmd_args
 
-            proc = subprocess.run(
-                full_cmd,
-                input=stdin_input.encode("utf-8") if stdin_input else None,
-                capture_output=True
-            )
-            return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+            try:
+                proc = subprocess.run(
+                    full_cmd,
+                    input=stdin_input.encode("utf-8") if stdin_input else None,
+                    capture_output=True,
+                    timeout=timeout
+                )
+                return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+            except subprocess.TimeoutExpired:
+                return 255, "", f"Délai d'attente dépassé ({timeout}s) lors de l'exécution locale de kubectl."
 
         elif self.mode == "remote-ssh":
             quoted_args = " ".join([f"'{arg}'" if " " in arg or "|" in arg or ";" in arg else arg for arg in cmd_args])
             remote_shell = f"if command -v k3s >/dev/null 2>&1; then sudo k3s kubectl {quoted_args}; else sudo kubectl {quoted_args}; fi"
 
-            ssh_cmd = ["ssh", "-o", "BatchMode=yes"]
+            ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
             if self.known_hosts:
                 ssh_cmd.extend(["-o", "StrictHostKeyChecking=yes", "-o", f"UserKnownHostsFile={self.known_hosts}"])
             else:
@@ -308,12 +312,16 @@ class K8sRunner:
                 remote_shell
             ])
 
-            proc = subprocess.run(
-                ssh_cmd,
-                input=stdin_input.encode("utf-8") if stdin_input else None,
-                capture_output=True
-            )
-            return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+            try:
+                proc = subprocess.run(
+                    ssh_cmd,
+                    input=stdin_input.encode("utf-8") if stdin_input else None,
+                    capture_output=True,
+                    timeout=timeout
+                )
+                return proc.returncode, proc.stdout.decode("utf-8", errors="replace"), proc.stderr.decode("utf-8", errors="replace")
+            except subprocess.TimeoutExpired:
+                return 255, "", f"Délai d'attente dépassé ({timeout}s) lors de l'exécution SSH sur {self.ssh_node}."
 
         else:
             raise ValueError(f"Mode d'exécution inconnu : {self.mode}")

@@ -572,6 +572,93 @@ llm_gateway:
                 f.write(original_content)
 
 
+    def test_scan_production_versions_mocked(self):
+        """Vérifie que scan_production_versions extrait fidèlement les versions et images déployées sur K8s."""
+        mock_k8s_output = json.dumps({
+            "items": [
+                {
+                    "metadata": {"name": "litellm-proxy"},
+                    "spec": {"template": {"spec": {"containers": [{"image": "ghcr.io/berriai/litellm:main-v1.106.0"}]}}},
+                    "status": {"replicas": 1, "readyReplicas": 1}
+                },
+                {
+                    "metadata": {"name": "open-webui"},
+                    "spec": {"template": {"spec": {"containers": [{"image": "ghcr.io/open-webui/open-webui:v0.12.3"}]}}},
+                    "status": {"replicas": 1, "readyReplicas": 1}
+                },
+                {
+                    "metadata": {"name": "oauth2-proxy"},
+                    "spec": {"template": {"spec": {"containers": [{"image": "quay.io/oauth2-proxy/oauth2-proxy:v7.15.5"}]}}},
+                    "status": {"replicas": 1, "readyReplicas": 1}
+                }
+            ]
+        })
+
+        with patch("deploy.K8sRunner.run") as mock_run:
+            mock_run.return_value = (0, mock_k8s_output, "")
+            dummy_cfg = {
+                "kubernetes": {
+                    "mode": "local",
+                    "namespace": "arcia"
+                }
+            }
+            prod_versions = wizard.scan_production_versions(dummy_cfg)
+
+            self.assertIn("litellm-proxy", prod_versions)
+            self.assertEqual(prod_versions["litellm-proxy"]["version"], "v1.106.0")
+            self.assertTrue(prod_versions["litellm-proxy"]["ready"])
+
+            self.assertIn("open-webui", prod_versions)
+            self.assertEqual(prod_versions["open-webui"]["version"], "v0.12.3")
+
+            self.assertIn("oauth2-proxy", prod_versions)
+            self.assertEqual(prod_versions["oauth2-proxy"]["version"], "v7.15.5")
+
+    def test_check_components_updates_with_prod_scan(self):
+        """Vérifie que check_components_updates intègre les versions détectées en production et marque is_prod_live."""
+        mock_prod = {
+            "litellm-proxy": {
+                "version": "v1.106.0",
+                "image": "ghcr.io/berriai/litellm:v1.106.0",
+                "ready": True,
+                "replicas": 1,
+                "source": "Cluster K8s (arcia)"
+            }
+        }
+        with patch("wizard.scan_production_versions", return_value=mock_prod):
+            res = wizard.check_components_updates(check_online=False, force_prod_scan=True)
+            self.assertTrue(res["prod_scanned"])
+            litellm_comp = next(c for c in res["components"] if c["id"] == "litellm-proxy")
+            self.assertEqual(litellm_comp["current_version"], "v1.106.0")
+            self.assertTrue(litellm_comp["is_prod_live"])
+            self.assertEqual(litellm_comp["source"], "Cluster K8s (arcia)")
+
+    def test_upload_yaml_returns_live_updates(self):
+        """Vérifie que le point d'entrée upload-yaml retourne à la fois la config et le scan de production."""
+        sample_yaml = "kubernetes:\n  mode: 'local'\n  namespace: 'arcia'\n"
+        import io
+
+        handler = wizard.WizardHTTPHandler.__new__(wizard.WizardHTTPHandler)
+        handler.rfile = io.BytesIO(json.dumps({
+            "yaml_content": sample_yaml,
+            "filename": "arcia.config.yaml"
+        }).encode("utf-8"))
+        handler.headers = {"Content-Length": str(len(handler.rfile.getvalue())), "Host": "127.0.0.1:8765"}
+        handler.path = "/api/config/upload-yaml"
+        handler.send_json = MagicMock()
+        handler.is_safe_origin = MagicMock(return_value=True)
+
+        with patch("wizard.save_config_to_files"), patch("wizard.check_components_updates") as mock_check:
+            mock_check.return_value = {"success": True, "components": [{"id": "arcia-core"}], "updates_available_count": 0}
+            handler._handle_post_internal()
+            handler.send_json.assert_called_once()
+            code, data = handler.send_json.call_args[0]
+            self.assertEqual(code, 200)
+            self.assertTrue(data["success"])
+            self.assertIn("updates", data)
+            self.assertEqual(data["updates"]["components"][0]["id"], "arcia-core")
+
+
 if __name__ == "__main__":
     unittest.main()
 

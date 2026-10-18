@@ -1700,17 +1700,179 @@ def _normalize_ver(v: str) -> str:
         v = v[:-7]
     return v.lstrip("vV").strip()
 
-def check_components_updates(check_online: bool = True) -> Dict[str, Any]:
-    """Vérifie en parallèle l'état des versions locales et les mises à jour disponibles en ligne."""
+def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int = 5) -> Dict[str, Dict[str, Any]]:
+    """Interroge l'environnement de production (Kubernetes ou Docker Lab) pour connaître les versions réelles en service."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    k8s_cfg = cfg.get("kubernetes", {})
+    mode = k8s_cfg.get("mode", "local")
+    namespace = k8s_cfg.get("namespace", "arcia") or "arcia"
+    ssh_info = k8s_cfg.get("remote_ssh", {})
+
+    versions: Dict[str, Dict[str, Any]] = {}
+
+    # 1. Cible Kubernetes (local ou remote-ssh)
+    if mode in ("local", "remote-ssh"):
+        node_ip = ssh_info.get("node_ip", "").strip() if isinstance(ssh_info, dict) else ""
+        if mode == "remote-ssh" and (not node_ip or node_ip == "127.0.0.1"):
+            return versions
+
+        try:
+            sys.path.insert(0, SCRIPT_DIR)
+            import deploy
+            runner = deploy.K8sRunner(
+                mode=mode,
+                kubeconfig=k8s_cfg.get("kubeconfig", ""),
+                context=k8s_cfg.get("context", ""),
+                ssh_node=node_ip or "127.0.0.1",
+                ssh_user=ssh_info.get("ssh_user", "debian") if isinstance(ssh_info, dict) else "debian",
+                ssh_port=int(ssh_info.get("ssh_port", 22)) if isinstance(ssh_info, dict) else 22,
+                ssh_key=ssh_info.get("ssh_key", "") if isinstance(ssh_info, dict) else ""
+            )
+
+            rc, out, _ = runner.run(["get", "deployments", f"-n={namespace}", "-o", "json"], timeout=timeout)
+            if rc == 0 and out.strip():
+                try:
+                    data = json.loads(out)
+                    items = data.get("items", [])
+                    dep_map = {
+                        "presidio-dlp": "presidio-dlp",
+                        "oauth2-proxy": "oauth2-proxy",
+                        "litellm-proxy": "litellm-proxy",
+                        "hermes-agent": "hermes-agent",
+                        "teams-bot-adapter": "teams-bot",
+                        "teams-bot": "teams-bot",
+                        "open-webui": "open-webui"
+                    }
+                    for item in items:
+                        meta = item.get("metadata", {})
+                        name = meta.get("name", "")
+                        comp_id = dep_map.get(name)
+                        if not comp_id:
+                            continue
+
+                        spec = item.get("spec", {}).get("template", {}).get("spec", {})
+                        containers = spec.get("containers", [])
+                        if not containers:
+                            continue
+
+                        img_full = containers[0].get("image", "").strip()
+                        img_no_digest = img_full.split("@")[0]
+                        tag = img_no_digest.split(":", 1)[1] if ":" in img_no_digest else "latest"
+                        clean_tag = tag.replace("main-", "") if tag.startswith("main-v") else tag
+
+                        annotations = meta.get("annotations", {})
+                        app_ver = annotations.get("app.kubernetes.io/version")
+
+                        # Pour les microservices reposant sur python:3.11-slim, conserver la version logicielle identifiée
+                        if img_no_digest.startswith("python:") or img_no_digest == "python":
+                            final_ver = app_ver or next((c["default_version"] for c in ARCIA_UPDATABLE_COMPONENTS if c["id"] == comp_id), "3.11-slim")
+                        else:
+                            final_ver = clean_tag
+
+                        status = item.get("status", {})
+                        ready_replicas = status.get("readyReplicas", 0)
+
+                        versions[comp_id] = {
+                            "version": final_ver,
+                            "image": img_no_digest,
+                            "ready": ready_replicas > 0,
+                            "replicas": status.get("replicas", 0),
+                            "source": f"Cluster K8s ({namespace})"
+                        }
+
+                    # Vérifier présence ConfigMap arcia-native-skills pour arcia-core
+                    rc_cm, out_cm, _ = runner.run(["get", "configmap", "arcia-native-skills", f"-n={namespace}", "-o", "json"], timeout=timeout)
+                    if rc_cm == 0 and out_cm.strip():
+                        versions["arcia-core"] = {
+                            "version": "v0.4",
+                            "image": "ConfigMap: arcia-native-skills",
+                            "ready": True,
+                            "replicas": 1,
+                            "source": f"Cluster K8s ({namespace})"
+                        }
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # 2. Cible Docker Lab
+    elif mode == "docker_lab" or cfg.get("infra_target") == "docker_lab":
+        try:
+            proc = subprocess.run(
+                ["docker", "ps", "--format", "{{.Names}}\t{{.Image}}"],
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                c_map = {
+                    "presidio": "presidio-dlp",
+                    "oauth2-proxy": "oauth2-proxy",
+                    "litellm": "litellm-proxy",
+                    "hermes": "hermes-agent",
+                    "teams": "teams-bot",
+                    "open-webui": "open-webui"
+                }
+                for line in proc.stdout.strip().splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 2:
+                        c_name, c_img = parts[0].strip(), parts[1].strip()
+                        for prefix, cid in c_map.items():
+                            if prefix in c_name:
+                                img_no_digest = c_img.split("@")[0]
+                                tag = img_no_digest.split(":", 1)[1] if ":" in img_no_digest else "latest"
+                                clean_tag = tag.replace("main-", "") if tag.startswith("main-v") else tag
+                                versions[cid] = {
+                                    "version": clean_tag,
+                                    "image": img_no_digest,
+                                    "ready": True,
+                                    "replicas": 1,
+                                    "source": "Docker Lab"
+                                }
+                if versions:
+                    versions["arcia-core"] = {
+                        "version": "v0.4",
+                        "image": "docker-compose.lab.yml",
+                        "ready": True,
+                        "replicas": 1,
+                        "source": "Docker Lab"
+                    }
+        except Exception:
+            pass
+
+    return versions
+
+def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, Any]] = None, force_prod_scan: bool = True) -> Dict[str, Any]:
+    """Vérifie en direct l'état des versions en production (ou manifestes locaux) et les mises à jour en ligne."""
+    if cfg is None:
+        cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+
+    prod_scanned: Dict[str, Dict[str, Any]] = {}
+    if force_prod_scan:
+        prod_scanned = scan_production_versions(cfg, timeout=4)
+
     results: List[Dict[str, Any]] = [None] * len(ARCIA_UPDATABLE_COMPONENTS)  # type: ignore
 
     def _check_single(idx: int, comp: Dict[str, Any]):
-        curr_img, curr_ver = extract_manifest_image_version(
-            comp["manifest"], comp["default_image"], comp["default_version"]
-        )
-        # Pour presidio et teams-bot dont l'image de base est python:3.11-slim, afficher la version logicielle
-        if comp["id"] in ("presidio-dlp", "teams-bot", "arcia-core"):
-            curr_ver = comp["default_version"]
+        cid = comp["id"]
+        prod_info = prod_scanned.get(cid)
+
+        if prod_info:
+            curr_ver = prod_info["version"]
+            curr_img = prod_info["image"]
+            source_label = prod_info["source"]
+            is_live_prod = True
+        else:
+            curr_img, curr_ver = extract_manifest_image_version(
+                comp["manifest"], comp["default_image"], comp["default_version"]
+            )
+            # Pour presidio et teams-bot dont l'image de base est python:3.11-slim, afficher la version logicielle
+            if comp["id"] in ("presidio-dlp", "teams-bot", "arcia-core"):
+                curr_ver = comp["default_version"]
+            source_label = "Manifeste local"
+            is_live_prod = False
 
         if check_online:
             online_info = fetch_github_latest_release(comp["github_repo"], comp["default_version"])
@@ -1754,6 +1916,8 @@ def check_components_updates(check_online: bool = True) -> Dict[str, Any]:
             "wave": comp["wave"],
             "order": comp["wave"],
             "is_bumpable_image": comp.get("is_bumpable_image", True),
+            "is_prod_live": is_live_prod,
+            "source": source_label,
             "description": comp["description"]
         }
 
@@ -1771,10 +1935,15 @@ def check_components_updates(check_online: bool = True) -> Dict[str, Any]:
     updates_count = sum(1 for r in valid_results if r.get("update_available"))
     online_count = sum(1 for r in valid_results if r.get("online_checked"))
 
+    prod_active = len(prod_scanned) > 0
+    prod_source_name = next(iter(prod_scanned.values()))["source"] if prod_active else "Manifestes locaux"
+
     payload = {
         "success": True,
         "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "online_reachable": online_count > 0,
+        "prod_scanned": prod_active,
+        "prod_source": prod_source_name,
         "total_components": len(valid_results),
         "updates_available_count": updates_count,
         "strategy": "RollingUpdate (maxUnavailable=0, maxSurge=1)",
@@ -2247,7 +2416,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
             elif path == "/api/updates/check":
                 qs = parse_qs(parsed.query)
                 online = qs.get("online", ["1"])[0] not in ("0", "false")
-                res = check_components_updates(check_online=online)
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                res = check_components_updates(check_online=online, cfg=cfg, force_prod_scan=True)
                 self.send_json(200, res)
             elif path == "/api/updates/status":
                 with update_lock:
@@ -2429,7 +2599,12 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/updates/check":
             online = bool(req_data.get("online", req_data.get("check_online", True)))
-            res = check_components_updates(check_online=online)
+            cfg = req_data.get("config") if isinstance(req_data, dict) else None
+            if cfg is None or not isinstance(cfg, dict):
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            else:
+                cfg = ensure_config_defaults(cfg)
+            res = check_components_updates(check_online=online, cfg=cfg, force_prod_scan=True)
             self.send_json(200, res)
 
         elif path == "/api/updates/apply":
@@ -2484,10 +2659,16 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     return
 
                 cfg = ensure_config_defaults(parsed_cfg)
+                save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
+
+                # Scan immédiat de la production au chargement du YAML
+                updates_info = check_components_updates(check_online=False, cfg=cfg, force_prod_scan=True)
+
                 self.send_json(200, {
                     "success": True,
                     "config": cfg,
                     "filename": filename,
+                    "updates": updates_info,
                     "message": f"Configuration chargée avec succès depuis '{filename}'."
                 })
             except Exception as ye:

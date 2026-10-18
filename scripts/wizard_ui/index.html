@@ -2666,6 +2666,7 @@
 
     function openUpdateCenter() {
       selectSetupMode("update");
+      checkOnlineUpdates(true);
     }
 
     async function checkOnlineUpdates(checkOnline = true) {
@@ -2676,7 +2677,7 @@
 
       if (btn) btn.disabled = true;
       if (badge) {
-        badge.textContent = "Vérification amont en cours...";
+        badge.textContent = "Vérification en production et amont...";
         badge.style.color = "var(--accent-cyan)";
         badge.style.borderColor = "rgba(107, 231, 221, 0.35)";
       }
@@ -2684,17 +2685,21 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="7" style="text-align:center; color:var(--accent-cyan); padding:28px;">
-              Interrogation en direct des dépôts officiels (Open-WebUI, Hermes Agent, LiteLLM, Presidio DLP, OAuth2-Proxy, ArcIA Core)...
+              Scan en direct des versions déployées en production (Cluster K8s / Pods) et interrogation des dépôts officiels...
             </td>
           </tr>
         `;
       }
 
       try {
+        const payload = {
+          check_online: checkOnline,
+          config: (typeof collectFormData === "function") ? collectFormData() : configData
+        };
         const res = await fetch("/api/updates/check", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ check_online: checkOnline })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         cachedUpdateComponents = data.components || [];
@@ -2713,7 +2718,8 @@
           }
         }
         if (lastChecked && data.checked_at) {
-          lastChecked.textContent = `Dernière vérification : ${data.checked_at} • Stratégie : ${data.strategy || "RollingUpdate Zero-Downtime"}`;
+          const srcLabel = data.prod_scanned ? `• Source : ${escapeHtml(data.prod_source)}` : "• Source : Manifestes locaux";
+          lastChecked.textContent = `Dernière vérification : ${data.checked_at} ${srcLabel} • Stratégie : ${data.strategy || "RollingUpdate Zero-Downtime"}`;
         }
       } catch (err) {
         if (badge) {
@@ -2753,11 +2759,15 @@
         const isUpdate = !!c.update_available;
         const statusHtml = isUpdate
           ? `<span class="audit-badge warn">↑ Mise à jour dispo</span>`
-          : `<span class="audit-badge ok">✓ À jour (${escapeHtml(c.source || "manifest")})</span>`;
+          : `<span class="audit-badge ok">✓ À jour</span>`;
 
         const releaseLink = c.release_url
           ? `<a href="${escapeHtml(c.release_url)}" target="_blank" class="doc-link" style="font-size:12.5px;">Changelog ↗</a>`
           : `<span style="color:var(--text-muted); font-size:12.5px; white-space:nowrap;">Interne</span>`;
+
+        const prodTag = c.is_prod_live
+          ? `<span style="display:block; font-size:10px; color:#34D399; font-weight:600; margin-top:3px;">● ${escapeHtml(c.source || 'En prod')}</span>`
+          : `<span style="display:block; font-size:10px; color:var(--text-muted); margin-top:3px;">○ Manifeste local</span>`;
 
         return `
           <tr>
@@ -2772,7 +2782,8 @@
               <span class="version-pill wave-pill">#${c.order || 1} • ${escapeHtml(c.category || "Core")}</span>
             </td>
             <td class="col-nowrap">
-              <span class="version-pill">${escapeHtml(c.current_version || "unknown")}</span>
+              <span class="version-pill ${c.is_prod_live ? 'prod-live' : ''}">${escapeHtml(c.current_version || "unknown")}</span>
+              ${prodTag}
             </td>
             <td class="col-nowrap">
               <span class="version-pill latest">${escapeHtml(c.latest_version || c.current_version || "unknown")}</span>
@@ -3052,6 +3063,10 @@
             const data = await res.json();
             if (data.success && data.config) {
               loadedConfig = data.config;
+              if (data.updates && data.updates.components) {
+                cachedUpdateComponents = data.updates.components;
+                renderUpdateComponentsTable(cachedUpdateComponents);
+              }
             }
           }
         } catch (serverErr) {
@@ -3070,6 +3085,9 @@
         if (loadedConfig) {
           configData = loadedConfig;
           populateFormFields(loadedConfig);
+
+          // Actualiser immédiatement le tableau des versions avec les versions en production
+          checkOnlineUpdates(true);
 
           const fqdn = (loadedConfig.network && loadedConfig.network.public_fqdn) ? loadedConfig.network.public_fqdn : "localhost";
           const ns = (loadedConfig.kubernetes && loadedConfig.kubernetes.namespace) ? loadedConfig.kubernetes.namespace : "arcia";
