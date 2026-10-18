@@ -4486,6 +4486,23 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 self.send_json(200, res)
             elif path == "/api/health":
                 self.send_json(200, {"status": "ok"})
+            elif path.startswith("/static/"):
+                fname = os.path.basename(path)
+                fpath = os.path.join(ROOT_DIR, "assets", "branding", fname)
+                if os.path.isfile(fpath):
+                    content_type = "image/svg+xml" if fname.endswith(".svg") else "application/json" if fname.endswith(".json") else "application/octet-stream"
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "public, max-age=3600")
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                else:
+                    self.send_error(404, "Fichier statique introuvable")
+                    return
             else:
                 self.send_error(404, "Page non trouvée")
         except Exception as e:

@@ -25,10 +25,25 @@
       "type": "zdr",
       "badge": "Bouclier argenté (Cloud ZDR)"
     },
-    "local/model": {
-      "icon": "/static/icon-model-local.svg",
-      "type": "local",
-      "badge": "Bouclier doré (Local souverain)"
+    "LLM Standard": {
+      "icon": "/static/icon-model-default.svg",
+      "type": "default",
+      "badge": "aIA classique (Défaut)"
+    },
+    "LLM Auto (ZDR)": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "Agentic Standard": {
+      "icon": "/static/icon-model-default.svg",
+      "type": "default",
+      "badge": "aIA classique (Défaut)"
+    },
+    "Agentic Auto (ZDR)": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
     }
   },
   "default_icon": "/static/icon-model-default.svg",

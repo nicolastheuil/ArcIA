@@ -837,6 +837,18 @@
     button.btn.text:hover { color: var(--text-main); text-decoration: none; }
     button.btn.compact { padding: 6px 12px; font-size: 13px; }
 
+    /* État désactivé / grisé */
+    button.btn:disabled, button.btn[disabled], button.btn.disabled, a.btn.disabled {
+      opacity: 0.42 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+      filter: grayscale(0.85) !important;
+      background: var(--surface-3) !important;
+      color: var(--text-muted) !important;
+      border-color: var(--border) !important;
+      box-shadow: none !important;
+    }
+
     /* Tableaux de données */
     table.data-table {
       width: 100%;
@@ -2083,8 +2095,7 @@
             <table id="modelsRoutingTable" class="data-table" style="width: 100%;">
               <thead>
                 <tr>
-                  <th style="min-width: 130px;">Alias / Nom</th>
-                  <th style="min-width: 130px;">Icône WebUI</th>
+                  <th style="min-width: 175px;">Alias / Nom &amp; Icône</th>
                   <th style="min-width: 150px;">Cible d'exécution</th>
                   <th style="min-width: 140px;">Fournisseur</th>
                   <th style="min-width: 200px;">Modèle cible amont</th>
@@ -2563,15 +2574,9 @@
          4. SECTION MODÈLES & ROUTAGE (POST-DÉPLOIEMENT UNIFIÉ)
     ====================================================================== -->
     <section id="modelsRoutingSection" class="view-section">
-      <div class="panel-header flex-between">
-        <div>
-          <h2>Modèles et routage d'inférence</h2>
-          <p>Gérez vos fournisseurs connectés, vos alias, les profils Simple/Agentic et les garanties ZDR.</p>
-        </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <span id="saveModelRoutingHint" style="font-size: 12px; color: var(--text-muted);"></span>
-          <button id="btnSaveModelRouting" class="btn primary compact" onclick="saveModelRouting()">Enregistrer le routage</button>
-        </div>
+      <div class="panel-header">
+        <h2>Modèles et routage d'inférence</h2>
+        <p>Gérez vos fournisseurs connectés, vos alias, les profils Simple/Agentic et les garanties ZDR.</p>
       </div>
 
       <div class="providers-strip hidden">
@@ -3880,42 +3885,47 @@
     }
 
     function checkCanSaveModelRouting() {
-      const btn = document.getElementById('btnSaveModelRouting');
-      const hint = document.getElementById('saveModelRoutingHint');
-      if (!btn || !hint) return;
+      const btns = document.querySelectorAll('#btnSaveModelRouting');
+      const hints = document.querySelectorAll('#saveModelRoutingHint');
+      if (btns.length === 0 && hints.length === 0) return;
+
+      const setUiState = (isDisabled, htmlMessage) => {
+        btns.forEach(btn => {
+          btn.disabled = isDisabled;
+          btn.classList.toggle('disabled', isDisabled);
+        });
+        hints.forEach(hint => {
+          hint.innerHTML = htmlMessage;
+        });
+      };
 
       if (!state.models || state.models.length === 0) {
-        btn.disabled = true;
-        hint.innerHTML = '<span style="color: var(--text-muted);">Aucun modèle configuré. Ajoutez au moins une route.</span>';
+        setUiState(true, '<span style="color: var(--text-muted);">Aucun modèle configuré. Ajoutez au moins une route.</span>');
         return;
       }
 
       // 1. Détection de boucles de repli (cycles A -> B -> A)
       const loopRes = detectFallbackLoops(state.models);
       if (loopRes.hasLoop) {
-        btn.disabled = true;
-        hint.innerHTML = `<span style="color: var(--danger); font-weight: 600;">⛔ Boucle de repli infinie détectée : ${escapeHtml(loopRes.loopChain)}. Vous devez modifier cette chaîne avant d'enregistrer.</span>`;
+        setUiState(true, `<span style="color: var(--danger); font-weight: 600;">⛔ Boucle de repli infinie détectée : ${escapeHtml(loopRes.loopChain)}. Vous devez modifier cette chaîne avant d'enregistrer.</span>`);
         return;
       }
 
       // 2. Modèles non testés ou en échec
       const unverified = state.models.filter(m => !m.testedOk);
       if (unverified.length > 0) {
-        btn.disabled = true;
-        hint.innerHTML = `<span style="color: var(--warning);">⚠ ${unverified.length} modèle(s) non validé(s). Cliquez sur « Tester » pour valider chaque ligne avant d'enregistrer.</span>`;
+        setUiState(true, `<span style="color: var(--warning);">⚠ ${unverified.length} modèle(s) non validé(s). Cliquez sur « Tester » pour valider chaque ligne avant d'enregistrer.</span>`);
         return;
       }
 
       // 3. Modèles de repli ciblant un modèle non validé
       const invalidFallbacks = state.models.filter(m => m.fallback && !state.models.some(o => (o.alias || o.name) === m.fallback && o.testedOk));
       if (invalidFallbacks.length > 0) {
-        btn.disabled = true;
-        hint.innerHTML = `<span style="color: var(--warning);">⚠ Le modèle de repli « ${escapeHtml(invalidFallbacks[0].fallback)} » n'est pas encore validé.</span>`;
+        setUiState(true, `<span style="color: var(--warning);">⚠ Le modèle de repli « ${escapeHtml(invalidFallbacks[0].fallback)} » n'est pas encore validé.</span>`);
         return;
       }
 
-      btn.disabled = false;
-      hint.innerHTML = '<span style="color: var(--success); font-weight: 500;">✓ Toutes les chaînes de routage et de repli sont validées et prêtes à être enregistrées.</span>';
+      setUiState(false, '<span style="color: var(--success); font-weight: 500;">✓ Toutes les chaînes de routage et de repli sont validées et prêtes à être enregistrées.</span>');
     }
 
     function isDynamicModel(modelId, modelLabel) {
@@ -3967,7 +3977,7 @@
       if (!tbody) return;
 
       if (!state.models || state.models.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:28px;">Aucun modèle configuré. Cliquez sur « ＋ Ajouter un modèle » pour créer une route.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:28px;">Aucun modèle configuré. Cliquez sur « ＋ Ajouter un modèle » pour créer une route.</td></tr>';
         checkCanSaveModelRouting();
         updateDefaultModelDropdowns();
         return;
@@ -3985,13 +3995,14 @@
         const isLocal = ['ollama', 'vllm', 'local'].includes(String(curProvider).toLowerCase()) ||
                         curTarget.toLowerCase().includes('localhost') ||
                         curTarget.toLowerCase().includes('127.0.0.1');
-        let iconBadgeHtml = '';
+        let iconSrc = '/static/icon-model-default.svg';
+        let iconTitle = 'Modèle standard : icône aIA classique par défaut dans Open-WebUI';
         if (isLocal) {
-          iconBadgeHtml = `<span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d; border:1px solid rgba(245,158,11,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle local souverain : icône aIA avec bouclier doré dans Open-WebUI">🛡️ Bouclier doré</span>`;
+          iconSrc = '/static/icon-model-local.svg';
+          iconTitle = 'Modèle local souverain (Ollama / vLLM) : icône aIA avec bouclier doré dans Open-WebUI';
         } else if (m.zdr) {
-          iconBadgeHtml = `<span class="badge" style="background:rgba(148,163,184,0.15); color:#e2e8f0; border:1px solid rgba(148,163,184,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle cloud avec ZDR activé : icône aIA avec bouclier argenté (planète + cadenas) dans Open-WebUI">🛡️ Bouclier argenté</span>`;
-        } else {
-          iconBadgeHtml = `<span class="badge" style="background:rgba(107,231,221,0.15); color:#6be7dd; border:1px solid rgba(107,231,221,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle standard : icône aIA classique par défaut dans Open-WebUI">✨ aIA classique</span>`;
+          iconSrc = '/static/icon-model-zdr.svg';
+          iconTitle = 'Modèle cloud avec ZDR activé : icône aIA avec bouclier argenté (planète + cadenas) dans Open-WebUI';
         }
 
         const providerOptions = availableProviders.map(p =>
@@ -4047,10 +4058,10 @@
         return `
           <tr id="model_tr_${idx}" class="${m.testedOk ? 'model-row-ok' : ''}" style="${rowMatches ? '' : 'display:none;'}">
             <td>
-              <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="width: 120px; font-weight: 500;">
-            </td>
-            <td>
-              ${iconBadgeHtml}
+              <div style="display:inline-flex; align-items:center; gap:8px;">
+                <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="width: 120px; font-weight: 500;">
+                <img src="${iconSrc}" alt="Icône modèle" title="${escapeHtml(iconTitle)}" width="26" height="26" style="border-radius: 6px; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: help; vertical-align: middle;">
+              </div>
             </td>
             <td>
               <select onchange="updateModelRow(${idx}, 'category', this.value); updateDefaultModelDropdowns();">
@@ -4916,12 +4927,22 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
         const data = await api('models/routing');
         if (data) {
           if (data.mappings && Array.isArray(data.mappings)) {
-            state.models = data.mappings.map(m => ({
-              ...m,
-              testedOk: false,
-              lastLatency: null,
-              lastError: null
-            }));
+            const existingMap = new Map();
+            (state.models || []).forEach(oldM => {
+              const key = (oldM.alias || oldM.name || '') + '::' + (oldM.target_model || oldM.real_model || '');
+              if (oldM.testedOk) existingMap.set(key, oldM);
+            });
+
+            state.models = data.mappings.map(m => {
+              const key = (m.alias || m.name || '') + '::' + (m.target_model || m.real_model || '');
+              const prev = existingMap.get(key);
+              return {
+                ...m,
+                testedOk: prev ? prev.testedOk : false,
+                lastLatency: prev ? prev.lastLatency : null,
+                lastError: prev ? prev.lastError : null
+              };
+            });
           }
           if (data.providers && Array.isArray(data.providers)) {
             data.providers.forEach(p => {
