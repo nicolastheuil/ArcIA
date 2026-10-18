@@ -61,6 +61,8 @@ if hasattr(sys.stdout, "reconfigure"):
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
+sys.path.insert(0, ROOT_DIR)
+from services.open_webui.branding import resolve_model_icon
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml")
 EXAMPLE_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml.example")
 
@@ -2177,7 +2179,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "k8s_resource": "deployment/open-webui",
         "default_image": "ghcr.io/open-webui/open-webui:v0.12.3",
         "default_version": "v0.12.3",
-        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health",
+        "strategy": "Recreate (interruption prévue, volume RWO) + Sonde /health",
         "wave": 5,
         "is_bumpable_image": True,
         "description": "Portail web conversationnel d'entreprise avec RAG ChromaDB, SSO Entra ID et double raccordement simple/* et agentic/*."
@@ -2567,7 +2569,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         "prod_source": prod_source_name,
         "total_components": len(valid_results),
         "updates_available_count": updates_count,
-        "strategy": "RollingUpdate (maxUnavailable=0, maxSurge=1)",
+        "strategy": "RollingUpdate stateless ; Recreate avec interruption pour les états persistants",
         "components": valid_results
     }
     last_update_check_cache.clear()
@@ -2623,7 +2625,7 @@ def get_initial_update_phases() -> List[Dict[str, Any]]:
             "title": "Vague 4 — Portail Open-WebUI & Qualification Finale",
             "pct": 100,
             "status": "pending",
-            "detail": "RollingUpdate du portail collaborateur Open-WebUI et validation de disponibilité de bout en bout."
+            "detail": "Recreate du portail Open-WebUI (interruption prévue, volume RWO) puis contrôle de disponibilité et des ressources visuelles."
         }
     ]
 
@@ -2730,12 +2732,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
     with update_lock:
         update_state["status"] = "running"
         update_state["progress_pct"] = 2
-        update_state["current_phase"] = "Initialisation de la séquence Zero-Downtime..."
+        update_state["current_phase"] = "Initialisation de la séquence de mise à jour..."
         update_state["phases"] = get_initial_update_phases()
         update_state["logs"] = [
-            f"[INFO] Démarrage de l'orchestrateur de mise à jour intelligente ArcIA ({'Simulation Dry-Run' if dry_run else 'Exécution Réelle Zero-Downtime'})",
+            f"[INFO] Démarrage de l'orchestrateur de mise à jour intelligente ArcIA ({'Simulation Dry-Run' if dry_run else 'Exécution réelle'})",
             f"[INFO] Composants sélectionnés ({len(selected_components)}) : {', '.join(selected_components)}",
-            f"[INFO] Stratégie : RollingUpdate séquentiel (maxUnavailable=0, maxSurge=1) avec validation des sondes de santé."
+            f"[INFO] Stratégie : RollingUpdate pour les services stateless ; Recreate avec interruption pour Hermes et Open-WebUI."
         ]
         update_state["start_time"] = time.time()
         update_state["updated_components"] = []
@@ -2820,12 +2822,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             subprocess.run(["docker", "compose", "-f", os.path.join(ROOT_DIR, "docker-compose.lab.yml"), "pull"], cwd=ROOT_DIR, capture_output=True)
             _append_update_log("[OK] Images Docker et configurations locales prêtes.")
         else:
-            deploy.sync_service_configmaps(runner, namespace, ROOT_DIR)
+            code_checksums = deploy.sync_service_configmaps(runner, namespace, ROOT_DIR)
             _append_update_log("[OK] ConfigMaps de code microservices synchronisés à chaud sans coupure.")
             deploy.sync_native_skills(runner, namespace, ROOT_DIR)
             _append_update_log("[OK] Catalogue de compétences natives ('arcia-native-skills') synchronisé.")
-            deploy.sync_webui_branding(runner, namespace, ROOT_DIR)
-            _append_update_log("[OK] Identité visuelle 'arcia-webui-branding' synchronisée.")
+            visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
+            _append_update_log("[OK] Ressources visuelles publiées ; chargement et vérification après la mise à jour du portail.")
 
         if "arcia-core" in selected_components:
             with update_lock:
@@ -2841,8 +2843,9 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
                 return
             if dry_run:
                 time.sleep(0.25)
-                _append_update_log(f"[INFO] [Dry-Run] Application de {manifest_filename} ({dep_name}) avec RollingUpdate (maxUnavailable=0, maxSurge=1)...")
-                _append_update_log(f"[OK] [Dry-Run] Nouveau pod '{dep_name}' Ready (sonde HTTP 200) -> bascule du Service -> terminaison ancien pod (0 coupure).")
+                strategy = "RollingUpdate" if ensure_zero_downtime_patch else "Recreate (interruption prévue)"
+                _append_update_log(f"[INFO] [Dry-Run] Application de {manifest_filename} ({dep_name}) avec {strategy}.")
+                _append_update_log(f"[OK] [Dry-Run] Disponibilité du nouveau pod '{dep_name}' simulée.")
                 with update_lock:
                     update_state["updated_components"].append(comp_id)
                 return
@@ -2858,9 +2861,9 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             if os.path.isfile(m_path):
                 with open(m_path, "r", encoding="utf-8") as f:
                     raw_yaml = f.read()
-                adapted_yaml = deploy.adapt_manifest_namespace(raw_yaml, namespace)
-                if comp_id == "hermes-agent":
-                    adapted_yaml = adapted_yaml.replace("https://assistant.example.org/studio", f"https://{public_fqdn}/studio")
+                adapted_yaml = deploy.render_model_manifest(
+                    comp_id, raw_yaml, cfg, namespace,
+                    branding_revision=visual["revision"], code_checksums=code_checksums)
                 runner.apply_manifest(adapted_yaml)
 
             if ensure_zero_downtime_patch:
@@ -2879,7 +2882,8 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             _append_update_log(f"[INFO] Attente de la sonde de disponibilité (readinessProbe) pour '{dep_name}'...")
             rc_ro, out_ro, err_ro = runner.run(["rollout", "status", f"deployment/{dep_name}", f"-n={namespace}", "--timeout=360s"])
             if rc_ro == 0:
-                _append_update_log(f"[OK] '{dep_name}' mis à jour avec succès sans aucune interruption de service.")
+                availability = "sans interruption" if ensure_zero_downtime_patch else "avec interruption prévue (Recreate)"
+                _append_update_log(f"[OK] '{dep_name}' mis à jour {availability}.")
                 with update_lock:
                     update_state["updated_components"].append(comp_id)
             else:
@@ -2935,13 +2939,18 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
         # PHASE 6 : Vague 4 — Portail Open-WebUI & Qualification Finale
         # =====================================================================
         _set_update_phase(5, "running", "\n[PHASE 6/6] Vague 4 — Mise à jour du Portail Collaborateur Open-WebUI & Vérification finale...")
-        _rolling_update_k8s_deployment("open-webui", "Portail Open-WebUI", "07-open-webui.yaml", "open-webui", ensure_zero_downtime_patch=True)
-        _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR ZERO-DOWNTIME TERMINÉE AVEC SUCCÈS (100%) !")
+        _rolling_update_k8s_deployment("open-webui", "Portail Open-WebUI", "07-open-webui.yaml", "open-webui", ensure_zero_downtime_patch=False)
+        if not dry_run and infra_target != "docker_lab":
+            visual_result = deploy.activate_webui_branding(runner, namespace, visual)
+            if not (visual_result.get("assets_served") and visual_result.get("runtime_loaded")):
+                raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
+            _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP ; recette navigateur distincte.")
+        _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR TERMINÉE AVEC SUCCÈS (100%) !")
 
         with update_lock:
             update_state["status"] = "success"
             update_state["progress_pct"] = 100
-            update_state["current_phase"] = "Instance 100% à jour (Aucune interruption de service)"
+            update_state["current_phase"] = "Mise à jour terminée (interruptions Recreate prévues)"
 
     except Exception as ue:
         with update_lock:
@@ -3933,24 +3942,10 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
     custom_mappings = llm.get("models_routing", [])
     mappings_to_use = custom_mappings if (custom_mappings and isinstance(custom_mappings, list)) else default_mappings
 
-    # Enrichissement avec les icônes officielles ArcIA pour Open-WebUI
+    # Même résolution serveur que la projection native d'avatars.
     for m in mappings_to_use:
-        prov = str(m.get("provider") or "").lower()
-        target = str(m.get("target_model") or m.get("real_model") or "").lower()
-        zdr = bool(m.get("zdr", True))
-        is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
-        if is_local:
-            m["icon"] = "/static/icon-model-local.svg"
-            m["icon_type"] = "local"
-            m["icon_badge"] = "Liseret doré (Local souverain)"
-        elif zdr:
-            m["icon"] = "/static/icon-model-zdr.svg"
-            m["icon_type"] = "zdr"
-            m["icon_badge"] = "Liseret argenté (Cloud ZDR)"
-        else:
-            m["icon"] = "/static/icon-model-default.svg"
-            m["icon_type"] = "default"
-            m["icon_badge"] = "aIA classique"
+        visual = resolve_model_icon(m, llm.get("custom_providers") or [])
+        m.update({"icon": visual["icon"], "icon_type": visual["type"], "icon_badge": visual["badge"]})
 
     hermes = cfg.setdefault("hermes", {})
     return {
@@ -4060,17 +4055,9 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 
     save_config_to_files(cfg, cfg_path)
 
-    # 1. Sauvegarde locale du fichier models-branding.json pour Open-WebUI & Docker Lab
+    # Projection privée : aucune écriture dans les assets suivis du harness.
     branding_synced = False
-    try:
-        sys.path.insert(0, SCRIPT_DIR)
-        import deploy
-        branding_dict = deploy.compute_models_branding_dict(cfg=cfg, root_dir=ROOT_DIR)
-        local_mb_path = os.path.join(ROOT_DIR, "assets", "branding", "models-branding.json")
-        with open(local_mb_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(branding_dict, indent=2, ensure_ascii=False))
-    except Exception:
-        pass
+    branding_status = {"assets_applied": False, "runtime_loaded": False, "avatars_verified": False}
 
     # 2. Synchronisation des 3 composants (LiteLLM, Hermes, Open-WebUI) et Power Users
     litellm_synced = False
@@ -4101,10 +4088,11 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
             # 4. Branding Open-WebUI
             try:
                 import deploy
-                deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
-                branding_synced = True
+                published = deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
+                branding_status = deploy.activate_webui_branding(runner, ns, published)
+                branding_synced = bool(branding_status.get("assets_served") and branding_status.get("runtime_loaded"))
             except Exception:
-                pass
+                branding_status["error"] = "Publication des icônes non aboutie ; relancer uniquement cette étape."
 
             # 5. Power Users
             try:
@@ -4131,7 +4119,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     else:
         msg_parts.append("Routage non appliqué au cluster : vérifiez la cible Kubernetes et relancez la synchronisation. La sauvegarde locale est conservée.")
     if branding_synced:
-        msg_parts.append("Icônes des modèles poussées dans Open-WebUI.")
+        msg_parts.append("Projection des icônes chargée et ressources HTTP vérifiées ; recette navigateur distincte.")
 
     return {
         "success": True,
@@ -4141,6 +4129,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
         "openwebui_synced": openwebui_synced,
         "powerusers_synced": powerusers_synced,
         "branding_synced": branding_synced,
+        "branding_status": branding_status,
         "all_synced": bool(litellm_synced and hermes_synced and openwebui_synced),
         "details": details,
         "message": " ".join(msg_parts)
@@ -5129,6 +5118,23 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
         elif path == "/api/powerusers/sync-all":
             res = sync_all_powerusers_wizard()
             self.send_json(200, res)
+
+        elif path == "/api/models/sync-appearance":
+            try:
+                import deploy
+                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                runner = get_k8s_runner(cfg)
+                namespace = cfg.get("kubernetes", {}).get("namespace", "arcia")
+                visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
+                result = deploy.activate_webui_branding(runner, namespace, visual)
+                result["success"] = bool(result.get("runtime_loaded") and result.get("assets_served"))
+                self.send_json(200 if result["success"] else 400, result)
+            except Exception:
+                self.send_json(400, {"success": False, "error": "Publication des icônes indisponible ; vérifier le cluster et le rollout Open-WebUI."})
+
+        elif path == "/api/models/appearance":
+            custom = req_data.get("custom_providers") or []
+            self.send_json(200, {"success": True, "icons": [resolve_model_icon(m, custom) for m in req_data.get("models", [])]})
 
         elif path == "/api/models/routing":
             res = save_model_routing_config(req_data)

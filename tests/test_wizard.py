@@ -1370,8 +1370,8 @@ llm_gateway:
         self.assertEqual(plain_m["icon_type"], "default")
         self.assertEqual(plain_m["icon"], "/static/icon-model-default.svg")
 
-    def test_save_model_routing_updates_models_branding_json(self):
-        """Vérifie que save_model_routing_config enregistre la configuration et met à jour models-branding.json."""
+    def test_save_model_routing_keeps_instance_ids_out_of_public_assets(self):
+        """La sauvegarde d'instance ne doit jamais réécrire le mapping public suivi."""
         mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
         orig_mb = None
         if os.path.isfile(mb_path):
@@ -1384,9 +1384,9 @@ llm_gateway:
 
         try:
             payload = {
-                "default_model": "simple/auto",
+                "default_model": "synthetic-private-chat",
                 "mappings": [
-                    {"name": "simple/auto", "alias": "simple/auto", "provider": "openrouter", "target_model": "openrouter/auto", "zdr": True},
+                    {"name": "synthetic-private-chat", "alias": "synthetic-private-chat", "provider": "openrouter", "target_model": "openrouter/auto", "zdr": True},
                     {"name": "local/model", "alias": "local/model", "provider": "ollama", "target_model": "ollama/llama3", "zdr": False}
                 ]
             }
@@ -1396,11 +1396,9 @@ llm_gateway:
             self.assertTrue(res.get("success"))
             self.assertTrue(os.path.isfile(mb_path))
             with open(mb_path, "r", encoding="utf-8") as f:
-                branding = json.load(f)
-            self.assertIn("simple/auto", branding.get("models", {}))
-            self.assertEqual(branding["models"]["simple/auto"]["type"], "zdr")
-            self.assertIn("local/model", branding.get("models", {}))
-            self.assertEqual(branding["models"]["local/model"]["type"], "local")
+                self.assertEqual(f.read(), orig_mb)
+            saved, _ = wizard.load_config_data(tmp_path)
+            self.assertEqual(saved["llm_gateway"]["models_routing"][0]["alias"], "synthetic-private-chat")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

@@ -22,7 +22,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
   - `OPENAI_API_BASE_URLS="http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"` :
     - Les profils **`simple/*`** sont routés directement vers **LiteLLM Proxy** (`:4000/v1`) pour offrir une réponse instantanée sur les conversations rapides.
     - Les profils **`agentic/*`** sont routés vers **Hermes Agent** (`:8642/v1`) pour exécuter des sessions autonomes outillées avec persistance SQLite (`state.db`), compétences partagées, compression CCR et recherche web.
-  - **Catalogue filtré aux 5 profils canoniques (`ENABLE_MODEL_FILTER=true`)** :
+  - **Catalogue déclaré dans le wizard, restreint par connexion avec `OPENAI_API_CONFIGS`** : seuls les modèles simples déclarés sont exposés sur LiteLLM et les modèles agentiques déclarés sur Hermes ; une catégorie vide désactive sa connexion. Sans catalogue explicite, les cinq profils canoniques servent de valeurs par défaut :
     1. **`simple/free`** : Chat direct gratuit sans boucle agentique (`openrouter/openrouter/free`).
     2. **`simple/auto`** *(Défaut)* : Chat direct polyvalent et réactif (`openrouter/auto`).
     3. **`agentic/free`** : Session autonome Hermes outillée sur palier gratuit (`openrouter/openrouter/free`).

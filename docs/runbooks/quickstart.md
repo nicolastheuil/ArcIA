@@ -92,12 +92,12 @@ Accessible via l'onglet **Routage des modèles** ou la carte d'accueil :
    - Boutons de préréglages instantanés (*Tout OpenRouter ZDR*, *Hybride souverain vLLM local*, *Multi-fournisseurs directs*).
    - Synchronisation à chaud de la ConfigMap `litellm-config` sur le cluster Kubernetes.
 
-#### Parcours D : mettre à jour mon instance (Zero-Downtime)
+#### Parcours D : mettre à jour mon instance
 1. Sur la page d'accueil ou l'onglet **Mises à jour**, ouvrez le centre de mise à jour.
 2. Vous pouvez y charger votre fichier `arcia.config.yaml` pour cibler votre contexte Kubernetes.
 3. Le Wizard interroge en direct les dépôts officiels amont (*Open-WebUI, Hermes Agent, LiteLLM Proxy, Presidio DLP, OAuth2-Proxy, Teams Bot, ArcIA Core & Skills*) et compare avec les versions de vos manifestes locaux.
 4. Sélectionnez les composants souhaités et lancez la séquence (ou testez-la via **Simuler la séquence (Dry-Run)**).
-5. L'orchestrateur exécute les **6 phases séquentielles** en `RollingUpdate (maxUnavailable=0, maxSurge=1)` avec contrôle des sondes `readinessProbe` et rollback automatique (`kubectl rollout undo`) en cas d'anomalie, sans aucune coupure de service.
+5. L'orchestrateur conserve le catalogue déclaré dans le wizard pendant les **6 phases séquentielles**. Les services sans état utilisent `RollingUpdate (maxUnavailable=0, maxSurge=1)` ; Hermes et Open-WebUI conservent `Recreate`, avec interruption prévue pour protéger leurs volumes et états persistants. Les sondes `readinessProbe` sont contrôlées et un rollback (`kubectl rollout undo`) est déclenché en cas d'échec. Les ressources d'icônes sont vérifiées après le rechargement du portail ; leur contrôle HTTP ne remplace pas une recette navigateur authentifiée.
 
 #### Parcours E : restaurer une instance (PRA)
 1. Sur la page d'accueil ou l'onglet **Sauvegarde et PRA**, ouvrez la page de reprise.
