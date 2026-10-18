@@ -144,6 +144,18 @@ spec:
         - name: arcia-branding
           mountPath: /app/build/static/loader.js
           subPath: loader.js
+        - name: arcia-branding
+          mountPath: /app/build/static/icon-model-default.svg
+          subPath: icon-model-default.svg
+        - name: arcia-branding
+          mountPath: /app/build/static/icon-model-local.svg
+          subPath: icon-model-local.svg
+        - name: arcia-branding
+          mountPath: /app/build/static/icon-model-zdr.svg
+          subPath: icon-model-zdr.svg
+        - name: arcia-branding
+          mountPath: /app/build/static/models-branding.json
+          subPath: models-branding.json
       volumes:
       - name: webui-data
         persistentVolumeClaim:

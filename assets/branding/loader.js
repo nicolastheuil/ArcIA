@@ -8,7 +8,105 @@
   var BRAND_TITLE = 'ArcIA — Enterprise Agentic Platform';
   var BRAND_NAME = 'ArcIA';
 
-  // 1. Recursive text node cleaner (strips "(Open WebUI)" everywhere)
+  var DEFAULT_MODEL_ICON = '/static/icon-model-default.svg';
+  var LOCAL_MODEL_ICON = '/static/icon-model-local.svg';
+  var ZDR_MODEL_ICON = '/static/icon-model-zdr.svg';
+
+  // Dynamic model-to-icon mapping pushed by the Wizard
+  var modelBrandingMap = {
+    'simple/auto': ZDR_MODEL_ICON,
+    'simple/free': ZDR_MODEL_ICON,
+    'agentic/auto': ZDR_MODEL_ICON,
+    'agentic/free': ZDR_MODEL_ICON,
+    'agentic/expert': ZDR_MODEL_ICON
+  };
+
+  // 0. Load dynamic models branding config pushed by the Wizard
+  function loadModelsBrandingConfig() {
+    try {
+      fetch('/static/models-branding.json')
+        .then(function (res) {
+          if (res.ok) return res.json();
+          return null;
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (data.models && typeof data.models === 'object') {
+            for (var key in data.models) {
+              if (data.models[key] && data.models[key].icon) {
+                modelBrandingMap[key.toLowerCase()] = data.models[key].icon;
+              }
+            }
+          }
+          if (data.default_icon) DEFAULT_MODEL_ICON = data.default_icon;
+          if (data.local_icon) LOCAL_MODEL_ICON = data.local_icon;
+          if (data.zdr_icon) ZDR_MODEL_ICON = data.zdr_icon;
+          replaceModelAvatars();
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  function resolveModelIcon(modelId) {
+    if (!modelId) return DEFAULT_MODEL_ICON;
+    var id = String(modelId).trim().toLowerCase();
+    if (modelBrandingMap[id]) return modelBrandingMap[id];
+    // Check if local sovereign model (Ollama, vLLM, local endpoint)
+    if (id.includes('ollama') || id.includes('vllm') || id.includes('local')) {
+      return LOCAL_MODEL_ICON;
+    }
+    // Check if cloud model with ZDR (Zero Data Retention)
+    if (id.startsWith('simple/') || id.startsWith('agentic/') || id.includes('openrouter') || id.includes(':free')) {
+      return ZDR_MODEL_ICON;
+    }
+    return DEFAULT_MODEL_ICON;
+  }
+
+  // 1. Intercept window.fetch to natively enrich Open-WebUI model objects with official ArcIA icons
+  try {
+    var _nativeFetch = window.fetch;
+    window.fetch = async function () {
+      var res = await _nativeFetch.apply(this, arguments);
+      try {
+        var reqUrl = (typeof arguments[0] === 'string') ? arguments[0] : (arguments[0] && arguments[0].url) || '';
+        if (reqUrl.includes('/api/models') || reqUrl.includes('/api/v1/models')) {
+          var clone = res.clone();
+          var data = await clone.json();
+          var modified = false;
+
+          var enrichModel = function (item) {
+            if (!item) return;
+            var mid = item.id || item.name;
+            var targetIcon = resolveModelIcon(mid);
+            if (!item.info) item.info = {};
+            if (!item.info.meta) item.info.meta = {};
+            item.info.meta.profile_image_url = targetIcon;
+            item.profile_image_url = targetIcon;
+            modified = true;
+          };
+
+          if (Array.isArray(data)) {
+            data.forEach(enrichModel);
+          } else if (data && Array.isArray(data.data)) {
+            data.data.forEach(enrichModel);
+          } else if (data && Array.isArray(data.models)) {
+            data.models.forEach(enrichModel);
+          }
+
+          if (modified) {
+            return new Response(JSON.stringify(data), {
+              status: res.status,
+              statusText: res.statusText,
+              headers: res.headers
+            });
+          }
+        }
+      } catch (err) {}
+      return res;
+    };
+  } catch (e) {}
+
+  // 2. Recursive text node cleaner (strips "(Open WebUI)" everywhere)
   function sanitizeTextNodes(root) {
     if (!root) return;
     try {
@@ -27,9 +125,8 @@
     } catch (e) {}
   }
 
-  // 2. Center Hero Logo (Official aIA Monogram in the middle of empty chat)
+  // 3. Center Hero Logo (Official aIA Monogram in the middle of empty chat)
   function ensureCenterHeroLogo() {
-    // Detect if the chat already has conversation messages
     var hasMessages = document.querySelector('[data-message-id]') ||
                       document.querySelector('.chat-message') ||
                       document.querySelector('.message-bubble') ||
@@ -42,8 +139,6 @@
       return;
     }
 
-    // Target the center empty state container
-    // Open-WebUI empty state: div[class*="translate-y-6"] containing the model title (b$)
     var centerTarget = null;
     var modelTitle = document.querySelector('.text-2xl, [class*="text-2xl"]');
     if (modelTitle) {
@@ -99,25 +194,83 @@
     }
   }
 
-  // 3. Replace model avatar [01] with official aIA monogram
+  // 4. Helper to determine currently active model in the chat
+  function getCurrentChatModel() {
+    try {
+      var sel = document.querySelector('button[aria-label*="model" i], button[id*="model" i]');
+      if (sel && sel.textContent) {
+        var t = sel.textContent.trim();
+        if (t) return t;
+      }
+      var modelEl = document.querySelector('.text-2xl, [class*="text-2xl"]');
+      if (modelEl && modelEl.textContent) {
+        var name = modelEl.textContent.trim();
+        if (name.includes('/') || name.includes('auto') || name.includes('free')) return name;
+      }
+    } catch (e) {}
+    return 'simple/auto';
+  }
+
+  // 5. Replace model avatars (replaces Open-WebUI fallback "OI" and "01" badges with ArcIA SVG icons)
   function replaceModelAvatars() {
+    var activeModel = getCurrentChatModel();
+    var defaultActiveIcon = resolveModelIcon(activeModel);
+
+    // A. Replace initials avatars with text "OI", "01", "O I", "OpenAI"
     document.querySelectorAll('div, button, span').forEach(function (el) {
       if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
         var text = el.textContent.trim();
-        if (/^0[1-9]$/.test(text) && el.offsetWidth < 48 && el.offsetHeight < 48) {
-          el.style.backgroundImage = 'url("/static/favicon.svg")';
+        if (/^(OI|01|O\s*I)$/i.test(text) && el.offsetWidth < 56 && el.offsetHeight < 56) {
+          var row = el.closest('button, [role="menuitem"], div.flex');
+          var modelIcon = defaultActiveIcon;
+          if (row) {
+            var rowText = (row.textContent || '').toLowerCase();
+            for (var mKey in modelBrandingMap) {
+              if (rowText.includes(mKey)) {
+                modelIcon = modelBrandingMap[mKey];
+                break;
+              }
+            }
+          }
+          el.style.backgroundImage = 'url("' + modelIcon + '")';
           el.style.backgroundRepeat = 'no-repeat';
           el.style.backgroundPosition = 'center';
           el.style.backgroundSize = 'contain';
           el.style.color = 'transparent';
           el.style.backgroundColor = 'transparent';
           el.style.border = 'none';
+          el.setAttribute('data-arcia-model-icon', 'true');
+        }
+      }
+    });
+
+    // B. Replace image avatars in assistant messages or dropdowns that lack the proper icon
+    document.querySelectorAll('img').forEach(function (img) {
+      var src = img.getAttribute('src') || '';
+      var alt = img.getAttribute('alt') || '';
+      if (
+        (src.includes('openai') || alt.toLowerCase().includes('openai') || src.includes('favicon.png')) &&
+        !img.closest('#arcia-center-hero')
+      ) {
+        var row = img.closest('button, [role="menuitem"], div.flex');
+        var targetIcon = defaultActiveIcon;
+        if (row) {
+          var rowText = (row.textContent || '').toLowerCase();
+          for (var mKey in modelBrandingMap) {
+            if (rowText.includes(mKey)) {
+              targetIcon = modelBrandingMap[mKey];
+              break;
+            }
+          }
+        }
+        if (img.src !== window.location.origin + targetIcon) {
+          img.src = targetIcon;
         }
       }
     });
   }
 
-  // 4. Global Brand Applicator
+  // 6. Global Brand Applicator
   function applyArcIABranding() {
     // A. Enforce Document Title
     if (document.title.includes('Open WebUI') || document.title === 'ArcIA (Open WebUI)') {
@@ -167,7 +320,7 @@
     // D. Inject Center Hero Logo (aIA in the middle)
     ensureCenterHeroLogo();
 
-    // E. Replace Model Avatar Badge [01]
+    // E. Replace Model Avatar Badges (handles "OI" fallback and applies official icons)
     replaceModelAvatars();
 
     // F. Sanitize Text in the DOM
@@ -179,6 +332,9 @@
       if (container) container.style.display = 'none';
     });
   }
+
+  // Load models branding configuration
+  loadModelsBrandingConfig();
 
   // Initial Execution
   if (document.readyState === 'loading') {

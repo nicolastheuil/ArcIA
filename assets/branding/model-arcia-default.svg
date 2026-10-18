@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <!-- Fond Squircle Dark Mode sobre (#0A0F1D -> #050712) -->
+    <linearGradient id="arciaDefaultSquircleBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#131B2E" />
+      <stop offset="55%" stop-color="#0A0F1D" />
+      <stop offset="100%" stop-color="#050712" />
+    </linearGradient>
+
+    <!-- Cyan officiel ArcIA (#6BE7DD) -->
+    <linearGradient id="arciaDefaultCyanFill" x1="80" y1="98" x2="224" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5AD8CE" />
+      <stop offset="100%" stop-color="#6BE7DD" />
+    </linearGradient>
+
+    <!-- Halo ambiant classique -->
+    <radialGradient id="arciaDefaultSubtleGlow" cx="256" cy="256" r="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6BE7DD" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#050712" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Conteneur Squircle Dark Mode officiel -->
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#arciaDefaultSquircleBg)" stroke="#1E293B" stroke-width="8" />
+  <circle cx="256" cy="256" r="210" fill="url(#arciaDefaultSubtleGlow)" />
+
+  <!-- Monogramme officiel "aIA" centré -->
+  <g id="arcia-aIA-monogram" transform="translate(68, 174) scale(1.68)">
+    <!-- "a" en Blanc (#F8FAFC) -->
+    <path
+      d="M43.61 26C47.78 26.09 51.8 26.57 55.66 27.43 59.52 28.29 62.99 30.27 66.07 33.36 68.7 35.9 70.54 38.89 71.58 42.35 72.63 45.8 73.15 49.34 73.15 52.96L73.15 97.75 22.24 97.75C14.89 97.75 9.25 95.73 5.35 91.69 1.45 87.66-0.32 82.06 0.05 74.88 0.68 66.26 3.72 60.68 9.17 58.13 14.62 55.59 21.11 54.32 28.64 54.32L53.55 54.19C53.82 48.29 52.3 44.61 48.99 43.16 45.68 41.71 41.48 40.98 36.4 40.98L4.81 40.84 4.81 26 43.61 26ZM29.99 83.32 53.68 83.32 53.68 68.48 31.35 68.48C31.17 68.57 30.99 68.62 30.81 68.62L30.27 68.62C27.73 68.71 25.37 69.19 23.19 70.05 21.01 70.91 19.87 72.93 19.78 76.1 19.6 79.64 20.57 81.73 22.71 82.37 24.84 83.01 27.27 83.37 29.99 83.46L29.99 83.32Z"
+      fill="#F8FAFC"
+    />
+
+    <!-- "I" en Bleu Cyan ArcIA (#6BE7DD) -->
+    <path
+      d="M82.92 97.76 L100.16 0 L121.67 0 L104.43 97.76 Z"
+      fill="url(#arciaDefaultCyanFill)"
+    />
+
+    <!-- "A" en Bleu Cyan ArcIA (#6BE7DD) -->
+    <path
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M177.86 0 L199.65 0 L224.07 97.76 L201.20 97.76 L196.32 74.48 L153.84 74.48 L141.02 97.76 L119.37 97.76 L177.86 0 Z M184.51 19.47 L163.58 57.05 L192.72 57.05 L184.51 19.47 Z"
+      fill="url(#arciaDefaultCyanFill)"
+    />
+  </g>
+</svg>

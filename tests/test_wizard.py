@@ -1328,6 +1328,61 @@ llm_gateway:
         html = wizard.get_wizard_html_page()
         self.assertIn("function togglePasswordVisibility(fieldId)", html)
 
+    def test_model_routing_includes_icon_metadata(self):
+        """Vérifie que get_model_routing_config enrichit chaque modèle avec les icônes ArcIA."""
+        cfg = {
+            "llm_gateway": {
+                "models_routing": [
+                    {"name": "local-vllm", "provider": "vllm", "target_model": "vllm/qwen", "zdr": False},
+                    {"name": "cloud-haiku", "provider": "openrouter", "target_model": "openrouter/anthropic/claude-3.5-haiku", "zdr": True},
+                    {"name": "plain-gpt", "provider": "openai", "target_model": "openai/gpt-4o", "zdr": False}
+                ]
+            }
+        }
+        res = wizard.get_model_routing_config(cfg)
+        mappings = res.get("mappings", [])
+        self.assertEqual(len(mappings), 3)
+
+        local_m = next(m for m in mappings if m["name"] == "local-vllm")
+        self.assertEqual(local_m["icon_type"], "local")
+        self.assertEqual(local_m["icon"], "/static/icon-model-local.svg")
+
+        cloud_m = next(m for m in mappings if m["name"] == "cloud-haiku")
+        self.assertEqual(cloud_m["icon_type"], "zdr")
+        self.assertEqual(cloud_m["icon"], "/static/icon-model-zdr.svg")
+
+        plain_m = next(m for m in mappings if m["name"] == "plain-gpt")
+        self.assertEqual(plain_m["icon_type"], "default")
+        self.assertEqual(plain_m["icon"], "/static/icon-model-default.svg")
+
+    def test_save_model_routing_updates_models_branding_json(self):
+        """Vérifie que save_model_routing_config enregistre la configuration et met à jour models-branding.json."""
+        with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".yaml", encoding="utf-8") as tmp:
+            tmp.write("llm_gateway:\n  default_model: simple/auto\n")
+            tmp_path = tmp.name
+
+        try:
+            payload = {
+                "default_model": "simple/auto",
+                "mappings": [
+                    {"name": "simple/auto", "alias": "simple/auto", "provider": "openrouter", "target_model": "openrouter/auto", "zdr": True},
+                    {"name": "local/model", "alias": "local/model", "provider": "ollama", "target_model": "ollama/llama3", "zdr": False}
+                ]
+            }
+            res = wizard.save_model_routing_config(payload, cfg_path=tmp_path)
+            self.assertTrue(res.get("success"))
+            mb_path = os.path.join(wizard.ROOT_DIR, "assets", "branding", "models-branding.json")
+            self.assertTrue(os.path.isfile(mb_path))
+            with open(mb_path, "r", encoding="utf-8") as f:
+                branding = json.load(f)
+            self.assertIn("simple/auto", branding.get("models", {}))
+            self.assertEqual(branding["models"]["simple/auto"]["type"], "zdr")
+            self.assertIn("local/model", branding.get("models", {}))
+            self.assertEqual(branding["models"]["local/model"]["type"], "local")
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
 
 if __name__ == "__main__":
     unittest.main()

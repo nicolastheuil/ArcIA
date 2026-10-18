@@ -169,5 +169,42 @@ ARCIA_K3S_SSH_KEY="~/.ssh/custom_key"
         self.assertIn("name: litellm-error-handler", applied_names)
         self.assertIn("error_handler.py: |", applied_names)
 
+    def test_sync_webui_branding_includes_model_icons(self):
+        """Vérifie que sync_webui_branding intègre les icônes de modèles SVG et models-branding.json."""
+        class DummyRunner:
+            def __init__(self):
+                self.applied = []
+            def apply_manifest(self, manifest_yaml):
+                self.applied.append(manifest_yaml)
+
+        runner = DummyRunner()
+        deploy.sync_webui_branding(runner, "arcia", self.root_dir)
+        applied = "\n".join(runner.applied)
+        self.assertIn("name: arcia-webui-branding", applied)
+        self.assertIn("icon-model-default.svg: |", applied)
+        self.assertIn("icon-model-local.svg: |", applied)
+        self.assertIn("icon-model-zdr.svg: |", applied)
+        self.assertIn("models-branding.json: |", applied)
+
+    def test_compute_models_branding_dict(self):
+        """Vérifie le calcul dynamique du dictionnaire d'icônes de modèles."""
+        cfg = {
+            "llm_gateway": {
+                "models_routing": [
+                    {"name": "local-llama", "provider": "ollama", "target_model": "ollama/llama3", "zdr": False},
+                    {"name": "cloud-claude", "provider": "openrouter", "target_model": "openrouter/anthropic/claude-3.5-haiku", "zdr": True},
+                    {"name": "custom-std", "provider": "openai", "target_model": "openai/gpt-4o", "zdr": False}
+                ]
+            }
+        }
+        res = deploy.compute_models_branding_dict(cfg=cfg, root_dir=self.root_dir)
+        models = res.get("models", {})
+        self.assertEqual(models["local-llama"]["type"], "local")
+        self.assertEqual(models["local-llama"]["icon"], "/static/icon-model-local.svg")
+        self.assertEqual(models["cloud-claude"]["type"], "zdr")
+        self.assertEqual(models["cloud-claude"]["icon"], "/static/icon-model-zdr.svg")
+        self.assertEqual(models["custom-std"]["type"], "default")
+        self.assertEqual(models["custom-std"]["icon"], "/static/icon-model-default.svg")
+
 if __name__ == "__main__":
     unittest.main()

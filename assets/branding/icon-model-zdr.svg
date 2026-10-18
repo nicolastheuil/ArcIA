@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <!-- Fond Squircle Dark Mode sobre (#0A0F1D -> #050712) -->
+    <linearGradient id="arciaZdrSquircleBg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141B2D" />
+      <stop offset="55%" stop-color="#090E1B" />
+      <stop offset="100%" stop-color="#050712" />
+    </linearGradient>
+
+    <!-- Bordure argentée du Squircle -->
+    <linearGradient id="arciaSilverBorder" x1="32" y1="32" x2="480" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="35%" stop-color="#E2E8F0" />
+      <stop offset="70%" stop-color="#94A3B8" />
+      <stop offset="100%" stop-color="#CBD5E1" />
+    </linearGradient>
+
+    <!-- Cyan officiel ArcIA (#6BE7DD) pour le monogramme -->
+    <linearGradient id="arciaZdrCyanFill" x1="80" y1="98" x2="224" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5AD8CE" />
+      <stop offset="100%" stop-color="#6BE7DD" />
+    </linearGradient>
+
+    <!-- Halo ambiant argenté & cyan -->
+    <radialGradient id="arciaSilverHalo" cx="240" cy="240" r="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E2E8F0" stop-opacity="0.14" />
+      <stop offset="40%" stop-color="#6BE7DD" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#050712" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Dégradé métallique du bouclier argenté -->
+    <linearGradient id="shieldSilverGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="25%" stop-color="#F1F5F9" />
+      <stop offset="55%" stop-color="#CBD5E1" />
+      <stop offset="85%" stop-color="#64748B" />
+      <stop offset="100%" stop-color="#334155" />
+    </linearGradient>
+
+    <!-- Dégradé intérieur du bouclier (Dark Blue / Slate) -->
+    <linearGradient id="shieldInnerSilverGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#050814" />
+    </linearGradient>
+
+    <!-- Ombre portée pour le bouclier argenté -->
+    <filter id="silverShieldShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.80" />
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#E2E8F0" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Conteneur Squircle avec accent argenté -->
+  <rect x="24" y="24" width="464" height="464" rx="108" ry="108" fill="url(#arciaZdrSquircleBg)" stroke="url(#arciaSilverBorder)" stroke-width="8" />
+  <circle cx="240" cy="240" r="220" fill="url(#arciaSilverHalo)" />
+
+  <!-- Monogramme officiel "aIA" centré -->
+  <g id="arcia-aIA-monogram" transform="translate(68, 174) scale(1.68)">
+    <!-- "a" en Blanc (#F8FAFC) -->
+    <path
+      d="M43.61 26C47.78 26.09 51.8 26.57 55.66 27.43 59.52 28.29 62.99 30.27 66.07 33.36 68.7 35.9 70.54 38.89 71.58 42.35 72.63 45.8 73.15 49.34 73.15 52.96L73.15 97.75 22.24 97.75C14.89 97.75 9.25 95.73 5.35 91.69 1.45 87.66-0.32 82.06 0.05 74.88 0.68 66.26 3.72 60.68 9.17 58.13 14.62 55.59 21.11 54.32 28.64 54.32L53.55 54.19C53.82 48.29 52.3 44.61 48.99 43.16 45.68 41.71 41.48 40.98 36.4 40.98L4.81 40.84 4.81 26 43.61 26ZM29.99 83.32 53.68 83.32 53.68 68.48 31.35 68.48C31.17 68.57 30.99 68.62 30.81 68.62L30.27 68.62C27.73 68.71 25.37 69.19 23.19 70.05 21.01 70.91 19.87 72.93 19.78 76.1 19.6 79.64 20.57 81.73 22.71 82.37 24.84 83.01 27.27 83.37 29.99 83.46L29.99 83.32Z"
+      fill="#F8FAFC"
+    />
+
+    <!-- "I" en Bleu Cyan ArcIA (#6BE7DD) -->
+    <path
+      d="M82.92 97.76 L100.16 0 L121.67 0 L104.43 97.76 Z"
+      fill="url(#arciaZdrCyanFill)"
+    />
+
+    <!-- "A" en Bleu Cyan ArcIA (#6BE7DD) -->
+    <path
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M177.86 0 L199.65 0 L224.07 97.76 L201.20 97.76 L196.32 74.48 L153.84 74.48 L141.02 97.76 L119.37 97.76 L177.86 0 Z M184.51 19.47 L163.58 57.05 L192.72 57.05 L184.51 19.47 Z"
+      fill="url(#arciaZdrCyanFill)"
+    />
+  </g>
+
+  <!-- Bouclier Argenté Cloud ZDR (Planète + Cadenas Zero Data Retention) en bas à droite -->
+  <g id="arcia-cloud-zdr-silver-shield" transform="translate(300, 280)" filter="url(#silverShieldShadow)">
+    <!-- Corps externe du bouclier argenté -->
+    <path
+      d="M 85 10 C 130 10 160 22 165 24 C 165 75 160 120 145 150 C 125 185 85 205 85 205 C 85 205 45 185 25 150 C 10 120 5 75 5 24 C 10 22 40 10 85 10 Z"
+      fill="url(#shieldSilverGrad)"
+      stroke="#FFFFFF"
+      stroke-width="3"
+    />
+
+    <!-- Coeur intérieur du bouclier -->
+    <path
+      d="M 85 22 C 122 22 145 32 150 34 C 150 78 145 114 133 138 C 117 167 85 186 85 186 C 85 186 53 167 37 138 C 25 114 20 78 20 34 C 25 32 48 22 85 22 Z"
+      fill="url(#shieldInnerSilverGrad)"
+      stroke="#334155"
+      stroke-width="2"
+    />
+
+    <!-- Emblème ZDR : Planète / Globe + Cadenas de protection -->
+    <!-- Planète / Globe Cloud -->
+    <circle cx="85" cy="74" r="24" fill="#132342" stroke="#6BE7DD" stroke-width="2" />
+    <ellipse cx="85" cy="74" rx="24" ry="9" stroke="#6BE7DD" stroke-width="1.8" fill="none" opacity="0.85" />
+    <line x1="85" y1="50" x2="85" y2="98" stroke="#6BE7DD" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.75" />
+
+    <!-- Cadenas Sécurisé (Zero Data Retention) au centre du bouclier -->
+    <!-- Anse du cadenas -->
+    <path
+      d="M 74 116 L 74 105 C 74 97 78 92 85 92 C 92 92 96 97 96 105 L 96 116"
+      stroke="#F8FAFC"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      fill="none"
+    />
+    <!-- Corps du cadenas (argenté avec bord cyan) -->
+    <rect x="67" y="115" width="36" height="30" rx="5" fill="#E2E8F0" stroke="#6BE7DD" stroke-width="2" />
+    <!-- Trou de serrure du cadenas -->
+    <circle cx="85" cy="127" r="3.5" fill="#0A0F1D" />
+    <polygon points="83,127 87,127 88,137 82,137" fill="#0A0F1D" />
+
+    <!-- Badge ZDR sous le cadenas -->
+    <path
+      d="M 66 156 L 104 156"
+      stroke="#6BE7DD"
+      stroke-width="2.5"
+      stroke-linecap="round"
+    />
+    <circle cx="85" cy="170" r="3.5" fill="#6BE7DD" />
+  </g>
+</svg>

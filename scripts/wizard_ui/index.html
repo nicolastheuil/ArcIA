@@ -2084,6 +2084,7 @@
               <thead>
                 <tr>
                   <th style="min-width: 130px;">Alias / Nom</th>
+                  <th style="min-width: 130px;">Icône WebUI</th>
                   <th style="min-width: 150px;">Cible d'exécution</th>
                   <th style="min-width: 140px;">Fournisseur</th>
                   <th style="min-width: 200px;">Modèle cible amont</th>
@@ -2101,6 +2102,15 @@
 
           <div class="notice-box mt-16">
             <strong>Routage hybride :</strong> Une cible <em>Simple</em> envoie directement la requête à LiteLLM Proxy sans latence d'agent. Une cible <em>Agentic</em> garantit le traitement par Hermes Agent (mémoire d'agent SQLite <code>state.db</code>, autonomie multi-étapes et outillage). L'ensemble est filtré par la double barrière Presidio DLP.
+          </div>
+
+          <div class="notice-box mt-16" style="border-left: 3px solid #6be7dd;">
+            <strong>Icônes automatiques des modèles (Open-WebUI) :</strong> Le Wizard pousse dynamiquement les icônes officielles dans Open-WebUI lors de l'enregistrement de la configuration :
+            <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.6;">
+              <li><strong style="color:#fcd34d;">Bouclier doré :</strong> Modèles locaux souverains (Ollama, vLLM) garantissant zéro fuite hors du réseau interne.</li>
+              <li><strong style="color:#e2e8f0;">Bouclier argenté :</strong> Modèles cloud protégés avec Zero Data Retention (ZDR) et bouclier DLP fail-closed.</li>
+              <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Remplacement automatique du fallback générique « OI ».</li>
+            </ul>
           </div>
         </div>
 
@@ -3957,7 +3967,7 @@
       if (!tbody) return;
 
       if (!state.models || state.models.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:28px;">Aucun modèle configuré. Cliquez sur « ＋ Ajouter un modèle » pour créer une route.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:28px;">Aucun modèle configuré. Cliquez sur « ＋ Ajouter un modèle » pour créer une route.</td></tr>';
         checkCanSaveModelRouting();
         updateDefaultModelDropdowns();
         return;
@@ -3971,6 +3981,18 @@
         const catalogModels = PROVIDER_MODEL_CATALOG[curProvider] || PROVIDER_MODEL_CATALOG.openrouter || [];
         const curTarget = m.target_model || m.real_model || '';
         const isCustomModel = !catalogModels.some(cm => cm.id === curTarget);
+
+        const isLocal = ['ollama', 'vllm', 'local'].includes(String(curProvider).toLowerCase()) ||
+                        curTarget.toLowerCase().includes('localhost') ||
+                        curTarget.toLowerCase().includes('127.0.0.1');
+        let iconBadgeHtml = '';
+        if (isLocal) {
+          iconBadgeHtml = `<span class="badge" style="background:rgba(245,158,11,0.15); color:#fcd34d; border:1px solid rgba(245,158,11,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle local souverain : icône aIA avec bouclier doré dans Open-WebUI">🛡️ Bouclier doré</span>`;
+        } else if (m.zdr) {
+          iconBadgeHtml = `<span class="badge" style="background:rgba(148,163,184,0.15); color:#e2e8f0; border:1px solid rgba(148,163,184,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle cloud avec ZDR activé : icône aIA avec bouclier argenté (planète + cadenas) dans Open-WebUI">🛡️ Bouclier argenté</span>`;
+        } else {
+          iconBadgeHtml = `<span class="badge" style="background:rgba(107,231,221,0.15); color:#6be7dd; border:1px solid rgba(107,231,221,0.4); display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:10px; font-size:11px; white-space:nowrap;" title="Modèle standard : icône aIA classique par défaut dans Open-WebUI">✨ aIA classique</span>`;
+        }
 
         const providerOptions = availableProviders.map(p =>
           `<option value="${p.id}" ${p.id === curProvider ? 'selected' : ''}>${escapeHtml(p.label)}</option>`
@@ -4026,6 +4048,9 @@
           <tr id="model_tr_${idx}" class="${m.testedOk ? 'model-row-ok' : ''}" style="${rowMatches ? '' : 'display:none;'}">
             <td>
               <input type="text" value="${escapeHtml(m.alias || m.name)}" onchange="updateModelRow(${idx}, 'alias', this.value); updateDefaultModelDropdowns();" style="width: 120px; font-weight: 500;">
+            </td>
+            <td>
+              ${iconBadgeHtml}
             </td>
             <td>
               <select onchange="updateModelRow(${idx}, 'category', this.value); updateDefaultModelDropdowns();">
@@ -4147,6 +4172,7 @@
       if (state.models[idx]) {
         state.models[idx].zdr = checked;
         showToast(`ZDR pour « ${state.models[idx].alias || state.models[idx].name} » : ${checked ? 'activé' : 'désactivé'}`);
+        renderModelRoutingTable();
       }
     }
 

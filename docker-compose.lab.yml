@@ -40,6 +40,14 @@ services:
       - ENABLE_DIRECT_CONNECTIONS=false
     volumes:
       - arcia_webui_data:/app/backend/data
+      - ./assets/branding/logo-arcia-symbol.svg:/app/build/static/favicon.svg:ro
+      - ./assets/branding/logo-arcia-dark.svg:/app/build/static/logo.svg:ro
+      - ./assets/branding/custom.css:/app/build/static/custom.css:ro
+      - ./assets/branding/loader.js:/app/build/static/loader.js:ro
+      - ./assets/branding/icon-model-default.svg:/app/build/static/icon-model-default.svg:ro
+      - ./assets/branding/icon-model-local.svg:/app/build/static/icon-model-local.svg:ro
+      - ./assets/branding/icon-model-zdr.svg:/app/build/static/icon-model-zdr.svg:ro
+      - ./assets/branding/models-branding.json:/app/build/static/models-branding.json:ro
     depends_on:
       - litellm-proxy
 

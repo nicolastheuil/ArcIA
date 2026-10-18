@@ -525,30 +525,105 @@ data:
 
     log_ok("Toutes les compétences et outils natifs d'ArcIA sont déployés.")
 
-def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
-    """Crée le ConfigMap arcia-webui-branding avec les logos SVG, custom.css et loader.js officiels ArcIA."""
+def compute_models_branding_dict(cfg: Optional[Dict[str, Any]] = None, root_dir: Optional[str] = None) -> Dict[str, Any]:
+    """Calcule le dictionnaire de routage des icônes de modèles ArcIA (par défaut, local doré, cloud ZDR argenté)."""
+    default_icon = "/static/icon-model-default.svg"
+    local_icon = "/static/icon-model-local.svg"
+    zdr_icon = "/static/icon-model-zdr.svg"
+
+    models_map: Dict[str, Dict[str, str]] = {}
+    canonical_models = ["simple/auto", "simple/free", "agentic/auto", "agentic/free", "agentic/expert"]
+    for m in canonical_models:
+        models_map[m] = {
+            "icon": zdr_icon,
+            "type": "zdr",
+            "badge": "Bouclier argenté (Cloud ZDR)"
+        }
+
+    mappings = []
+    if cfg and isinstance(cfg, dict):
+        mappings = cfg.get("llm_gateway", {}).get("models_routing", [])
+    if not mappings and root_dir:
+        cfg_path = os.path.join(root_dir, "arcia.config.yaml")
+        if os.path.isfile(cfg_path):
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    c = yaml.safe_load(f)
+                    if c and isinstance(c, dict):
+                        mappings = c.get("llm_gateway", {}).get("models_routing", [])
+            except Exception:
+                pass
+
+    if mappings and isinstance(mappings, list):
+        for m in mappings:
+            alias = str(m.get("alias") or m.get("name") or "").strip()
+            if not alias:
+                continue
+            prov = str(m.get("provider") or "").lower()
+            target = str(m.get("target_model") or m.get("real_model") or "").lower()
+            zdr = bool(m.get("zdr", True))
+
+            is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
+            if is_local:
+                models_map[alias] = {
+                    "icon": local_icon,
+                    "type": "local",
+                    "badge": "Bouclier doré (Local souverain)"
+                }
+            elif zdr:
+                models_map[alias] = {
+                    "icon": zdr_icon,
+                    "type": "zdr",
+                    "badge": "Bouclier argenté (Cloud ZDR)"
+                }
+            else:
+                models_map[alias] = {
+                    "icon": default_icon,
+                    "type": "default",
+                    "badge": "aIA classique (Défaut)"
+                }
+
+    return {
+        "models": models_map,
+        "default_icon": default_icon,
+        "local_icon": local_icon,
+        "zdr_icon": zdr_icon
+    }
+
+def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: Optional[Dict[str, Any]] = None):
+    """Crée le ConfigMap arcia-webui-branding avec les logos SVG, custom.css, loader.js et les icônes de modèles ArcIA."""
     symbol_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-symbol.svg")
     dark_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-dark.svg")
     css_path = os.path.join(root_dir, "assets", "branding", "custom.css")
     loader_path = os.path.join(root_dir, "assets", "branding", "loader.js")
+    icon_default_path = os.path.join(root_dir, "assets", "branding", "icon-model-default.svg")
+    icon_local_path = os.path.join(root_dir, "assets", "branding", "icon-model-local.svg")
+    icon_zdr_path = os.path.join(root_dir, "assets", "branding", "icon-model-zdr.svg")
 
-    symbol_content = ""
-    dark_content = ""
-    css_content = ""
-    loader_content = ""
+    def read_file_safe(path: str) -> str:
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        return ""
 
-    if os.path.isfile(symbol_path):
-        with open(symbol_path, "r", encoding="utf-8") as f:
-            symbol_content = f.read()
-    if os.path.isfile(dark_path):
-        with open(dark_path, "r", encoding="utf-8") as f:
-            dark_content = f.read()
-    if os.path.isfile(css_path):
-        with open(css_path, "r", encoding="utf-8") as f:
-            css_content = f.read()
-    if os.path.isfile(loader_path):
-        with open(loader_path, "r", encoding="utf-8") as f:
-            loader_content = f.read()
+    symbol_content = read_file_safe(symbol_path)
+    dark_content = read_file_safe(dark_path)
+    css_content = read_file_safe(css_path)
+    loader_content = read_file_safe(loader_path)
+    icon_default_content = read_file_safe(icon_default_path)
+    icon_local_content = read_file_safe(icon_local_path)
+    icon_zdr_content = read_file_safe(icon_zdr_path)
+
+    # Calcul et sauvegarde locale du fichier models-branding.json
+    branding_dict = compute_models_branding_dict(cfg=cfg, root_dir=root_dir)
+    models_branding_json = json.dumps(branding_dict, indent=2, ensure_ascii=False)
+    local_mb_path = os.path.join(root_dir, "assets", "branding", "models-branding.json")
+    try:
+        with open(local_mb_path, "w", encoding="utf-8") as f:
+            f.write(models_branding_json)
+    except Exception:
+        pass
 
     cm_lines = [
         "apiVersion: v1",
@@ -572,8 +647,25 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str):
         cm_lines.append("  loader.js: |")
         for line in loader_content.splitlines():
             cm_lines.append(f"    {line}")
+    if icon_default_content:
+        cm_lines.append("  icon-model-default.svg: |")
+        for line in icon_default_content.splitlines():
+            cm_lines.append(f"    {line}")
+    if icon_local_content:
+        cm_lines.append("  icon-model-local.svg: |")
+        for line in icon_local_content.splitlines():
+            cm_lines.append(f"    {line}")
+    if icon_zdr_content:
+        cm_lines.append("  icon-model-zdr.svg: |")
+        for line in icon_zdr_content.splitlines():
+            cm_lines.append(f"    {line}")
+    if models_branding_json:
+        cm_lines.append("  models-branding.json: |")
+        for line in models_branding_json.splitlines():
+            cm_lines.append(f"    {line}")
 
     runner.apply_manifest("\n".join(cm_lines))
+    log_ok("Identité visuelle et icônes des modèles poussées dans arcia-webui-branding.")
 def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) -> Dict[str, str]:
     """Injecte le code source unique de services/ (Presidio DLP, Teams Bot, Hermes Governance Plugin, LiteLLM Error Handler) dans des ConfigMaps Kubernetes."""
     mappings = [
@@ -843,7 +935,7 @@ metadata:
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
     log_info(" -> [Branding ArcIA] Injection de l'identité visuelle officielle (SVG & CSS)...")
-    sync_webui_branding(runner, namespace, root_dir)
+    sync_webui_branding(runner, namespace, root_dir, cfg=cfg)
     log_info(" -> Déploiement de Open-WebUI (07-open-webui.yaml)...")
     webui_path = os.path.join(manifests_dir, "07-open-webui.yaml")
     with open(webui_path, "r", encoding="utf-8") as f:

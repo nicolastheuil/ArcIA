@@ -20,4 +20,8 @@ Ce dossier regroupe les vecteurs officiels SVG et la définition chromatique de 
 | **[logo-arcia-dark.svg](logo-arcia-dark.svg)** | SVG Vectoriel | Logo complet optimisé pour les interfaces sombres (Setup Wizard, Open-WebUI Dark). |
 | **[logo-arcia-light.svg](logo-arcia-light.svg)** | SVG Vectoriel | Logo complet optimisé pour les fonds clairs et documents imprimables. |
 | **[logo-arcia-symbol.svg](logo-arcia-symbol.svg)** | SVG Vectoriel | Monogramme carré utilisé comme favicon et avatar d'agent. |
+| **[icon-model-default.svg](icon-model-default.svg)** | SVG Vectoriel | Icône modèle classique par défaut : monogramme « aIA » sur squircle dark mode. |
+| **[icon-model-local.svg](icon-model-local.svg)** | SVG Vectoriel | Icône modèle local souverain : monogramme « aIA » rehaussé d'un bouclier doré (Ollama / vLLM). |
+| **[icon-model-zdr.svg](icon-model-zdr.svg)** | SVG Vectoriel | Icône modèle cloud sécurisé : monogramme « aIA » avec bouclier argenté (planète + cadenas ZDR). |
+| **[models-branding.json](models-branding.json)** | JSON | Référentiel dynamique du mappage des icônes de modèles poussé par le Wizard vers Open-WebUI. |
 | **[palette.json](palette.json)** | JSON | Codes hexadécimaux officiels : Royal Blue (`#1659E4`), Cyan (`#6BE7DD`), Deep Navy (`#0C2762`), Coral (`#FA7B4E`), Gold (`#F1C557`). |

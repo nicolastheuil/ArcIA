@@ -1,0 +1,37 @@
+{
+  "models": {
+    "simple/auto": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "simple/free": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "agentic/auto": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "agentic/free": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "agentic/expert": {
+      "icon": "/static/icon-model-zdr.svg",
+      "type": "zdr",
+      "badge": "Bouclier argenté (Cloud ZDR)"
+    },
+    "local/model": {
+      "icon": "/static/icon-model-local.svg",
+      "type": "local",
+      "badge": "Bouclier doré (Local souverain)"
+    }
+  },
+  "default_icon": "/static/icon-model-default.svg",
+  "local_icon": "/static/icon-model-local.svg",
+  "zdr_icon": "/static/icon-model-zdr.svg"
+}

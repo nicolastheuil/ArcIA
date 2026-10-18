@@ -22,6 +22,6 @@ assets/
 
 | Sous-dossier | Contenu principal | Rôle |
 |---|---|---|
-| 🎨 **[branding/](branding/README.md)** | `banner-github-dark.svg`, `logo-arcia-dark.svg`, `logo-arcia-light.svg`, `logo-arcia-symbol.svg`, `palette.json` | Identité visuelle officielle injectée dans Open-WebUI (`arcia-webui-branding`), le Setup Wizard et la documentation. |
+| 🎨 **[branding/](branding/README.md)** | `banner-github-dark.svg`, `logo-arcia-dark.svg`, `logo-arcia-light.svg`, `logo-arcia-symbol.svg`, `icon-model-*.svg`, `palette.json` | Identité visuelle officielle injectée dans Open-WebUI (`arcia-webui-branding`), le Setup Wizard et la documentation. |
 | 💿 **[installer/](installer/README.md)** | `app.ico`, `wizard-header.bmp`, `wizard-side.bmp`, `installer-sample.iss` | Ressources visuelles et script de packaging pour les exécutables d'installation Windows. |
 | 💬 **[teams/](teams/README.md)** | `manifest.json`, `color.png`, `outline.png`, `arcia-teams-ui.zip`, `arcia-teams-app.zip` | Package officiel de l'application ArcIA pour le Portail Développeur Microsoft Teams. |

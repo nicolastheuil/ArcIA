@@ -3684,6 +3684,25 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
     custom_mappings = llm.get("models_routing", [])
     mappings_to_use = custom_mappings if (custom_mappings and isinstance(custom_mappings, list)) else default_mappings
 
+    # Enrichissement avec les icônes officielles ArcIA pour Open-WebUI
+    for m in mappings_to_use:
+        prov = str(m.get("provider") or "").lower()
+        target = str(m.get("target_model") or m.get("real_model") or "").lower()
+        zdr = bool(m.get("zdr", True))
+        is_local = (prov in ("ollama", "vllm", "local")) or ("localhost" in target) or ("127.0.0.1" in target)
+        if is_local:
+            m["icon"] = "/static/icon-model-local.svg"
+            m["icon_type"] = "local"
+            m["icon_badge"] = "Bouclier doré (Local souverain)"
+        elif zdr:
+            m["icon"] = "/static/icon-model-zdr.svg"
+            m["icon_type"] = "zdr"
+            m["icon_badge"] = "Bouclier argenté (Cloud ZDR)"
+        else:
+            m["icon"] = "/static/icon-model-default.svg"
+            m["icon_type"] = "default"
+            m["icon_badge"] = "aIA classique"
+
     hermes = cfg.setdefault("hermes", {})
     return {
         "status": "ok",
@@ -3771,7 +3790,19 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
 
     save_config_to_files(cfg, cfg_path)
 
-    # Synchroniser le ConfigMap LiteLLM si le cluster est connecté
+    # 1. Sauvegarde locale du fichier models-branding.json pour Open-WebUI & Docker Lab
+    branding_synced = False
+    try:
+        sys.path.insert(0, SCRIPT_DIR)
+        import deploy
+        branding_dict = deploy.compute_models_branding_dict(cfg=cfg, root_dir=ROOT_DIR)
+        local_mb_path = os.path.join(ROOT_DIR, "assets", "branding", "models-branding.json")
+        with open(local_mb_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(branding_dict, indent=2, ensure_ascii=False))
+    except Exception:
+        pass
+
+    # 2. Synchroniser le ConfigMap LiteLLM et le branding Open-WebUI si le cluster est connecté
     cm_synced = False
     try:
         runner = get_k8s_runner(cfg)
@@ -3779,13 +3810,26 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
         rc, _, _ = runner.run(["get", "namespace", ns])
         if rc == 0:
             cm_synced = sync_litellm_configmap(cfg, runner, ns)
+            try:
+                import deploy
+                deploy.sync_webui_branding(runner, ns, ROOT_DIR, cfg=cfg)
+                branding_synced = True
+            except Exception:
+                pass
     except Exception:
         pass
+
+    msg_parts = ["Configuration du routage enregistrée avec succès."]
+    if cm_synced:
+        msg_parts.append("ConfigMap LiteLLM synchronisé.")
+    if branding_synced:
+        msg_parts.append("Icônes des modèles poussées dans Open-WebUI.")
 
     return {
         "success": True,
         "cm_synced": cm_synced,
-        "message": "Configuration du routage enregistrée avec succès." + (" (ConfigMap LiteLLM synchronisé sur le cluster)" if cm_synced else "")
+        "branding_synced": branding_synced,
+        "message": " ".join(msg_parts)
     }
 
 def sync_litellm_configmap(cfg: Dict[str, Any], runner: Any, ns: str) -> bool:
