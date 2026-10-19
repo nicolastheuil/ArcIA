@@ -20,7 +20,7 @@ class TestPortableBundle(unittest.TestCase):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as destination:
             key = Path(source) / "synthetic.key"
             key.write_bytes(b"synthetic-only")
-            cfg = {"kubernetes": {"remote_ssh": {"ssh_key": str(key)}},
+            cfg = {"kubernetes": {"mode": "remote-ssh", "remote_ssh": {"ssh_key": str(key)}},
                    "custom": {"config_file": "synthetic.key", "unknown": [1, 2]},
                    "microsoft365_integration": {"enabled": False, "config_file": "absent"}}
             assets, coverage = bundle.collect(source, cfg)
@@ -40,6 +40,17 @@ class TestPortableBundle(unittest.TestCase):
             self.assertEqual(coverage["missing_references"], ["kubernetes.kubeconfig"])
             with self.assertRaises(ValueError):
                 bundle.prepare_restore({"kubernetes": {"kubeconfig": "missing"}}, assets)
+
+    def test_unused_connection_mode_does_not_require_an_inactive_credential_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for cfg in ({"kubernetes": {"mode": "remote-ssh", "kubeconfig": "unused-missing"}},
+                        {"kubernetes": {"mode": "local", "remote_ssh": {"ssh_key": "unused-missing"}}}):
+                assets, coverage = bundle.collect(directory, cfg)
+                self.assertTrue(coverage["complete"])
+                self.assertEqual(assets, [])
+                restored, files = bundle.prepare_restore(cfg, assets)
+                self.assertEqual(restored, cfg)
+                self.assertEqual(files, {})
 
     def test_corruption_missing_and_unexpected_bindings_rejected_before_install(self):
         cfg = {"custom": {"config_file": "synthetic"}}

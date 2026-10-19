@@ -17,12 +17,17 @@ KNOWN_FIELDS = {("kubernetes", "kubeconfig"), ("kubernetes", "remote_ssh", "ssh_
 def references(cfg):
     """Ignorer les modules désactivés et les chemins de volumes distants."""
     found = []
+    remote_ssh = cfg.get("kubernetes", {}).get("mode", "local") == "remote-ssh"
     def walk(value, binding=()):
         if isinstance(value, dict):
             if value.get("enabled") is False:
                 return
             for key, child in value.items():
                 path = binding + (key,)
+                if path == ("kubernetes", "kubeconfig") and remote_ssh:
+                    continue
+                if path == ("kubernetes", "remote_ssh") and not remote_ssh:
+                    continue
                 if isinstance(child, str) and child.strip() and (path in KNOWN_FIELDS or key in FILE_FIELDS):
                     found.append((path, child))
                 elif path == ("instance_backup", "additional_files") and isinstance(child, list):
