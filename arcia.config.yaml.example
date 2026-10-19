@@ -191,10 +191,15 @@ microsoft365_integration:
 
 
 # Dépôt privé d'instance ; jamais le dépôt du harness générique.
-# Collecter les accès et le mot de passe maître dans Sauvegarde et reprise.
+# Étape dédiée Dépôt d'instance et reprise, puis menu Sauvegarde et reprise.
+# Conserver le mot de passe maître séparément ; jamais dans ce fichier.
+# YAML entier, environnements et fichiers de configuration référencés sont chiffrés.
+# Les admins maintiennent code/skills/MCP maison et sauvegardes des données.
 instance_backup:
   enabled: true
   repo_url: ""
+  # Fichiers locaux supplémentaires à embarquer (pas de répertoire ni de coffre).
+  additional_files: []
 # Option visuelle par entrée llm_gateway.models_routing :
 # hosting: "local" ou "cloud" (absent : type du fournisseur).
 # Ce champ de présentation ne change aucune politique DLP ou ZDR.

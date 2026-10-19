@@ -647,6 +647,7 @@
     }
 
     input[type="text"],
+    input[type="url"],
     input[type="number"],
     input[type="email"],
     input[type="password"],
@@ -1294,6 +1295,22 @@
     .gap-8 { gap: 8px; }
     .mt-16 { margin-top: 16px; }
     .providers-strip { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Sauvegarde : colonnes alignées, messages et actions indépendants. */
+    .backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+    .backup-grid > * { min-width: 0; }
+    .backup-grid .form-group { margin: 0; }
+    .backup-wide { grid-column: 1 / -1; }
+    .backup-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+    .backup-status { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+    .backup-repo { overflow-wrap: anywhere; }
+    .backup-section-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 16px; }
+    .backup-responsibilities p + p { margin-top: 12px; }
+    .stepper-phases { flex-wrap: wrap; }
+    @media (max-width: 760px) {
+      .backup-grid { grid-template-columns: minmax(0, 1fr); }
+      .backup-actions .btn { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -1441,7 +1458,7 @@
         <div class="home-cards-grid">
           <div id="cardNewInstance" class="home-card primary" onclick="startGuidedInstall()">
             <h2>Installer ArcIA</h2>
-            <p>Parcours épuré en 3 étapes : infrastructure cible, modèles d'inférence, et accès sécurisé.</p>
+            <p>Cinq étapes pour préparer l’infrastructure, les modèles, les accès, le dépôt d’instance et le déploiement.</p>
             <span class="card-action-link">Démarrer l'installation &rarr;</span>
           </div>
 
@@ -1603,7 +1620,7 @@
     </section>
 
     <!-- =====================================================================
-         2. PARCOURS D'INSTALLATION GUIDÉ (STEPPER 3 ÉTAPES + DÉPLOIEMENT)
+         2. PARCOURS D'INSTALLATION GUIDÉ (STEPPER 5 ÉTAPES)
     ====================================================================== -->
     <section id="installSection" class="view-section">
 
@@ -1620,7 +1637,10 @@
             <span class="step-num">3</span> <span>Accès & sécurité</span>
           </button>
           <button id="stepNav4" class="step-indicator" onclick="goToStep(4)">
-            <span class="step-num">4</span> <span>Déploiement</span>
+            <span class="step-num">4</span> <span>Dépôt d’instance</span>
+          </button>
+          <button id="stepNav5" class="step-indicator" onclick="goToStep(5)">
+            <span class="step-num">5</span> <span>Déploiement</span>
           </button>
         </div>
         <button class="btn text compact" onclick="returnToHome()">&larr; Retour à l'accueil</button>
@@ -1632,6 +1652,8 @@
           <h2>Étape 1 · Infrastructure et cible d'exécution</h2>
           <p>Choisissez l'environnement d'hébergement adapté à vos besoins d'exploitation.</p>
         </div>
+
+        <p id="restorePreparationNotice" class="notice-box hidden" role="status" aria-live="polite"></p>
 
         <div class="profile-choice-grid">
           <!-- Choix 1 : Docker Lab -->
@@ -2227,7 +2249,7 @@
             <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.6;">
               <li><strong style="color:#fcd34d;">Liseret doré :</strong> Modèles locaux souverains (Ollama, vLLM) garantissant zéro fuite hors du réseau interne.</li>
               <li><strong style="color:#e2e8f0;">Liseret argenté :</strong> Modèles cloud protégés avec Zero Data Retention (ZDR) et bouclier DLP fail-closed.</li>
-              <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Avec bouclier DLP mais ne garanti pas ZDR</li>
+              <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Avec bouclier DLP, sans garantie ZDR.</li>
             </ul>
           </div>
         </div>
@@ -2486,15 +2508,27 @@
           </div>
         </div>
 
+        <!-- Navigation Étape 3 -->
+        <div class="wizard-step-footer">
+          <button class="btn secondary" onclick="goToStep(2)">&larr; Précédent</button>
+          <button class="btn primary" onclick="goToStep(4)">Continuer vers le dépôt d’instance &rarr;</button>
+        </div>
+      </div>
+
+      <div id="stepContainer4" class="step-page hidden">
+        <div class="panel-header">
+          <h2>Étape 4 · Dépôt d’instance et reprise</h2>
+          <p>Préparez le dépôt privé qui conservera la configuration chiffrée nécessaire à une reconstruction.</p>
+        </div>
         <!-- Intégration 3 : Dépôt Git d'instance chiffré -->
         <div id="card_git" class="integration-card">
           <div class="integration-header">
             <div>
               <h3>Dépôt Git d'instance chiffré (AES-256-GCM)</h3>
-              <p>Sauvegarde automatique de vos secrets et configurations dans un dépôt Git privé de l'organisation.</p>
+              <p>Configurez un dépôt privé neuf ou existant. Vous pouvez reporter cette étape pour une nouvelle instance ; un dépôt déjà déclaré reste surveillé selon son état de déverrouillage.</p>
             </div>
             <label class="switch-wrap">
-              <input type="checkbox" id="git_backup_enabled" class="hidden" onchange="toggleIntegration('card_git', this.checked)">
+              <input type="checkbox" id="git_backup_enabled" class="hidden" aria-label="Activer le dépôt privé de sauvegarde" onchange="toggleIntegration('card_git', this.checked); updateGitSetupStatus()">
               <span class="switch-toggle"></span>
             </label>
           </div>
@@ -2516,36 +2550,40 @@
                 <input type="text" id="git_repo_input" value="ArcIA-instance-prod">
               </div>
               <div class="form-group">
-                <label class="field-label" for="git_token_input">Jeton d'accès personnel (PAT) <span class="required">*</span></label>
-                <input type="password" id="git_token_input" placeholder="ghp_xxxxxxxxxxxx">
+                <label class="field-label" for="git_token_input">Accès Git (PAT)</label>
+                <input type="password" id="git_token_input" autocomplete="off" placeholder="Facultatif si l’accès est déjà dans le coffre">
               </div>
               <div class="form-group">
-                <label class="field-label" for="git_passphrase_input">Mot de passe maître de chiffrement <span class="required">*</span></label>
-                <input type="password" id="git_passphrase_input">
+                <label class="field-label" for="git_passphrase_input">Mot de passe maître de chiffrement</label>
+                <input type="password" id="git_passphrase_input" autocomplete="new-password" placeholder="Facultatif si ce dépôt est déjà déverrouillé">
               </div>
               <div class="form-group">
-                <label class="field-label" for="git_passphrase_confirm">Confirmation du mot de passe maître <span class="required">*</span></label>
+                <label class="field-label" for="git_passphrase_confirm">Confirmation du mot de passe maître</label>
                 <input type="password" id="git_passphrase_confirm">
               </div>
             </div>
             <div class="mt-16 flex-between">
               <button class="btn secondary compact" onclick="testGitCredentials()">Tester les permissions Git</button>
-              <span id="gitStatusMsg" class="field-hint"></span>
+              <span id="gitStatusMsg" class="field-hint" role="status" aria-live="polite"></span>
             </div>
           </div>
         </div>
 
-        <!-- Navigation Étape 3 -->
+        <div class="notice-box mt-16">
+          <strong>À conserver par les administrateurs :</strong> le mot de passe maître séparément du dépôt ; les skills, MCP maison, services, code, images et dépendances spécifiques dans le dépôt privé, avec leurs versions et instructions de reconstruction. Le wizard ne pousse que <code>instance-secrets.enc</code> et <code>instance.json</code>.
+          <p>Le snapshot AES-256-GCM inclut la configuration YAML entière, l’environnement et les fichiers locaux de configuration déclarés, dont les identités de déploiement. Les bases, conversations, volumes persistants, etcd, le cluster et les autorisations IAM externes exigent leurs propres sauvegardes et procédures.</p>
+        </div>
+        <p id="gitSetupStatus" class="field-hint mt-16" role="status" aria-live="polite">Pour une nouvelle instance, vous pouvez reporter la configuration du dépôt. Un dépôt déjà déclaré reste surveillé pendant la session si le coffre est déverrouillé.</p>
         <div class="wizard-step-footer">
-          <button class="btn secondary" onclick="goToStep(2)">&larr; Précédent</button>
-          <button class="btn primary" onclick="goToStep(4)">Continuer vers la synthèse &rarr;</button>
+          <button class="btn secondary" onclick="goToStep(3)">&larr; Précédent</button>
+          <button class="btn primary" onclick="goToStep(5)">Continuer vers la synthèse &rarr;</button>
         </div>
       </div>
 
-      <!-- ================= ÉTAPE 4 : SYNTHÈSE & DÉPLOIEMENT ================= -->
-      <div id="stepContainer4" class="step-page hidden">
+      <!-- ================= ÉTAPE 5 : SYNTHÈSE & DÉPLOIEMENT ================= -->
+      <div id="stepContainer5" class="step-page hidden">
         <div class="panel-header">
-          <h2>Étape 4 · Synthèse de configuration et déploiement</h2>
+          <h2>Étape 5 · Synthèse de configuration et déploiement</h2>
           <p>Relisez les paramètres consolidés avant de déclencher l'application.</p>
         </div>
 
@@ -2586,7 +2624,7 @@
           </div>
 
           <div class="wizard-step-footer">
-            <button class="btn secondary" onclick="goToStep(3)">&larr; Précédent</button>
+            <button class="btn secondary" onclick="goToStep(4)">&larr; Précédent</button>
             <div style="display: flex; gap: 8px;">
               <button class="btn secondary" onclick="saveConfigurationLocally()">Enregistrer la configuration</button>
               <button class="btn secondary" onclick="triggerDeployment(true)">Simuler le déploiement (Dry-Run)</button>
@@ -2986,115 +3024,116 @@
          6. SECTION SAUVEGARDE ET REPRISE
     ====================================================================== -->
     <section id="restoreSection" class="view-section">
-      <div class="panel-header flex-between">
+      <div class="panel-header backup-section-header">
         <div>
-          <h2>Sauvegarde et restauration</h2>
-          <p>Supervisez vos sauvegardes Git chiffrées AES-256-GCM et restaurez votre instance à un point précis dans le temps.</p>
+          <h2>Sauvegarde et reprise</h2>
+          <p>Conservez une configuration chiffrée et préparez sa réapplication sur une cible vérifiée.</p>
         </div>
-        <div style="display:flex; gap:10px;">
-          <button class="btn secondary compact" onclick="fetchBackupInfo()">Actualiser l'historique</button>
-        </div>
+        <button class="btn secondary compact" onclick="fetchBackupInfo()">Actualiser l’état et l’historique</button>
       </div>
 
-      <!-- Panneau Dépôt de sauvegarde actuel & Déclenchement de backup -->
       <div class="panel">
-        <div class="integration-header flex-between">
+        <div class="panel-header backup-section-header">
           <div>
-            <h3>Dépôt Git de sauvegarde d'instance</h3>
-            <p>Le coffre-fort chiffré où sont synchronisées les configurations et clés de l'instance.</p>
+            <h3>Dépôt privé et dernière sauvegarde</h3>
+            <p>Le snapshot AES-256-GCM protège la configuration complète de l’instance.</p>
           </div>
           <span id="backup_current_repo_badge" class="badge">Non configuré</span>
         </div>
-
-        <div class="integration-status-banner mt-16">
+        <div class="backup-grid">
           <div>
-            <div style="font-size:12px; color:var(--text-muted); margin-bottom:2px;">Dépôt distant connecté :</div>
-            <code id="backup_current_repo_text" style="font-size:13px; color:var(--cyan);">(Aucun dépôt configuré)</code>
+            <div class="field-label">Dépôt déclaré</div>
+            <code id="backup_current_repo_text" class="backup-repo">Aucun dépôt configuré</code>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:12px; color:var(--text-muted); margin-bottom:2px;">Dernière sauvegarde réussie :</div>
-            <strong id="backup_last_date_text" style="font-size:13px;">—</strong>
+          <div>
+            <div class="field-label">Dernière sauvegarde réussie</div>
+            <strong id="backup_last_date_text">—</strong>
           </div>
-        </div>
-
-        <div style="margin-top:16px;">
-          <label class="field-label" for="backup_repo_input">Dépôt privé de l'instance</label>
-          <input type="url" id="backup_repo_input" placeholder="https://github.com/organisation/depot-instance">
-        </div>
-        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;">
-          <div style="flex:1; min-width:260px;">
-            <label class="field-label" for="backup_passphrase_input">Déverrouiller les sauvegardes automatiques</label>
-            <input type="password" id="backup_passphrase_input" placeholder="Facultatif si le coffre est déjà déverrouillé"><p id="backup_status_text" role="status"></p>
-          </div>
-          <div style="flex:1; min-width:240px;">
-            <label class="field-label" for="backup_token_input">Accès Git (si absent du coffre)</label>
-            <input type="password" id="backup_token_input" autocomplete="off" placeholder="Jeton conservé dans le coffre local protégé">
-          </div>
-          <button class="btn primary" onclick="backupCurrentInstanceNow()">Sauvegarder l'état actuel maintenant</button>
+          <p id="backup_coverage_text" class="field-hint backup-wide">Le snapshot inclut le YAML entier, l’environnement et les fichiers locaux de configuration déclarés, dont les identités de déploiement.</p>
         </div>
       </div>
 
-      <!-- Frise chronologique des points de restauration (Timeline) -->
       <div class="panel">
-        <div class="panel-header flex-between">
-          <div>
-            <h3>Points de restauration disponibles (Timeline)</h3>
-            <p>Sélectionnez un instantané historique pour revenir à un état antérieur de la configuration.</p>
-          </div>
+        <div class="panel-header">
+          <h3>Déverrouiller et sauvegarder</h3>
+          <p>L’accès protégé déjà configuré est réutilisé. Après déverrouillage, les modifications sont surveillées uniquement pendant que le wizard fonctionne.</p>
         </div>
+        <div class="backup-grid">
+          <div class="form-group backup-wide">
+            <label class="field-label" for="backup_repo_input">URL du dépôt privé</label>
+            <input type="url" id="backup_repo_input" placeholder="https://github.com/organisation/depot-instance" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="field-label" for="backup_passphrase_input">Mot de passe maître</label>
+            <input type="password" id="backup_passphrase_input" autocomplete="off" placeholder="Facultatif si ce dépôt est déjà déverrouillé">
+            <p class="field-hint">À conserver séparément du dépôt par les administrateurs.</p>
+          </div>
+          <div class="form-group">
+            <label class="field-label" for="backup_token_input">Accès Git</label>
+            <input type="password" id="backup_token_input" autocomplete="off" placeholder="Facultatif si l’accès est déjà dans le coffre">
+            <p class="field-hint">À saisir localement si aucun accès protégé n’est disponible.</p>
+          </div>
+          <p id="backup_status_text" class="backup-status backup-wide" role="status" aria-live="polite">Chargement de l’état des sauvegardes…</p>
+        </div>
+        <div class="backup-actions">
+          <button id="backup_now_button" class="btn primary" onclick="backupCurrentInstanceNow()">Sauvegarder maintenant</button>
+        </div>
+      </div>
 
-        <div style="overflow-x: auto;">
+      <div class="panel backup-responsibilities">
+        <div class="panel-header"><h3>Préparer une reconstruction complète</h3></div>
+        <p><strong>Centre de pilotage :</strong> sauvegarde du YAML entier, des environnements, des secrets déclarés et des fichiers de configuration référencés. Les déclarations Power Users enregistrées par le wizard conservent leur personnalité, leurs identifiants, leur stockage demandé et leur état de suspension pour la réapplication.</p>
+        <p>Les administrateurs maintiennent dans ce dépôt privé leurs skills, MCP maison, services, code, images et dépendances spécifiques, avec les versions et instructions nécessaires pour les reconstruire. Le wizard ne pousse que <code>instance-secrets.enc</code> et <code>instance.json</code> ; les autres fichiers restent sous votre responsabilité.</p>
+        <p>Les bases de données, conversations, volumes persistants (PVC), etcd et le cluster ne sont pas sauvegardés par ce snapshot. Conservez leurs sauvegardes et procédures de restauration, ainsi que les démarches de rétablissement des accès externes et droits IAM.</p>
+        <p>Les changements faits uniquement dans le cluster ou dans une application, ainsi que les Power Users historiques non déclarés dans la configuration, doivent être exportés par les administrateurs. Déclarez les fichiers locaux supplémentaires dans <code>instance_backup.additional_files</code> ; les implémentations et dépendances maison restent à maintenir dans le dépôt privé.</p>
+        <p>Une reprise prépare les fichiers locaux. Vérifiez ensuite la cible, les dépendances, les accès et les données avant de déclencher explicitement le déploiement.</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Historique des configurations</h3>
+          <p>Chaque point prépare une configuration locale antérieure ; il ne restaure pas les données des services.</p>
+        </div>
+        <div style="overflow-x:auto;">
           <table class="timeline-table">
-            <thead>
-              <tr>
-                <th style="width:200px;">Date et heure</th>
-                <th style="width:120px;">Instantané</th>
-                <th>Description de la sauvegarde</th>
-                <th style="width:160px; text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="backupTimelineTableBody">
-              <tr>
-                <td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">
-                  Chargement de l'historique des sauvegardes…
-                </td>
-              </tr>
-            </tbody>
+            <thead><tr><th>Date et heure</th><th>Instantané</th><th>Description</th><th>Action</th></tr></thead>
+            <tbody id="backupTimelineTableBody"><tr><td colspan="4">Chargement de l’historique…</td></tr></tbody>
           </table>
         </div>
       </div>
 
-      <!-- Restauration manuelle & Import local -->
-      <div class="home-cards-grid">
+      <div class="backup-grid">
         <div class="panel">
           <div class="panel-header">
-            <h3>Restaurer depuis un autre dépôt Git</h3>
-            <p>Déchiffrement sécurisé d'un bundle d'instance distant.</p>
+            <h3>Reprendre depuis un dépôt Git</h3>
+            <p>Utilisez le dépôt actuel ou un autre dépôt privé. Les accès du coffre sont réutilisés pour le même dépôt.</p>
           </div>
-          <div class="form-group">
-            <label class="field-label" for="restore_git_url">URL du dépôt Git privé</label>
-            <input type="text" id="restore_git_url" placeholder="https://github.com/mon-orga/ArcIA-instance-prod.git">
+          <div class="backup-grid">
+            <div class="form-group backup-wide">
+              <label class="field-label" for="restore_git_url">URL du dépôt privé</label>
+              <input type="url" id="restore_git_url" placeholder="https://github.com/organisation/depot-instance" autocomplete="off">
+            </div>
+            <div class="form-group backup-wide">
+              <label class="field-label" for="restore_git_token">Accès Git</label>
+              <input type="password" id="restore_git_token" autocomplete="off" placeholder="Facultatif si l’accès est déjà dans le coffre">
+            </div>
+            <div class="form-group backup-wide">
+              <label class="field-label" for="restore_git_passphrase">Mot de passe maître</label>
+              <input type="password" id="restore_git_passphrase" autocomplete="off" placeholder="Facultatif si ce dépôt est déjà déverrouillé">
+            </div>
           </div>
-          <div class="form-group">
-            <label class="field-label" for="restore_git_token">Jeton personnel (PAT)</label>
-            <input type="password" id="restore_git_token" placeholder="ghp_xxxxxxxxxxxx">
-          </div>
-          <div class="form-group">
-            <label class="field-label" for="restore_git_passphrase">Mot de passe maître de déchiffrement</label>
-            <input type="password" id="restore_git_passphrase">
-          </div>
-          <button class="btn primary mt-16" onclick="restoreFromGit()">Restaurer et charger l'instance</button>
+          <div class="backup-actions"><button id="restore_git_button" class="btn primary" onclick="restoreFromGit()">Préparer la reprise</button></div>
         </div>
-
         <div class="panel">
           <div class="panel-header">
-            <h3>Importer un fichier de configuration</h3>
-            <p>Chargez un fichier <code>arcia.config.yaml</code> ou <code>.env</code> depuis votre machine.</p>
+            <h3>Importer une configuration locale</h3>
+            <p>Choisissez un fichier YAML ou ENV depuis ce poste pour préparer les paramètres de l’installation.</p>
           </div>
-          <p class="field-hint" style="margin-bottom: 20px;">Permet d'appliquer directement les paramètres existants sans ressaisie.</p>
-          <button class="btn secondary" onclick="triggerYamlUpload()">Choisir un fichier YAML ou ENV</button>
+          <p class="field-hint">L’import seul ne restaure ni le cluster ni les données des services. Vérifiez les paramètres dans le parcours avant de déployer.</p>
+          <div class="backup-actions"><button class="btn secondary" onclick="triggerYamlUpload()">Choisir un fichier YAML ou ENV</button></div>
         </div>
       </div>
+      <p id="restore_status_text" class="backup-status mt-16" role="status" aria-live="polite">Aucune reprise en cours.</p>
     </section>
 
   </main>
@@ -3301,8 +3340,8 @@
         const data = await res.json();
         if (payload && data.backup_status && !data.backup_status.success && data.backup_status.state !== 'not_configured') {
           const status = document.getElementById('backup_status_text');
-          if (status) status.textContent = data.backup_status.error || 'Sauvegarde en attente.';
-          setTimeout(() => showToast(data.backup_status.error || 'Configuration locale enregistrée ; sauvegarde en attente.'), 500);
+          if (status) status.textContent = backupStatusMessage(data.backup_status, state.backupUnlocked);
+          setTimeout(() => showToast('Configuration locale enregistrée ; sauvegarde à vérifier dans Sauvegarde et reprise.'), 500);
         }
         return data;
       } catch (e) {
@@ -3723,9 +3762,15 @@
     }
 
     function goToStep(step) {
+      if (!Number.isInteger(step) || step < 1 || step > 5) return;
+      if (step === 5 && !validateInstanceGit()) {
+        goToStep(4);
+        validateInstanceGit();
+        return;
+      }
       state.currentStep = step;
       document.querySelectorAll('.step-page').forEach(p => p.classList.add('hidden'));
-      document.querySelectorAll('.step-indicator').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.step-indicator').forEach(b => b.classList.remove('active', 'done'));
 
       const pageEl = document.getElementById('stepContainer' + step);
       if (pageEl) pageEl.classList.remove('hidden');
@@ -3752,6 +3797,9 @@
       } else if (step === 3) {
         selectInfraTarget(state.infraTarget || 'k8s_existing');
       } else if (step === 4) {
+        updateGitSetupStatus();
+        if (!state.backupInfoLoaded) fetchBackupInfo();
+      } else if (step === 5) {
         updateSummaryView();
       }
     }
@@ -4646,6 +4694,72 @@
       if (card) card.classList.toggle('active', enabled);
     }
 
+    function getSetupRepoUrl() {
+      const host = document.getElementById('git_provider_select').value === 'gitlab' ? 'gitlab.com' : 'github.com';
+      const owner = document.getElementById('git_owner_input').value.trim();
+      const name = document.getElementById('git_repo_input').value.trim().replace(/\.git$/, '');
+      return owner && name ? `https://${host}/${owner}/${name}.git` : '';
+    }
+
+    function setupRepoIsUnlocked() {
+      return !!state.backupUnlocked && getSetupRepoUrl().replace(/\.git$/, '') === (state.backupRepoUrl || '').replace(/\.git$/, '');
+    }
+
+    function updateGitSetupStatus() {
+      const enabled = document.getElementById('git_backup_enabled').checked;
+      document.getElementById('gitSetupStatus').textContent = !enabled
+        ? (state.backupRepoUrl
+          ? 'Dépôt existant conservé : décocher ne désactive pas sa sauvegarde. La surveillance continue pendant la session si le coffre est déverrouillé.'
+          : 'Nouvelle instance : configuration du dépôt reportée. Aucun nouveau dépôt de sauvegarde n’est activé par cette étape.')
+        : setupRepoIsUnlocked()
+          ? 'Dépôt existant déverrouillé : l’accès protégé sera réutilisé. Les autres fichiers du dépôt sont conservés.'
+          : 'Sauvegarde activée. Renseignez l’accès Git et confirmez le mot de passe maître ; conservez-le séparément.';
+    }
+
+    function validateInstanceGit() {
+      if (!document.getElementById('git_backup_enabled').checked) return true;
+      const pass = document.getElementById('git_passphrase_input').value;
+      const confirmation = document.getElementById('git_passphrase_confirm').value;
+      let field = '';
+      let message = '';
+      if (!document.getElementById('git_owner_input').value.trim()) {
+        field = 'git_owner_input'; message = 'Renseignez le propriétaire du dépôt privé.';
+      } else if (!document.getElementById('git_repo_input').value.trim()) {
+        field = 'git_repo_input'; message = 'Renseignez le nom du dépôt privé.';
+      } else if (!setupRepoIsUnlocked() && !document.getElementById('git_token_input').value) {
+        field = 'git_token_input'; message = 'Renseignez un accès Git pour ce dépôt.';
+      } else if (!pass && !setupRepoIsUnlocked()) {
+        field = 'git_passphrase_input'; message = 'Renseignez le mot de passe maître de chiffrement.';
+      } else if (pass !== confirmation) {
+        field = 'git_passphrase_confirm'; message = 'Les deux mots de passe maîtres doivent être identiques.';
+      }
+      if (message) {
+        document.getElementById('gitSetupStatus').textContent = message;
+        document.getElementById(field).focus();
+        showToast(message);
+        return false;
+      }
+      updateGitSetupStatus();
+      return true;
+    }
+
+    function populateInstanceRepo(settings) {
+      if (!settings?.repo_url) return;
+      try {
+        const url = new URL(settings.repo_url);
+        if (!['github.com', 'gitlab.com'].includes(url.hostname)) return;
+        const parts = url.pathname.replace(/^\/|\/$/g, '').replace(/\.git$/, '').split('/');
+        if (parts.length < 2) return;
+        document.getElementById('git_provider_select').value = url.hostname === 'gitlab.com' ? 'gitlab' : 'github';
+        document.getElementById('git_repo_input').value = parts.pop();
+        document.getElementById('git_owner_input').value = parts.join('/');
+        document.getElementById('git_backup_enabled').checked = settings.enabled !== false;
+        toggleIntegration('card_git', settings.enabled !== false);
+        state.backupRepoUrl = settings.repo_url;
+        updateGitSetupStatus();
+      } catch (_) { /* Une URL invalide est signalée par le serveur. */ }
+    }
+
     async function testGitCredentials() {
       const statusMsg = document.getElementById('gitStatusMsg');
       statusMsg.textContent = 'Vérification du jeton Git…';
@@ -4669,7 +4783,7 @@
     }
 
     // =========================================================================
-    // ÉTAPE 4 : SYNTHÈSE & DÉPLOIEMENT
+    // ÉTAPE 5 : SYNTHÈSE & DÉPLOIEMENT
     // =========================================================================
     function updateSummaryView() {
       const targetLabels = {
@@ -4688,7 +4802,7 @@
       const entraOn = document.getElementById('entra_id_enabled').checked;
       const teamsOn = document.getElementById('teams_bot_enabled').checked;
       const gitOn = document.getElementById('git_backup_enabled').checked;
-      document.getElementById('summaryIntegrations').textContent = `SSO : ${entraOn ? 'Oui' : 'Non'} · Teams : ${teamsOn ? 'Oui' : 'Non'} · Git : ${gitOn ? 'Oui' : 'Non'}`;
+      document.getElementById('summaryIntegrations').textContent = `SSO : ${entraOn ? 'Oui' : 'Non'} · Teams : ${teamsOn ? 'Oui' : 'Non'} · Sauvegarde : ${gitOn ? 'Dépôt privé activé' : state.backupRepoUrl ? 'Dépôt existant conservé' : 'Reportée pour la nouvelle instance'}`;
     }
 
     function collectConfigFromUI() {
@@ -4823,6 +4937,7 @@
     }
 
     async function triggerDeployment(dryRun = false) {
+      if (!validateInstanceGit()) { goToStep(4); validateInstanceGit(); return; }
       const cfg = collectConfigFromUI();
 
       // Activation du mode plein écran pour le suivi du déploiement
@@ -4868,6 +4983,7 @@
           vmware: cfg.vmware
         },
         instance_git: document.getElementById('git_backup_enabled').checked ? {
+          repo_url: getSetupRepoUrl(),
           provider: document.getElementById('git_provider_select').value,
           owner: document.getElementById('git_owner_input').value,
           repo_name: document.getElementById('git_repo_input').value,
@@ -4921,7 +5037,7 @@
       document.querySelector('.app-shell')?.classList.remove('deploy-mode');
       document.querySelector('#installSection .stepper-header')?.classList.remove('hidden');
       document.getElementById('deployProgressPanel')?.classList.add('hidden');
-      goToStep(4);
+      goToStep(5);
     }
 
     function exitDeploymentModeAndShowInstance() {
@@ -5785,7 +5901,11 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
           if (res.config) {
             populateFormWithConfig(res.config);
           }
-          fetchInitialConfig();
+          await fetchInitialConfig();
+          state.newInstanceFlow = true;
+          switchMainTab('install');
+          goToStep(1);
+          showToast('Configuration importée localement. Vérifiez la cible avant de déployer à l’étape 5.');
         } else {
           showToast('Erreur parsing YAML : ' + (res.error || 'invalide'));
         }
@@ -5863,7 +5983,11 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       try {
         const res = await api('instance/backup-info', null, 'GET', 90000);
         if (res) {
+          state.backupInfoLoaded = true;
           state.backupUnlocked = !!res.unlocked;
+          state.backupRepoUrl = res.repo_url || '';
+          if (res.configured && !document.getElementById('git_owner_input').value) populateInstanceRepo({repo_url: res.repo_url, enabled: true});
+          updateGitSetupStatus();
           if (res.configured && res.repo_url) {
             if (repoText) repoText.textContent = res.repo_url;
             const savedRepo = document.getElementById('backup_repo_input');
@@ -5888,11 +6012,15 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
 
           renderBackupTimeline(res.timeline || []);
           const status = document.getElementById('backup_status_text');
-          if (status) status.textContent = res.error || res.backup_status?.error || (res.unlocked ? 'Sauvegarde automatique déverrouillée.' : 'Déverrouillez le coffre une fois pour activer les sauvegardes automatiques.');
+          if (status) status.textContent = backupStatusMessage(res.backup_status, res.unlocked, res.configured, !!res.error);
+          const coverage = document.getElementById('backup_coverage_text');
+          if (coverage) coverage.textContent = backupCoverageMessage(res.coverage);
         } else {
           if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger); padding:16px;">${escapeHtml(res?.error || 'Impossible de joindre le dépôt')}</td></tr>`;
         }
       } catch (e) {
+        const status = document.getElementById('backup_status_text');
+        if (status) status.textContent = 'Impossible d’actualiser l’état. Vérifiez la connexion puis réessayez.';
         if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Aucune connexion au dépôt ou erreur de communication.</td></tr>';
       }
     }
@@ -5926,71 +6054,129 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       tbody.querySelectorAll('[data-restore-hash]').forEach(button => button.addEventListener('click', () => restorePointInTime(button.dataset.restoreHash, button.dataset.restoreDate)));
     }
 
+    function backupStatusMessage(status, unlocked, configured = true, failed = false) {
+      if (!configured) return 'Aucun dépôt configuré. Renseignez un dépôt privé pour conserver une copie chiffrée.';
+      const labels = {
+        pushed: 'Dernière sauvegarde envoyée au dépôt privé.',
+        success: 'Dernière sauvegarde envoyée au dépôt privé.',
+        unchanged: 'Configuration inchangée depuis le dernier snapshot.',
+        incomplete: 'Sauvegarde complète refusée : un fichier local déclaré est absent. Rétablissez les fichiers nécessaires avant de relancer la sauvegarde.',
+        restored: 'Configuration préparée localement. Vérifiez et auditez la cible, puis déclenchez explicitement le déploiement à l’étape 5.',
+        pending: 'Snapshot chiffré en attente d’envoi. Vérifiez l’accès au dépôt puis relancez la sauvegarde.',
+        queued: 'Snapshot chiffré en attente d’envoi. Vérifiez l’accès au dépôt puis relancez la sauvegarde.',
+        locked: 'Coffre verrouillé. Saisissez le mot de passe maître pour sauvegarder.',
+        failed: 'Sauvegarde en échec. Vérifiez les accès Git et relancez la sauvegarde.',
+        error: 'Sauvegarde en échec. Vérifiez les accès Git et relancez la sauvegarde.',
+        not_configured: 'Aucun dépôt de sauvegarde configuré.'
+      };
+      if (labels[status?.state]) return labels[status.state];
+      if (failed || status?.error) return 'Sauvegarde ou accès au dépôt à vérifier. Contrôlez les accès Git et le mot de passe maître localement.';
+      return labels[status?.state] || (unlocked
+        ? 'Coffre déverrouillé. Surveillance des modifications active pendant cette session du wizard.'
+        : 'Coffre verrouillé. Déverrouillez-le pour sauvegarder les modifications pendant cette session.');
+    }
+
+    function backupCoverageMessage(coverage) {
+      const base = 'Le snapshot inclut le YAML entier, l’environnement et les fichiers locaux de configuration déclarés, dont les identités de déploiement.';
+      if (!coverage) return base;
+      const count = value => Array.isArray(value) ? value.length : (Number.isFinite(value) && value >= 0 ? value : 0);
+      const missing = count(coverage.missing_references);
+      return `${base} Couverture : ${count(coverage.managed_files)} fichiers gérés, ${count(coverage.referenced_files)} fichiers référencés, ${count(coverage.total_bytes)} octets.${missing ? ` ${missing} référence(s) locale(s) manquante(s) : vérifiez la configuration avant reconstruction.` : ''}`;
+    }
+
     async function backupCurrentInstanceNow() {
-      const pass = document.getElementById('backup_passphrase_input')?.value;
-
-
-      showToast('Sauvegarde et chiffrement de l\'instance en cours vers Git…');
+      const button = document.getElementById('backup_now_button');
+      const status = document.getElementById('backup_status_text');
+      const pass = document.getElementById('backup_passphrase_input')?.value || '';
+      if (button) button.disabled = true;
+      status.textContent = 'Chiffrement et envoi de la configuration en cours…';
       try {
-        const res = await api('instance/backup-now', { passphrase: pass, token: document.getElementById('backup_token_input')?.value || '', repo_url: document.getElementById('backup_repo_input')?.value || '' }, 'POST', 120000);
-        if (res && res.success) {
-          showToast(`Sauvegarde chiffrée réussie (${res.timestamp || 'OK'}).`);
+        const res = await api('instance/backup-now', {
+          passphrase: pass,
+          token: document.getElementById('backup_token_input')?.value || '',
+          repo_url: document.getElementById('backup_repo_input')?.value || ''
+        }, 'POST', 120000);
+        if (res?.success) {
           document.getElementById('backup_passphrase_input').value = '';
           document.getElementById('backup_token_input').value = '';
-          fetchBackupInfo();
+          await fetchBackupInfo();
+          status.textContent = backupStatusMessage(res.backup_status || {state: res.state}, true);
+          showToast('Configuration chiffrée sauvegardée.');
         } else {
-          showToast('Erreur sauvegarde : ' + (res?.error || 'échec git push'));
+          status.textContent = backupStatusMessage(res?.backup_status || {state: res?.state}, state.backupUnlocked, true, true);
+          showToast('Sauvegarde à vérifier. Consultez l’état ci-dessus.');
         }
-      } catch (e) {
-        showToast('Erreur de communication lors de la sauvegarde.');
+      } catch (_) {
+        status.textContent = 'Communication interrompue. La sauvegarde n’est pas confirmée ; actualisez l’état avant de réessayer.';
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
+    async function prepareRestoredConfiguration(res) {
+      ['backup_passphrase_input', 'backup_token_input', 'restore_git_token', 'restore_git_passphrase'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      if (res.config) populateFormWithConfig(res.config);
+      await fetchInitialConfig();
+      await fetchBackupInfo();
+      state.newInstanceFlow = true;
+      document.querySelector('.app-shell')?.classList.remove('deploy-mode');
+      document.querySelector('#installSection .stepper-header')?.classList.remove('hidden');
+      document.getElementById('deployProgressPanel')?.classList.add('hidden');
+      switchMainTab('install');
+      goToStep(1);
+      const message = 'Configuration préparée localement. Vérifiez et auditez la cible et les données à restaurer, puis déployez explicitement à l’étape 5.'
+        + (res.warning ? ' Ancienne sauvegarde : certains fichiers locaux ou paramètres nécessaires à la reconstruction peuvent être absents. Complétez-les avant de déployer.' : '');
+      const notice = document.getElementById('restorePreparationNotice');
+      if (notice) { notice.textContent = message; notice.classList.remove('hidden'); }
+      document.getElementById('restore_status_text').textContent = message;
+      showToast(message);
+    }
+
     async function restorePointInTime(commitHash, commitDate) {
-      let pass = document.getElementById('backup_passphrase_input')?.value;
+      const pass = document.getElementById('backup_passphrase_input')?.value || '';
       if (!pass && !state.backupUnlocked) {
         showToast('Saisissez le mot de passe maître dans le champ protégé ci-dessus.');
         document.getElementById('backup_passphrase_input')?.focus();
         return;
       }
-
-      showToast(`Restauration de l'instance au point ${commitHash.substring(0, 7)} (${commitDate})…`);
+      const status = document.getElementById('restore_status_text');
+      status.textContent = 'Préparation de la configuration historique en cours…';
       try {
-        const res = await api('instance/restore', { passphrase: pass, commit_hash: commitHash }, 'POST', 120000);
-        if (res && res.success) {
-          showToast(`Instance restaurée au point du ${commitDate} !`);
-          fetchInitialConfig();
-          switchMainTab('home');
-        } else {
-          showToast('Échec de restauration : ' + (res?.error || 'mot de passe invalide'));
-        }
-      } catch (e) {
-        showToast('Erreur de communication lors de la restauration.');
+        const res = await api('instance/restore', {
+          passphrase: pass, commit_hash: commitHash,
+          token: document.getElementById('backup_token_input')?.value || '',
+          repo_url: state.backupRepoUrl || ''
+        }, 'POST', 120000);
+        if (res?.success) await prepareRestoredConfiguration(res);
+        else status.textContent = 'Reprise impossible. Vérifiez localement le dépôt, les accès et le mot de passe maître.';
+      } catch (_) {
+        status.textContent = 'Communication interrompue pendant la reprise. Vérifiez l’état local avant de réessayer.';
       }
     }
 
     async function restoreFromGit() {
-      const repo = document.getElementById('restore_git_url').value;
+      const repo = document.getElementById('restore_git_url').value.trim();
       const token = document.getElementById('restore_git_token').value;
       const pass = document.getElementById('restore_git_passphrase').value;
-
-      if (!repo || (!pass && !state.backupUnlocked)) {
-        showToast('Veuillez renseigner le dépôt et déverrouiller le coffre local.');
+      const sameRepo = repo.replace(/\.git$/, '') === (state.backupRepoUrl || '').replace(/\.git$/, '');
+      const status = document.getElementById('restore_status_text');
+      if (!repo || (!pass && !(state.backupUnlocked && sameRepo))) {
+        status.textContent = 'Renseignez le dépôt et son mot de passe maître, ou utilisez le dépôt déjà déverrouillé.';
         return;
       }
-
-      showToast('Déchiffrement et récupération Git en cours…');
+      const button = document.getElementById('restore_git_button');
+      if (button) button.disabled = true;
+      status.textContent = 'Récupération et déchiffrement de la configuration en cours…';
       try {
         const res = await api('instance/restore', { repo_url: repo, token: token, passphrase: pass }, 'POST', 120000);
-        if (res && res.success) {
-          showToast('Instance restaurée et configuration appliquée avec succès.');
-          fetchInitialConfig();
-          switchMainTab('home');
-        } else {
-          showToast('Échec de la restauration : ' + (res.error || 'identifiants invalides'));
-        }
-      } catch (e) {
-        showToast('Erreur de communication lors de la restauration.');
+        if (res?.success) await prepareRestoredConfiguration(res);
+        else status.textContent = 'Reprise impossible. Vérifiez localement le dépôt, les accès et le mot de passe maître.';
+      } catch (_) {
+        status.textContent = 'Communication interrompue pendant la reprise. Vérifiez l’état local avant de réessayer.';
+      } finally {
+        if (button) button.disabled = false;
       }
     }
 
@@ -6174,6 +6360,7 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       // Sauvegarde d'instance (Git)
       const bkp = cfg.instance_backup || cfg.instance_git;
       if (bkp) {
+        populateInstanceRepo(bkp);
         if (bkp.repo_url && document.getElementById('restore_git_url')) document.getElementById('restore_git_url').value = bkp.repo_url;
       }
     }

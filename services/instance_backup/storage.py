@@ -207,7 +207,7 @@ def credentials(root, settings):
         except (OSError, subprocess.TimeoutExpired):
             pass
     return {"token": token,
-            "passphrase": found.get("passphrase") or settings.get("passphrase") or ""}
+            "passphrase": found.get("passphrase") or ""}
 
 
 def save_status(root, status):
@@ -225,7 +225,7 @@ def status(root):
         return {}
 
 
-def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False):
+def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False, extra_payload=None, coverage=None):
     settings = normalize_settings(cfg)
     if not settings.get("repo_url") or settings.get("enabled") is False:
         result = {"success": False, "state": "not_configured", "error": "Dépôt privé de sauvegarde non configuré."}
@@ -241,11 +241,18 @@ def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False):
         for section in ("instance_backup", "instance_git"):
             for field in ("last_backup", "last_commit", "last_digest", "passphrase"):
                 clean.get(section, {}).pop(field, None)
-        digest = hashlib.sha256((json.dumps(clean, sort_keys=True, ensure_ascii=False) + env_content).encode()).hexdigest()
+        if coverage and not coverage.get("complete"):
+            result = {"success": False, "state": "incomplete", "error": "Sauvegarde incomplète refusée : un fichier de configuration référencé est absent ou inaccessible.", "coverage": coverage}
+            save_status(root, result)
+            return result
+        digest = hashlib.sha256((json.dumps(clean, sort_keys=True, ensure_ascii=False) + env_content + json.dumps(extra_payload or {}, sort_keys=True)).encode()).hexdigest()
         previous = status(root)
         if not force and previous.get("success") and previous.get("digest") == digest and previous.get("repo_url") == settings["repo_url"]:
             return previous
         payload = {"config_yaml": config_yaml, "env_content": env_content, "schema": "arcia-instance-v1"}
+        if extra_payload:
+            payload.update(extra_payload)
+            payload["schema"] = "arcia-instance-v2"
         try:
             queue = Path(root) / "secrets" / "backup-pending"
             queue.mkdir(parents=True, exist_ok=True)
@@ -256,7 +263,7 @@ def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False):
                 pending = queue / (str(time.time_ns()) + ".json")
                 temporary = pending.with_suffix(".part")
                 temporary.write_text(json.dumps({"repo_url": settings["repo_url"], "bundle": bundle, "digest": digest,
-                                              "metadata": {"schema_version": 1, "encryption": "AES-256-GCM", "updated_at": timestamp}}, ensure_ascii=False), encoding="utf-8")
+                                              "metadata": {"schema_version": 2 if extra_payload else 1, "encryption": "AES-256-GCM", "updated_at": timestamp}}, ensure_ascii=False), encoding="utf-8")
                 os.replace(temporary, pending)
             result = {}
             for candidate in sorted(queue.glob("*.json")):
@@ -268,5 +275,7 @@ def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False):
             result.update({"state": "pushed", "timestamp": timestamp, "digest": digest, "repo_url": settings["repo_url"]})
         except Exception:
             result = {"success": False, "state": "pending", "error": "Sauvegarde non poussée : vérifier le coffre, les droits Git, la visibilité privée et la divergence du dépôt. Aucune écriture forcée."}
+        if coverage:
+            result["coverage"] = coverage
         save_status(root, result)
         return result

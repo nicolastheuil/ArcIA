@@ -64,6 +64,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, ROOT_DIR)
 from services.instance_backup import storage as instance_storage
+from services.instance_backup import bundle as instance_bundle
+from services.instance_backup import powerusers as instance_powerusers
 from services.open_webui.branding import resolve_model_icon
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml")
 EXAMPLE_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml.example")
@@ -411,6 +413,96 @@ def get_instance_backup_timeline(repo_url: str, token: str) -> dict:
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
+@instance_storage.serialized
+def restore_instance_payload(decrypted, repo_url, token, passphrase):
+    """Préparer la reprise locale exacte ; le déploiement reste une étape explicite."""
+    if not isinstance(decrypted, dict) or decrypted.get("schema") not in (None, "arcia-instance-v1", "arcia-instance-v2"):
+        raise ValueError("Format de sauvegarde non pris en charge.")
+    config_yaml = decrypted.get("config_yaml", "")
+    env_content = decrypted.get("env_content", "")
+    root_env = decrypted.get("root_env_content")
+    if not isinstance(config_yaml, str) or not config_yaml or not isinstance(env_content, str) or (root_env is not None and not isinstance(root_env, str)):
+        raise ValueError("Configuration ou environnement restauré invalide.")
+    try:
+        import yaml
+        cfg = yaml.safe_load(config_yaml)
+    except ImportError:
+        import deploy
+        cfg = deploy.parse_simple_yaml(config_yaml)
+    if not isinstance(cfg, dict):
+        raise ValueError("Configuration restaurée invalide.")
+    instance_powerusers.declared_powerusers(cfg)
+    for destination in (Path(DEFAULT_CONFIG_PATH), Path(ROOT_DIR) / "secrets", Path(ROOT_DIR) / "secrets" / "arcia.env", Path(ROOT_DIR) / "arcia.env"):
+        if destination.is_symlink():
+            raise ValueError("Destination de restauration symbolique interdite.")
+        if destination.exists() and destination != Path(ROOT_DIR) / "secrets" and not destination.is_file():
+            raise ValueError("Destination de restauration invalide.")
+    files = {}
+    portable = decrypted.get("schema") == "arcia-instance-v2"
+    if portable:
+        cfg, files = instance_bundle.prepare_restore(cfg, decrypted.get("assets"))
+    # Préserver un retour arrière chiffré avant tout remplacement d'une configuration locale.
+    current = Path(DEFAULT_CONFIG_PATH)
+    rollback = None
+    if current.is_file():
+        environment = Path(ROOT_DIR) / "secrets" / "arcia.env"
+        saved = {"config_yaml": current.read_text(encoding="utf-8"),
+                 "env_content": environment.read_text(encoding="utf-8") if environment.is_file() else "",
+                 "root_env_content": (Path(ROOT_DIR) / "arcia.env").read_text(encoding="utf-8") if (Path(ROOT_DIR) / "arcia.env").is_file() else None,
+                 "schema": "arcia-instance-v1"}
+        rollback = encrypt_instance_bundle(saved, passphrase)
+    # Les destinations sont privées et content-addressed ; aucun chemin de l'archive n'est exécuté.
+    instance_bundle.install_assets(ROOT_DIR, files)
+    secret_dir = Path(ROOT_DIR) / "secrets"
+    if secret_dir.is_symlink():
+        raise ValueError("Destination de restauration symbolique interdite.")
+    secret_dir.mkdir(parents=True, exist_ok=True)
+    if rollback:
+        rollback_path = secret_dir / ("pre-restore-" + str(time.time_ns()) + ".enc")
+        rollback_path.write_text(rollback, encoding="utf-8")
+        rollback_path.chmod(0o600)
+    settings = instance_storage.normalize_settings(cfg)
+    settings.update({"enabled": True, "repo_url": repo_url})
+    cfg["instance_backup"] = settings
+    instance_storage.unlock(ROOT_DIR, repo_url, token, passphrase)
+    save_config_to_files(cfg, DEFAULT_CONFIG_PATH, trigger_backup=False, restored_env=env_content, replace_existing=True)
+    if portable or "root_env_content" in decrypted:
+        root_path = Path(ROOT_DIR) / "arcia.env"
+        if root_path.is_symlink():
+            raise ValueError("Destination d'environnement symbolique interdite.")
+        if root_env is not None:
+            temporary = root_path.with_suffix(".env.part")
+            temporary.write_text(root_env, encoding="utf-8")
+            os.replace(temporary, root_path)
+        elif root_path.exists():
+            root_path.unlink()
+    result = {"success": True, "state": "restored", "portable": portable,
+              "error": None, "message": "Configuration restaurée localement ; vérifier la cible puis lancer le déploiement."}
+    instance_storage.save_status(ROOT_DIR, result)
+    return cfg, result
+
+
+def unlock_instance_repository(cfg, git_info):
+    """Réutiliser le coffre du même dépôt et vérifier tout nouveau mot de passe."""
+    registered = instance_storage.normalize_settings({"instance_git": git_info})
+    repo_url = registered.get("repo_url", "")
+    instance_storage.validate_repo(repo_url)
+    saved = instance_storage.normalize_settings(cfg)
+    stored = instance_storage.credentials(ROOT_DIR, saved if saved.get("repo_url") == repo_url else {"repo_url": repo_url})
+    token = git_info.get("token") or git_info.get("git_token") or stored["token"]
+    passphrase = git_info.get("passphrase") or stored["passphrase"]
+    if not passphrase:
+        raise ValueError("Déverrouillez le coffre du dépôt dans le formulaire local avant le déploiement.")
+    if passphrase != stored["passphrase"]:
+        latest = instance_storage.read_latest_bundle(repo_url, token)
+        if latest is not None:
+            decrypt_instance_bundle(latest, passphrase)
+    instance_storage.unlock(ROOT_DIR, repo_url, token, passphrase)
+    registered = {k: v for k, v in registered.items() if k not in {"token", "git_token", "passphrase"}}
+    registered["enabled"] = True
+    return registered
+
+
 def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, commit_hash: Optional[str] = None) -> dict:
     """Clone le dépôt d'instance privé et déchiffre la configuration avec le mot de passe maître."""
     temp_dir = tempfile.mkdtemp(prefix="arcia-restore-")
@@ -441,27 +533,7 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, co
 
         decrypted = decrypt_instance_bundle(bundle_str, passphrase)
 
-        config_yaml = decrypted.get("config_yaml", "")
-        if not isinstance(decrypted.get("env_content", ""), str):
-            raise ValueError("Environnement restauré invalide.")
-        if not isinstance(config_yaml, str) or not config_yaml:
-            return {"success": False, "error": "Le bundle d'instance ne contient pas de configuration valide."}
-
-        # Valider avant écriture ; utiliser ensuite la même transaction que toute sauvegarde.
-        try:
-            import yaml
-            cfg = yaml.safe_load(config_yaml)
-        except ImportError:
-            import deploy
-            cfg = deploy.parse_simple_yaml(config_yaml)
-        if not isinstance(cfg, dict):
-            raise ValueError("Configuration restaurée invalide.")
-        cfg = ensure_config_defaults(cfg)
-        settings = instance_storage.normalize_settings(cfg)
-        settings.update({"enabled": True, "repo_url": repo_url})
-        cfg["instance_backup"] = settings
-        instance_storage.unlock(ROOT_DIR, repo_url, token, passphrase)
-        backup_result = save_config_to_files(cfg, DEFAULT_CONFIG_PATH, restored_env=decrypted.get("env_content", ""))
+        cfg, backup_result = restore_instance_payload(decrypted, repo_url, token, passphrase)
         return {
             "success": True,
             "instance_name": decrypted.get("instance_name", "ArcIA-instance"),
@@ -469,7 +541,8 @@ def git_pull_and_decrypt_instance(repo_url: str, token: str, passphrase: str, co
             "config": cfg,
             "backup_status": backup_result,
             "commit_hash": commit_hash,
-            "message": f"Instance '{decrypted.get('instance_name', '')}' restaurée avec succès !"
+            "message": backup_result["message"],
+            "warning": None if backup_result["portable"] else "Ancienne archive : fichiers référencés non inclus. Les remettre à disposition avant déploiement."
         }
 
     except ValueError as ve:
@@ -486,6 +559,10 @@ def get_instance_backup_info() -> dict:
     repo_url = backup_cfg.get("repo_url", "").strip()
     token = instance_storage.credentials(ROOT_DIR, backup_cfg)["token"]
     last_backup = backup_cfg.get("last_backup", None)
+    try:
+        _, coverage = instance_bundle.collect(ROOT_DIR, portable_instance_configuration(cfg))
+    except (OSError, ValueError):
+        coverage = {"complete": False, "managed_files": 2, "referenced_files": 0, "missing_references": ["Fichiers inaccessibles ou limites dépassées"]}
 
     if not repo_url:
         return {
@@ -493,7 +570,10 @@ def get_instance_backup_info() -> dict:
             "configured": False,
             "repo_url": "",
             "last_backup": None,
-            "timeline": []
+            "timeline": [],
+            "coverage": coverage,
+            "backup_status": instance_storage.status(ROOT_DIR),
+            "unlocked": False
         }
 
     timeline_res = get_instance_backup_timeline(repo_url, token)
@@ -505,6 +585,7 @@ def get_instance_backup_info() -> dict:
         "timeline": timeline_res.get("timeline", []),
         "error": timeline_res.get("error"),
         "backup_status": instance_storage.status(ROOT_DIR),
+        "coverage": coverage,
         "unlocked": bool(instance_storage.credentials(ROOT_DIR, backup_cfg)["passphrase"])
     }
 
@@ -1630,10 +1711,10 @@ vmware:
 
 
 @instance_storage.serialized
-def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_PATH, trigger_backup: bool = True, restored_env: Optional[str] = None) -> dict:
+def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_PATH, trigger_backup: bool = True, restored_env: Optional[str] = None, replace_existing: bool = False) -> dict:
     """Enregistre la configuration dans arcia.config.yaml et synchronise secrets/arcia.env."""
     # Préserver le dépôt déclaré lorsque le formulaire ne transporte pas cette section.
-    if os.path.isfile(config_path):
+    if os.path.isfile(config_path) and not replace_existing:
         import deploy
         previous = deploy.parse_yaml_or_env(config_path)
         if not instance_storage.normalize_settings(cfg).get("repo_url"):
@@ -1641,17 +1722,21 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
                 if key in previous:
                     cfg[key] = previous[key]
         # Un formulaire partiel ne doit pas effacer les autres réglages de l'instance.
-        def merge_saved(base, changes):
+        def merge_saved(base, changes, path=()):
+            if path == ("powerusers", "instances"):
+                return dict(changes)
             result = dict(base)
             for key, value in changes.items():
-                result[key] = merge_saved(result.get(key, {}), value) if isinstance(value, dict) and isinstance(result.get(key), dict) else value
+                result[key] = merge_saved(result.get(key, {}), value, path + (key,)) if isinstance(value, dict) and isinstance(result.get(key), dict) else value
             return result
         merged = merge_saved(previous, cfg)
         cfg.clear()
         cfg.update(merged)
     settings = instance_storage.normalize_settings(cfg)
     if settings.get("repo_url") and settings.get("passphrase"):
-        instance_storage.unlock(ROOT_DIR, settings["repo_url"], settings.get("git_token") or settings.get("token") or "", settings["passphrase"])
+        cfg["instance_backup"] = unlock_instance_repository(cfg, settings)
+        for section in ("instance_git", "instance_backup"):
+            cfg.get(section, {}).pop("passphrase", None)
     yaml_content = serialize_yaml_config(cfg)
     os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
     temporary = str(config_path) + ".part"
@@ -1661,7 +1746,8 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
 
     secrets_dir = os.path.join(ROOT_DIR, "secrets")
     real_prod_path = os.path.normpath(os.path.join(ROOT_DIR, "arcia.config.yaml"))
-    if os.path.normpath(os.path.abspath(config_path)) == real_prod_path and os.path.isdir(secrets_dir):
+    if os.path.normcase(os.path.abspath(config_path)) == os.path.normcase(real_prod_path):
+        os.makedirs(secrets_dir, exist_ok=True)
         env_path = os.path.join(secrets_dir, "arcia.env")
         import io
         previous_env = restored_env
@@ -1722,6 +1808,8 @@ def save_config_to_files(cfg: Dict[str, Any], config_path: str = DEFAULT_CONFIG_
             if key not in updates:
                 preserved.append(line)
         env_content = "\n".join(preserved + [key + "=" + value for key, value in updates.items()]) + "\n"
+        if replace_existing and restored_env is not None:
+            env_content = restored_env
         env_temporary = env_path + ".part"
         with open(env_temporary, "w", encoding="utf-8") as stream:
             stream.write(env_content)
@@ -1757,9 +1845,53 @@ def backup_current_instance(cfg=None, passphrase="", token="", repo_url="", forc
     env_path = os.path.join(ROOT_DIR, "secrets", "arcia.env")
     env_content = ""
     if os.path.isfile(env_path):
+        if Path(env_path).is_symlink() or Path(env_path).stat().st_size > instance_bundle.MAX_FILE_BYTES:
+            result = {"success": False, "state": "incomplete", "error": "Fichier d’environnement inaccessible ou trop volumineux ; sauvegarde incomplète refusée."}
+            instance_storage.save_status(ROOT_DIR, result)
+            return result
         with open(env_path, encoding="utf-8") as stream:
             env_content = stream.read()
-    return instance_storage.backup(ROOT_DIR, cfg, serialize_yaml_config(cfg), env_content, encrypt_instance_bundle, force=force)
+    try:
+        portable_cfg = portable_instance_configuration(cfg)
+        assets, coverage = instance_bundle.collect(ROOT_DIR, portable_cfg)
+        root_env = Path(ROOT_DIR) / "arcia.env"
+        if root_env.is_symlink() or (root_env.exists() and (not root_env.is_file() or root_env.stat().st_size > instance_bundle.MAX_FILE_BYTES)):
+            raise ValueError("Environnement racine inaccessible.")
+        extra = {"assets": assets, "root_env_content": root_env.read_text(encoding="utf-8") if root_env.is_file() and not root_env.is_symlink() else None}
+        coverage["managed_files"] += int(root_env.is_file())
+        versions = Path(ROOT_DIR) / "deploy" / "versions.json"
+        if versions.is_file():
+            extra["platform_versions"] = json.loads(versions.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        result = {"success": False, "state": "incomplete", "error": "Lecture des fichiers de configuration impossible ; sauvegarde incomplète refusée."}
+        instance_storage.save_status(ROOT_DIR, result)
+        return result
+    return instance_storage.backup(ROOT_DIR, portable_cfg, serialize_yaml_config(portable_cfg), env_content, encrypt_instance_bundle, force=force, extra_payload=extra, coverage=coverage)
+
+
+def portable_instance_configuration(cfg):
+    """Rendre explicites les fichiers d'accès effectivement utilisés par le déploiement."""
+    import copy
+    import deploy
+    result = copy.deepcopy(cfg)
+    if "kubernetes" not in result:
+        return result
+    k8s = result.setdefault("kubernetes", {})
+    if k8s.get("mode", "local") == "remote-ssh":
+        remote = k8s.setdefault("remote_ssh", {})
+        key, known = deploy.find_harness_ssh()
+        if key and not remote.get("ssh_key"):
+            remote["ssh_key"] = key
+        if known and not remote.get("known_hosts_file"):
+            remote["known_hosts_file"] = known
+    elif not k8s.get("kubeconfig"):
+        source = os.environ.get("KUBECONFIG", "")
+        if source and os.pathsep in source:
+            raise ValueError("Définissez un kubeconfig unique explicite pour une sauvegarde portable.")
+        default = Path(source).expanduser() if source else Path.home() / ".kube" / "config"
+        if default.is_file():
+            k8s["kubeconfig"] = str(default)
+    return result
 
 
 def watch_instance_configuration(stop_event):
@@ -1769,12 +1901,17 @@ def watch_instance_configuration(stop_event):
         try:
             import hashlib
             digest = hashlib.sha256()
-            for path in (DEFAULT_CONFIG_PATH, os.path.join(ROOT_DIR, "secrets", "arcia.env")):
+            cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+            paths = [DEFAULT_CONFIG_PATH, os.path.join(ROOT_DIR, "secrets", "arcia.env"), os.path.join(ROOT_DIR, "arcia.env")]
+            assets, _ = instance_bundle.collect(ROOT_DIR, portable_instance_configuration(cfg))
+            for asset in assets:
+                digest.update(asset["sha256"].encode("ascii"))
+            for path in paths:
                 if os.path.isfile(path):
                     with open(path, "rb") as stream:
                         digest.update(stream.read())
             changed = digest.hexdigest() != previous
-            retry = instance_storage.status(ROOT_DIR).get("state") in {"pending", "locked"} and time.monotonic() >= retry_at
+            retry = instance_storage.status(ROOT_DIR).get("state") in {"pending", "locked", "incomplete"} and time.monotonic() >= retry_at
             if changed or retry:
                 backup_current_instance()
                 previous = digest.hexdigest()
@@ -2347,7 +2484,8 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                 ssh_node=node_ip or "127.0.0.1",
                 ssh_user=ssh_info.get("ssh_user", "debian") if isinstance(ssh_info, dict) else "debian",
                 ssh_port=int(ssh_info.get("ssh_port", 22)) if isinstance(ssh_info, dict) else 22,
-                ssh_key=ssh_info.get("ssh_key", "") if isinstance(ssh_info, dict) else ""
+                ssh_key=ssh_info.get("ssh_key", "") if isinstance(ssh_info, dict) else "",
+                known_hosts=ssh_info.get("known_hosts_file", "") if isinstance(ssh_info, dict) else ""
             )
 
             rc, out, _ = runner.run(["get", "deployments", f"-n={namespace}", "-o", "json"], timeout=timeout)
@@ -2766,7 +2904,8 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             ssh_node=ssh_info.get("node_ip", "127.0.0.1"),
             ssh_user=ssh_info.get("ssh_user", "debian"),
             ssh_port=int(ssh_info.get("ssh_port", 22)),
-            ssh_key=ssh_info.get("ssh_key", "")
+            ssh_key=ssh_info.get("ssh_key", ""),
+            known_hosts=ssh_info.get("known_hosts_file", "")
         )
 
         # =====================================================================
@@ -3001,7 +3140,8 @@ def get_k8s_runner(cfg: Optional[Dict[str, Any]] = None, context: Optional[str] 
         ssh_node=node_ip or "127.0.0.1",
         ssh_user=remote_ssh.get("ssh_user", "debian") if isinstance(remote_ssh, dict) else "debian",
         ssh_port=int(remote_ssh.get("ssh_port", 22)) if isinstance(remote_ssh, dict) else 22,
-        ssh_key=remote_ssh.get("ssh_key", "") if isinstance(remote_ssh, dict) else ""
+        ssh_key=remote_ssh.get("ssh_key", "") if isinstance(remote_ssh, dict) else "",
+        known_hosts=remote_ssh.get("known_hosts_file", "") if isinstance(remote_ssh, dict) else ""
     )
 
 def get_cluster_resource_metrics(cfg: Optional[Dict[str, Any]] = None, runner: Any = None) -> Dict[str, Any]:
@@ -3545,6 +3685,7 @@ def list_powerusers(cfg: Optional[Dict[str, Any]] = None, context: Optional[str]
         "stats": stats
     }
 
+@instance_storage.serialized
 def create_poweruser(data: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Crée et déploie un nouveau Power User sur le cluster Kubernetes."""
     email = data.get("email", "").strip()
@@ -3571,6 +3712,13 @@ def create_poweruser(data: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None)
 
     pat = data.get("pat") or arcia_poweruser.generate_litellm_pat(email, team=team)
     pwd = data.get("password") or secrets.token_urlsafe(16)
+    desired = json.loads(json.dumps(cfg))
+    try:
+        instance_powerusers.register_poweruser(desired, {"email": email, "team": team,
+            "job_title": job_title, "manager": manager, "storage_size": storage_size,
+            "custom_soul": custom_soul, "vpn": enable_vpn, "pat": pat, "password": pwd, "replicas": 1})
+    except ValueError:
+        return {"success": False, "error": "Déclaration Power User invalide ou identité déjà utilisée."}
 
     manifest = arcia_poweruser.render_manifest(
         user_email=email,
@@ -3583,7 +3731,8 @@ def create_poweruser(data: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None)
         namespace=ns,
         litellm_pat=pat,
         studio_password=pwd,
-        enable_vpn=enable_vpn
+        enable_vpn=enable_vpn,
+        config=cfg
     )
 
     rc, out, err = runner.run(["apply", "-f", "-"], stdin_input=manifest)
@@ -3614,16 +3763,20 @@ except Exception:
     except Exception:
         pass
 
+    backup_result = save_config_to_files(desired, DEFAULT_CONFIG_PATH)
     return {
         "success": True,
         "slug": slug,
         "email": email,
+        "backup_status": backup_result,
+        "configuration_recorded": True,
         "password": pwd,
         "pat": pat,
         "studio_url": f"https://{fqdn}/poweruser/{slug}/studio",
         "message": f"Power User '{slug}' déployé avec succès."
     }
 
+@instance_storage.serialized
 def delete_poweruser(slug: str, keep_pvc: bool = False, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Supprime une instance Power User et nettoie ses ressources Kubernetes."""
     if not slug or not re.match(r"^[a-z0-9\-]+$", slug):
@@ -3634,15 +3787,16 @@ def delete_poweruser(slug: str, keep_pvc: bool = False, cfg: Optional[Dict[str, 
     ns = cfg.get("kubernetes", {}).get("namespace", "arcia")
 
     runner = get_k8s_runner(cfg)
-    runner.run(["delete", "deployment", f"hermes-poweruser-{slug}", "-n", ns, "--ignore-not-found=true"])
-    runner.run(["delete", "service", f"hermes-poweruser-{slug}", "-n", ns, "--ignore-not-found=true"])
-    runner.run(["delete", "ingress", f"hermes-poweruser-{slug}-ingress", "-n", ns, "--ignore-not-found=true"])
-    runner.run(["delete", "configmap", f"hermes-user-{slug}-config", "-n", ns, "--ignore-not-found=true"])
-    runner.run(["delete", "secret", f"hermes-user-{slug}-secret", "-n", ns, "--ignore-not-found=true"])
-    runner.run(["delete", "middleware", f"hermes-poweruser-{slug}-stripprefix", "-n", ns, "--ignore-not-found=true"])
-
+    resources = [("deployment", f"hermes-poweruser-{slug}"), ("service", f"hermes-poweruser-{slug}"),
+                 ("ingress", f"hermes-poweruser-{slug}-ingress"), ("configmap", f"hermes-user-{slug}-config"),
+                 ("secret", f"hermes-user-{slug}-secret"), ("middleware", f"hermes-poweruser-{slug}-stripprefix")]
     if not keep_pvc:
-        runner.run(["delete", "pvc", f"hermes-user-{slug}-pvc", "-n", ns, "--ignore-not-found=true"])
+        resources.append(("pvc", f"hermes-user-{slug}-pvc"))
+    for kind, name in resources:
+        rc, _, _ = runner.run(["delete", kind, name, "-n", ns, "--ignore-not-found=true"])
+        if rc:
+            return {"success": False, "error": "Suppression incomplète ; déclaration conservée pour réconciliation."}
+
 
     try:
         py_code = f"""
@@ -3667,6 +3821,9 @@ except Exception:
     except Exception:
         pass
 
+    recorded = instance_powerusers.remove_poweruser(cfg, slug)
+    if recorded:
+        save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
     return {
         "success": True,
         "slug": slug,
@@ -3674,11 +3831,12 @@ except Exception:
         "message": f"Instance Power User '{slug}' supprimée avec succès."
     }
 
+@instance_storage.serialized
 def scale_poweruser(slug: str, replicas: int, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Met en veille (replicas=0) ou réveille (replicas=1) le pod d'un Power User."""
-    if not slug:
+    if not slug or not re.fullmatch(r"[a-z0-9\-]+", slug):
         return {"success": False, "error": "Slug invalide."}
-    if replicas not in (0, 1):
+    if type(replicas) is not int or replicas not in (0, 1):
         return {"success": False, "error": "Nombre de répliques invalide (0 ou 1 attendu)."}
 
     if cfg is None:
@@ -3691,19 +3849,24 @@ def scale_poweruser(slug: str, replicas: int, cfg: Optional[Dict[str, Any]] = No
         return {"success": False, "error": err.strip() or "Échec de l'opération scale."}
 
     action_text = "réactivé (Scale 1)" if replicas == 1 else "mis en veille (Scale 0, RAM libérée)"
+    recorded = instance_powerusers.update_poweruser(cfg, slug, replicas=replicas)
+    if recorded:
+        save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
     return {
         "success": True,
         "slug": slug,
         "replicas": replicas,
+        "configuration_recorded": recorded,
         "message": f"Pod '{slug}' {action_text} avec succès."
     }
 
+@instance_storage.serialized
 def resize_poweruser_pvc(slug: str, new_size: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Agrandit la capacité d'un volume persistant PVC (ex: de 10Gi à 20Gi)."""
-    if not slug:
+    if not slug or not re.fullmatch(r"[a-z0-9\-]+", slug):
         return {"success": False, "error": "Slug invalide."}
     new_size = new_size.strip()
-    if not re.match(r"^\d+(?:Gi|Mi|Ti)$", new_size):
+    if not re.match(r"^[1-9]\d*(?:Gi|Mi|Ti)$", new_size):
         return {"success": False, "error": "Taille invalide (ex: 20Gi, 50Gi, 100Gi)."}
 
     if cfg is None:
@@ -3724,10 +3887,14 @@ def resize_poweruser_pvc(slug: str, new_size: str, cfg: Optional[Dict[str, Any]]
     if rc != 0:
         return {"success": False, "error": f"Échec de l'extension du PVC : {err.strip() or out.strip()}"}
 
+    recorded = instance_powerusers.update_poweruser(cfg, slug, storage_size=new_size)
+    if recorded:
+        save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
     return {
         "success": True,
         "slug": slug,
         "new_size": new_size,
+        "configuration_recorded": recorded,
         "message": f"Volume PVC 'hermes-user-{slug}-pvc' étendu à {new_size} avec succès."
     }
 
@@ -4877,7 +5044,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     ssh_node=remote_ssh.get("node_ip", "127.0.0.1"),
                     ssh_user=remote_ssh.get("ssh_user", "debian"),
                     ssh_port=int(remote_ssh.get("ssh_port", 22)),
-                    ssh_key=remote_ssh.get("ssh_key", "")
+                    ssh_key=remote_ssh.get("ssh_key", ""),
+                    known_hosts=remote_ssh.get("known_hosts_file", "")
                 )
                 rc, out, err = runner.run(["get", "nodes", "-o", "wide"])
                 if rc == 0:
@@ -4987,7 +5155,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                     ssh_node=remote_ssh.get("node_ip", "127.0.0.1"),
                     ssh_user=remote_ssh.get("ssh_user", "debian"),
                     ssh_port=int(remote_ssh.get("ssh_port", 22)),
-                    ssh_key=remote_ssh.get("ssh_key", "")
+                    ssh_key=remote_ssh.get("ssh_key", ""),
+                    known_hosts=remote_ssh.get("known_hosts_file", "")
                 )
                 res = audit_kubernetes_environment_full(runner)
                 self.send_json(200, res)
@@ -5010,19 +5179,17 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 dry_run = req_data.get("dry_run", False)
                 git_info = req_data.get("instance_git", None)
                 if git_info and not dry_run:
-                    registered = instance_storage.normalize_settings({"instance_git": git_info})
-                    if not registered.get("repo_url"):
-                        raise ValueError("Dépôt privé de sauvegarde incomplet.")
-                    instance_storage.unlock(ROOT_DIR, registered["repo_url"], git_info.get("token", ""), git_info.get("passphrase", ""))
-                    registered = {k: v for k, v in registered.items() if k not in {"token", "git_token", "passphrase"}}
-                    registered["enabled"] = True
-                    cfg = cfg or load_config_data(DEFAULT_CONFIG_PATH)[0]
+                    saved_cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
+                    registered = unlock_instance_repository(saved_cfg, git_info)
+                    cfg = cfg or saved_cfg
                     cfg["instance_backup"] = registered
                     git_info = {"enabled": True, "repo_url": registered["repo_url"]}
+                infra_target = req_data.get("infra_target", "k8s_existing")
+                if cfg:
+                    cfg["infra_target"] = infra_target
                 if cfg:
                     save_config_to_files(cfg, DEFAULT_CONFIG_PATH)
 
-                infra_target = req_data.get("infra_target", "k8s_existing")
                 infra_config = req_data.get("infra_config", None)
 
                 worker = threading.Thread(

@@ -37,7 +37,7 @@ Les volumes applicatifs (`hermes-user-pvc`, `open-webui-pvc`) sont hébergés su
 ### C. Sauvegarde chiffrée dans le dépôt Git d'instance
 
 Le Setup Wizard (`wizard.sh` / `wizard.ps1`) synchronise automatiquement votre instance vers votre dépôt privé (GitHub ou GitLab) :
-- Les métadonnées et choix d'architecture sont stockés dans `instance.json`.
+- `instance.json` contient uniquement le format, le chiffrement et la date ; les choix d’architecture sont dans l’archive chiffrée.
 - L'intégralité des secrets (clés LLM, secrets Entra ID, mots de passe Teams, hashs admin) est chiffrée en **AES-256-GCM** avec dérivation **PBKDF2 HMAC-SHA256 à 100 000 itérations** dans `instance-secrets.enc`.
 - Aucun secret en clair n'est transmis sur le réseau Git.
 
@@ -45,7 +45,7 @@ Le Setup Wizard (`wizard.sh` / `wizard.ps1`) synchronise automatiquement votre i
 
 ## 3. Procédure de reconstruction sur nouveau cluster
 
-### Méthode recommandée : restauration 1-clic via le Setup Wizard
+### Méthode recommandée : reprise guidée via le Setup Wizard
 
 En cas de reconstruction ou de migration sur un cluster vierge :
 1. **Provisionner le cluster K3s**.
@@ -65,8 +65,8 @@ En cas de reconstruction ou de migration sur un cluster vierge :
 4. **Sélectionner "Restaurer une instance existante"** :
    - Renseigner l'URL du dépôt Git privé d'instance (`https://github.com/mon-orga/ArcIA-instance-prod.git`) et le token d'accès.
    - Saisir le **mot de passe maître** défini lors de l'installation initiale.
-   - Le Wizard télécharge `instance-secrets.enc`, déchiffre les clés et réinjecte instantanément la configuration.
-5. **Cliquer sur Déployer** : l'instance est redéployée à 100% sur le nouveau cluster avec récapitulatif complet des URLs.
+   - Le wizard télécharge `instance-secrets.enc`, valide son intégrité et restaure localement la configuration. Il conserve un retour arrière local chiffré avant de remplacer une configuration existante.
+5. **Vérifier la cible et cliquer sur Déployer** : le socle réapplique la configuration déclarée. Restaurer séparément les données et extensions d’instance, puis effectuer la recette. Cette étape n’atteste pas à elle seule une reconstruction complète.
 
 ### Méthode manuelle alternative (ligne de commande)
 
@@ -88,4 +88,24 @@ Voir également : [Guide Quickstart](quickstart.md) · [Exploitation Quotidienne
 
 Le menu **Sauvegarde et reprise** utilise le dépôt privé déclaré par l'administrateur, sans réutiliser le dépôt du harness. Après déverrouillage local du coffre, chaque enregistrement de configuration déclenche un bundle AES-256-GCM et un push limité à `instance-secrets.enc` et `instance.json`. Le processus ne force jamais l'historique Git ; les erreurs produisent un état `pending`, avec instantanés chiffrés locaux et nouvelle tentative après 30 secondes. Un état `locked` requiert le déverrouillage dans le formulaire local ; aucun mot de passe ne doit être transmis dans le chat.
 
-Le dépôt, l'historique et les états de sauvegarde sont affichés séparément. Une restauration déchiffre et valide les fichiers avant remplacement local et conserve les variables d'environnement supplémentaires. Elle ne réapplique pas automatiquement les workloads. Les sauvegardes de bases/PVC/etcd décrites dans ce runbook restent nécessaires. Voir le [détail du correctif](../brief-icones-modeles-wizard.md).
+Le dépôt, l'historique, le coffre, la couverture et les actions sont affichés séparément. Une restauration déchiffre et valide les fichiers avant remplacement local ; elle remplace l’état de configuration par celui du point choisi, sans fusionner les réglages plus récents. Elle ne réapplique pas automatiquement les workloads. Les sauvegardes de bases/PVC/etcd décrites dans ce runbook restent nécessaires.
+
+## Configuration prise en charge et responsabilités
+
+Le quatrième écran d’installation est consacré au dépôt d’instance. Le menu **Sauvegarde et reprise** réutilise ce dépôt et le coffre local. Une configuration enregistrée déclenche la sauvegarde ; les modifications locales sont également surveillées pendant que le wizard fonctionne. Les accès Git et le mot de passe du même dépôt peuvent être réutilisés sans ressaisie ; un autre dépôt dispose de son propre contexte d’accès.
+
+| Centre de pilotage | Administrateurs de l’instance |
+|---|---|
+| YAML entier, y compris champs personnalisés, routage, fournisseurs, infrastructure, dimensionnement, DLP, SSO, Teams et secrets déclarés | Déclarer les changements locaux ; les modifications effectuées uniquement dans Kubernetes ou une application ne sont pas découvertes automatiquement |
+| `secrets/arcia.env`, éventuel `arcia.env` racine et variables supplémentaires | Sauvegarder bases, conversations, corpus, PVC, `state.db`, etcd et données applicatives avec leurs outils adaptés |
+| Fichiers de configuration locaux référencés et identités de déploiement disponibles ; certificats externes du kubeconfig embarqués dans sa copie portable | Maintenir skills, MCP maison, services, code, images, versions, dépendances et procédures dans le dépôt privé ; conserver leurs secrets dans les fichiers de configuration chiffrés |
+| Déclarations des Power Users enregistrées par le wizard : identité, personnalité, stockage demandé, suspension et identifiants conservés à la réapplication | Exporter les utilisateurs historiques uniquement présents sur le cluster ; restaurer les données de leurs volumes séparément |
+| Chiffrement AES-256-GCM, historique Git, file locale chiffrée en cas de coupure, reprise locale avant déploiement explicite | Garder le mot de passe maître hors du dépôt, prévoir les droits Git/IAM, plugins d’identité cloud, accès réseau et infrastructure nécessaires ; tester régulièrement la reconstruction |
+
+Les fichiers automatiquement reconnus sont `kubernetes.kubeconfig`, `kubernetes.remote_ssh.ssh_key`, `vmware.auth.ssh_key_path` et les champs `config_file`, `cert_file`, `key_file`, `ca_file`, `deny_list_file`, `known_hosts_file` des modules actifs. Un kubeconfig local implicite et les fichiers SSH du harness effectivement utilisés sont rendus explicites dans l’archive. Aucune commande d’un plugin d’authentification du kubeconfig n’est exécutée lors de la sauvegarde. Pour un fichier supplémentaire, le déclarer dans `instance_backup.additional_files` (liste de fichiers locaux ; aucun parcours automatique de répertoires). Les chemins relatifs partent de la racine ArcIA ; les chemins des certificats du kubeconfig partent de son dossier. Les fichiers internes référencés depuis une configuration maison doivent aussi être déclarés.
+
+L’archive conserve les versions déclarées dans `deploy/versions.json`. Garder le socle correspondant disponible pour la reconstruction. Limites explicites : 128 fichiers référencés, 8 Mio par fichier, 32 Mio au total ; les modules désactivés ne provoquent pas de collecte de fichiers. Un fichier déclaré absent, un lien symbolique ou une limite dépassée produit un état incomplet, sans push annoncé comme réussi. Le mot de passe maître et son coffre DPAPI ne font jamais partie des fichiers exportés.
+
+À la reprise, les fichiers sont vérifiés puis relocalisés sous `secrets/restored-assets/`, avec réécriture des références dans le YAML et conservation des extensions de fichier. Aucun chemin arbitraire de l’archive ne peut écraser le code du socle. Le contenu d’un fichier maison est conservé : ses éventuels chemins internes nécessitent une configuration portable ou une adaptation par les administrateurs ; seul le kubeconfig bénéficie de l’intégration automatique de ses certificats. Les archives anciennes YAML/environnement restent lisibles, avec avertissement sur leurs fichiers manquants. Le retour arrière local `secrets/pre-restore-*.enc` utilise le mot de passe saisi pour la reprise. Les sauvegardes Git conservent les points historiques ; elles ne font jamais de force-push.
+
+Seuls `instance-secrets.enc` et `instance.json` sont poussés par le wizard. Les fichiers ajoutés par les administrateurs au dépôt restent intacts. Le Centre de pilotage ne publie pas automatiquement les skills ou MCP maison, ne restaure pas les bases depuis Git et n’installe pas implicitement leurs dépendances.

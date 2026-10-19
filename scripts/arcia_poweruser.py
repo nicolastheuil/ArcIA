@@ -98,10 +98,14 @@ def render_manifest(user_email: str,
                     namespace: str = "arcia",
                     litellm_pat: Optional[str] = None,
                     studio_password: Optional[str] = None,
-                    enable_vpn: Optional[bool] = None) -> str:
+                    enable_vpn: Optional[bool] = None,
+                    config: Optional[Dict[str, Any]] = None,
+                    replicas: int = 1) -> str:
     """Génère le manifeste complet Kubernetes pour le Power User."""
     slug = email_to_slug(user_email)
-    cfg = load_arcia_config()
+    cfg = load_arcia_config() if config is None else config
+    if type(replicas) is not int or replicas not in (0, 1):
+        raise ValueError("Une instance Hermes doit avoir zéro ou un propriétaire actif.")
     fqdn = public_fqdn or cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
     ns = namespace or cfg.get("kubernetes", {}).get("namespace", "arcia")
     pat = litellm_pat or generate_litellm_pat(user_email, team=team)
@@ -155,8 +159,12 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
     rendered = rendered.replace("{{NAMESPACE}}", ns)
     rendered = rendered.replace("{{STORAGE_SIZE}}", storage_size)
     rendered = rendered.replace("{{PUBLIC_FQDN}}", fqdn)
-    rendered = rendered.replace("{{LITELLM_PAT}}", pat)
-    rendered = rendered.replace("{{STUDIO_PASSWORD}}", pwd)
+    # Les placeholders sont déjà entre guillemets YAML dans le template.
+    rendered = rendered.replace("{{LITELLM_PAT}}", json.dumps(pat, ensure_ascii=False)[1:-1])
+    rendered = rendered.replace("{{STUDIO_PASSWORD}}", json.dumps(pwd, ensure_ascii=False)[1:-1])
+    rendered, count = re.subn(r"(?m)^  replicas: 1$", f"  replicas: {replicas}", rendered, count=1)
+    if count != 1:
+        raise ValueError("Le template Power User ne déclare pas sa réplique unique.")
     rendered = rendered.replace("{{HERMES_CONFIG_INDENTED}}", indent_lines(hermes_cfg_yaml, 4))
     rendered = rendered.replace("{{SOUL_CONTENT_INDENTED}}", indent_lines(soul_text, 4))
     rendered = rendered.replace("{{USER_CONTENT_INDENTED}}", indent_lines(user_text, 4))

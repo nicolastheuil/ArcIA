@@ -43,11 +43,9 @@ Le Wizard ([scripts/wizard.py](../../scripts/wizard.py) + interface [scripts/wiz
 
 #### Parcours A : installer une nouvelle instance
 Dans la page dédiée d'installation (munie d'un bandeau supérieur permettant de pré-remplir toutes les étapes depuis un fichier `arcia.config.yaml` ou `arcia.env` existant) :
-1. **Dépôt Git d'instance privé** :
-   - Connectez votre compte **GitHub** ou **GitLab** avec un jeton personnel (PAT).
-   - Le Wizard teste les permissions et **crée automatiquement le dépôt privé** d'instance (ex: `ArcIA-instance-prod`).
-   - Définissez un **mot de passe maître de chiffrement** : tous les secrets d'instance (`instance-secrets.enc`) sont chiffrés en **AES-256-GCM** (dérivation PBKDF2 100 000 itérations) avant d'être sauvegardés sur votre Git privé. Le dépôt racine ArcIA reste ainsi 100% générique et inviolable.
-2. **Cible & infrastructure d'hébergement** :
+Le parcours comporte cinq écrans : **Infrastructure**, **Modèles et routage**, **Accès et sécurité**, **Dépôt d’instance et reprise**, puis **Synthèse et déploiement**.
+
+1. **Cible et infrastructure d'hébergement** :
    Le Wizard propose trois cibles d'hébergement selon vos besoins :
    - **Connexion à un environnement Kubernetes existant (EKS, AKS, GKE, K3s, kubeadm...)** :
      - Connexion via contexte `kubeconfig` local ou accès SSH distant.
@@ -58,12 +56,11 @@ Dans la page dédiée d'installation (munie d'un bandeau supérieur permettant d
    - **Déploiement local sur ce poste avec Docker (Mode Lab)** :
      - Démarrage instantané via Docker Compose ([docker-compose.lab.yml](../../docker-compose.lab.yml)) sans cluster Kubernetes.
      - Détection en direct du daemon Docker Engine et accès immédiat sur `http://localhost:3000`.
-3. **Réseau et certificats** : FQDN public (`https://assistant.example.org/`) et émission automatique Let's Encrypt (ou port local `3000` en mode Lab).
-4. **Passerelle LLM et sélection des 5 profils canoniques** : Saisie de votre clé [OpenRouter](https://openrouter.ai/) et choix du profil par défaut (`simple/auto`, `simple/free`, `agentic/auto`, `agentic/free`, `agentic/expert`).
-5. **Hermes Studio et desktop** : Génération automatique des mots de passe admin et du jeton PAT.
-6. **Modules optionnels ré-exécutables** : Activez à votre rythme le SSO Microsoft Entra ID ou le bot Teams avec les guides intégrés.
-7. **Auto-configuration intégrale** : Presidio DLP (double barrière), Open-WebUI, LiteLLM (avec base PostgreSQL 16), le plugin CCR/RTK (`services/hermes/plugin.py`) et les compétences natives (Ponytail, Graphify, Public-APIs) sont provisionnés automatiquement.
-8. **Déploiement et sauvegarde** : Déploiement en streaming, suivi de l'export et de la synchronisation chiffrée vers votre dépôt d'instance privé.
+   - Réseau et certificats : FQDN public et émission Let's Encrypt, ou port local en laboratoire.
+2. **Modèles et routage** : Déclarez les modèles et fournisseurs autorisés par l’administrateur, ainsi que leurs icônes.
+3. **Accès et sécurité** : Identifiants Hermes et modules optionnels SSO Entra ID / Teams.
+4. **Dépôt d’instance et reprise** : Connectez un dépôt privé GitHub ou GitLab neuf ou existant, testez les permissions et confirmez le mot de passe maître. Un coffre déjà déverrouillé pour ce dépôt est réutilisé. Le report est possible pour une nouvelle instance ; décocher ne supprime pas un dépôt déjà déclaré. Conservez le mot de passe séparément du dépôt.
+5. **Synthèse et déploiement** : Vérifiez la cible, puis lancez le déploiement. Presidio, Open-WebUI, LiteLLM, Hermes et les compétences natives sont provisionnés par le socle. La sauvegarde chiffrée dispose de son propre état : un déploiement réussi ne prouve pas qu’un push Git a réussi.
 
 #### Parcours B : gérer les power users
 Accessible via l'onglet **Power users** ou la carte d'accueil correspondante :
@@ -103,7 +100,7 @@ Accessible via l'onglet **Routage des modèles** ou la carte d'accueil :
 1. Sur la page d'accueil ou l'onglet **Sauvegarde et PRA**, ouvrez la page de reprise.
 2. Choisissez entre le chargement direct d'un fichier `arcia.config.yaml` / `arcia.env` local (**Option A**) ou la récupération depuis votre dépôt Git d'instance privé chiffré (**Option B**).
 3. En Option B, indiquez l'URL de votre dépôt Git d'instance privé (`https://github.com/mon-orga/ArcIA-instance-prod.git`), votre token d'accès PAT et votre **mot de passe maître de déchiffrement**.
-4. Le Wizard récupère et déchiffre automatiquement `instance-secrets.enc`, pré-remplit l'intégralité de la configuration et vous permet de redéployer l'instance sur le cluster cible.
+4. Le wizard valide et restaure localement le YAML entier, les environnements et les fichiers de configuration embarqués. Il ouvre l’étape Infrastructure pour vérifier la cible avant un déploiement explicite. Une reprise ne prouve pas que le cluster est reconstruit. Voir le [périmètre de sauvegarde et les responsabilités](sauvegarde-reconstruction.md#configuration-prise-en-charge-et-responsabilités).
 
 ---
 
@@ -255,7 +252,7 @@ Cette suite valide automatiquement :
 
 Le détail de l'intégration figure dans le [correctif du wizard](../brief-icones-modeles-wizard.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence. Dans une instance existante, **Enregistrer le routage** applique aussi les icônes ; en cas d'échec partiel, réutiliser ce même bouton. Dans le parcours d'une nouvelle instance, les icônes sont appliquées automatiquement au déploiement, avec les modèles et fournisseurs personnalisés déclarés.
 
-Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Après une première sauvegarde réussie, chaque modification de configuration du wizard déclenche un instantané chiffré et un push limité aux fichiers d'instance. Le YAML et l'environnement sont également surveillés tant que le wizard fonctionne. Les erreurs restent affichées ; les instantanés chiffrés en attente sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard.
+Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Chaque enregistrement de configuration déclenche une sauvegarde chiffrée et un push limité à deux fichiers. Le YAML, les environnements et le contenu des fichiers déclarés sont surveillés tant que le wizard fonctionne. Un fichier absent ou inaccessible interdit d’annoncer une sauvegarde complète. Les instantanés chiffrés en attente d’envoi sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard. Les ajouts maison et les données applicatives exigent les procédures des administrateurs décrites dans le [runbook de reprise](sauvegarde-reconstruction.md).
 
 Le rechargement des icônes Kubernetes redémarre Open-WebUI selon sa stratégie `Recreate`. Le contrôle HTTP des ressources ne remplace pas une recette avec session authentifiée. La restauration remet les fichiers locaux ; réappliquer ensuite depuis le wizard pour mettre à jour le cluster.
 

@@ -703,7 +703,7 @@ llm_gateway:
         self.assertIn('class="bento-summary-grid"', html)
         self.assertIn('class="providers-strip"', html)
         self.assertIn('class="zdr-switch"', html)
-        self.assertIn("Sauvegarde et restauration", html)
+        self.assertIn("Sauvegarde et reprise", html)
 
         # Key JS functions
         self.assertIn("fetchPowerUsers", html)
@@ -828,7 +828,9 @@ llm_gateway:
             calls.append(" ".join(cmd))
             return (0, "", "")
 
-        with patch("deploy.K8sRunner.run", side_effect=mock_run):
+        with patch("deploy.K8sRunner.run", side_effect=mock_run), \
+                patch("wizard.load_config_data", return_value=(wizard.get_default_config_dict(), True)), \
+                patch("wizard.save_config_to_files"):
             # 1. Création
             res_create = wizard.create_poweruser({
                 "name": "Camille Leroy",
@@ -1417,7 +1419,7 @@ llm_gateway:
 
 
     def test_step_containers_are_siblings_and_not_nested(self):
-        """Vérifie que les 4 conteneurs d'étapes (stepContainer1..4) sont des frères directs dans installSection."""
+        """Les cinq étapes d'installation restent des conteneurs frères."""
         from html.parser import HTMLParser
         VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
@@ -1446,12 +1448,12 @@ llm_gateway:
         validator = StepHierarchyValidator()
         validator.feed(html)
 
-        for step_num in range(1, 5):
+        for step_num in range(1, 6):
             s_id = f"stepContainer{step_num}"
             self.assertIn(s_id, validator.step_ancestors, f"{s_id} doit être présent dans le DOM")
             ancestors = validator.step_ancestors[s_id]
             self.assertIn("installSection", ancestors, f"{s_id} doit être dans installSection")
-            for other_num in range(1, 5):
+            for other_num in range(1, 6):
                 if other_num != step_num:
                     self.assertNotIn(f"stepContainer{other_num}", ancestors, f"{s_id} ne doit pas être imbriqué dans stepContainer{other_num}")
 

@@ -344,7 +344,7 @@ def adapt_manifest_namespace(yaml_text: str, target_ns: str) -> str:
 class K8sRunner:
     def __init__(self, mode: str, kubeconfig: str = "", context: str = "",
                  ssh_node: str = "", ssh_user: str = "debian", ssh_port: int = 22,
-                 ssh_key: str = ""):
+                 ssh_key: str = "", known_hosts: str = ""):
         self.mode = mode
         self.kubeconfig = kubeconfig
         self.context = context
@@ -354,6 +354,7 @@ class K8sRunner:
         self.ssh_key = ssh_key.strip() if ssh_key else ""
 
         self.ident_key, self.known_hosts = find_harness_ssh()
+        self.known_hosts = known_hosts or self.known_hosts
         if not self.ssh_key and self.ident_key:
             self.ssh_key = self.ident_key
 
@@ -1190,6 +1191,8 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
 
 
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
+    from services.instance_backup.powerusers import declared_powerusers, reconcile_powerusers
+    declared_powerusers(cfg)
     k8s_cfg = cfg.get("kubernetes", {})
     mode = k8s_cfg.get("mode", "local")
     kubeconfig = k8s_cfg.get("kubeconfig", "")
@@ -1217,7 +1220,8 @@ def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
         ssh_node=ssh_node,
         ssh_user=ssh_user,
         ssh_port=ssh_port,
-        ssh_key=ssh_key
+        ssh_key=ssh_key,
+        known_hosts=ssh_info.get("known_hosts_file", "")
     )
 
     total_steps = 7
@@ -1763,6 +1767,9 @@ spec:
             log_warn(f"Le déploiement '{dep}' met du temps à démarrer ({err.strip() or out.strip()}).")
 
     # 6b. Réconciliation et synchronisation universelle des instances Power Users
+    restored_powerusers = reconcile_powerusers(cfg, runner)
+    if restored_powerusers:
+        log_ok(f"{restored_powerusers} déclaration(s) Power User réappliquée(s) ; données PVC à restaurer séparément.")
     log_info(" -> [Power Users] Synchronisation du catalogue de modèles sur l'ensemble des instances...")
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

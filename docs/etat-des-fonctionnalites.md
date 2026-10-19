@@ -75,6 +75,6 @@ distingue un catalogue inaccessible par session invalide d'un catalogue absent.
 | Fonction | Implémentation | Limite de validation |
 |---|---|---|
 | Icônes normal/ZDR/local | Résolution commune, projection sur la route native avec filtrage d'accès, mapping privé et vérification HTTP des SVG | Recette navigateur authentifiée distincte ; laboratoire Docker historique sans adaptateur |
-| Sauvegarde/reprise d'instance | Dépôt déclaré conservé, AES-256-GCM, coffre DPAPI Windows ou mémoire de session, queue chiffrée et push limité à deux fichiers | Déverrouillage local requis ; configuration surveillée uniquement tant que le wizard fonctionne ; bases/PVC hors bundle |
+| Sauvegarde/reprise d'instance | Étape dédiée, YAML complet, environnements et fichiers référencés portables, déclarations Power Users, AES-256-GCM, coffre protégé, file chiffrée et push limité à deux fichiers | Validation synthétique ; coffre à déverrouiller ; surveillance pendant la session ; extensions maison et bases/PVC sous responsabilité des admins ; reconstruction sur cluster neuf non exécutée |
 
 Voir le [correctif détaillé](brief-icones-modeles-wizard.md). Ces changements n'attestent pas une reconstruction sur cluster neuf.
