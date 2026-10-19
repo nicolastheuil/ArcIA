@@ -99,6 +99,16 @@ class TestModelIcons(unittest.TestCase):
         self.assertEqual(path.read_bytes(), before)
         self.assertEqual(len(first["asset_hashes"]), 3)
         self.assertIn("arcia-webui-code", runner.applied[1])
+        import io
+        real_open = open
+        def changed_svg(path, *args, **kwargs):
+            if str(path).endswith("icon-model-default.svg"):
+                return io.StringIO((ROOT / "assets" / "branding" / "icon-model-default.svg").read_text(encoding="utf-8") + "\n<!-- synthetic change -->\n")
+            return real_open(path, *args, **kwargs)
+        with patch("deploy.open", side_effect=changed_svg, create=True):
+            changed = deploy.sync_webui_branding(Runner(), "synthetic", str(ROOT), cfg={"llm_gateway": {"models_routing": []}})
+        self.assertNotEqual(first["mapping"]["revision"], changed["mapping"]["revision"])
+        self.assertNotEqual(first["revision"], changed["revision"])
 
     def test_activation_is_targeted_and_reports_rollout_failure(self):
         import json

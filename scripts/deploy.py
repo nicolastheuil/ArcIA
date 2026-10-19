@@ -991,9 +991,12 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: O
 
     # Le mapping privé est transmis en mémoire ; aucune écriture dans les assets suivis.
     branding_dict = compute_models_branding_dict(cfg=cfg, root_dir=root_dir)
-    models_branding_json = json.dumps(branding_dict, indent=2, ensure_ascii=False)
     if not all((icon_default_content, icon_local_content, icon_zdr_content)):
         raise RuntimeError("Ressource d'icône requise absente ; publication interrompue.")
+    # La route d'avatar doit invalider son URL même si seul le dessin SVG change.
+    branding_dict["asset_revision"] = hashlib.sha256((icon_default_content + icon_local_content + icon_zdr_content).encode()).hexdigest()
+    branding_dict["revision"] = hashlib.sha256(json.dumps(branding_dict, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    models_branding_json = json.dumps(branding_dict, indent=2, ensure_ascii=False)
 
     cm_lines = [
         "apiVersion: v1",
