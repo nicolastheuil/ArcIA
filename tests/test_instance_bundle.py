@@ -113,7 +113,7 @@ class TestCompleteBackupAndRestore(unittest.TestCase):
             Path(source, "arcia.env").write_text("ROOT_SYNTHETIC=preserved\n")
             Path(path).write_text(wizard.serialize_yaml_config(cfg), encoding="utf-8")
             archives = []
-            def pushed(repo, token, archive, metadata):
+            def pushed(repo, token, archive, metadata, **kwargs):
                 self.assertNotIn("synthetic: first", archive)
                 archives.append(archive)
                 return {"success": True, "commit": "a" * 40}
@@ -143,12 +143,37 @@ class TestCompleteBackupAndRestore(unittest.TestCase):
     def test_incomplete_backup_never_pushes(self):
         cfg = {"instance_backup": {"repo_url": "https://github.com/example/synthetic.git"}, "kubernetes": {"kubeconfig": "absent"}}
         with tempfile.TemporaryDirectory() as directory, patch.object(wizard, "ROOT_DIR", directory), \
+                patch.object(wizard, "DEFAULT_CONFIG_PATH", str(Path(directory, "arcia.config.yaml"))), \
+                patch.object(wizard, "load_config_data", return_value=(cfg, True)), \
                 patch.object(storage, "credentials", return_value={"token": "synthetic", "passphrase": "synthetic-pass"}), \
                 patch.object(storage, "push_snapshot") as pushed:
             result = wizard.backup_current_instance(cfg)
             self.assertEqual(result["state"], "incomplete")
             pushed.assert_not_called()
             self.assertFalse(Path(directory, "secrets", "backup-pending").exists())
+
+    def test_identity_pending_recovery_never_becomes_a_complete_backup(self):
+        cfg = {"instance_backup": {"repo_url": "https://github.com/example/synthetic.git"},
+               "llm_gateway": {"master_key": "synthetic-suspect"}}
+        with tempfile.TemporaryDirectory() as directory, patch.object(wizard, "ROOT_DIR", directory), \
+                patch.object(wizard, "DEFAULT_CONFIG_PATH", str(Path(directory, "arcia.config.yaml"))), \
+                patch.object(storage, "credentials", return_value={"token": "synthetic", "passphrase": "synthetic-pass"}), \
+                patch.object(storage, "push_snapshot") as pushed:
+            import hashlib
+            marker = Path(directory, "secrets", "instance-identity-recovery.json")
+            marker.parent.mkdir()
+            marker.write_text(json.dumps({"field": "llm_gateway.master_key", "observed_sha256": hashlib.sha256(b"synthetic-suspect").hexdigest()}))
+            result = wizard.backup_current_instance(cfg)
+            self.assertEqual(result["state"], "incomplete")
+            pushed.assert_not_called()
+            with patch.object(deploy, "K8sRunner") as runner:
+                with self.assertRaises(ValueError):
+                    deploy.deploy_arcia(cfg, directory)
+                runner.assert_not_called()
+            cfg["llm_gateway"]["master_key"] = ""
+            self.assertTrue(storage.identity_recovery_pending(directory, cfg))
+            cfg["llm_gateway"]["master_key"] = "synthetic-recovered"
+            self.assertFalse(storage.identity_recovery_pending(directory, cfg))
 
     def test_corrupt_assets_leave_local_config_intact(self):
         with tempfile.TemporaryDirectory() as directory:

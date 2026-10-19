@@ -55,7 +55,7 @@ class TestEncryptedQueue(unittest.TestCase):
                 storage.backup(directory, cfg, "value: 2", "SYNTHETIC=two", wizard.encrypt_instance_bundle)
                 self.assertEqual(len(list(queue.glob("*.json"))), 2)
             bundles = []
-            def push(repo, token, bundle, metadata):
+            def push(repo, token, bundle, metadata, **kwargs):
                 self.assertEqual(metadata["encryption"], "AES-256-GCM")
                 bundles.append(wizard.decrypt_instance_bundle(bundle, "synthetic-pass"))
                 return {"success": True, "commit": "a" * 40}
@@ -117,12 +117,16 @@ class TestIsolatedGit(unittest.TestCase):
             git("add", "README.md", cwd=seed)
             git("commit", "-m", "Synthetic seed", cwd=seed)
             git("push", "origin", "HEAD", cwd=seed)
-            with patch.dict(os.environ, env):
-                result = storage.push_snapshot(str(remote), "", "encrypted synthetic", {"encryption": "AES-256-GCM"}, allow_local=True)
+            git("config", "user.name", "Synthetic engineer", cwd=seed)
+            git("config", "user.email", "synthetic@example.invalid", cwd=seed)
+            clean_env = {k: v for k, v in os.environ.items() if k not in {"GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"}}
+            with patch.dict(os.environ, clean_env, clear=True):
+                result = storage.push_snapshot(str(remote), "", "encrypted synthetic", {"encryption": "AES-256-GCM"}, allow_local=True, source_root=seed)
             self.assertTrue(result["success"])
             self.assertEqual(result["branch"], "instance-config")
             self.assertEqual(set(git("--git-dir=" + str(remote), "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").splitlines()), set(storage.ALLOWED_FILES))
             self.assertEqual(git("--git-dir=" + str(remote), "show", "HEAD:README.md"), "Keep this unrelated file")
+            self.assertEqual(git("--git-dir=" + str(remote), "log", "-1", "--format=%ae"), "synthetic@example.invalid")
 
     def test_token_not_in_command_arguments(self):
         commands = []

@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -72,12 +73,22 @@ class TestModelIconWorkflow(unittest.TestCase):
 
     def test_new_instance_manifest_enables_icons_from_the_installation_config(self):
         runner = RecordingRunner()
-        with patch.object(deploy, "K8sRunner", return_value=runner), \
-                patch.object(deploy, "get_existing_cluster_secret", return_value=None), \
-                patch.object(deploy, "sync_native_skills"), \
-                patch.object(deploy.subprocess, "run") as external, \
-                contextlib.redirect_stdout(io.StringIO()):
-            deploy.deploy_arcia(synthetic_config(), str(ROOT))
+        # Un déploiement peut persister ses secrets : sa racine doit être isolée.
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("services", "deploy", "assets", "skills"):
+                shutil.copytree(ROOT / name, Path(directory) / name)
+            with patch.object(deploy, "K8sRunner", return_value=runner), \
+                    patch.object(deploy, "get_existing_cluster_secret", return_value=None), \
+                    patch.object(deploy, "sync_native_skills"), \
+                    patch.object(deploy.subprocess, "run") as external, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                deploy.deploy_arcia(synthetic_config(), directory)
+            effective = deploy.parse_simple_yaml(Path(directory, "arcia.config.yaml").read_text(encoding="utf-8"))
+            self.assertTrue(effective["llm_gateway"]["master_key"])
+            self.assertTrue(effective["llm_gateway"]["salt_key"])
+            self.assertTrue(effective["llm_gateway"]["db_password"])
+            self.assertTrue(effective["hermes"]["api_token"])
+            self.assertTrue(effective["presidio"]["master_key"])
         external.assert_not_called()
         branding = next(m for m in runner.manifests if "name: arcia-webui-branding\n" in m)
         projection = json.loads(deploy.parse_simple_yaml(branding)["data"]["models-branding.json"])

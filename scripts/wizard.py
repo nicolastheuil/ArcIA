@@ -66,6 +66,7 @@ sys.path.insert(0, ROOT_DIR)
 from services.instance_backup import storage as instance_storage
 from services.instance_backup import bundle as instance_bundle
 from services.instance_backup import powerusers as instance_powerusers
+from services.instance_backup.configuration import dump_mapping
 from services.open_webui.branding import resolve_model_icon
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml")
 EXAMPLE_CONFIG_PATH = os.path.join(ROOT_DIR, "arcia.config.yaml.example")
@@ -561,6 +562,9 @@ def get_instance_backup_info() -> dict:
     last_backup = backup_cfg.get("last_backup", None)
     try:
         _, coverage = instance_bundle.collect(ROOT_DIR, portable_instance_configuration(cfg))
+        if instance_storage.identity_recovery_pending(ROOT_DIR, cfg):
+            coverage["missing_references"].append("llm_gateway.master_key")
+            coverage["complete"] = False
     except (OSError, ValueError):
         coverage = {"complete": False, "managed_files": 2, "referenced_files": 0, "missing_references": ["Fichiers inaccessibles ou limites dépassées"]}
 
@@ -1697,17 +1701,7 @@ vmware:
     for section in ("instance_backup", "instance_git"):
         if isinstance(rendered.get(section), dict):
             rendered[section].pop("passphrase", None)
-    lines = ["# ArcIA — Configuration d'instance générée par le wizard"]
-    def emit(mapping, depth=0):
-        for key, value in mapping.items():
-            safe_key = str(key) if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", str(key)) else json.dumps(str(key))
-            if isinstance(value, dict) and value:
-                lines.append(" " * depth + safe_key + ":")
-                emit(value, depth + 2)
-            else:
-                lines.append(" " * depth + safe_key + ": " + json.dumps(value, ensure_ascii=False))
-    emit(rendered)
-    return "\n".join(lines) + "\n"
+    return dump_mapping(rendered)
 
 
 @instance_storage.serialized
@@ -1839,6 +1833,10 @@ def backup_current_instance(cfg=None, passphrase="", token="", repo_url="", forc
     if passphrase or (token and stored["passphrase"]):
         instance_storage.unlock(ROOT_DIR, repo_url, token or stored["token"], passphrase or stored["passphrase"])
     settings.update({"enabled": settings.get("enabled", True), "repo_url": repo_url})
+    if instance_storage.identity_recovery_pending(ROOT_DIR, cfg):
+        result = {"success": False, "state": "incomplete", "error": "Identité LiteLLM à récupérer depuis le cluster ou une archive de référence avant sauvegarde complète."}
+        instance_storage.save_status(ROOT_DIR, result)
+        return result
     cfg["instance_backup"] = settings
     if passphrase or repo_url != instance_storage.normalize_settings(load_config_data(DEFAULT_CONFIG_PATH)[0]).get("repo_url", ""):
         save_config_to_files(cfg, DEFAULT_CONFIG_PATH, trigger_backup=False)

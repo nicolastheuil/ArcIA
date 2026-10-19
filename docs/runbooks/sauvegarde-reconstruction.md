@@ -92,6 +92,8 @@ Le dépôt, l'historique, le coffre, la couverture et les actions sont affichés
 
 ## Configuration prise en charge et responsabilités
 
+Le déploiement conserve dans le YAML les secrets effectifs qu’il génère ou reprend du cluster (identités LiteLLM, sel, mot de passe PostgreSQL, Hermes, Presidio, SSO et Teams). Ils entrent ainsi dans l’archive chiffrée suivante. Une identité locale signalée à récupérer bloque le déploiement et l’annonce d’une sauvegarde complète jusqu’à son rétablissement depuis le cluster ou une archive de référence ; le signalement ne modifie pas la clé.
+
 Le quatrième écran d’installation est consacré au dépôt d’instance. Le menu **Sauvegarde et reprise** réutilise ce dépôt et le coffre local. Une configuration enregistrée déclenche la sauvegarde ; les modifications locales sont également surveillées pendant que le wizard fonctionne. Les accès Git et le mot de passe du même dépôt peuvent être réutilisés sans ressaisie ; un autre dépôt dispose de son propre contexte d’accès.
 
 | Centre de pilotage | Administrateurs de l’instance |

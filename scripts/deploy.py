@@ -1191,6 +1191,9 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
 
 
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
+    from services.instance_backup.storage import identity_recovery_pending
+    if identity_recovery_pending(root_dir, cfg):
+        raise ValueError("Identité LiteLLM signalée à récupérer localement avant déploiement ; aucune mutation effectuée.")
     from services.instance_backup.powerusers import declared_powerusers, reconcile_powerusers
     declared_powerusers(cfg)
     k8s_cfg = cfg.get("kubernetes", {})
@@ -1297,17 +1300,6 @@ metadata:
         litellm_master = _get_existing_cluster_secret("litellm-secret", "master-key") or f"sk-arcia-{secrets.token_urlsafe(32)}"
         log_info(" -> Génération ou préservation de la Master Key LiteLLM.")
         llm_cfg["master_key"] = litellm_master
-        cfg_path = os.path.join(root_dir, "arcia.config.yaml")
-        if os.path.isfile(cfg_path):
-            try:
-                import yaml
-                with open(cfg_path, "r", encoding="utf-8") as fy:
-                    loaded = yaml.safe_load(fy) or {}
-                loaded.setdefault("llm_gateway", {})["master_key"] = litellm_master
-                with open(cfg_path, "w", encoding="utf-8") as fy_out:
-                    yaml.dump(loaded, fy_out, allow_unicode=True, sort_keys=False)
-            except Exception:
-                pass
 
     litellm_salt = llm_cfg.get("salt_key", "")
     if not litellm_salt or litellm_salt in KNOWN_INSECURE_SECRETS:
@@ -1355,6 +1347,10 @@ metadata:
     existing_sso_tenant = _get_existing_cluster_secret("entraid-secret", "tenant-id")
     if existing_sso_tenant and not sso_cfg.get("enabled"):
         log_info(" -> Préservation de la configuration SSO Entra ID existante du cluster.")
+        cfg.setdefault("entra_id_sso", {}).update({"tenant_id": existing_sso_tenant,
+            "client_id": _get_existing_cluster_secret("entraid-secret", "client-id") or "",
+            "client_secret": _get_existing_cluster_secret("entraid-secret", "client-secret") or "",
+            "cookie_secret": _get_existing_cluster_secret("entraid-secret", "cookie-secret") or ""})
     else:
         sso_tenant = sso_cfg.get("tenant_id", "00000000-0000-0000-0000-000000000000") if sso_cfg.get("enabled") else "00000000-0000-0000-0000-000000000000"
         sso_client = sso_cfg.get("client_id", "placeholder-client-id") if sso_cfg.get("enabled") else "placeholder-client-id"
@@ -1369,6 +1365,8 @@ metadata:
             "client-secret": sso_secret,
             "cookie-secret": sso_cookie
         }))
+        cfg.setdefault("entra_id_sso", {}).update({"tenant_id": sso_tenant, "client_id": sso_client,
+            "client_secret": sso_secret, "cookie_secret": sso_cookie})
 
     # 6. teams-bot-secret (si bot actif ou préservation du secret existant)
     existing_bot_app_id = _get_existing_cluster_secret("teams-bot-secret", "app-id")
@@ -1382,10 +1380,20 @@ metadata:
                 "app-password": app_password,
                 "tenant-id": bot_tenant_id
             }))
+            cfg.setdefault("teams_bot", {}).update({"app_id": app_id, "app_password": app_password, "tenant_id": bot_tenant_id or ""})
     elif _get_existing_cluster_secret("teams-bot-secret", "app-id"):
         log_info(" -> Préservation du secret Teams Bot existant du cluster.")
 
-    log_ok("Tous les secrets Kubernetes sont provisionnés de façon déclarative et sécurisée.")
+    # Sauvegarder les identités effectivement générées/préservées pour une reconstruction.
+    cfg.setdefault("llm_gateway", {}).update({"master_key": litellm_master, "salt_key": litellm_salt,
+        "db_password": litellm_db_pass, "openrouter_api_key": openrouter_key})
+    for provider in ("openai", "anthropic", "mistral", "gemini"):
+        cfg["llm_gateway"][provider + "_api_key"] = litellm_secret_data[provider + "-key"]
+    cfg.setdefault("hermes", {}).update({"api_token": hermes_key, "admin_password": hermes_pass})
+    cfg.setdefault("presidio", {})["master_key"] = presidio_key
+    from services.instance_backup.configuration import persist_runtime_configuration
+    persist_runtime_configuration(root_dir, cfg)
+    log_ok("Secrets provisionnés et configuration effective conservée pour la sauvegarde.")
 
     # 4. Déploiement des Microservices Fondamentaux
     log_step(4, total_steps, "Déploiement des microservices du socle ArcIA")

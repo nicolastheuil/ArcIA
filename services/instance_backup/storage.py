@@ -78,12 +78,23 @@ def assert_private(repo_url, token):
         raise ValueError("La destination de sauvegarde doit être un dépôt privé.")
 
 
-def push_snapshot(repo_url, token, encrypted_bundle, metadata, *, allow_local=False):
+def push_snapshot(repo_url, token, encrypted_bundle, metadata, *, allow_local=False, source_root=None):
     """Le clone isolé contient uniquement des modifications de fichiers autorisés."""
     validate_repo(repo_url, allow_local)
     if not allow_local:
         assert_private(repo_url, token)
     env = git_environment(repo_url, token)
+    if source_root is not None:
+        # Le clone temporaire ne connaît pas les réglages Git locaux du harness.
+        identity = {}
+        for field, variable in (("user.name", "GIT_AUTHOR_NAME"), ("user.email", "GIT_AUTHOR_EMAIL")):
+            proc = subprocess.run(["git", "-C", str(source_root), "config", "--get", field], capture_output=True, timeout=5)
+            identity[variable] = env.get(variable) or (proc.stdout.decode().strip() if proc.returncode == 0 else "")
+        if not all(identity.values()):
+            raise ValueError("Identité Git locale requise pour signer la sauvegarde (user.name et user.email).")
+        env.update(identity)
+        env["GIT_COMMITTER_NAME"] = identity["GIT_AUTHOR_NAME"]
+        env["GIT_COMMITTER_EMAIL"] = identity["GIT_AUTHOR_EMAIL"]
     with tempfile.TemporaryDirectory(prefix="arcia-backup-") as directory:
         root = Path(directory)
         checkout = root / "checkout"
@@ -225,6 +236,21 @@ def status(root):
         return {}
 
 
+def identity_recovery_pending(root, cfg):
+    """Un signalement local bloque l'usage de l'identité suspecte sans l'effacer."""
+    marker = Path(root) / "secrets" / "instance-identity-recovery.json"
+    if not marker.exists():
+        return False
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8"))
+        if data.get("field") != "llm_gateway.master_key":
+            return True
+        current = str(cfg.get("llm_gateway", {}).get("master_key", ""))
+        return not current or hashlib.sha256(current.encode()).hexdigest() == data["observed_sha256"]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return True
+
+
 def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False, extra_payload=None, coverage=None):
     settings = normalize_settings(cfg)
     if not settings.get("repo_url") or settings.get("enabled") is False:
@@ -270,7 +296,7 @@ def backup(root, cfg, config_yaml, env_content, encrypt, *, force=False, extra_p
                 snapshot = json.loads(candidate.read_text(encoding="utf-8"))
                 if snapshot["repo_url"] != settings["repo_url"]:
                     continue
-                result = push_snapshot(settings["repo_url"], auth["token"], snapshot["bundle"], snapshot["metadata"])
+                result = push_snapshot(settings["repo_url"], auth["token"], snapshot["bundle"], snapshot["metadata"], source_root=root)
                 candidate.unlink()
             result.update({"state": "pushed", "timestamp": timestamp, "digest": digest, "repo_url": settings["repo_url"]})
         except Exception:
