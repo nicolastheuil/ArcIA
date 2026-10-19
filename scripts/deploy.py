@@ -931,6 +931,40 @@ guardrails:
       presidio_anonymizer_api_base: "http://presidio-dlp.{namespace}.svc:8080"
 """
 
+def render_model_manifest(component, manifest, cfg, namespace="arcia", branding_revision=None, code_checksums=None):
+    """Même projection d'instance à l'installation et lors des mises à jour."""
+    rendered = adapt_manifest_namespace(manifest, namespace)
+    checksums = code_checksums or {}
+    if component in ("litellm-proxy", "hermes-agent"):
+        if component == "litellm-proxy":
+            name = "litellm-config"
+            content = build_litellm_config_data(cfg, namespace)
+        else:
+            name = "hermes-config"
+            content = build_hermes_config_data(cfg, namespace)
+            fqdn = cfg.get("network", {}).get("public_fqdn") or "assistant.example.org"
+            rendered = rendered.replace("https://assistant.example.org/studio", f"https://{fqdn}/studio")
+        parts = re.split(r"\n---\s*\n", rendered, maxsplit=1)
+        if len(parts) != 2:
+            raise RuntimeError(f"Manifeste {component} incomplet : Deployment absent.")
+        cm = f"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {name}\n  namespace: {namespace}\ndata:\n  config.yaml: |\n" + textwrap.indent(content, "    ")
+        rendered = cm + "\n---\n" + parts[1]
+        checksums = {**checksums, name: hashlib.sha256(content.encode("utf-8")).hexdigest()}
+    elif component == "open-webui":
+        catalog = build_model_catalog(cfg)
+        default = catalog["default_simple"] or catalog["default_agentic"] or ""
+        for name, value in {"OPENAI_API_CONFIGS": build_openwebui_api_configs(cfg),
+                            "DEFAULT_MODELS": default, "TASK_MODEL": default}.items():
+            pattern = rf'(- name: {name}\s*\n\s*value:\s*)(?:\'[^\']*\'|"(?:\\.|[^"\\])*")'
+            rendered = re.sub(pattern, lambda match: match[1] + json.dumps(value, ensure_ascii=False), rendered)
+        if branding_revision:
+            checksums = {**checksums, "arcia-webui-branding": branding_revision}
+    for name, revision in checksums.items():
+        rendered = re.sub(rf'(checksum/{re.escape(name)}:\s*)"[^"]*"',
+                          lambda match: match[1] + json.dumps(revision), rendered)
+    return rendered
+
+
 def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: Optional[Dict[str, Any]] = None):
     """Crée le ConfigMap arcia-webui-branding avec les logos SVG, custom.css, loader.js et les icônes de modèles ArcIA."""
     symbol_path = os.path.join(root_dir, "assets", "branding", "logo-arcia-symbol.svg")
@@ -1023,7 +1057,8 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: O
 def activate_webui_branding(runner, namespace, state):
     """Recharge les subPath et installe le lanceur ; ne touche pas aux connexions modèles."""
     patch = {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "open-webui", "namespace": namespace},
-             "spec": {"template": {"metadata": {"annotations": {"checksum/arcia-webui-branding": state["revision"]}},
+             "spec": {"strategy": {"type": "Recreate", "rollingUpdate": None},
+                      "template": {"metadata": {"annotations": {"checksum/arcia-webui-branding": state["revision"]}},
                        "spec": {"containers": [{"name": "open-webui", "command": ["python3", "/opt/arcia-webui/start.py"],
                                  "volumeMounts": [{"mountPath": "/app/build/static/models-branding.json", "$patch": "delete"}, {"name": "arcia-branding-private", "mountPath": "/etc/arcia", "readOnly": True},
                                                   {"name": "arcia-webui-code", "mountPath": "/opt/arcia-webui", "readOnly": True}]}],
@@ -1040,7 +1075,7 @@ def activate_webui_branding(runner, namespace, state):
         rc, _, _ = runner.run(["patch", "deployment", "open-webui", "-n", namespace, "--type=strategic", "--patch-file=/dev/stdin"], stdin_input=json.dumps(patch), timeout=20)
     if rc:
         return {"assets_applied": True, "runtime_loaded": False, "avatars_verified": False, "error": "Activation du branding refusée."}
-    rc, _, _ = runner.run(["rollout", "status", "deployment/open-webui", "-n", namespace, "--timeout=45s"], timeout=50)
+    rc, _, _ = runner.run(["rollout", "status", "deployment/open-webui", "-n", namespace, "--timeout=120s"], timeout=125)
     if rc:
         return {"assets_applied": True, "runtime_loaded": False, "avatars_verified": False, "error": "Rollout des ressources visuelles échoué."}
     probe_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "services", "open_webui", "verify.py")
@@ -1048,7 +1083,7 @@ def activate_webui_branding(runner, namespace, state):
         source = stream.read()
     source += "\nprint('ARCIA_BRANDING_RESULT=' + json.dumps(verify(" + repr(state["mapping"]["revision"]) + ", " + repr(state["asset_hashes"]) + ")))\n"
     rc, out, _ = runner.run(["exec", "-i", "deployment/open-webui", "-n", namespace, "--", "python3", "-"], stdin_input=source, timeout=25)
-    result = {"assets_applied": True, "runtime_loaded": True, "avatars_verified": False, "assets_served": False}
+    result = {"assets_applied": True, "runtime_loaded": False, "avatars_verified": False, "assets_served": False}
     for line in out.splitlines() if rc == 0 else []:
         if line.startswith("ARCIA_BRANDING_RESULT="):
             result.update(json.loads(line.split("=", 1)[1]))
@@ -1347,27 +1382,9 @@ metadata:
         litellm_yaml = litellm_yaml.replace("http://vllm-internal.corp.local:8000/v1", local_vllm)
     litellm_hash = code_checksums.get("litellm-error-handler", "v04")
     litellm_yaml = litellm_yaml.replace('checksum/litellm-error-handler: "default"', f'checksum/litellm-error-handler: "{litellm_hash}"')
-    # Le catalogue doit précéder la création du pod (montage subPath figé).
-    dynamic_litellm_cm = build_litellm_config_data(cfg, namespace=namespace)
-    indented_litellm_cm = textwrap.indent(dynamic_litellm_cm, "    ")
-    litellm_cm_manifest = f"""apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: litellm-config
-  namespace: {namespace}
-data:
-  config.yaml: |
-{indented_litellm_cm}
-"""
-    # Remplacer le ConfigMap statique dans le flux avant d'appliquer le Deployment.
-    _, separator, resources = litellm_yaml.partition("\n---\n")
-    if not separator:
-        raise RuntimeError("Manifeste LiteLLM incomplet : Deployment absent.")
-    config_hash = hashlib.sha256(dynamic_litellm_cm.encode("utf-8")).hexdigest()
     secret_hash = hashlib.sha256(json.dumps(litellm_secret_data, sort_keys=True).encode("utf-8")).hexdigest()
-    resources = resources.replace('checksum/litellm-config: "default"', f'checksum/litellm-config: "{config_hash}"')
-    resources = resources.replace('checksum/litellm-secret: "default"', f'checksum/litellm-secret: "{secret_hash}"')
-    runner.apply_manifest(adapt_manifest_namespace(litellm_cm_manifest + "\n---\n" + resources, namespace))
+    runner.apply_manifest(render_model_manifest("litellm-proxy", litellm_yaml, cfg, namespace,
+                                               code_checksums={**code_checksums, "litellm-secret": secret_hash}))
     log_ok("Catalogue de modèles et routage LiteLLM synchronisés avec succès.")
 
     # C. Hermes Agent (Studio & Gateway Desktop)
@@ -1382,23 +1399,7 @@ data:
     if storage_class:
         hermes_yaml = hermes_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
 
-    dynamic_hermes_cm = build_hermes_config_data(cfg, namespace=namespace)
-    indented_hermes_cm = textwrap.indent(dynamic_hermes_cm, "    ")
-    hermes_cm_manifest = f"""apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hermes-config
-  namespace: {namespace}
-data:
-  config.yaml: |
-{indented_hermes_cm}
-"""
-    hermes_parts = hermes_yaml.split("\n---\n")
-    hermes_parts[0] = hermes_cm_manifest.strip()
-    hermes_yaml = "\n---\n".join(hermes_parts)
-    hermes_hash = hashlib.sha256(dynamic_hermes_cm.encode("utf-8")).hexdigest()
-    hermes_yaml = hermes_yaml.replace('checksum/hermes-config: "default"', f'checksum/hermes-config: "{hermes_hash}"')
-    runner.apply_manifest(adapt_manifest_namespace(hermes_yaml, namespace))
+    runner.apply_manifest(render_model_manifest("hermes-agent", hermes_yaml, cfg, namespace))
     log_ok("Configuration agentique Hermes synchronisée avec succès.")
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
@@ -1413,17 +1414,8 @@ data:
     webui_yaml = re.sub(r'storage:\s*(?:20|50)Gi', f'storage: {webui_storage}', webui_yaml, count=1)
     if storage_class:
         webui_yaml = webui_yaml.replace("accessModes:\n  - ReadWriteOnce", f"accessModes:\n  - ReadWriteOnce\n  storageClassName: {storage_class}")
-    model_catalog = build_model_catalog(cfg)
-    default_model = model_catalog["default_simple"] or model_catalog["default_agentic"] or "simple/auto"
-    openwebui_api_configs = build_openwebui_api_configs(cfg)
-
-    # Remplacement des variables de modèles et injection de OPENAI_API_CONFIGS
-    webui_yaml = re.sub(r'value: "simple/auto"', f'value: "{default_model}"', webui_yaml)
-    webui_yaml = re.sub(r'(- name: OPENAI_API_CONFIGS\s*\n\s*value:\s*)(?:\'[^\']*\'|"[^"]*")', r"\1'" + openwebui_api_configs + "'", webui_yaml)
-    webui_yaml = re.sub(r'\s*-\s*name:\s*MODEL_FILTER_LIST\s*\n\s*value:\s*"[^"]*"', '', webui_yaml)
-    webui_yaml = re.sub(r'\s*-\s*name:\s*ENABLE_MODEL_FILTER\s*\n\s*value:\s*"[^"]*"', '', webui_yaml)
-    webui_yaml = webui_yaml.replace('checksum/arcia-webui-branding: "default"', 'checksum/arcia-webui-branding: "' + branding_state["revision"] + '"')
-    runner.apply_manifest(adapt_manifest_namespace(webui_yaml, namespace))
+    runner.apply_manifest(render_model_manifest("open-webui", webui_yaml, cfg, namespace,
+                                               branding_revision=branding_state["revision"]))
     log_ok("Portail Open-WebUI déployé avec catalogue restreint par connexion.")
 
     # E. Services Optionnels : Teams Bot et OAuth2-Proxy

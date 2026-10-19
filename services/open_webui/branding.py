@@ -28,7 +28,7 @@ def build_mapping(cfg):
     mappings = gateway.get("models_routing") or []
     models = {}
     for model in mappings:
-        model_id = model.get("alias") or model.get("name")
+        model_id = str(model.get("alias") or model.get("name") or "").strip()
         if model_id:
             models[model_id] = resolve_model_icon(model, gateway.get("custom_providers") or [])
     result = {"models": models, "default_icon": ICONS["default"], "local_icon": ICONS["local"], "zdr_icon": ICONS["zdr"]}

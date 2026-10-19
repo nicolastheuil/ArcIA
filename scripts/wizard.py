@@ -2185,7 +2185,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "k8s_resource": "deployment/open-webui",
         "default_image": "ghcr.io/open-webui/open-webui:v0.12.3",
         "default_version": "v0.12.3",
-        "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health",
+        "strategy": "Recreate (interruption prévue, volume RWO) + Sonde /health",
         "wave": 5,
         "is_bumpable_image": True,
         "description": "Portail web conversationnel d'entreprise avec RAG ChromaDB, SSO Entra ID et double raccordement simple/* et agentic/*."
@@ -2575,7 +2575,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         "prod_source": prod_source_name,
         "total_components": len(valid_results),
         "updates_available_count": updates_count,
-        "strategy": "RollingUpdate (maxUnavailable=0, maxSurge=1)",
+        "strategy": "RollingUpdate stateless ; Recreate avec interruption pour les états persistants",
         "components": valid_results
     }
     last_update_check_cache.clear()
@@ -2631,7 +2631,7 @@ def get_initial_update_phases() -> List[Dict[str, Any]]:
             "title": "Vague 4 — Portail Open-WebUI & Qualification Finale",
             "pct": 100,
             "status": "pending",
-            "detail": "RollingUpdate du portail collaborateur Open-WebUI et validation de disponibilité de bout en bout."
+            "detail": "Recreate du portail Open-WebUI (interruption prévue, volume RWO) puis contrôle de disponibilité et des ressources visuelles."
         }
     ]
 
@@ -2738,12 +2738,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
     with update_lock:
         update_state["status"] = "running"
         update_state["progress_pct"] = 2
-        update_state["current_phase"] = "Initialisation de la séquence Zero-Downtime..."
+        update_state["current_phase"] = "Initialisation de la séquence de mise à jour..."
         update_state["phases"] = get_initial_update_phases()
         update_state["logs"] = [
-            f"[INFO] Démarrage de l'orchestrateur de mise à jour intelligente ArcIA ({'Simulation Dry-Run' if dry_run else 'Exécution Réelle Zero-Downtime'})",
+            f"[INFO] Démarrage de l'orchestrateur de mise à jour intelligente ArcIA ({'Simulation Dry-Run' if dry_run else 'Exécution réelle'})",
             f"[INFO] Composants sélectionnés ({len(selected_components)}) : {', '.join(selected_components)}",
-            f"[INFO] Stratégie : RollingUpdate séquentiel (maxUnavailable=0, maxSurge=1) avec validation des sondes de santé."
+            f"[INFO] Stratégie : RollingUpdate pour les services stateless ; Recreate avec interruption pour Hermes et Open-WebUI."
         ]
         update_state["start_time"] = time.time()
         update_state["updated_components"] = []
@@ -2828,15 +2828,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             subprocess.run(["docker", "compose", "-f", os.path.join(ROOT_DIR, "docker-compose.lab.yml"), "pull"], cwd=ROOT_DIR, capture_output=True)
             _append_update_log("[OK] Images Docker et configurations locales prêtes.")
         else:
-            deploy.sync_service_configmaps(runner, namespace, ROOT_DIR)
+            code_checksums = deploy.sync_service_configmaps(runner, namespace, ROOT_DIR)
             _append_update_log("[OK] ConfigMaps de code microservices synchronisés à chaud sans coupure.")
             deploy.sync_native_skills(runner, namespace, ROOT_DIR)
             _append_update_log("[OK] Catalogue de compétences natives ('arcia-native-skills') synchronisé.")
             visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
-            visual_result = deploy.activate_webui_branding(runner, namespace, visual)
-            if not visual_result.get("assets_served"):
-                raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
-            _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP.")
+            _append_update_log("[OK] Ressources visuelles publiées ; chargement et vérification après la mise à jour du portail.")
 
         if "arcia-core" in selected_components:
             with update_lock:
@@ -2852,8 +2849,9 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
                 return
             if dry_run:
                 time.sleep(0.25)
-                _append_update_log(f"[INFO] [Dry-Run] Application de {manifest_filename} ({dep_name}) avec RollingUpdate (maxUnavailable=0, maxSurge=1)...")
-                _append_update_log(f"[OK] [Dry-Run] Nouveau pod '{dep_name}' Ready (sonde HTTP 200) -> bascule du Service -> terminaison ancien pod (0 coupure).")
+                strategy = "RollingUpdate" if ensure_zero_downtime_patch else "Recreate (interruption prévue)"
+                _append_update_log(f"[INFO] [Dry-Run] Application de {manifest_filename} ({dep_name}) avec {strategy}.")
+                _append_update_log(f"[OK] [Dry-Run] Disponibilité du nouveau pod '{dep_name}' simulée.")
                 with update_lock:
                     update_state["updated_components"].append(comp_id)
                 return
@@ -2869,9 +2867,9 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             if os.path.isfile(m_path):
                 with open(m_path, "r", encoding="utf-8") as f:
                     raw_yaml = f.read()
-                adapted_yaml = deploy.adapt_manifest_namespace(raw_yaml, namespace)
-                if comp_id == "hermes-agent":
-                    adapted_yaml = adapted_yaml.replace("https://assistant.example.org/studio", f"https://{public_fqdn}/studio")
+                adapted_yaml = deploy.render_model_manifest(
+                    comp_id, raw_yaml, cfg, namespace,
+                    branding_revision=visual["revision"], code_checksums=code_checksums)
                 runner.apply_manifest(adapted_yaml)
 
             if ensure_zero_downtime_patch:
@@ -2890,7 +2888,8 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             _append_update_log(f"[INFO] Attente de la sonde de disponibilité (readinessProbe) pour '{dep_name}'...")
             rc_ro, out_ro, err_ro = runner.run(["rollout", "status", f"deployment/{dep_name}", f"-n={namespace}", "--timeout=360s"])
             if rc_ro == 0:
-                _append_update_log(f"[OK] '{dep_name}' mis à jour avec succès sans aucune interruption de service.")
+                availability = "sans interruption" if ensure_zero_downtime_patch else "avec interruption prévue (Recreate)"
+                _append_update_log(f"[OK] '{dep_name}' mis à jour {availability}.")
                 with update_lock:
                     update_state["updated_components"].append(comp_id)
             else:
@@ -2946,13 +2945,18 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
         # PHASE 6 : Vague 4 — Portail Open-WebUI & Qualification Finale
         # =====================================================================
         _set_update_phase(5, "running", "\n[PHASE 6/6] Vague 4 — Mise à jour du Portail Collaborateur Open-WebUI & Vérification finale...")
-        _rolling_update_k8s_deployment("open-webui", "Portail Open-WebUI", "07-open-webui.yaml", "open-webui", ensure_zero_downtime_patch=True)
-        _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR ZERO-DOWNTIME TERMINÉE AVEC SUCCÈS (100%) !")
+        _rolling_update_k8s_deployment("open-webui", "Portail Open-WebUI", "07-open-webui.yaml", "open-webui", ensure_zero_downtime_patch=False)
+        if not dry_run and infra_target != "docker_lab":
+            visual_result = deploy.activate_webui_branding(runner, namespace, visual)
+            if not (visual_result.get("assets_served") and visual_result.get("runtime_loaded")):
+                raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
+            _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP ; recette navigateur distincte.")
+        _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR TERMINÉE AVEC SUCCÈS (100%) !")
 
         with update_lock:
             update_state["status"] = "success"
             update_state["progress_pct"] = 100
-            update_state["current_phase"] = "Instance 100% à jour (Aucune interruption de service)"
+            update_state["current_phase"] = "Mise à jour terminée (interruptions Recreate prévues)"
 
     except Exception as ue:
         with update_lock:

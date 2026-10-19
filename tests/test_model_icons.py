@@ -13,6 +13,31 @@ import deploy
 
 
 class TestModelIcons(unittest.TestCase):
+    def test_launcher_imports_backend_from_image_working_directory(self):
+        import os
+        import shutil
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            adapter = Path(directory) / "adapter"
+            backend = Path(directory) / "backend"
+            adapter.mkdir()
+            (backend / "open_webui").mkdir(parents=True)
+            (backend / "open_webui" / "__init__.py").write_text('marker = "synthetic-backend"', encoding="utf-8")
+            (adapter / "uvicorn.py").write_text(
+                'def run(*args, **kwargs):\n    import open_webui\n    assert open_webui.marker == "synthetic-backend"\n', encoding="utf-8")
+            shutil.copyfile(ROOT / "services/open_webui/start.py", adapter / "start.py")
+            env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+            env["WEBUI_SECRET_KEY"] = "synthetic-session-key"
+            result = subprocess.run([sys.executable, str(adapter / "start.py")], cwd=backend,
+                                    env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_icon_ids_use_the_same_normalization_as_the_catalogue(self):
+        cfg = {"llm_gateway": {"models_routing": [
+            {"alias": " synthetic-chat ", "target_model": "openrouter/auto", "zdr": False}
+        ]}}
+        self.assertEqual(set(deploy.compute_models_branding_dict(cfg)["models"]), {"synthetic-chat"})
+
     def test_false_string_never_gets_a_zdr_badge(self):
         cfg = {"llm_gateway": {"models_routing": [
             {"alias": "synthetic-chat", "target_model": "openai/synthetic", "provider": "openai", "zdr": "false"}

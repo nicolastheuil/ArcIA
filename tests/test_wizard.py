@@ -1388,9 +1388,9 @@ llm_gateway:
 
         try:
             payload = {
-                "default_model": "simple/auto",
+                "default_model": "synthetic-private-chat",
                 "mappings": [
-                    {"name": "simple/auto", "alias": "simple/auto", "provider": "openrouter", "target_model": "openrouter/auto", "zdr": True},
+                    {"name": "synthetic-private-chat", "alias": "synthetic-private-chat", "provider": "openrouter", "target_model": "openrouter/auto", "zdr": True},
                     {"name": "local/model", "alias": "local/model", "provider": "ollama", "target_model": "ollama/llama3", "zdr": False}
                 ]
             }
@@ -1403,9 +1403,11 @@ llm_gateway:
                 branding = json.load(f)
             self.assertEqual(json.dumps(branding, sort_keys=True), json.dumps(json.loads(orig_mb), sort_keys=True))
             projection = deploy.compute_models_branding_dict(cfg=deploy.parse_yaml_or_env(tmp_path))
-            self.assertEqual(set(projection["models"]), {"simple/auto", "local/model"})
-            self.assertEqual(projection["models"]["simple/auto"]["type"], "zdr")
+            self.assertEqual(set(projection["models"]), {"synthetic-private-chat", "local/model"})
+            self.assertEqual(projection["models"]["synthetic-private-chat"]["type"], "zdr")
             self.assertEqual(projection["models"]["local/model"]["type"], "local")
+            saved, _ = wizard.load_config_data(tmp_path)
+            self.assertEqual(saved["llm_gateway"]["models_routing"][0]["alias"], "synthetic-private-chat")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

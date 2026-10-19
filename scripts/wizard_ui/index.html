@@ -3289,7 +3289,7 @@
     // Communication API avec gestion de timeout et tolérance aux pannes
     async function api(path, payload = null, method = null, timeoutMs = null) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs ?? (payload ? 120000 : 7000));
+      const timer = setTimeout(() => controller.abort(), timeoutMs ?? (payload ? 300000 : 7000));
       const opts = {
         method: method || (payload ? 'POST' : 'GET'),
         headers: { 'Content-Type': 'application/json' },
@@ -5720,7 +5720,7 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
           dry_run: false
         });
         if (res && res.success) {
-          showToast(`Séquence RollingUpdate lancée pour « ${compName} ».`);
+          showToast(`Mise à jour lancée pour « ${compName} ».`);
           startUpdatePolling();
         } else {
           showToast('Erreur : ' + (res?.error || 'Échec de lancement'));
@@ -5736,7 +5736,7 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       try {
         const res = await api('updates/apply', { dry_run: false, bump_image_tags: true });
         if (res && res.success) {
-          showToast('Séquence de mise à jour RollingUpdate lancée.');
+          showToast('Séquence de mise à jour lancée (interruption prévue pour les composants Recreate).');
           startUpdatePolling();
         }
       } catch (e) {

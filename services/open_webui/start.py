@@ -2,9 +2,12 @@
 import os
 from pathlib import Path
 import secrets
+import sys
 
 
 def main():
+    # L'image officielle place le backend dans son WORKDIR, distinct du lanceur monté.
+    sys.path.insert(0, str(Path.cwd()))
     if not os.environ.get("WEBUI_SECRET_KEY"):
         key_file = Path(os.environ.get("WEBUI_SECRET_KEY_FILE", "/app/backend/data/.webui_secret_key"))
         key_file.parent.mkdir(parents=True, exist_ok=True)

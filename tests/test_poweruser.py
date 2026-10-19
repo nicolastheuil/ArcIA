@@ -7,6 +7,7 @@ Validates slug conversion, template rendering, isolation, and manifest structure
 import os
 import unittest
 import sys
+from unittest.mock import patch
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT_DIR, "scripts"))
@@ -15,6 +16,11 @@ from arcia_poweruser import email_to_slug, render_manifest, TEMPLATE_PATH
 
 
 class TestPowerUserSpawner(unittest.TestCase):
+    def setUp(self):
+        # Le catalogue par défaut de cette fixture ne doit pas lire l'instance du poste.
+        fixture_config = patch("arcia_poweruser.load_arcia_config", return_value={})
+        fixture_config.start()
+        self.addCleanup(fixture_config.stop)
 
     def test_email_to_slug_basic(self):
         self.assertEqual(email_to_slug("claire.dubois@entreprise.com"), "claire-dubois")
