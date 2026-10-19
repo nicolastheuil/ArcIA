@@ -31,6 +31,10 @@ class UpdateRunner:
     def run(self, args, stdin_input=None, timeout=None):
         self.commands.append((args, stdin_input))
         if args[0] == "exec":
+            if "--check-consumer" in args:
+                return 0, 'ARCIA_LEGACY_CONSUMER_SAFE=true\n', ""
+            if "def retire(" in (stdin_input or ""):
+                return 0, 'ARCIA_LEGACY_KEY_RESULT={"retired":true,"verified_absent":true}\n', ""
             return 0, 'ARCIA_BRANDING_RESULT={"runtime_loaded":true,"assets_served":true}\n', ""
         return 0, "", ""
 
@@ -56,6 +60,9 @@ class TestUpdateCatalogue(unittest.TestCase):
             {"alias": "synthetic-agent", "category": "agentic", "target_model": "openrouter/auto"},
         ])
         configs = {m["metadata"]["name"]: m for m in runner.manifests if m["kind"] == "ConfigMap"}
+        self.assertTrue(any("--check-consumer" in args for args, _ in runner.commands))
+        proxy = next(m for m in runner.manifests if m["kind"] == "Deployment" and m["metadata"]["name"] == "litellm-proxy")
+        self.assertNotIn("lifecycle", proxy["spec"]["template"]["spec"]["containers"][0])
         litellm = yaml.safe_load(configs["litellm-config"]["data"]["config.yaml"])
         self.assertEqual([m["model_name"] for m in litellm["model_list"]], ["synthetic-chat", "synthetic-agent"])
         hermes = yaml.safe_load(configs["hermes-config"]["data"]["config.yaml"])

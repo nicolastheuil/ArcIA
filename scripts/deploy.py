@@ -1124,6 +1124,27 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
 # -----------------------------------------------------------------------------
+def retire_legacy_webui_key(runner, namespace: str, root_dir: str) -> Dict[str, Any]:
+    """Retire uniquement l'identité statique historique après contrôle du portail."""
+    source_path = os.path.join(root_dir, "services", "litellm", "retire_legacy_key.py")
+    with open(source_path, encoding="utf-8") as stream:
+        source = stream.read()
+    rc, out, _ = runner.run(
+        ["exec", "-i", "deployment/open-webui", "-n", namespace, "--", "python3", "-", "--check-consumer"],
+        stdin_input=source, timeout=25)
+    if rc != 0 or "ARCIA_LEGACY_CONSUMER_SAFE=true" not in out.splitlines():
+        return {"retired": False, "verified_absent": False, "consumer_check_passed": False}
+    rc, out, _ = runner.run(
+        ["exec", "-i", "deployment/litellm-proxy", "-n", namespace, "--", "python3", "-"],
+        stdin_input=source, timeout=55)
+    for line in out.splitlines() if rc == 0 else []:
+        if line.startswith("ARCIA_LEGACY_KEY_RESULT="):
+            result = json.loads(line.split("=", 1)[1])
+            if result.get("verified_absent") is True:
+                return result
+    raise RuntimeError("Retrait de la clé LiteLLM historique non vérifié.")
+
+
 def sync_litellm_provider_secrets(cfg: Dict[str, Any], runner, namespace: str) -> None:
     """Met à jour les clés fournisseurs par stdin en préservant l'identité du proxy."""
     updates = {p.replace("_", "-") + "-key": str(cfg.get("llm_gateway", {}).get(p + "_api_key", "")).strip()
@@ -1727,6 +1748,12 @@ spec:
             log_ok(f"Déploiement '{dep}' est opérationnel.")
         else:
             log_warn(f"Le déploiement '{dep}' met du temps à démarrer ({err.strip() or out.strip()}).")
+
+    legacy_key = retire_legacy_webui_key(runner, namespace, root_dir)
+    if legacy_key.get("verified_absent"):
+        log_ok("Ancienne clé statique Open-WebUI absente ; clés nominatives préservées.")
+    else:
+        log_warn("Retrait de l'ancienne clé statique différé : connexion du portail non vérifiée.")
 
     # 6b. Réconciliation et synchronisation universelle des instances Power Users
     log_info(" -> [Power Users] Synchronisation du catalogue de modèles sur l'ensemble des instances...")

@@ -2945,6 +2945,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             if not (visual_result.get("assets_served") and visual_result.get("runtime_loaded")):
                 raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
             _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP ; recette navigateur distincte.")
+            if "litellm-proxy" in selected_components:
+                legacy_key = deploy.retire_legacy_webui_key(runner, namespace, ROOT_DIR)
+                if legacy_key.get("verified_absent"):
+                    _append_update_log("[OK] Ancienne clé statique Open-WebUI absente ; clés nominatives préservées.")
+                else:
+                    _append_update_log("[WARN] Retrait de l'ancienne clé statique différé : connexion du portail non vérifiée.")
         _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR TERMINÉE AVEC SUCCÈS (100%) !")
 
         with update_lock:

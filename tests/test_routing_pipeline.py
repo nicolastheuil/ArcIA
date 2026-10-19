@@ -84,6 +84,8 @@ class TestRoutingPipeline(unittest.TestCase):
         self.assertIn('db-password: "synthetic-password"', manifests)
         self.assertTrue(any(args[:2] == ["rollout", "status"] for args, _ in runner.calls))
         first_proxy_manifest = next(m for m in runner.manifests if "name: litellm-proxy" in m and "kind: Deployment" in m)
+        self.assertNotIn("postStart:", first_proxy_manifest)
+        self.assertTrue(any("--check-consumer" in args for args, _ in runner.calls))
         self.assertIn('model_name: "simple/synthetic"', first_proxy_manifest)
         self.assertIn("checksum/litellm-config:", first_proxy_manifest)
         self.assertIn("checksum/litellm-secret:", first_proxy_manifest)

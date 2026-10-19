@@ -180,32 +180,6 @@ spec:
             port: 4000
           initialDelaySeconds: 20
           periodSeconds: 10
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - |
-                (
-                  for i in $(seq 1 30); do
-                    if python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=2)" 2>/dev/null; then
-                      python3 -c "
-                import os, json, urllib.request
-                master = os.environ.get('LITELLM_MASTER_KEY', '')
-                data = json.dumps({'key': 'sk-arcia-openwebui-direct-token', 'models': ['simple/free', 'simple/auto'], 'key_alias': 'openwebui-direct-simple'}).encode()
-                for ep in ('/key/generate', '/key/update'):
-                    try:
-                        req = urllib.request.Request('http://127.0.0.1:4000' + ep, data=data, headers={'Authorization': 'Bearer ' + master, 'Content-Type': 'application/json'})
-                        urllib.request.urlopen(req, timeout=5)
-                    except Exception:
-                        pass
-                " 2>/dev/null
-                      break
-                    fi
-                    sleep 2
-                  done
-                ) &
         volumeMounts:
         - name: config
           mountPath: /app/config.yaml
