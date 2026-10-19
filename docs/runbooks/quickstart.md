@@ -258,3 +258,8 @@ Le détail de l'intégration figure dans le [correctif du wizard](../brief-icone
 Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Après une première sauvegarde réussie, chaque modification de configuration du wizard déclenche un instantané chiffré et un push limité aux fichiers d'instance. Le YAML et l'environnement sont également surveillés tant que le wizard fonctionne. Les erreurs restent affichées ; les instantanés chiffrés en attente sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard.
 
 Le rechargement des icônes Kubernetes redémarre Open-WebUI selon sa stratégie `Recreate`. Le contrôle HTTP des ressources ne remplace pas une recette avec session authentifiée. La restauration remet les fichiers locaux ; réappliquer ensuite depuis le wizard pour mettre à jour le cluster.
+
+
+### Rechargement des déclarations de modèles
+
+Le wizard relit les déclarations enregistrées, y compris les listes YAML sur plusieurs lignes produites par un export. Une liste explicitement vide reste vide. Sur une instance existante, l'absence ou l'illisibilité des déclarations ne réintroduit pas un catalogue historique : une erreur de lecture est signalée et la vue courante est conservée. Le lecteur autonome prend en charge les séquences indentées ou sans retrait supplémentaire, les descriptions repliées et les commentaires dans les chaînes citées.

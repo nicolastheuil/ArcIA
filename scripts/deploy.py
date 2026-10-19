@@ -188,73 +188,107 @@ def parse_env_format(content: str) -> Dict[str, Any]:
     }
 
 def parse_simple_yaml(text: str) -> Dict[str, Any]:
-    """Parseur récursif simple pour le format arcia.config.yaml avec support des scalaires multi-lignes (|)."""
-    result: Dict[str, Any] = {}
-    stack: List[Tuple[int, Dict[str, Any]]] = [(0, result)]
+    """Lit les mappings, séquences YAML/JSON et blocs du fichier d'instance sans dépendance."""
+    raw_lines = text.splitlines()
 
-    in_block = False
-    block_indent = 0
-    block_key = ""
-    block_dict = None
-    block_lines = []
+    def without_comment(line):
+        quote = None
+        escaped = False
+        for index, char in enumerate(line):
+            if escaped:
+                escaped = False
+            elif char == "\\" and quote == '"':
+                escaped = True
+            elif quote:
+                if char == quote:
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "#" and (index == 0 or line[index - 1].isspace()):
+                return line[:index].rstrip()
+        return line.rstrip()
 
-    for line_idx, raw_line in enumerate(text.splitlines(), start=1):
-        if in_block:
-            if not raw_line.strip():
-                block_lines.append("")
-                continue
-            line_indent = len(raw_line) - len(raw_line.lstrip())
-            if line_indent > block_indent:
-                prefix_len = block_indent + 2
-                block_lines.append(raw_line[prefix_len:] if len(raw_line) >= prefix_len else raw_line.lstrip())
-                continue
-            else:
-                if block_dict is not None and block_key:
-                    block_dict[block_key] = "\n".join(block_lines)
-                in_block = False
+    tokens = []
+    for number, raw in enumerate(raw_lines):
+        clean = without_comment(raw)
+        if clean.strip():
+            tokens.append((len(clean) - len(clean.lstrip()), clean.strip(), number))
+
+    def sequence(content):
+        return content == "-" or content.startswith("- ")
+
+    def entry(content):
+        match = re.match(r"^([^:]+):(?:[ \t]+(.*)|$)", content)
+        if not match:
+            raise ValueError("Structure YAML non prise en charge ; vérifier le fichier d'instance.")
+        return str(cast_scalar(match[1].strip())), (match[2] or "").strip()
+
+    def mapping(position, indent, first=None):
+        result = {}
+        while position < len(tokens):
+            level, content, number = tokens[position]
+            if first is None and (level != indent or sequence(content)):
+                break
+            content = first if first is not None else content
+            first = None
+            key, value = entry(content)
+            position += 1
+            if value in ("|", "|-", ">", ">-"):
+                end = number + 1
                 block_lines = []
-                block_dict = None
-                block_key = ""
-
-        # Enlever les commentaires inline si non entre guillemets
-        clean = raw_line.split("#", 1)[0].rstrip()
-        if not clean.strip():
-            continue
-
-        indent = len(clean) - len(clean.lstrip())
-        trimmed = clean.strip()
-
-        # Ajuster le niveau de stack selon l'indentation
-        while len(stack) > 1 and indent <= stack[-1][0]:
-            stack.pop()
-
-        current_dict = stack[-1][1]
-
-        if ":" in trimmed:
-            k, v = trimmed.split(":", 1)
-            key = k.strip()
-            val_str = v.strip()
-
-            if not val_str:
-                # C'est une section / dictionnaire parent
-                new_dict: Dict[str, Any] = {}
-                current_dict[key] = new_dict
-                stack.append((indent, new_dict))
-            elif val_str in ("|", "|-", ">", ">-"):
-                # Début d'un bloc scalaire multi-ligne
-                in_block = True
-                block_indent = indent
-                block_key = key
-                block_dict = current_dict
-                block_lines = []
+                prefix = None
+                while end < len(raw_lines):
+                    raw = raw_lines[end]
+                    depth = len(raw) - len(raw.lstrip())
+                    if raw.strip() and depth <= indent:
+                        break
+                    if raw.strip() and prefix is None:
+                        prefix = depth
+                    block_lines.append(raw[prefix:] if raw.strip() else "")
+                    end += 1
+                while position < len(tokens) and tokens[position][2] < end:
+                    position += 1
+                result[key] = "\n".join(block_lines)
+            elif value:
+                # Les exporteurs YAML replient aussi les longues chaînes sans |.
+                while position < len(tokens) and tokens[position][0] > indent:
+                    value += " " + tokens[position][1]
+                    position += 1
+                result[key] = cast_scalar(value)
+            elif position < len(tokens) and (tokens[position][0] > indent or
+                    (tokens[position][0] == indent and sequence(tokens[position][1]))):
+                result[key], position = block(position, tokens[position][0])
             else:
-                # C'est une valeur scalaire
-                current_dict[key] = cast_scalar(val_str)
+                result[key] = {}
+        return result, position
 
-    if in_block and block_dict is not None and block_key:
-        block_dict[block_key] = "\n".join(block_lines)
+    def block(position, indent):
+        if not sequence(tokens[position][1]):
+            return mapping(position, indent)
+        values = []
+        while position < len(tokens) and tokens[position][0] == indent and sequence(tokens[position][1]):
+            content = tokens[position][1][1:].strip()
+            if not content:
+                position += 1
+                if position < len(tokens) and tokens[position][0] > indent:
+                    value, position = block(position, tokens[position][0])
+                else:
+                    value = None
+            elif re.match(r"^[^:]+:(?:[ \t]+|$)", content):
+                value, position = mapping(position, indent + 2, first=content)
+            else:
+                value = cast_scalar(content)
+                position += 1
+            values.append(value)
+        return values, position
 
+    if not tokens:
+        return {}
+    result, position = block(0, tokens[0][0])
+    if position != len(tokens) or not isinstance(result, dict):
+        raise ValueError("Structure YAML non prise en charge ; vérifier le fichier d'instance.")
     return result
+
 
 def cast_scalar(val: str) -> Any:
     val = val.strip()

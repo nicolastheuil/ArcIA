@@ -1202,6 +1202,8 @@ def load_config_data(config_file: str) -> Tuple[Dict[str, Any], bool]:
     except Exception:
         pass
 
+    if exists:
+        raise ValueError("Le fichier de configuration existant est illisible ; aucun catalogue par défaut ne sera chargé.")
     return get_default_config_dict(), False
 
 def get_default_config_dict() -> Dict[str, Any]:
@@ -3952,8 +3954,13 @@ def get_model_routing_config(cfg: Optional[Dict[str, Any]] = None, include_defau
         }
     ]
 
-    custom_mappings = llm.get("models_routing", [])
-    mappings_to_use = custom_mappings if (custom_mappings and isinstance(custom_mappings, list)) else default_mappings
+    custom_mappings = llm.get("models_routing")
+    if "models_routing" in llm:
+        if not isinstance(custom_mappings, list):
+            return {"success": False, "error": "La déclaration models_routing doit être une liste YAML valide.", "mappings": [], "providers": providers}
+        mappings_to_use = custom_mappings
+    else:
+        mappings_to_use = default_mappings if include_defaults else []
 
     # Même résolution serveur que la projection native d'avatars.
     for m in mappings_to_use:
@@ -4788,7 +4795,8 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
                 ns = qs.get("namespace", [None])[0]
                 self.send_json(200, list_powerusers(context=ctx, namespace=ns))
             elif path == "/api/models/routing":
-                self.send_json(200, get_model_routing_config())
+                cfg, exists = load_config_data(DEFAULT_CONFIG_PATH)
+                self.send_json(200, get_model_routing_config(cfg, include_defaults=not exists))
             elif path == "/api/models/catalog":
                 qs = parse_qs(parsed.query)
                 prov = qs.get("provider", ["openrouter"])[0]

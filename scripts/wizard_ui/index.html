@@ -2227,7 +2227,7 @@
             <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.6;">
               <li><strong style="color:#fcd34d;">Liseret doré :</strong> Modèles locaux souverains (Ollama, vLLM) garantissant zéro fuite hors du réseau interne.</li>
               <li><strong style="color:#e2e8f0;">Liseret argenté :</strong> Modèles cloud protégés avec Zero Data Retention (ZDR) et bouclier DLP fail-closed.</li>
-              <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Remplacement automatique du fallback générique « OI ».</li>
+              <li><strong style="color:#6be7dd;">aIA classique :</strong> Modèles standards par défaut. Avec bouclier DLP mais ne garanti pas ZDR</li>
             </ul>
           </div>
         </div>
@@ -5383,6 +5383,10 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
     async function fetchModelRouting() {
       try {
         const data = await api('models/routing');
+        if (!data?.success) {
+          showToast(data?.error || 'Impossible de charger les modèles déclarés. La vue actuelle est conservée.');
+          return;
+        }
         if (data) {
           if (data.mappings && Array.isArray(data.mappings)) {
             const existingMap = new Map();
