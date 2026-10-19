@@ -2261,7 +2261,6 @@
             <div id="saveModelRoutingHint" style="font-size: 13px; color: var(--text-secondary);">
               ⚠ Vous devez tester et valider tous les modèles avec succès avant d'enregistrer le routage.
             </div>
-            <button class="btn secondary" onclick="syncModelAppearance()">Synchroniser les icônes enregistrées</button>
             <button id="btnSaveModelRouting" class="btn primary" onclick="saveModelRouting()" disabled>Enregistrer le routage &rarr;</button>
           </div>
         </div>
@@ -4723,7 +4722,8 @@
           gemini_api_key: document.getElementById('gemini_api_key')?.value || '',
           default_model: document.getElementById('llm_default_model')?.value || 'simple/auto',
           master_key: document.getElementById('litellm_master_key')?.value || '',
-          models_routing: state.models
+          models_routing: state.models,
+          custom_providers: state.customProviders
         },
         hermes: {
           default_model: document.getElementById('hermes_default_model').value,
@@ -5468,7 +5468,7 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       payload.providers[provKey] = val;
 
       try {
-        const res = await api('models/routing', payload);
+        const res = await api('models/routing', payload, 'POST', 240000);
         if (res && res.success) {
           closeModal('modalEditProviderKey');
           showToast('Fournisseur configuré avec succès.');
@@ -5511,12 +5511,6 @@ Teams Bot App Password : ${tms.app_password || 'Non configuré'}
       closeModal('modalAddCustomProvider');
       showToast(`Fournisseur personnalisé « ${name} » ajouté.`);
       renderModelRoutingTable();
-    }
-
-    async function syncModelAppearance() {
-      showToast('Publication des icônes enregistrées ; rechargement du portail en cours…');
-      const result = await api('models/sync-appearance', {}, 'POST', 120000);
-      showToast(result?.success ? 'Projection et SVG vérifiés. La recette visuelle reste à contrôler dans Open-WebUI.' : (result?.error || 'Synchronisation des icônes échouée.'));
     }
 
     async function saveModelRouting() {

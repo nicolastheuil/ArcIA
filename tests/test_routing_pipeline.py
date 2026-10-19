@@ -84,6 +84,8 @@ class TestRoutingPipeline(unittest.TestCase):
         self.assertIn('db-password: "synthetic-password"', manifests)
         self.assertTrue(any(args[:2] == ["rollout", "status"] for args, _ in runner.calls))
         first_proxy_manifest = next(m for m in runner.manifests if "name: litellm-proxy" in m and "kind: Deployment" in m)
+        self.assertNotIn("postStart:", first_proxy_manifest)
+        self.assertTrue(any("--check-consumer" in args for args, _ in runner.calls))
         self.assertIn('model_name: "simple/synthetic"', first_proxy_manifest)
         self.assertIn("checksum/litellm-config:", first_proxy_manifest)
         self.assertIn("checksum/litellm-secret:", first_proxy_manifest)
@@ -285,7 +287,10 @@ class TestRoutingPipeline(unittest.TestCase):
         self.assertTrue(res["litellm_synced"])
         self.assertTrue(res["hermes_synced"])
         self.assertTrue(res["openwebui_synced"])
-        self.assertTrue(res["all_synced"])
+        # Cette fixture ne fournit pas les assets : l'action combinée reste partielle.
+        self.assertFalse(res["branding_synced"])
+        self.assertFalse(res["all_synced"])
+        self.assertIn("Application des icônes incomplète", res["message"])
         self.assertIn("Passerelle LiteLLM, moteur Hermes et portail Open-WebUI synchronisés", res["message"])
 
     def test_error_handler_differentiates_session_and_keys(self):

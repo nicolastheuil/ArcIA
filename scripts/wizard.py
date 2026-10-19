@@ -2951,6 +2951,12 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
             if not (visual_result.get("assets_served") and visual_result.get("runtime_loaded")):
                 raise RuntimeError("Ressources visuelles non vérifiées après rechargement Open-WebUI.")
             _append_update_log("[OK] Projection et ressources visuelles Open-WebUI vérifiées par HTTP ; recette navigateur distincte.")
+            if "litellm-proxy" in selected_components:
+                legacy_key = deploy.retire_legacy_webui_key(runner, namespace, ROOT_DIR)
+                if legacy_key.get("verified_absent"):
+                    _append_update_log("[OK] Ancienne clé statique Open-WebUI absente ; clés nominatives préservées.")
+                else:
+                    _append_update_log("[WARN] Retrait de l'ancienne clé statique différé : connexion du portail non vérifiée.")
         _set_update_phase(5, "done", "\n[OK] SÉQUENCE DE MISE À JOUR TERMINÉE AVEC SUCCÈS (100%) !")
 
         with update_lock:
@@ -4099,7 +4105,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
                 branding_status = deploy.activate_webui_branding(runner, ns, published)
                 branding_synced = bool(branding_status.get("assets_served") and branding_status.get("runtime_loaded"))
             except Exception:
-                branding_status["error"] = "Publication des icônes non aboutie ; relancer uniquement cette étape."
+                branding_status["error"] = "Publication des icônes non aboutie ; réenregistrez le routage pour réessayer."
 
             # 5. Power Users
             try:
@@ -4126,7 +4132,11 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
     else:
         msg_parts.append("Routage non appliqué au cluster : vérifiez la cible Kubernetes et relancez la synchronisation. La sauvegarde locale est conservée.")
     if branding_synced:
+        details["branding"] = "Icônes appliquées et ressources HTTP vérifiées."
         msg_parts.append("Projection des icônes chargée et ressources HTTP vérifiées ; recette navigateur distincte.")
+    else:
+        details["branding"] = branding_status.get("error") or "Icônes non appliquées au portail."
+        msg_parts.append("Application des icônes incomplète ; réenregistrez le routage après vérification du cluster.")
 
     return {
         "success": True,
@@ -4137,7 +4147,7 @@ def save_model_routing_config(data: Dict[str, Any], cfg_path: str = DEFAULT_CONF
         "powerusers_synced": powerusers_synced,
         "branding_synced": branding_synced,
         "branding_status": branding_status,
-        "all_synced": bool(litellm_synced and hermes_synced and openwebui_synced),
+        "all_synced": bool(litellm_synced and hermes_synced and openwebui_synced and branding_synced),
         "details": details,
         "message": " ".join(msg_parts)
     }
@@ -5140,19 +5150,6 @@ class WizardHTTPHandler(BaseHTTPRequestHandler):
         elif path == "/api/powerusers/sync-all":
             res = sync_all_powerusers_wizard()
             self.send_json(200, res)
-
-        elif path == "/api/models/sync-appearance":
-            try:
-                import deploy
-                cfg, _ = load_config_data(DEFAULT_CONFIG_PATH)
-                runner = get_k8s_runner(cfg)
-                namespace = cfg.get("kubernetes", {}).get("namespace", "arcia")
-                visual = deploy.sync_webui_branding(runner, namespace, ROOT_DIR, cfg=cfg)
-                result = deploy.activate_webui_branding(runner, namespace, visual)
-                result["success"] = bool(result.get("runtime_loaded") and result.get("assets_served"))
-                self.send_json(200 if result["success"] else 400, result)
-            except Exception:
-                self.send_json(400, {"success": False, "error": "Publication des icônes indisponible ; vérifier le cluster et le rollout Open-WebUI."})
 
         elif path == "/api/models/appearance":
             custom = req_data.get("custom_providers") or []

@@ -253,7 +253,7 @@ Cette suite valide automatiquement :
 
 ## Icônes et sauvegardes depuis le wizard
 
-Le détail de l'intégration figure dans le [correctif du wizard](../brief-icones-modeles-wizard.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence.
+Le détail de l'intégration figure dans le [correctif du wizard](../brief-icones-modeles-wizard.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence. Dans une instance existante, **Enregistrer le routage** applique aussi les icônes ; en cas d'échec partiel, réutiliser ce même bouton. Dans le parcours d'une nouvelle instance, les icônes sont appliquées automatiquement au déploiement, avec les modèles et fournisseurs personnalisés déclarés.
 
 Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Après une première sauvegarde réussie, chaque modification de configuration du wizard déclenche un instantané chiffré et un push limité aux fichiers d'instance. Le YAML et l'environnement sont également surveillés tant que le wizard fonctionne. Les erreurs restent affichées ; les instantanés chiffrés en attente sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard.
 
