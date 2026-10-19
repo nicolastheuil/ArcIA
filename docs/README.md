@@ -72,3 +72,7 @@ Le [README principal](../README.md) offre une vue synthétique des macro-concept
 ## Espaces privés et fichiers depuis le portail
 
 Le [guide des espaces utilisateurs WebUI](guides/espaces-utilisateurs-webui.md) explique le routage par compte, la réutilisation des pods Power Users, les droits de téléchargement et la recette.
+
+## Conception de la prochaine plateforme
+
+Le [dossier ArcIA v0.7](v0.7/README.md) réunit l'audit critique, la conception multi-tenant, les flux, le plan de réalisation par lots et les preuves de cette étude. Son statut est proposé ; il ne remplace pas la documentation du socle actuellement livré.
