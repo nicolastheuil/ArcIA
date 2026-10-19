@@ -64,7 +64,7 @@ class TestPowerUserSpawner(unittest.TestCase):
 
         self.assertIn("kind: Deployment", rendered)
         self.assertIn("name: hermes-poweruser-claire-dubois", rendered)
-        self.assertIn("image: nousresearch/hermes-agent:v0.2.0", rendered)
+        self.assertIn("image: nousresearch/hermes-agent:v0.22.2", rendered)
         self.assertIn("HERMES_HOME", rendered)
         self.assertIn("http://litellm-proxy.arcia.svc:4000/v1", rendered)
 
@@ -117,7 +117,7 @@ Ne fais aucune concession sur la latence.
 
     def test_render_manifest_init_container_config_sync(self):
         rendered = render_manifest(user_email="dev.lead@company.com")
-        self.assertIn("hermes_yaml", rendered)
+        self.assertIn("[ -f /opt/data/config.yaml ] || cp", rendered)
         self.assertIn("init-user-state", rendered)
         self.assertIn("providers", rendered)
 

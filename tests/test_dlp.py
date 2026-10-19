@@ -12,6 +12,7 @@ import unittest
 import sys
 import os
 import json
+import re
 
 # Ajout du chemin des services pour importer le module app
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "services", "presidio"))
@@ -32,9 +33,15 @@ class TestArcIADLP(unittest.TestCase):
     def setUp(self):
         if not APP_AVAILABLE:
             self.skipTest("Module services/presidio/app.py introuvable")
+        from unittest.mock import patch, Mock
+        analyzer = Mock()
+        analyzer.analyze.return_value = []
+        fake = patch("app.get_analyzer", return_value=analyzer)
+        fake.start()
+        self.addCleanup(fake.stop)
 
     # =========================================================================
-    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.5.2)
+    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.6.0)
     # =========================================================================
 
     def test_ip_address_redaction(self):
@@ -167,18 +174,33 @@ class TestArcIADLP(unittest.TestCase):
             "Vérifier le sous-réseau 10.240.0.0/16 sur l'équipement MAC 00:1A:2B:3C:4D:5E. "
             "Le nœud maître srv-k3s-master01.corp et la passerelle gw-core.internal accèdent à /etc/shadow."
         )
-        res = sanitize(SanitizeRequest(text=prompt, language="fr"))
+        # Le mode non strict conserve le contrat de pseudonymisation historique ;
+        # les appels de production Hermes et LiteLLM imposent le rejet strict.
+        res = sanitize(SanitizeRequest(text=prompt, language="fr", strict_secrets=False))
         sanitized = res["sanitized_text"]
         self.assertNotIn("10.240.0.0/16", sanitized)
         self.assertNotIn("00:1A:2B:3C:4D:5E", sanitized)
         self.assertNotIn("srv-k3s-master01.corp", sanitized)
         self.assertNotIn("gw-core.internal", sanitized)
         self.assertNotIn("/etc/shadow", sanitized)
-        self.assertIn("[CIDR_01]", sanitized)
-        self.assertIn("[MAC_01]", sanitized)
-        self.assertIn("[HOST_01]", sanitized)
-        self.assertIn("[HOST_02]", sanitized)
-        self.assertIn("[PATH_01]", sanitized)
+        self.assertRegex(sanitized, r"\[CIDR_[A-P]{32}_01\]")
+        self.assertRegex(sanitized, r"\[MAC_[A-P]{32}_01\]")
+        self.assertRegex(sanitized, r"\[HOST_[A-P]{32}_01\]")
+        self.assertRegex(sanitized, r"\[HOST_[A-P]{32}_02\]")
+        self.assertRegex(sanitized, r"\[PATH_[A-P]{32}_01\]")
+
+    def test_critical_infrastructure_is_rejected_at_both_barriers(self):
+        from app import sanitize_batch, BatchSanitizeRequest
+        for text in ("10.240.0.0/16", "00:1A:2B:3C:4D:5E", "synthetic.internal",
+                     "-----BEGIN PRIVATE KEY-----\nSYNTHETIC\n-----END PRIVATE KEY-----",
+                     "apiVersion: v1\nclusters:\nserver: https://synthetic.invalid"):
+            for call in (lambda: sanitize(SanitizeRequest(text=text)),
+                         lambda: sanitize_batch(BatchSanitizeRequest(texts=[text])),
+                         lambda: analyze(AnalyzeRequest(text=text)),
+                         lambda: anonymize(AnonymizeRequest(text=text, analyzer_results=[]))):
+                with self.subTest(text=text, call=call), self.assertRaises(HTTPException) as blocked:
+                    call()
+                self.assertEqual(blocked.exception.status_code, 422)
 
     # =========================================================================
     # Couche 2 : PII Françaises & Deny-Lists Dynamiques
@@ -192,8 +214,8 @@ class TestArcIADLP(unittest.TestCase):
         sanitized = res["sanitized_text"]
         self.assertNotIn("1 85 12 75 108 123 95", sanitized)
         self.assertNotIn("73282932000074", sanitized)
-        self.assertIn("[NIR_01]", sanitized)
-        self.assertIn("[SIRET_01]", sanitized)
+        self.assertRegex(sanitized, r"\[NIR_[A-P]{32}_01\]")
+        self.assertRegex(sanitized, r"\[SIRET_[A-P]{32}_01\]")
         self.assertIn("FR_NIR", res["entities_detected"])
         self.assertIn("FR_SIRET", res["entities_detected"])
 
@@ -214,9 +236,9 @@ class TestArcIADLP(unittest.TestCase):
             self.assertNotIn("ProjectZeus", sanitized)
             self.assertNotIn("vm-esxi-prod01", sanitized)
             self.assertNotIn("ConfidentielDefense", sanitized)
-            self.assertIn("[PROJECT_01]", sanitized)
-            self.assertIn("[HOST_01]", sanitized)
-            self.assertIn("[DENIED_01]", sanitized)
+            self.assertRegex(sanitized, r"\[PROJECT_[A-P]{32}_01\]")
+            self.assertRegex(sanitized, r"\[HOST_[A-P]{32}_01\]")
+            self.assertRegex(sanitized, r"\[DENIED_[A-P]{32}_01\]")
         finally:
             os.environ.pop("ARCIA_DENY_LIST", None)
 
@@ -230,16 +252,15 @@ class TestArcIADLP(unittest.TestCase):
         prompt = "L'hôte 10.24.12.5 contacte 10.24.12.6, puis 10.24.12.5 confirme le paquet."
         res = sanitize(SanitizeRequest(text=prompt, session_id=session_id))
         sanitized = res["sanitized_text"]
-        self.assertIn("[IPV4_01]", sanitized)
-        self.assertIn("[IPV4_02]", sanitized)
-        # 10.24.12.5 doit apparaître deux fois sous le même jeton [IPV4_01]
-        self.assertEqual(sanitized.count("[IPV4_01]"), 2)
-        self.assertEqual(sanitized.count("[IPV4_02]"), 1)
+        tokens = re.findall(r"\[IPV4_[A-P]+_\d+\]", sanitized)
+        self.assertEqual(len(tokens), 3)
+        self.assertEqual(tokens[0], tokens[2])
+        self.assertNotEqual(tokens[0], tokens[1])
 
     def test_couche3_reversible_roundtrip_deanonymization(self):
         """Vérifie la ré-hydratation intégrale aller-retour via le Vault éphémère."""
         session_id = "test-session-roundtrip-01"
-        original_prompt = "Contactez support@domain.corp pour la VM 192.168.10.20."
+        original_prompt = "Contactez support@example.org pour la VM 192.168.10.20."
         res_sanitize = sanitize(SanitizeRequest(text=original_prompt, session_id=session_id))
         sanitized = res_sanitize["sanitized_text"]
 
@@ -248,7 +269,7 @@ class TestArcIADLP(unittest.TestCase):
 
         res_deanonymize = deanonymize(DeanonymizeRequest(text=llm_response, session_id=session_id))
         restored = res_deanonymize["text"]
-        self.assertIn("support@domain.corp", restored)
+        self.assertIn("support@example.org", restored)
         self.assertIn("192.168.10.20", restored)
         self.assertNotIn("[EMAIL_01]", restored)
         self.assertNotIn("[IPV4_01]", restored)
@@ -270,15 +291,16 @@ class TestArcIADLP(unittest.TestCase):
         """Vérifie la ré-hydratation fluide au fil de l'eau sur flux de chunks découpés."""
         session_id = "test-session-stream-buffer"
         prompt = "Machine 10.50.60.70"
-        sanitize(SanitizeRequest(text=prompt, session_id=session_id))
+        sanitized = sanitize(SanitizeRequest(text=prompt, session_id=session_id))["sanitized_text"]
+        token = re.search(r"\[IPV4_[A-P]+_\d+\]", sanitized)[0]
 
         buffer = DeanonymizingStreamBuffer(session_id=session_id)
         # Simulation d'un flux découpant le jeton [IPV4_01] sur plusieurs chunks
         chunks = [
-            "Statut du serveur [",
-            "IPV4",
-            "_01",
-            "] : OK en ligne."
+            "Statut du serveur " + token[:5],
+            token[5:20],
+            token[20:-1],
+            token[-1:] + " : OK en ligne."
         ]
         output_chunks = []
         for c in chunks:
@@ -372,6 +394,59 @@ class TestArcIADLP(unittest.TestCase):
                      patch.object(hermes_plugin, "PRESIDIO_FAIL_CLOSED", True):
                     with self.assertRaises(RuntimeError):
                         hermes_plugin.on_pre_llm_call([{"role": "user", "content": "Mon secret sk-12345678901234567890"}])
+
+    def test_nlp_unavailable_or_failing_is_fail_closed(self):
+        from unittest.mock import Mock, patch
+        from app import health
+        for analyzer in (None, Mock(analyze=Mock(side_effect=RuntimeError("synthetic failure")))):
+            with patch("app.get_analyzer", return_value=analyzer):
+                for operation in (lambda: sanitize(SanitizeRequest(text="synthetic")), lambda: analyze(AnalyzeRequest(text="synthetic"))):
+                    with self.assertRaises(HTTPException) as error:
+                        operation()
+                    self.assertEqual(error.exception.status_code, 503)
+        with patch("app.get_analyzer", return_value=None), self.assertRaises(HTTPException):
+            health()
+
+    def test_batch_preserves_scope_and_rejects_secrets_or_missing_nlp(self):
+        from app import sanitize_batch, BatchSanitizeRequest
+        from unittest.mock import patch
+        result = sanitize_batch(BatchSanitizeRequest(texts=["alice.synthetic@example.org", "alice.synthetic@example.org"], session_id="batch-synthetic"))
+        self.assertEqual(result["session_id"], "batch-synthetic")
+        self.assertEqual(result["sanitized_texts"][0], result["sanitized_texts"][1])
+        self.assertNotIn("alice.synthetic@example.org", str(result))
+        with self.assertRaises(HTTPException) as blocked:
+            sanitize_batch(BatchSanitizeRequest(texts=["-----BEGIN PRIVATE KEY-----\nSYNTHETIC\n-----END PRIVATE KEY-----"]))
+        self.assertEqual(blocked.exception.status_code, 422)
+        with patch("app.get_analyzer", return_value=None), self.assertRaises(HTTPException) as outage:
+            sanitize_batch(BatchSanitizeRequest(texts=[]))
+        self.assertEqual(outage.exception.status_code, 503)
+
+    def test_expired_or_restarted_vault_never_rebinds_an_old_token(self):
+        from app import EphemeralVault
+        from unittest.mock import patch
+        scoped = EphemeralVault(ttl_seconds=5)
+        with patch("app.time.time", return_value=100):
+            old = scoped.get_or_assign_token("same-scope", "old.synthetic@example.org", "EMAIL_ADDRESS")
+        with patch("app.time.time", return_value=110):
+            self.assertEqual(scoped.deanonymize("same-scope", old)[0], old)
+            new = scoped.get_or_assign_token("same-scope", "new.synthetic@example.org", "EMAIL_ADDRESS")
+            self.assertNotEqual(old, new)
+            self.assertEqual(scoped.deanonymize("same-scope", old)[0], old)
+        restarted = EphemeralVault()
+        fresh = restarted.get_or_assign_token("same-scope", "new.synthetic@example.org", "EMAIL_ADDRESS")
+        self.assertNotEqual(old, fresh)
+        self.assertEqual(restarted.deanonymize("same-scope", old)[0], old)
+
+    def test_vault_never_restores_from_another_session(self):
+        from app import EphemeralVault
+        isolated = EphemeralVault()
+        token = isolated.get_or_assign_token("alice", "alice.synthetic@example.org", "EMAIL_ADDRESS")
+        bob_token = isolated.get_or_assign_token("bob", "bob.synthetic@example.org", "EMAIL_ADDRESS")
+        self.assertEqual(isolated.deanonymize("alice", token)[0], "alice.synthetic@example.org")
+        self.assertEqual(isolated.deanonymize("bob", token)[0], token)
+        self.assertEqual(isolated.deanonymize("bob", bob_token)[0], "bob.synthetic@example.org")
+        self.assertEqual(isolated.deanonymize("unknown", token)[0], token)
+        self.assertEqual(isolated.deanonymize(None, token)[0], token)
 
 
 if __name__ == "__main__":

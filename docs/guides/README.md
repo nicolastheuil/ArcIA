@@ -1,14 +1,14 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
-  <img src="https://img.shields.io/badge/Guides-15_Références_Techniques-6BE7DD?style=flat-square&logoColor=050712" alt="15 Guides">
+  <img src="https://img.shields.io/badge/Guides-Références_techniques-6BE7DD?style=flat-square&logoColor=050712" alt="Guides techniques">
 </p>
 
 # 📘 Guides techniques et fonctionnels — ArcIA
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **Guides Techniques**
 
-Ce répertoire rassemble les **15 guides thématiques** qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.5.2**.
+Ce répertoire rassemble les guides thématiques qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.6.0**.
 
 ---
 
@@ -33,7 +33,7 @@ Ce répertoire rassemble les **15 guides thématiques** qui détaillent chaque b
 ### 🧠 3. Inférence LLM, routage hybride et confidentialité DLP
 | Guide | Résumé |
 |---|---|
-| **[chaine-de-routage.md](chaine-de-routage.md)** | Routage hybride (`simple/*` & `agentic/*`), catalogue des 5 profils canoniques et diagrammes de séquence complets. |
+| **[chaine-de-routage.md](chaine-de-routage.md)** | Routage hybride (`Simple` & `Agentic`), catalogue administré des modèles Simple et Agentic et diagrammes de séquence complets. |
 | **[inference-litellm.md](inference-litellm.md)** | Configuration du proxy LiteLLM (`:4000`), *Zero Data Retention* (`zdr: true`), fallback et base comptable PostgreSQL 16. |
 | **[confidentialite-presidio.md](confidentialite-presidio.md)** | Double barrière d'anonymisation DLP Microsoft Presidio (Hermes amont + LiteLLM aval) en mode *fail-closed*. |
 
@@ -41,10 +41,15 @@ Ce répertoire rassemble les **15 guides thématiques** qui détaillent chaque b
 | Guide | Résumé |
 |---|---|
 | **[portail-webui-entraid.md](portail-webui-entraid.md)** | Portail conversationnel Open-WebUI, authentification SSO Microsoft Entra ID (OIDC) et RAG documentaire d'entreprise. |
-| **[integration-teams.md](integration-teams.md)** | Adaptateur Bot Framework Microsoft Teams (`simple/auto` en réponse directe et commande `/agent` vers Hermes). |
+| **[integration-teams.md](integration-teams.md)** | Adaptateur Bot Framework Microsoft Teams (`conversation` en réponse directe et commande `/agent` vers Hermes). |
 
 ### ☸️ 5. Infrastructure Kubernetes et déploiement
 | Guide | Résumé |
 |---|---|
 | **[deploiement-universel.md](deploiement-universel.md)** | Centre de pilotage Wizard (`.\wizard.ps1`), séquence de mise à jour Zero-Downtime et moteur de déploiement universel. |
 | **[infrastructure-k3s.md](infrastructure-k3s.md)** | Déploiement sur tout cluster Kubernetes (K3s, EKS, AKS, GKE, VMware), stockage CSI persistant et Ingress TLS. |
+
+
+## Espaces privés et fichiers depuis le portail
+
+Le [guide des espaces utilisateurs WebUI](espaces-utilisateurs-webui.md) explique le routage par compte, la réutilisation des pods Power Users, les droits de téléchargement et la recette.

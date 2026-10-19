@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🧩_Services-Microservices-0C2762?style=flat-square" alt="Services"></a>
   <img src="https://img.shields.io/badge/DLP_Shield-Microsoft_Presidio-FA7B4E?style=flat-square" alt="Presidio DLP">
 </p>
@@ -18,17 +18,18 @@ Le fichier **[app.py](app.py)** constitue la source unique du microservice (sync
 
 | Endpoint HTTP | Consommateur principal | Fonctionnement |
 |---|---|---|
-| `POST /sanitize`<br/>*(et `/v1/sanitize`)* | **Barrière 1 (Hermes Agent)** | Détecte et remplace les secrets techniques (`sk-...`, `ghp_...`, `AKIA...`, tokens Bearer, clés PEM), adresses IPv4 et PII (`fr`/`en` : emails, téléphones, IBAN, CB, personnes) par des balises neutres (`[SECRET_REMOVED]`, `[ARCIA_<TYPE>_n]`). |
+| `POST /sanitize` et `POST /sanitize_batch` | **Barrière 1 (Hermes Agent)** | Refuse les clés privées, kubeconfigs, CIDR, MAC et FQDN internes ; supprime irréversiblement les secrets en ligne ; pseudonymise les IPv4 et PII avec une portée privée. |
 | `POST /analyze` | **Barrière 2 (LiteLLM Proxy)** | Retourne la liste structurée des entités détectées (offsets, types, scores de confiance) pour le guardrail `pre_call`. |
 | `POST /anonymize` | **Barrière 2 (LiteLLM Proxy)** | Anonymise le texte à partir des résultats d'analyse avant départ vers les fournisseurs LLM Cloud. |
-| `GET /healthz`<br/>*(et `/health`)* | **Sondes Kubernetes** | Contrôle de disponibilité utilisé par les `readinessProbe` et `livenessProbe` lors des RollingUpdates Zero-Downtime. |
+| `POST /deanonymize` | **Restitution au propriétaire** | Réhydrate uniquement la portée privée encore valide, sans recherche dans les autres portées. |
+| `GET /healthz` | **Sondes Kubernetes** | Vérifie la disponibilité réelle de l’analyseur NLP ; un échec renvoie HTTP 503. |
 
 ---
 
 ## 🔒 Architecture « double barrière » fail-closed
 
-1. **Barrière 1 (Amont — Hermes Agent)** : [`services/hermes/plugin.py`](../hermes/plugin.py) invoque `POST /sanitize` en mode *fail-closed* avant toute persistance SQLite (`state.db`) et tout appel LLM.
-2. **Barrière 2 (Aval — LiteLLM Proxy)** : [`deploy/manifests/05-litellm.yaml`](../../deploy/manifests/05-litellm.yaml) applique le guardrail `presidio` (`pre_call`, `default_on: true`) sur l'ensemble des flux directs (`simple/*`, Teams, `/v1`).
+1. **Barrière 1 (amont — Hermes Agent)** : Le bootstrap natif impose [`runtime_guard.py`](../hermes/runtime_guard.py), qui utilise [`plugin.py`](../hermes/plugin.py) pour appeler `/sanitize` ou `/sanitize_batch` avant la persistance SQLite et les appels LLM. Le chargement ne dépend pas des replis d’extensions.
+2. **Barrière 2 (aval — LiteLLM Proxy)** : [`05-litellm.yaml`](../../deploy/manifests/05-litellm.yaml) applique le guardrail `presidio` (`pre_call`, `default_on: true`) aux inférences Simple et Agentic. `/analyze` et `/anonymize` refusent aussi les secrets d’infrastructure.
 
 ### 🔗 Références associées
 * 🛡️ [Guide Confidentialité Presidio DLP](../../docs/guides/confidentialite-presidio.md)

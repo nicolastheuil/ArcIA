@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🏛️_Public--APIs-Compétence_Souveraine-0C2762?style=flat-square" alt="Public-APIs"></a>
   <img src="https://img.shields.io/badge/Runtime-Python_Stdlib_Only-6BE7DD?style=flat-square&logoColor=050712" alt="Python Stdlib">
 </p>

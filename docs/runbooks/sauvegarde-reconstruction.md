@@ -1,6 +1,6 @@
-# Sauvegarde et reconstruction de la plateforme ArcIA v0.5.2
+# Sauvegarde et reconstruction de la plateforme ArcIA v0.6.0
 
-Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.5.2**.
+Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.6.0**.
 
 ---
 
@@ -92,9 +92,9 @@ Le dépôt, l'historique, le coffre, la couverture et les actions sont affichés
 
 ## Configuration prise en charge et responsabilités
 
-Le déploiement conserve dans le YAML les secrets effectifs qu’il génère ou reprend du cluster (identités LiteLLM, sel, mot de passe PostgreSQL, Hermes, Presidio, SSO et Teams). Ils entrent ainsi dans l’archive chiffrée suivante. Une identité locale signalée à récupérer bloque le déploiement et l’annonce d’une sauvegarde complète jusqu’à son rétablissement depuis le cluster ou une archive de référence ; le signalement ne modifie pas la clé.
-
 Le quatrième écran d’installation est consacré au dépôt d’instance. Le menu **Sauvegarde et reprise** réutilise ce dépôt et le coffre local. Une configuration enregistrée déclenche la sauvegarde ; les modifications locales sont également surveillées pendant que le wizard fonctionne. Les accès Git et le mot de passe du même dépôt peuvent être réutilisés sans ressaisie ; un autre dépôt dispose de son propre contexte d’accès.
+
+Le déploiement conserve dans le YAML les secrets effectifs qu’il génère ou reprend du cluster (identités LiteLLM, sel, mot de passe PostgreSQL, Hermes, Presidio, SSO et Teams). Ils entrent ainsi dans l’archive chiffrée suivante. Une identité locale signalée à récupérer bloque le déploiement et l’annonce d’une sauvegarde complète jusqu’à son rétablissement depuis le cluster ou une archive de référence ; le signalement ne modifie pas la clé.
 
 | Centre de pilotage | Administrateurs de l’instance |
 |---|---|
@@ -111,3 +111,7 @@ L’archive conserve les versions déclarées dans `deploy/versions.json`. Garde
 À la reprise, les fichiers sont vérifiés puis relocalisés sous `secrets/restored-assets/`, avec réécriture des références dans le YAML et conservation des extensions de fichier. Aucun chemin arbitraire de l’archive ne peut écraser le code du socle. Le contenu d’un fichier maison est conservé : ses éventuels chemins internes nécessitent une configuration portable ou une adaptation par les administrateurs ; seul le kubeconfig bénéficie de l’intégration automatique de ses certificats. Les archives anciennes YAML/environnement restent lisibles, avec avertissement sur leurs fichiers manquants. Le retour arrière local `secrets/pre-restore-*.enc` utilise le mot de passe saisi pour la reprise. Les sauvegardes Git conservent les points historiques ; elles ne font jamais de force-push.
 
 Seuls `instance-secrets.enc` et `instance.json` sont poussés par le wizard. Les fichiers ajoutés par les administrateurs au dépôt restent intacts. Le Centre de pilotage ne publie pas automatiquement les skills ou MCP maison, ne restaure pas les bases depuis Git et n’installe pas implicitement leurs dépendances.
+
+## Espaces privés WebUI et exports Hermes
+
+`hermes_workspaces.users` et ses références sont inclus dans le YAML d’instance chiffré. Les clés nominatives correspondantes doivent être restaurées par le programme protégé avant réapplication. Les exports, bases SQLite, mémoires et personnalisations se trouvent dans les PVC privés ; le bundle de configuration ne les sauvegarde pas. Conserver le propriétaire associé à chaque volume et refuser sa réaffectation à un autre ID WebUI. Un Power User restauré doit être raccordé à son PVC et à son pod existants. Voir les [règles de conservation et de téléchargement](../guides/espaces-utilisateurs-webui.md).

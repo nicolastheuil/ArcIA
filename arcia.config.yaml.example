@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.4 — Configuration Unique de Déploiement Universel
+# ArcIA v0.6.0 — Configuration unique de déploiement universel
 # ==============================================================================
 # Ce fichier est le point d'entrée UNIQUE pour déployer la plateforme ArcIA sur
 # N'IMPORTE QUEL cluster Kubernetes (K3s, EKS, AKS, GKE, Minikube, KinD, etc.).
@@ -12,6 +12,17 @@
 #      PowerShell : .\scripts\Deploy-ArcIA.ps1
 #      Bash/Linux : ./scripts/deploy-arcia.sh
 # ==============================================================================
+
+# Sessions agentiques WebUI : Kubernetes, un pod/PVC privé par compte.
+# Aucun repli vers le runtime partagé. Les power users réutilisent leur pod.
+# Les vrais identifiants et références restent dans le dépôt d'instance privé.
+hermes_workspaces:
+  users: []
+  # - webui_user_id: "identifiant-stable-fourni-par-open-webui"
+  #   inference_secret: "litellm-utilisateur-synthetique"
+  # - webui_user_id: "identifiant-stable-d-un-power-user"
+  #   poweruser_slug: "expert-synthetique"
+  # Le Secret nominatif doit déjà exister avec la clé `virtual-key`.
 
 # ==============================================================================
 # 1. CONNEXION KUBERNETES [OBLIGATOIRE]
@@ -98,18 +109,21 @@ llm_gateway:
   mistral_api_key: ""
   gemini_api_key: ""
 
-  # Mappings explicites du wizard ; [] conserve le catalogue par défaut.
-  # Chaque alias explicite, y compris agentic/*, devient une entrée model_list.
-  models_routing: []
-
-  # Modèle d'entreprise par défaut dans Open-WebUI et Teams :
-  # Catalogue canonique v0.4 (5 profils) :
-  # - "simple/free"    : chat direct gratuit via LiteLLM (ZDR)
-  # - "simple/auto"    : chat direct rapide et économique via LiteLLM (ZDR, défaut)
-  # - "agentic/free"   : orchestration agentique Hermes gratuite
-  # - "agentic/auto"   : orchestration agentique Hermes équilibrée
-  # - "agentic/expert" : orchestration agentique Hermes raisonnement avancé (DeepSeek V4.1 Flash)
-  default_model: "simple/auto"
+  # Exemple de catalogue explicite : les noms sont libres.
+  # La catégorie Simple relie Open-WebUI à LiteLLM ; Agentic passe par Hermes.
+  # Adaptez modèles et fournisseurs aux souscriptions de votre instance.
+  models_routing:
+    - alias: "conversation"
+      category: "simple"
+      provider: "openrouter"
+      target_model: "openrouter/auto"
+      zdr: true
+    - alias: "mission"
+      category: "agentic"
+      provider: "openrouter"
+      target_model: "openrouter/auto"
+      zdr: true
+  default_model: "conversation"
 
   # [OPTIONNEL] Serveur d'inférence LLM local souverain (ex: vLLM on-premise sur GPU interne)
   local_vllm_endpoint: ""
@@ -118,6 +132,7 @@ llm_gateway:
 # 4. MOTEUR D'AGENTS HERMES & STUDIO KANBAN [OBLIGATOIRE]
 # ==============================================================================
 hermes:
+  default_model: "mission"
   # [OBLIGATOIRE] Mot de passe administrateur du Studio Kanban (:9119)
   # Identifiant web par défaut : admin
   admin_password: "ChangeThisToAStrongPassword2026!"

@@ -38,3 +38,8 @@ async def model_image(request: Request, id: str, user=Depends(get_verified_user)
 # Conserve les autres routes, leurs dépendances et le lifespan officiel.
 position = app.router.routes.index(native_route)
 app.router.routes[position] = APIRoute(PATH, model_image, methods=["GET"], include_in_schema=False)
+
+# Installation à l'import du module ASGI, y compris dans chaque worker Uvicorn.
+if os.environ.get("ARCIA_HERMES_FILES_ENABLED") == "true":
+    from arcia_hermes_files import install as install_private_workspaces
+    install_private_workspaces(app, get_verified_user)

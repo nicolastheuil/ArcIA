@@ -1,6 +1,6 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
-  <img src="https://img.shields.io/badge/Tests-141_Unit_&_Integration_Checks-10B981?style=flat-square" alt="141 Tests">
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <img src="https://img.shields.io/badge/Tests-Unitaires_et_intégration-10B981?style=flat-square" alt="Tests automatisés">
   <img src="https://img.shields.io/badge/Docs_Validator-100%25_Links_Checked-6BE7DD?style=flat-square&logoColor=050712" alt="Docs Validated">
 </p>
 
@@ -8,18 +8,21 @@
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Tests (`tests/`)**
 
-Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.5.2**.
+Ce dossier regroupe l'ensemble des tests unitaires, tests d'intégration et contrôles de sécurité de la plateforme **ArcIA v0.6.0**.
 
 ---
 
 ## ⚡ Exécution rapide
 
 ```bash
-# 1. Exécuter les 141 tests unitaires et d'intégration :
+# 1. Exécuter les tests unitaires et d'intégration :
 python -m unittest discover -s tests -v
 
 # 2. Vérifier l'intégrité de 100 % des liens et ancres documentaires :
 python scripts/validate_docs.py
+
+# 3. Valider le moteur sans accès réseau ni déploiement :
+python scripts/deploy.py --config tests/fixtures/deploy.synthetic.yaml --dry-run
 ```
 
 ---
@@ -28,6 +31,7 @@ python scripts/validate_docs.py
 
 | Fichier de test | Périmètre contrôlé |
 |---|---|
+| **[test_hermes_workspaces.py](test_hermes_workspaces.py)** | Identité serveur, fichiers téléchargeables, droits croisés, refus sans connexion, expiration, streaming et conservation du pod Power User. |
 | **[test_wizard.py](test_wizard.py)** | Centre de pilotage [`scripts/wizard.py`](../scripts/wizard.py) : page d'accueil, **3 parcours dédiés** (Installation, Mise à jour, Restauration), chargement YAML contextuel, **vérificateur en direct des versions amont**, **séquence Zero-Downtime RollingUpdate**, tableau sans retour à la ligne, chiffrement `AES-256-GCM`, audit K8s et dimensionnement VMware. *(Détail : [Runbook Quickstart](../docs/runbooks/quickstart.md))* |
 | **[test_deploy.py](test_deploy.py)** | Orchestrateur [`scripts/deploy.py`](../scripts/deploy.py) : validation de `arcia.config.yaml`, synchronisation des ConfigMaps (`sync_service_configmaps`) et simulation `--dry-run`. |
 | **[test_poweruser.py](test_poweruser.py)** | Provisionnement des Pods Hermes dédiés Power Users ([`scripts/arcia_poweruser.py`](../scripts/arcia_poweruser.py)) et gestion des clés virtuelles PAT ([`scripts/arcia_keys.py`](../scripts/arcia_keys.py)) pour les profils `standard` et `poweruser`. |

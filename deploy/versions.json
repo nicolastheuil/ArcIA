@@ -1,14 +1,14 @@
 {
-  "arcia_release": "v0.5.2",
-  "arcia_version": "v0.5.2",
-  "published_at": "2026-10-18",
-  "channel": "stable",
+  "arcia_release": "v0.6.0",
+  "arcia_version": "v0.6.0",
+  "published_at": "2026-10-19",
+  "channel": "development",
   "repository": "nicolastheuil/ArcIA",
   "components": {
     "arcia-core": {
-      "version": "v0.5.2",
+      "version": "v0.6.0",
       "image": "nicolastheuil/ArcIA",
-      "release_notes": "Alignement OpenWebUI v0.12.3, Hermes Agent v0.22.2, Presidio DLP 2.2.364 et routage robuste LiteLLM."
+      "release_notes": "Isolation des sessions WebUI par utilisateur, réutilisation des pods Power Users et téléchargement authentifié des fichiers Hermes."
     },
     "presidio-dlp": {
       "version": "2.2.364",

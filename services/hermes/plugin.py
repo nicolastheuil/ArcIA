@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-ArcIA Governance & Tokenmaxing Plugin (v0.5.2) for Hermes Agent
+ArcIA Governance & Tokenmaxing Plugin (v0.6.0) for Hermes Agent
 =============================================================
 Assure deux fonctions critiques en amont dans le moteur Hermes :
 1. Barrière DLP Presidio Fail-Closed (avant persistance SQLite et envoi LiteLLM).
-2. Économie de tokens (Tokenmaxing v0.5.2) :
+2. Économie de tokens (Tokenmaxing v0.6.0) :
    - CCR (Compress-Cache-Retrieve) réversible inspiré de Headroom : sauvegarde
      systématique de l'original par hash SHA-256 dans le cache privé borné et
      préservation stricte de la structure JSON/AST.
@@ -336,60 +336,51 @@ PRESIDIO_DEANONYMIZE_URL = os.environ.get(
 
 
 def sanitize_via_presidio(text: str, language: str = "fr", session_id: Optional[str] = None) -> str:
-    """
-    Appelle le microservice interne Presidio DLP pour assainir un texte
-    avant persistance SQLite ou appel au modèle.
-    En mode PRESIDIO_FAIL_CLOSED=true, lève une exception explicite si Presidio est injoignable
-    ou rejette un dump de secret brut (HTTP 422).
-    """
+    """Admission Presidio obligatoire ; aucune erreur ne restitue le texte brut."""
     if not text or not text.strip():
         return text
-
-    payload = {"text": text, "language": language}
+    payload = {"text": text, "language": language, "strict_secrets": True}
     if session_id:
         payload["session_id"] = session_id
-
-    req_body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        PRESIDIO_DLP_URL,
-        data=req_body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    request = urllib.request.Request(PRESIDIO_DLP_URL, data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            if resp.status == 200:
-                resp_data = json.loads(resp.read().decode("utf-8"))
-                return resp_data.get("sanitized_text", resp_data.get("text", text))
-            if PRESIDIO_FAIL_CLOSED:
-                raise ArcIAPresidioUnavailableException(f"Presidio DLP returned HTTP {resp.status} (Fail-Closed)")
-    except urllib.error.HTTPError as http_err:
-        err_msg = http_err.read().decode("utf-8", errors="replace")
-        if http_err.code == 422:
-            friendly_msg = (
-                "🛡️ [ArcIA Presidio DLP - Rejet Fail-Closed] "
-                "Votre message ou document a été bloqué par mesure de sécurité souveraine "
-                "car il contient des secrets d'infrastructure sensibles (clé privée SSH/PEM, kubeconfig ou token). "
-                f"Détail : {err_msg}"
-            )
-            raise ArcIAPresidioBlockedException(friendly_msg)
-        if PRESIDIO_FAIL_CLOSED:
-            friendly_msg = (
-                f"🛡️ [ArcIA Presidio DLP - Erreur HTTP {http_err.code} Fail-Closed] "
-                f"Erreur du service Presidio : {err_msg}"
-            )
-            raise ArcIAPresidioUnavailableException(friendly_msg)
-    except Exception as exc:
-        if isinstance(exc, (ArcIAPresidioBlockedException, ArcIAPresidioUnavailableException)):
-            raise
-        if PRESIDIO_FAIL_CLOSED:
-            friendly_msg = (
-                f"🛡️ [ArcIA Presidio DLP - Service Injoignable Fail-Closed] "
-                f"Impossible de contacter Presidio DLP ({exc}). "
-                "L'opération a été interrompue pour éviter toute fuite de données vers l'extérieur."
-            )
-            raise ArcIAPresidioUnavailableException(friendly_msg) from exc
-    return text
+        with urllib.request.urlopen(request, timeout=10) as response:
+            if response.status != 200:
+                raise ArcIAPresidioUnavailableException("Presidio DLP : service indisponible (Fail-Closed)")
+            result = json.loads(response.read().decode("utf-8"))
+            if not isinstance(result.get("sanitized_text"), str):
+                raise ArcIAPresidioUnavailableException("Presidio DLP : réponse invalide (Fail-Closed)")
+            return result["sanitized_text"]
+    except urllib.error.HTTPError as error:
+        if error.code == 422:
+            raise ArcIAPresidioBlockedException("ArcIA Presidio DLP : Rejet Fail-Closed de secret brut.") from None
+        raise ArcIAPresidioUnavailableException("Presidio DLP : service indisponible (Fail-Closed)") from None
+    except (ArcIAPresidioBlockedException, ArcIAPresidioUnavailableException):
+        raise
+    except Exception:
+        raise ArcIAPresidioUnavailableException("Presidio DLP : service injoignable (Fail-Closed)") from None
+
+
+def sanitize_batch_via_presidio(texts: List[str], session_id: str) -> List[str]:
+    """Analyser séparément les valeurs textuelles d'un protocole structuré."""
+    payload = {"texts": texts, "language": "fr", "session_id": session_id}
+    url = PRESIDIO_DLP_URL.removesuffix("/sanitize") + "/sanitize_batch"
+    request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            if response.status != 200:
+                raise ValueError()
+            result = json.load(response).get("sanitized_texts")
+            if not isinstance(result, list) or len(result) != len(texts) or not all(isinstance(text, str) for text in result):
+                raise ValueError()
+            return result
+    except urllib.error.HTTPError as error:
+        if error.code == 422:
+            raise ArcIAPresidioBlockedException("ArcIA DLP : Rejet Fail-Closed du lot.") from None
+        raise ArcIAPresidioUnavailableException("Presidio DLP : lot indisponible (Fail-Closed)") from None
+    except Exception:
+        raise ArcIAPresidioUnavailableException("Presidio DLP : lot non qualifié (Fail-Closed)") from None
 
 
 def deanonymize_via_presidio(text: str, session_id: Optional[str] = None) -> str:
@@ -425,6 +416,11 @@ def deanonymize_via_presidio(text: str, session_id: Optional[str] = None) -> str
 # 4. Hooks Hermes Agent & CLI
 # -----------------------------------------------------------------------------
 
+def register(ctx):
+    """Entrée native ; la protection ne dépend pas de l'activation des extensions."""
+    import runtime_guard
+    runtime_guard.install()
+
 def on_pre_llm_call(messages: List[Dict[str, Any]], session_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Hook Hermes appelé avant l'envoi des messages au LLM (Barrière DLP amont)."""
     sanitized_messages = []
@@ -456,7 +452,7 @@ def on_tool_result(tool_name: str, command: str, result: str) -> str:
 def get_system_governance_prompt() -> str:
     """Orientation injectée dans la session Hermes pour activer Ponytail, Graphify et CCR."""
     return (
-        "[ArcIA Tokenmaxing v0.5.2 Actif] "
+        "[ArcIA Tokenmaxing v0.6.0 Actif] "
         "1) Applique l'échelle de sobriété Ponytail (YAGNI, réutilisation de l'existant). "
         "2) Pour cartographier un dépôt de code sans consommer de tokens, utilise Graphify (`python3 /opt/arcia/scripts/arcia_graphify.py`). "
         "3) Lorsqu'une sortie d'outil affiche `[CCR_HASH: <hash>]` ou `_arcia_ccr`, récupère les détails exacts à la demande via `python3 /opt/hermes/plugins/plugin.py retrieve <hash>`."

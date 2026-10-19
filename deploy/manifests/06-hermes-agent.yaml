@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.2 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
+# ArcIA v0.6.0 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
 # ==============================================================================
 apiVersion: v1
 kind: ConfigMap
@@ -74,6 +74,7 @@ spec:
         app: hermes-agent
       annotations:
         checksum/hermes-config: "default"
+        checksum/hermes-runtime-guard: "default"
     spec:
       securityContext:
         fsGroup: 10000
@@ -115,6 +116,8 @@ spec:
         image: nousresearch/hermes-agent:v0.22.2
         imagePullPolicy: IfNotPresent
         command:
+        - python3
+        - /opt/arcia-governance/bootstrap.py
         - /bin/sh
         - -c
         - |
@@ -153,6 +156,10 @@ spec:
               key: api-server-key
         - name: HERMES_HOME
           value: "/opt/data"
+        - name: ARCIA_GOVERNANCE_REQUIRED
+          value: "true"
+        - name: PYTHONPATH
+          value: /opt/arcia-governance
         - name: ARCIA_CCR_CACHE_DIR
           value: "/opt/data/.ccr_cache"
         - name: PRESIDIO_DLP_URL
@@ -203,7 +210,20 @@ spec:
         - name: governance-plugin
           mountPath: /opt/governance-plugin-cm
           readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/arcia-governance
+          readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/hermes/.venv/lib/python3.14/site-packages/arcia_governance.pth
+          subPath: arcia_governance.pth
+          readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/data/plugins/arcia_governance
+          readOnly: true
       volumes:
+      - name: runtime-guard
+        configMap:
+          name: hermes-runtime-guard
       - name: user-state
         persistentVolumeClaim:
           claimName: hermes-user-pvc

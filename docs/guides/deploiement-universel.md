@@ -1,15 +1,15 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Kubernetes-Déploiement_Universel-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
   <img src="https://img.shields.io/badge/Setup_Wizard-3_Parcours_Dédiés-6BE7DD?style=flat-square&logoColor=050712" alt="Setup Wizard">
 </p>
 
-# Guide de déploiement universel d'ArcIA v0.5.2 sur Kubernetes
+# Guide de déploiement universel d'ArcIA v0.6.0 sur Kubernetes
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement universel**
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.5.2** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.6.0** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
 
 ---
 
@@ -143,7 +143,7 @@ Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py
 2. **Détecte automatiquement la `StorageClass`** par défaut du cluster si aucune n'a été spécifiée.
 3. **Crée le namespace** cible (`arcia`).
 4. **Provisionne les secrets** Kubernetes sécurisés (`arcia-env-secret`, `litellm-secret`, `hermes-gateway-secret`, `presidio-secret`...) directement en mémoire via `stdin`.
-5. **Synchronise les ConfigMaps des microservices** (`sync_service_configmaps` : `presidio-code`, `teams-bot-code`, `hermes-governance-plugin`) et des compétences natives (`arcia-native-skills`).
+5. **Synchronise les ConfigMaps des microservices** (`sync_service_configmaps` : `presidio-code`, `teams-bot-code`, `hermes-governance-plugin`, `hermes-runtime-guard`, `hermes-files-code`) et des compétences natives (`arcia-native-skills`).
 6. **Rend et applique les manifestes** adaptés à votre FQDN et à votre classe d'Ingress (incluant la base relationnelle PostgreSQL 16 `litellm-db`, LiteLLM avec Zero Data Retention et le middleware SSO `/studio`).
 7. **Active ou désactive** automatiquement les composants optionnels (Teams Bot, SSO Entra ID) selon votre configuration.
 8. **Surveille le rollout** et la santé de tous les Pods jusqu'à leur mise en service.
@@ -156,7 +156,7 @@ Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py
 Dès que le déploiement est terminé :
 1. Créez l'enregistrement DNS de type A pour votre FQDN pointant vers l'adresse IP publique de votre Ingress.
 2. Ouvrez votre navigateur sur :
-   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (5 profils canoniques `simple/free`, `simple/auto`, `agentic/free`, `agentic/auto`, `agentic/expert`).
+   - `https://<public_fqdn>/` : Portail collaborateur Open-WebUI (modèles Simple et Agentic déclarés dans le wizard).
    - `https://<public_fqdn>/studio` : Dashboard Kanban multi-agents Hermes.
    - `https://<public_fqdn>/gateway` : Passerelle client lourd Hermes Desktop.
 3. Déployez un pod Hermes dédié pour un Power User :
@@ -177,3 +177,13 @@ Dès que le déploiement est terminé :
 * 🛡️ **[Guide Confidentialité Presidio DLP](confidentialite-presidio.md)** — Fonctionnement de la double barrière et rejet fail-closed.
 * 🤖 **[Guide Hermes Agent & Power Users](hermes-agent.md)** — Déploiement des Pods dédiés et gouvernance du runtime.
 * ☸️ **[Guide Infrastructure Kubernetes](infrastructure-k3s.md)** — Stockage partagé CSI, Traefik et Cert-Manager.
+
+## Provisionnement des environnements WebUI
+
+Les sessions agentiques WebUI nécessitent une association `hermes_workspaces.users` dans la configuration privée : pod/PVC privé pour un standard, pod existant pour un Power User. Les Secrets d’inférence standards sont nominatifs et préexistent au provisionnement ; aucune clé administrateur n’est injectée dans ces agents. Sans association, les modèles agentiques renvoient HTTP 403. Le déploiement et la mise à jour appliquent le code du relais, les politiques réseau et les bindings privés. Les personnalisations Studio d’un Power User ne sont pas remplacées par son raccordement WebUI.
+
+Voir le [guide de configuration et de recette](espaces-utilisateurs-webui.md). La commande `--dry-run` valide la configuration localement ; elle ne teste ni les droits de stockage ni les accès croisés sur un cluster.
+
+### Contrôle du bootstrap DLP lors des mises à jour
+
+Les trois types de runtime Hermes — central, standard privé et Power User — montent le package de gouvernance en lecture seule et démarrent avec son bootstrap. L’ancrage `.pth` dans le Python embarqué empêche le lanceur natif de perdre la protection lorsqu’il réinitialise `PYTHONPATH`. Pour Hermes v0.22.2, cet environnement est sous `/opt/hermes/.venv/lib/python3.14/site-packages`. Toute évolution de l’image doit qualifier ce chemin et l’interception réelle avant SQLite et LLM ; un simple contrôle de présence du ConfigMap est insuffisant. Voir le [contrat DLP](confidentialite-presidio.md) et la [recette des espaces privés](espaces-utilisateurs-webui.md#recette-et-diagnostic).

@@ -1,4 +1,4 @@
-# Intégration Microsoft Teams — bot ArcIA (v0.5.2)
+# Intégration Microsoft Teams — bot ArcIA (v0.6.0)
 
 L'adaptateur Microsoft Teams permet d'amener les capacités d'ArcIA directement dans le flux de travail quotidien des équipes sous Microsoft 365 (messages privés 1:1, mentions d'équipe et canaux partagés).
 
@@ -28,8 +28,8 @@ flowchart LR
 
 L'adaptateur est implémenté en Python asynchrone (`aiohttp` + `botbuilder-core`) dans [services/teams/app.py](../../services/teams/app.py) et synchronisé automatiquement dans le ConfigMap `teams-bot-code` par `scripts/deploy.py` :
 
-- **Mode Chat Rapide (par défaut)** : Tout message standard envoyé au bot est acheminé vers **LiteLLM Proxy** (`:4000/v1`) sur le profil **`simple/auto`** (avec caviardage DLP Presidio).
-- **Mode Mission Agentique (`/agent`)** : Tout message préfixé par `/agent <mission>` ou `!agent <mission>` est délégué au runtime **Hermes Agent** (`:8642/v1`) sur le profil **`agentic/auto`** pour exécuter une tâche autonome outillée.
+- **Mode Chat Rapide (par défaut)** : Tout message standard envoyé au bot est acheminé vers **LiteLLM Proxy** (`:4000/v1`) sur le profil **`conversation`** (avec caviardage DLP Presidio).
+- **Mode Mission Agentique (`/agent`)** : Tout message préfixé par `/agent <mission>` ou `!agent <mission>` est délégué au runtime **Hermes Agent** (`:8642/v1`) sur le profil **`mission`** pour exécuter une tâche autonome outillée.
 
 ```mermaid
 sequenceDiagram
@@ -45,10 +45,10 @@ sequenceDiagram
     Ingress->>Adapter: Transmission sécurisée (Authorization header)
     Adapter->>Adapter: Nettoyage mention & vérification JWT
     alt Commande /agent <mission>
-        Adapter->>Hermes: POST /v1/chat/completions (model: agentic/auto)
+        Adapter->>Hermes: POST /v1/chat/completions (model: mission)
         Hermes-->>Adapter: Résultat de la mission autonome
     else Message standard
-        Adapter->>LiteLLM: POST /v1/chat/completions (model: simple/auto)
+        Adapter->>LiteLLM: POST /v1/chat/completions (model: conversation)
         LiteLLM-->>Adapter: Réponse d'inférence directe
     end
     Adapter->>MS: Send Activity (Markdown)
@@ -174,8 +174,8 @@ Appliquez les secrets sur votre cluster K3s :
    - Dans le Portail Développeur Teams, cliquez sur le bouton **Preview in Teams** (en haut à droite).
    - Teams s'ouvre : cliquez sur **Ajouter** (*Add*).
    - Envoyez `aide` pour vérifier la réponse immédiate du bot sans consommation de jeton.
-   - Envoyez un message direct au bot : `Bonjour ArcIA, comment peux-tu m'aider ?` (routé vers `simple/auto`).
-   - Envoyez une mission agentique : `/agent Recherche le SIRET de la DINUM et synthétise ses informations` ou `/hermes ...` (routé vers Hermes `agentic/auto`).
+   - Envoyez un message direct au bot : `Bonjour ArcIA, comment peux-tu m'aider ?` (routé vers `conversation`).
+   - Envoyez une mission agentique : `/agent Recherche le SIRET de la DINUM et synthétise ses informations` ou `/hermes ...` (routé vers Hermes `mission`).
 2. **Test en canal d'équipe** :
    - Ajoutez le bot dans une équipe de test.
    - Mentionnez-le : `@ArcIA résume-moi la situation`.
@@ -199,4 +199,4 @@ Si le bot ne répond pas lorsque vous lui écrivez dans Teams, suivez cette gril
 | :--- | :--- | :--- |
 | **« Bot non valide : Veuillez vérifier que le bot est enregistré et que le canal Teams est activé »** | Vous avez tenté d'importer le ZIP avant de créer le bot, ou avec un Bot ID inexistant. | Suivez l'**Étape 1** pour créer le bot dans *Bot management*, puis régénérez le ZIP avec votre vrai Bot ID (Étape 2). |
 | **Erreur HTTP 401 / 500 sur le webhook** | Le mot de passe client (`TEAMS_BOT_APP_PASSWORD`) est expiré, incorrect ou le tenant ne correspond pas. | Régénérez un secret client dans *Bot management > Client secrets* ou vérifiez `tenant_id`. |
-| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.5.2 (routage double `/api/teams/messages` et `/api/teams/messages/`). |
+| **Erreur 404 sur `/api/teams/messages/`** | Le serveur HTTP refusait les requêtes avec slash final. | Corrigé dans ArcIA v0.6.0 (routage double `/api/teams/messages` et `/api/teams/messages/`). |

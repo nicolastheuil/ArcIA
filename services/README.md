@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Microservices-Python_3.11-6BE7DD?style=flat-square&logo=python&logoColor=050712" alt="Python 3.11">
   <img src="https://img.shields.io/badge/Sync-Zero_Duplication_ConfigMaps-10B981?style=flat-square" alt="Zero Duplication">
 </p>
@@ -8,7 +8,7 @@
 
 > **[🏠 Accueil ArcIA](../README.md)** › **Microservices (`services/`)**
 
-Ce dossier regroupe le code source de référence et les `Dockerfile` des microservices et plugins développés sur mesure pour la plateforme **ArcIA v0.5.2**.
+Ce dossier regroupe le code source de référence et les `Dockerfile` des microservices et plugins développés sur mesure pour la plateforme **ArcIA v0.6.0**.
 
 ---
 
@@ -36,7 +36,7 @@ services/
 | 🤖 **Hermes Governance & CCR Plugin** | **[hermes/](hermes/README.md)** | Python 3.11 · Hermes Agent Hook | **Barrière 1 DLP** *fail-closed* (`/sanitize` avant SQLite `state.db`), compression réversible **CCR** (cache SHA-256) et compaction **RTK** `git log`. |
 | 🛡️ **LiteLLM Error Handler** | **[litellm/](litellm/README.md)** | Python 3.11 · LiteLLM `CustomLogger` | **Gestionnaire d'erreurs convivial** interceptant les exceptions de passerelle (quota, ZDR, timeout) pour renvoyer des messages en français sans fuite de secrets. |
 | 🛡️ **Presidio DLP Sanitizer** | **[presidio/](presidio/README.md)** | FastAPI · spaCy `fr`/`en` · Presidio | **Bouclier DLP souverain** détectant et anonymisant secrets, clés API, IP et données personnelles (`/sanitize`, `/analyze`, `/anonymize`, `/healthz`). |
-| 💬 **Microsoft Teams Bot Adapter** | **[teams/](teams/README.md)** | Python 3.11 · `aiohttp` · BotBuilder | **Passerelle collaborative Microsoft 365** routant les messages Teams vers `simple/auto` par défaut et la commande `/agent` vers Hermes (`agentic/auto`). |
+| 💬 **Microsoft Teams Bot Adapter** | **[teams/](teams/README.md)** | Python 3.11 · `aiohttp` · BotBuilder | **Passerelle collaborative Microsoft 365** routant les messages Teams vers un modèle Simple par défaut et `/agent` vers un modèle Agentic dans Hermes. |
 
 ---
 
@@ -47,3 +47,7 @@ L'ensemble de ces microservices est couvert par la suite de tests unitaires du d
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## Relais de fichiers et identité WebUI
+
+[hermes/files.py](hermes/files.py) fonctionne dans chaque runtime privé et publie les fichiers générés. [open_webui/arcia_hermes_files.py](open_webui/arcia_hermes_files.py) vérifie l’identité et choisit le runtime associé. Le code de [qualification du portail](open_webui/qualify_workspaces.py) sert uniquement aux comptes jetables de recette ; il n’est pas monté dans le portail de production. Voir le [guide des espaces privés](../docs/guides/espaces-utilisateurs-webui.md).

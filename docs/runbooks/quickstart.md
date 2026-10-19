@@ -1,6 +1,6 @@
-# Quickstart ArcIA v0.5.2
+# Quickstart ArcIA v0.6.0
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.5.2** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.6.0** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
@@ -83,7 +83,7 @@ Accessible via l'onglet **Routage des modèles** ou la carte d'accueil :
    - Test de connectivité en un clic avec validation des clés et des quotas en direct.
    - Masquage sécurisé des clés d'API et sauvegarde protégée dans `arcia.config.yaml`.
 2. **Noms communs d'entreprise et correspondance vers les vrais modèles** :
-   - Définition des identifiants vus par les utilisateurs dans Open-WebUI et Teams (`simple/auto`, `simple/free`, `agentic/auto`, `agentic/free`, `agentic/expert`, + alias personnalisés).
+   - Définition des identifiants vus par les utilisateurs dans Open-WebUI et Teams (`conversation`, `conversation-econome`, `mission`, `mission-econome`, `mission-experte`, + alias personnalisés).
    - Association vers le vrai modèle amont (ex: `openrouter/anthropic/claude-3-5-sonnet`, `openrouter/deepseek/deepseek-v4.1-flash`, `local_vllm/mistral-large-instruct`).
    - Configuration du modèle de repli automatique (*fallback*) en cas d'indisponibilité du modèle principal.
    - Boutons de préréglages instantanés (*Tout OpenRouter ZDR*, *Hybride souverain vLLM local*, *Multi-fournisseurs directs*).
@@ -123,7 +123,7 @@ Si vous déployez dans un pipeline CI/CD ou préférez l'édition manuelle :
 
 ---
 
-## 3. Configuration de LiteLLM et catalogue des 5 profils canoniques
+## 3. Configuration de LiteLLM et catalogue des modèles
 
 Si l'onglet **Models** de LiteLLM retourne `token_not_found_in_db`, commencez par
 renouveler la session d'administration. Vérifiez ensuite le parcours avec
@@ -154,14 +154,14 @@ La passerelle d'inférence d'entreprise **LiteLLM Proxy** centralise les modèle
    .\scripts\Invoke-K3s.ps1 "rollout restart deployment litellm-proxy -n arcia"
    ```
 
-### Les 5 profils canoniques disponibles
+### Modèles Simple et Agentic
 
-Dès le premier déploiement, Open-WebUI expose les **5 profils canoniques ArcIA v0.5.2** grâce à son raccordement hybride (LiteLLM Direct + Hermes Agent) :
-- **`simple/free`** : Chat direct rapide sans coût via OpenRouter Free (`openrouter/openrouter/free`).
-- **`simple/auto`** *(Défaut)* : Chat direct polyvalent équilibrant performance et coût (`openrouter/auto`).
-- **`agentic/free`** : Session autonome Hermes outillée sur palier gratuit (`openrouter/openrouter/free`).
-- **`agentic/auto`** : Session autonome Hermes avec outils, recherche web, compression CCR et skills (`openrouter/auto`).
-- **`agentic/expert`** : Session autonome Hermes haute performance (`openrouter/deepseek/deepseek-v4.1-flash`) pour l'architecture et le code complexe.
+Le catalogue et les noms de modèles sont définis par l’administrateur dans le wizard :
+
+- **Simple** : échanges entre Open-WebUI et LiteLLM.
+- **Agentic** : tâches transmises depuis Open-WebUI au pod Hermes privé du compte ; également disponibles directement dans Hermes pour les Power Users.
+
+L’administrateur choisit les valeurs de `llm_gateway.default_model` et `hermes.default_model` parmi les modèles déclarés. Les noms et le nombre de modèles sont libres. Les [schémas des espaces utilisateurs](../guides/espaces-utilisateurs-webui.md) expliquent l’isolation entre standards et la réutilisation du pod Power User.
 
 Toutes les requêtes sortant vers des modèles cloud bénéficient de :
 1. **Zero Data Retention (ZDR)** : Forcé au niveau de LiteLLM via `extra_body: {provider: {zdr: true}}`.
@@ -185,8 +185,8 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
 
 ### Utilisateurs standards vs power users
 
-- **Utilisateurs standards** : Accèdent directement à Open-WebUI (profils `simple/*` et `agentic/*`) ainsi qu'au bot Microsoft Teams.
-- **Power Users** : En plus d'Open-WebUI (`simple/*` + `agentic/*`), chaque Power User dispose d'un **Pod Hermes dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionné via [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) :
+- **Utilisateurs standards** : Accèdent directement à Open-WebUI (profils `Simple` et `Agentic`) ainsi qu'au bot Microsoft Teams.
+- **Power Users** : En plus d'Open-WebUI (`Simple` + `Agentic`), chaque Power User dispose d'un **Pod Hermes dédié sur Kubernetes** (`/poweruser/<slug>/studio`) provisionné via [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) :
   ```powershell
   .\scripts\Spawn-PowerUser.ps1 dev-lead@example.org -Team engineering
   ```
@@ -214,11 +214,13 @@ Ouvrez votre navigateur sur `https://<public_fqdn>/` (ex: `https://assistant.exa
 2. Redéployez la plateforme avec `.\scripts\Deploy-ArcIA.ps1` ou `./scripts/deploy-arcia.sh`.
 3. Côté Azure Bot Service, définissez le Webhook de messagerie sur :
    `https://<public_fqdn>/api/teams/messages`
-4. Les collaborateurs discutent en direct (`simple/auto`) ou lancent une mission agentique via `/agent <mission>` (`agentic/auto`).
+4. Les collaborateurs discutent en direct (`conversation`) ou lancent une mission agentique via `/agent <mission>` (`mission`).
 
 ---
 
 ## 7. Vérification et recette automatisée
+
+Avant d’ouvrir les modèles agentiques aux collaborateurs, déclarer leurs associations `hermes_workspaces.users` dans la configuration privée. Un utilisateur standard utilise son pod privé ; un Power User son pod Studio existant. Un compte absent est refusé en HTTP 403. Voir le [parcours de provisionnement et de recette](../guides/espaces-utilisateurs-webui.md).
 
 Pour valider l'intégrité opérationnelle de la plateforme déployée, exécutez la suite de recette complète :
 
@@ -238,6 +240,8 @@ Cette suite valide automatiquement :
 5. La réponse de l'adaptateur Teams Bot sur `/healthz`.
 6. La disponibilité du portail Open-WebUI sur `/health`.
 
+Ces contrôles de disponibilité ne qualifient pas l’interception native Hermes. Exécuter aussi `python scripts/qualify_hermes_workspaces.py --config arcia.config.yaml` pour la recette synthétique isolée : vraies images, génération et streaming, téléchargements croisés, bases privées, refus de secrets, coupure de Presidio puis reprise. Cette commande ne monte aucun PVC d’instance et ne déploie pas le portail de production. Voir les [preuves et limites](../etat-des-fonctionnalites.md#isolation-webui-et-fichiers-hermes).
+
 ---
 
 ## 8. Exploitation quotidienne et liens utiles
@@ -250,7 +254,7 @@ Cette suite valide automatiquement :
 
 ## Icônes et sauvegardes depuis le wizard
 
-Le détail de l'intégration figure dans le [correctif du wizard](../brief-icones-modeles-wizard.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence. Dans une instance existante, **Enregistrer le routage** applique aussi les icônes ; en cas d'échec partiel, réutiliser ce même bouton. Dans le parcours d'une nouvelle instance, les icônes sont appliquées automatiquement au déploiement, avec les modèles et fournisseurs personnalisés déclarés.
+Le détail de l'intégration figure dans le [guide du portail](../guides/portail-webui-entraid.md). L'icône normale, ZDR ou locale est calculée à partir des déclarations de l'administrateur ; `hosting` peut préciser l'hébergement sans modifier la politique d'inférence. Dans une instance existante, **Enregistrer le routage** applique aussi les icônes ; en cas d'échec partiel, réutiliser ce même bouton. Dans le parcours d'une nouvelle instance, les icônes sont appliquées automatiquement au déploiement, avec les modèles et fournisseurs personnalisés déclarés.
 
 Installer les dépendances AES-GCM avec `python -m pip install -r requirements-wizard.txt` (Python 3.9+). Dans **Sauvegarde et reprise**, reprendre le dépôt privé déclaré et déverrouiller le coffre dans le formulaire local. Chaque enregistrement de configuration déclenche une sauvegarde chiffrée et un push limité à deux fichiers. Le YAML, les environnements et le contenu des fichiers déclarés sont surveillés tant que le wizard fonctionne. Un fichier absent ou inaccessible interdit d’annoncer une sauvegarde complète. Les instantanés chiffrés en attente d’envoi sont réessayés sans force-push. Le coffre persiste via DPAPI sous Windows ; sous Linux/macOS, le déverrouillage est à renouveler après redémarrage du wizard. Les ajouts maison et les données applicatives exigent les procédures des administrateurs décrites dans le [runbook de reprise](sauvegarde-reconstruction.md).
 

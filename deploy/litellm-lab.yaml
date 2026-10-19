@@ -1,5 +1,5 @@
 # ==============================================================================
-# Configuration LiteLLM Proxy pour ArcIA v0.5.2 (Mode Lab / Docker Local)
+# Configuration LiteLLM Proxy pour ArcIA v0.6.0 (Mode Lab / Docker Local)
 # ==============================================================================
 model_list:
   # 1. simple/free : direct LiteLLM vers OpenRouter Free

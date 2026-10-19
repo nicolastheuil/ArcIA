@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Manifest validation test: checks all deploy/manifests/*.yaml files,
-including behavioral consistency, model tiers, and security constraints for v0.5.2
+including behavioral consistency, model tiers, and security constraints for v0.6.0
 """
 
 import os
@@ -13,6 +13,17 @@ class TestKubernetesManifests(unittest.TestCase):
     def setUp(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.manifests_dir = os.path.join(root_dir, "deploy", "manifests")
+
+    def test_every_hermes_runtime_anchors_dlp_in_the_native_python_environment(self):
+        for relative in ("06-hermes-agent.yaml", "templates/hermes-poweruser.template.yaml", "templates/hermes-files.template.yaml"):
+            with open(os.path.join(self.manifests_dir, relative), encoding="utf-8") as source:
+                manifest = source.read()
+            with self.subTest(runtime=relative):
+                self.assertIn("/opt/arcia-governance/bootstrap.py", manifest)
+                self.assertIn("ARCIA_GOVERNANCE_REQUIRED", manifest)
+                self.assertIn("/opt/hermes/.venv/lib/python3.14/site-packages/arcia_governance.pth", manifest)
+                self.assertIn("subPath: arcia_governance.pth", manifest)
+                self.assertIn("hermes-runtime-guard", manifest)
 
     def test_manifests_directory_exists(self):
         self.assertTrue(os.path.isdir(self.manifests_dir))
@@ -35,7 +46,7 @@ class TestKubernetesManifests(unittest.TestCase):
             self.assertIn("metadata:", content, f"metadata manquant dans {yf}")
 
     def test_litellm_v03_configuration(self):
-        """Vérifie la présence des 5 profils canoniques v0.5.2, des fallbacks valides, du guardrail Presidio et de la sécurité."""
+        """Vérifie la présence des 5 profils canoniques v0.6.0, des fallbacks valides, du guardrail Presidio et de la sécurité."""
         litellm_path = os.path.join(self.manifests_dir, "05-litellm.yaml")
         with open(litellm_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -79,12 +90,12 @@ class TestKubernetesManifests(unittest.TestCase):
         self.assertIn('name: BYPASS_MODEL_ACCESS_CONTROL\n          value: "false"', content)
         self.assertIn('name: OAUTH_MERGE_ACCOUNTS_BY_EMAIL\n          value: "true"', content)
         self.assertIn('name: litellm-secret\n              key: master-key', content)
-        self.assertIn('name: OPENAI_API_BASE_URLS\n          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"', content)
+        self.assertIn('name: OPENAI_API_BASE_URLS\n          value: "http://litellm-proxy.arcia.svc:4000/v1;http://127.0.0.1:8080/api/v1/arcia/hermes/v1"', content)
+        self.assertNotIn("hermes-gateway-secret", content, "Le portail ne doit plus recevoir la clé du runtime central partagé")
         self.assertIn('name: OPENAI_API_CONFIGS', content)
         self.assertIn('"0":{"enable":true', content)
         self.assertIn('"1":{"enable":true', content)
         self.assertIn('name: ENABLE_COMMUNITY_SHARING\n          value: "false"', content)
-        self.assertIn('name: hermes-gateway-secret\n              key: api-server-key', content)
 
     def test_ingress_v1_rate_limited(self):
         """Vérifie que l'Ingress /v1 est séparé et protégé par le middleware RateLimit et que LiteLLM UI n'est pas exposé sur l'Ingress public."""

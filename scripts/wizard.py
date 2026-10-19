@@ -2375,7 +2375,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
     repo = local_data.get("repository", "nicolastheuil/ArcIA")
     remote_url = f"https://raw.githubusercontent.com/{repo}/main/deploy/versions.json"
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.2",
+        "User-Agent": "ArcIA-Update-Checker/0.6.0",
         "Accept": "application/json"
     }
     try:
@@ -2396,7 +2396,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
 def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
     """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.5.2",
+        "User-Agent": "ArcIA-Update-Checker/0.6.0",
         "Accept": "application/vnd.github.v3+json"
     }
     # 1. Essayer /releases/latest
@@ -2637,7 +2637,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         arcia_comp_ref = (arcia_catalog.get("components") or {}).get(cid, {})
         target_version = arcia_comp_ref.get("version") or comp["default_version"]
         target_image = arcia_comp_ref.get("image") or comp["default_image"]
-        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.5.2"
+        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.6.0"
         release_notes = arcia_comp_ref.get("release_notes", "")
         repo = arcia_catalog.get("repository", "nicolastheuil/ArcIA")
         release_url = f"https://github.com/{repo}/releases"
@@ -3061,13 +3061,23 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
         # Pour Hermes Agent, la stratégie Recreate protège le verrou d'écriture unique sur SQLite state.db
         _rolling_update_k8s_deployment("hermes-agent", "Hermes Agent & Studio", "06-hermes-agent.yaml", "hermes-agent", ensure_zero_downtime_patch=False)
 
+        if infra_target != "docker_lab":
+            from hermes_files import declared_users, sync_private_runtimes
+            declared_users(cfg)
+            if not dry_run:
+                runner.apply_manifest("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: hermes-config\n  namespace: " + namespace
+                                      + "\ndata:\n  config.yaml: |\n" + "\n".join("    " + line for line in deploy.build_hermes_config_data(cfg, namespace).splitlines()))
+                sync_private_runtimes(cfg, runner, namespace, ROOT_DIR)
+            _append_update_log("[OK] Espaces de fichiers Hermes privés : provisionnement vérifié ou simulé.")
+
         if "hermes-agent" in selected_components and not dry_run and infra_target != "docker_lab":
             try:
                 from arcia_poweruser import sync_all_powerusers
                 def _pu_runner(cmd_args, input_data=None):
                     rc, out, err = runner.run(cmd_args, stdin_input=input_data)
                     return subprocess.CompletedProcess(cmd_args, rc, out, err)
-                synced_pu = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_pu_runner)
+                protected_slugs = {user["poweruser_slug"] for user in declared_users(cfg) if user.get("poweruser_slug")}
+                synced_pu = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_pu_runner, preserve_slugs=protected_slugs)
                 _append_update_log(f"[OK] {synced_pu} instance(s) dédiée(s) Power User synchronisée(s).")
             except Exception as pue:
                 _append_update_log(f"[WARN] Synchronisation des pods Power Users ignorée : {pue}")
@@ -5394,7 +5404,7 @@ def main():
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.5.2            \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.6.0            \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

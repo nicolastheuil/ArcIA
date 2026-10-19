@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ArcIA v0.5.2 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
+ArcIA v0.6.0 — Spawner Kubernetes d'Instances Dédiées Power Users (Hermes Agent)
 
 Permet de déployer, gérer, suspendre et supprimer des environnements Hermes Agent
 dédiés par utilisateur directement dans le cluster Kubernetes.
@@ -167,6 +167,8 @@ Tu disposes de ton propre environnement d'exécution persistant sur Kubernetes.
         raise ValueError("Le template Power User ne déclare pas sa réplique unique.")
     rendered = rendered.replace("{{HERMES_CONFIG_INDENTED}}", indent_lines(hermes_cfg_yaml, 4))
     rendered = rendered.replace("{{SOUL_CONTENT_INDENTED}}", indent_lines(soul_text, 4))
+    from hermes_files import governance_revision
+    rendered = rendered.replace("{{GOVERNANCE_REVISION}}", governance_revision(ROOT_DIR))
     rendered = rendered.replace("{{USER_CONTENT_INDENTED}}", indent_lines(user_text, 4))
 
     if enable_vpn:
@@ -312,6 +314,21 @@ def cmd_spawn(args):
     print(f"    Namespace        : {ns}")
     print(f"    Volume persistant: {args.storage}")
     print(f"    URL Studio       : https://{fqdn}/poweruser/{slug}/studio")
+
+    # Code du relais issu exclusivement de services/, avant le premier pod.
+    from pathlib import Path
+    files_code = Path(ROOT_DIR, "services", "hermes", "files.py").read_text(encoding="utf-8")
+    proc_code = run_kubectl(["apply", "-f", "-"], input_data=json.dumps({
+        "apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hermes-files-code", "namespace": ns},
+        "data": {"files.py": files_code}}))
+    if proc_code.returncode != 0:
+        raise RuntimeError("Relais de fichiers non synchronisé ; provisionnement interrompu")
+    from hermes_files import governance_code
+    proc_guard = run_kubectl(["apply", "-f", "-"], input_data=json.dumps({
+        "apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hermes-runtime-guard", "namespace": ns},
+        "data": governance_code(ROOT_DIR)}))
+    if proc_guard.returncode != 0:
+        raise RuntimeError("Protection DLP obligatoire non synchronisée ; provisionnement interrompu")
 
     proc = run_kubectl(["apply", "-f", "-"], input_data=manifest)
     if proc.returncode != 0:
@@ -474,9 +491,12 @@ except Exception: pass
     return True
 
 
-def sync_all_powerusers(namespace: str = "arcia", fqdn: Optional[str] = None, runner_func=run_kubectl) -> int:
+def sync_all_powerusers(namespace: str = "arcia", fqdn: Optional[str] = None, runner_func=run_kubectl, preserve_slugs=None) -> int:
     """Fonction universelle pour réconcilier toutes les instances Power Users."""
     cfg = load_arcia_config()
+    if preserve_slugs is None:
+        from hermes_files import declared_users
+        preserve_slugs = {user["poweruser_slug"] for user in declared_users(cfg) if user.get("poweruser_slug")}
     fqdn = fqdn or cfg.get("network", {}).get("public_fqdn", "assistant.example.org")
     ns = namespace
 
@@ -500,6 +520,9 @@ def sync_all_powerusers(namespace: str = "arcia", fqdn: Optional[str] = None, ru
     for it in items:
         dep_name = it["metadata"]["name"]
         slug = it["metadata"].get("labels", {}).get("app.kubernetes.io/instance") or dep_name.replace("hermes-poweruser-", "")
+        if slug in preserve_slugs:
+            print("  -> Instance associée à WebUI : personnalisation existante conservée.")
+            continue
         print(f"  -> Synchronisation de '{slug}'...")
         if sync_single_user(slug=slug, ns=ns, fqdn=fqdn, runner_func=runner_func):
             synced_count += 1
@@ -570,7 +593,7 @@ def cmd_destroy(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ArcIA v0.5.2 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
+    parser = argparse.ArgumentParser(description="ArcIA v0.6.0 — Gestionnaire de Pods Hermes Power Users sur Kubernetes")
     parser.add_argument("--namespace", default="arcia", help="Namespace Kubernetes cible")
     parser.add_argument("--fqdn", default=None, help="FQDN public de la plateforme (ex: assistant.entreprise.com)")
 

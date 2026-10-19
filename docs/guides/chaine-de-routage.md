@@ -1,14 +1,16 @@
-# Chaîne de routage IA et cycle de vie d'une requête dans ArcIA v0.5.2
+# Chaîne de routage IA et cycle de vie d'une requête dans ArcIA v0.6.0
 
-> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> Le bootstrap obligatoire et son ancrage natif protègent Hermes avant SQLite et avant le transport LLM. Le [contrat DLP](confidentialite-presidio.md) décrit ces contrôles ; l’[état des fonctionnalités](../etat-des-fonctionnalites.md) distingue leur recette du déploiement de production.
 
-Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.5.2**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
+> **Statut : Implémenté (v0.6.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+
+Ce guide détaille l'intégralité du parcours d'une requête d'inférence au sein de la plateforme **ArcIA v0.6.0**, depuis la saisie du collaborateur jusqu'à la réponse générée par les modèles de fondation, en passant par le routage hybride (**LiteLLM Direct** et **Hermes Agent**), la **double barrière Presidio DLP** et la gestion comptable PostgreSQL (`litellm-db`).
 
 ---
 
 ## 1. Principes fondamentaux de la chaîne
 
-Dans ArcIA v0.5.2, la chaîne de routage répond à **cinq principes directeurs stricts** :
+Dans ArcIA v0.6.0, la chaîne de routage répond à **cinq principes directeurs stricts** :
 1. **Un seul point de sortie vers le cloud : LiteLLM.** Aucun composant — navigateur client compris (`ENABLE_DIRECT_CONNECTIONS=false`) — ne communique directement avec un fournisseur externe.
 2. **Double barrière DLP 100 % fail-closed** :
    - **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance ([services/hermes/plugin.py](../../services/hermes/plugin.py)) appelle `POST /sanitize` sur Presidio DLP *avant* toute persistance dans SQLite (`state.db`) et *avant* tout appel LLM.
@@ -16,10 +18,10 @@ Dans ArcIA v0.5.2, la chaîne de routage répond à **cinq principes directeurs 
 3. **Routage hybride par commutateur de configuration (Simple vs Agentic)** :
    - Le comportement d'exécution ne dépend plus de préfixes ou conventions de nommage rigides. Chaque modèle configuré possède un commutateur de cible explicite dans la configuration (`arcia.config.yaml` / interface d'administration) :
      - **Cible Simple** : acheminement direct vers **LiteLLM Proxy** (`:4000/v1`) pour les discussions rapides sans boucle agentique (avec bouclier Presidio DLP aval).
-     - **Cible Agentic** : acheminement garanti vers **Hermes Agent** (`:8642/v1`) pour les sessions autonomes outillées (avec mémoire persistante SQLite `state.db`, boucle autonome de raisonnement, compétences et bouclier Presidio DLP amont).
+     - **Cible Agentic** : depuis Open-WebUI, routage serveur vers **le runtime privé du compte** (`:8643`, puis gateway locale `:8642/v1`) pour les sessions autonomes outillées (avec mémoire persistante SQLite `state.db`, boucle autonome de raisonnement, compétences et bouclier Presidio DLP amont).
 4. **Double modèle par défaut indépendant** :
-   - **Modèle par défaut pour Open-WebUI** (`llm_gateway.default_model`) : Modèle conversationnel réactif sélectionné d'emblée à l'ouverture du portail collaboratif (par exemple `simple/auto` ou `auto`).
-   - **Modèle par défaut pour Hermes Agent** (`hermes.default_model`) : Modèle d'orchestration autonome utilisé pour les sessions Power User dans Hermes Studio, les délégations de mission depuis Open-WebUI, et les commandes `/agent` dans Microsoft Teams (par exemple `agentic/auto` ou `auto`).
+   - **Modèle par défaut pour Open-WebUI** (`llm_gateway.default_model`) : Modèle conversationnel réactif sélectionné d'emblée à l'ouverture du portail collaboratif (par exemple `conversation` ou `auto`).
+   - **Modèle par défaut pour Hermes Agent** (`hermes.default_model`) : Modèle d'orchestration autonome utilisé pour les sessions Power User dans Hermes Studio, les délégations de mission depuis Open-WebUI, et les commandes `/agent` dans Microsoft Teams (par exemple `mission` ou `auto`).
 5. **Contrôle granulaire du ZDR (Zéro Rétention de Données) par modèle** :
    - L'activation du ZDR n'est pas imposée aveuglément à l'échelle du fournisseur : chaque ligne de modèle dispose de son propre interrupteur `zdr: true/false`, injectant l'en-tête de protection `provider: { zdr: true }` uniquement sur les modèles sélectionnés.
 
@@ -31,9 +33,10 @@ flowchart TD
     end
 
     subgraph SecurityGate ["🛡️ Périmètre souverain ArcIA (Cluster Kubernetes)"]
-        WebUIGate["Open-WebUI (:8080)<br/>• Modèle par défaut WebUI<br/>• Double raccordement 4000/8642"]
+        WebUIGate["Open-WebUI (:8080)<br/>• Modèle par défaut WebUI<br/>• Simple :4000 / runtime privé :8643"]
         TeamsGate["Teams Bot Adapter (:3978)<br/>• Chat rapide LiteLLM<br/>• Commande /agent vers Hermes"]
         HermesAgent["Hermes Agent Runtime (:8642)<br/>• Sessions cibles Agentic<br/>• Plugin DLP + CCR + RTK"]
+        HermesStd["Hermes privé standard<br/>• Un pod et un PVC par compte"]
         HermesPU["Pods Hermes Power Users<br/>• /poweruser/slug/studio<br/>• PVC 10Gi & SOUL.md dédiés"]
         LiteLLMGate["LiteLLM Proxy (:4000)<br/>• Sessions cibles Simple<br/>• Sortie unifiée vers les LLM"]
         PresidioGate["Presidio DLP (:8080)<br/>• Double barrière fail-closed<br/>• Caviardage secrets & PII"]
@@ -51,13 +54,16 @@ flowchart TD
     PowerUser -->|Studio dédié /poweruser/slug| HermesPU
 
     WebUIGate -->|Modèles avec cible Simple :4000| LiteLLMGate
-    WebUIGate -->|Modèles avec cible Agentic :8642| HermesAgent
+    WebUIGate -->|Compte standard :8643| HermesStd
+    WebUIGate -->|Power User existant :8643| HermesPU
     TeamsGate -->|Chat direct :4000| LiteLLMGate
     TeamsGate -->|Commande /agent :8642| HermesAgent
 
     HermesAgent -->|Barrière 1 DLP /sanitize| PresidioGate
     HermesAgent -->|Inférence LLM :4000| LiteLLMGate
     HermesAgent -->|Exécution d'outils HTTPS :443| ExtTools
+    HermesStd -->|Inférence :4000| LiteLLMGate
+    HermesStd -->|DLP /sanitize| PresidioGate
     HermesPU -->|Barrière 1 DLP /sanitize| PresidioGate
     HermesPU -->|Inférence LLM :4000| LiteLLMGate
 
@@ -65,6 +71,8 @@ flowchart TD
     LiteLLMGate -->|Barrière 2 DLP /analyze + /anonymize| PresidioGate
     LiteLLMGate -->|Inférence avec ZDR configuré par modèle| LLMHub
 ```
+
+Les sessions WebUI non associées sont refusées en HTTP 403, sans repli vers le Hermes central. Un Power User conserve le pod et les personnalisations de son Studio. Les règles de session, de stockage et de téléchargement sont détaillées dans le [guide des espaces privés](espaces-utilisateurs-webui.md). Teams conserve son parcours distinct vers le runtime central.
 
 ---
 
@@ -78,33 +86,33 @@ Dans ArcIA, un modèle est défini par son identifiant ou alias, son modèle amo
 llm_gateway:
   openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxx"
   # Modèle pré-sélectionné dans Open-WebUI pour le chat collaborateur :
-  default_model: "simple/auto"
+  default_model: "conversation"
   
   # Catalogue des modèles et politique de routage :
   models_routing:
     - name: "auto"
-      alias: "simple/auto"
+      alias: "conversation"
       category: "simple"     # Cible Simple -> acheminement direct LiteLLM
       target_model: "openrouter/anthropic/claude-3.5-haiku"
       fallback: "openrouter/openai/gpt-4o-mini"
       zdr: true              # Zéro rétention activé pour ce modèle
 
     - name: "free"
-      alias: "simple/free"
+      alias: "conversation-econome"
       category: "simple"     # Cible Simple -> acheminement direct LiteLLM
       target_model: "openrouter/meta-llama/llama-3.3-70b-instruct:free"
       fallback: "openrouter/google/gemini-2.0-flash-exp:free"
       zdr: true
 
     - name: "agentic-auto"
-      alias: "agentic/auto"
+      alias: "mission"
       category: "agentic"    # Cible Agentic -> traitement garanti par Hermes Agent
       target_model: "openrouter/anthropic/claude-3.7-sonnet"
       fallback: "openrouter/openai/gpt-4o"
       zdr: true
 
     - name: "agentic-expert"
-      alias: "agentic/expert"
+      alias: "mission-experte"
       category: "agentic"    # Cible Agentic -> traitement garanti par Hermes Agent
       target_model: "openrouter/anthropic/claude-3.7-sonnet:thinking"
       fallback: "openrouter/deepseek/deepseek-r1"
@@ -112,7 +120,7 @@ llm_gateway:
 
 hermes:
   # Modèle utilisé par défaut pour les sessions Hermes Agent (Studio, forward WebUI, Teams /agent) :
-  default_model: "agentic/auto"
+  default_model: "mission"
   admin_password: "ChangeThisToAStrongPassword2026!"
   api_token: "arcia-pat-secret-key-32b-secure"
   storage_size: "20Gi"
@@ -136,29 +144,31 @@ hermes:
 |---|---|---|
 | **Canaux d'accès** | **Open-WebUI** (`/`) + **Microsoft Teams** (chat direct & `/agent`) | **Open-WebUI** (`/`) + **Pod Hermes dédié** (`/poweruser/<slug>/studio`) |
 | **Modèles accessibles** | Tous les modèles configurés (Simple et Agentic) | Tous les modèles configurés **+ environnement Hermes isolé** |
-| **Moteur d'exécution** | LiteLLM direct (Simple) et Hermes partagé (Agentic) | LiteLLM direct, Hermes partagé **+ Pod Hermes dédié K8s (PVC 10Gi, `SOUL.md`)** |
+| **Moteur d'exécution** | LiteLLM direct et pod/PVC Hermes privés pour WebUI | LiteLLM direct et **même pod Hermes que le Studio** (PVC, `SOUL.md`, mémoire et configuration existants) |
 | **Identité & authentification** | SSO Microsoft Entra ID (OIDC) | SSO Microsoft Entra ID + Jeton PAT nominatif |
 | **Couverture DLP** | Double barrière fail-closed | Double barrière fail-closed |
-| **Provisionnement** | Automatique via SSO Entra ID | `.\scripts\Spawn-PowerUser.ps1 <email>` |
+| **Provisionnement** | Compte SSO, puis association administrée du runtime privé | Pod dédié existant, puis association de son ID WebUI |
 
 ---
 
-## 4. Diagramme de séquence : cycle de vie d'une session agentique
+## 4. Diagramme de séquence : cible de confidentialité d’une session Agentic
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Collaborateur
     participant Front as Open-WebUI (:8080)
-    participant Hermes as Hermes Agent Runtime (:8642)
+    participant Relay as Relais privé du compte (:8643)
+    participant Hermes as Hermes du compte (:8642 local)
     participant DLP as Presidio DLP (:8080)
     participant Gateway as LiteLLM Proxy (:4000)
     participant Cloud as Fournisseur d'inférence (ZDR)
 
     User->>Front: Saisie du prompt (modèle qualifié d'Agentic)
-    Front->>Hermes: POST /v1/chat/completions
+    Front->>Relay: Identité vérifiée et conversation dérivée côté serveur
+    Relay->>Hermes: POST /v1/chat/completions
     
-    Note over Hermes: Barrière 1 DLP (Plugin amont)<br/>Avant persistance state.db
+    Note over Hermes,DLP: Cible : barrière native avant state.db<br/>Branchement et qualification encore requis
     Hermes->>DLP: POST /sanitize (Pseudonymisation cohérente [TYPE_01])
     alt Détection clé privée / Kubeconfig brut
         DLP-->>Hermes: HTTP 422 Fail-Closed (Blocage immédiat)
@@ -214,7 +224,7 @@ L'ajout ou l'ajustement d'un modèle s'effectue en quelques secondes depuis l'as
 
 ## 6. Caviardage DLP Presidio : ce qui est réellement masqué
 
-Le bouclier Presidio DLP d'ArcIA v0.5.2 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
+Le bouclier Presidio DLP d'ArcIA v0.6.0 ([services/presidio/app.py](../../services/presidio/app.py)) applique une détection rigoureuse sur :
 1. **Secrets techniques** : Clés privées PEM, tokens Bearer, tokens GitHub (`ghp_`), clés d'API (`sk-`), clés AWS (`AKIA`), mots de passe explicites (`password=`) → Remplacés par `[SECRET_REMOVED]`.
 2. **Adresses IP** : Détection active IPv4 (`\b(?:\d{1,3}\.){3}\d{1,3}\b`) → Remplacées par `[ARCIA_IP_ADDRESS_n]`.
 3. **Données personnelles (PII)** :

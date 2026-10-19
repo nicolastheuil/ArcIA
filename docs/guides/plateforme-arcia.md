@@ -7,12 +7,12 @@ ArcIA est une plateforme d’IA agentique d’entreprise. Hermes est son moteur 
 ## 1. Capacités et architecture
 
 Les agents utilisent des outils autorisés, consultent une base de compétences et de connecteurs, délèguent des tâches bornées et produisent des réponses ou fichiers vérifiables :
-- **Portail Collaborateur Hybride (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes (`simple/free`, `simple/auto`) et les sessions agentiques (`agentic/free`, `agentic/auto`, `agentic/expert`), intégrée au SSO Microsoft Entra ID.
+- **Portail Collaborateur Hybride (Open-WebUI)** : Interface web moderne pour les requêtes quotidiennes (`conversation-econome`, `conversation`) et les sessions agentiques (`mission-econome`, `mission`, `mission-experte`), intégrée au SSO Microsoft Entra ID.
 - **Studio Kanban & Gateway (Hermes Agent)** : Pilotage visuel des missions longues, multi-agents, compression de contexte CCR/RTK et connexion native pour l'application de bureau Hermes Desktop.
 - **Pods Dédiés Power Users** : Instances Hermes isolées par Power User sur Kubernetes (`/poweruser/<slug>/studio`, PVC `10Gi`, `SOUL.md` propre) provisionnées via `.\scripts\Spawn-PowerUser.ps1`.
-- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage unifié des 5 profils canoniques, chaînes de fallback, Zéro Rétention de Données (ZDR) et suivi comptable PostgreSQL (`litellm-db`).
+- **Passerelle d'Inférence d'Entreprise (LiteLLM)** : Routage des modèles administrés, chaînes de fallback, Zéro Rétention de Données (ZDR) et suivi comptable PostgreSQL (`litellm-db`).
 - **Gouvernance & Confidentialité (Presidio DLP)** : Double barrière fail-closed caviardant automatiquement les PII, adresses IP et secrets d'entreprise en amont (Hermes) et en aval (LiteLLM).
-- **Canal Microsoft Teams** : Bot interactif pour les échanges directs (`simple/auto`) et la délégation de missions autonomes (`/agent` → `agentic/auto`).
+- **Canal Microsoft Teams** : Bot interactif pour les échanges directs (`conversation`) et la délégation de missions autonomes (`/agent` → `mission`).
 
 Le contenu retrouvé est une preuve à citer, jamais une instruction de sécurité. Les services fixent les droits et classifications indépendamment du texte produit par le modèle. Les agents n’obtiennent ni privilège Kubernetes ni autorité implicite d’exécution.
 
@@ -39,8 +39,8 @@ L'accès repose sur l'authentification d'entreprise via Microsoft Entra ID (SSO 
 
 | Niveau cible | Lecture et partage | État déployé |
 |---|---|---|
-| **Utilisateurs Standards** | Accès Open-WebUI (`simple/*` + `agentic/*`) et Teams | Open-WebUI sur port 8080 avec persistance PVC 20Gi |
-| **Power Users** | Open-WebUI (`simple/*` + `agentic/*`) + Pod Hermes dédié | PVC 10Gi isolé (`/poweruser/<slug>/studio`) via `.\scripts\Spawn-PowerUser.ps1` |
+| **Utilisateurs Standards** | Accès Open-WebUI (`Simple` + `Agentic`) et Teams | Portail partagé ; sessions agentiques dans un pod/PVC privé par compte |
+| **Power Users** | Open-WebUI (`Simple` + `Agentic`) + Pod Hermes dédié | Même pod/PVC et personnalisation pour WebUI et Studio (`/poweruser/<slug>/studio`), provisionné via `.\scripts\Spawn-PowerUser.ps1` |
 | **Studio & Gateway** | Espace de pilotage Kanban et API pour Hermes Desktop | Hermes Studio sur port 9119 et Gateway sur port 8642 avec PVC 20Gi |
 | **Sortie Cloud** | Double barrière d'anonymisation systématique des flux externes | Presidio DLP sur port 8080 sollicité par Hermes et LiteLLM |
 | **Canaux Collaboratifs**| Bot Teams en direct message ou mention de canal | Teams Bot Adapter sur port 3978 |
@@ -52,7 +52,7 @@ Chaque instance Hermes conserve un propriétaire unique de son état SQLite pers
 ## 4. Parcours d’une demande
 
 1. **Identification** : L'utilisateur s'identifie via SSO Entra ID sur le portail ou Teams.
-2. **Routage Hybride** : Les demandes simples (`simple/*`) vont directement à LiteLLM ; les missions outillées (`agentic/*` ou `/agent`) sont prises en charge par Hermes Agent.
+2. **Routage Hybride** : Les demandes simples (`Simple`) vont directement à LiteLLM ; les missions outillées (`Agentic` ou `/agent`) sont prises en charge par Hermes Agent.
 3. **Consultation & Sobriété** : Hermes consulte les compétences requises (skills locales, analyse AST Graphify) et compresse les résultats volumineux via CCR/RTK.
 4. **Assainissement DLP** : Toute requête ou sortie d'outil passe par la double barrière Presidio DLP en mode fail-closed.
 5. **Inférence & Synthèse** : LiteLLM achemine la requête assainie vers le modèle approprié avec ZDR forcé et restitue la réponse.

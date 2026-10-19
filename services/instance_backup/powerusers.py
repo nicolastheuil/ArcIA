@@ -158,6 +158,8 @@ def reconcile_powerusers(cfg, runner, dry_run=False):
     if not isinstance(fqdn, str) or not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?", fqdn):
         raise ValueError("Hôte public des Power Users invalide.")
     from scripts.arcia_poweruser import render_manifest
+    from scripts.hermes_files import declared_users
+    protected_slugs = {user["poweruser_slug"] for user in declared_users(cfg) if user.get("poweruser_slug")}
     # Préparer tous les manifestes avant la première mutation externe.
     manifests = []
     for slug, record in sorted(records.items()):
@@ -172,9 +174,19 @@ def reconcile_powerusers(cfg, runner, dry_run=False):
         return len(manifests)
     for slug, record, manifest in manifests:
         try:
-            rc, _, _ = runner.run(["apply", "-f", "-"], stdin_input=manifest)
-            if rc:
-                raise RuntimeError()
+            existing = False
+            if slug in protected_slugs:
+                rc, output, _ = runner.run(["get", "deployment", "hermes-poweruser-" + slug, "-n", namespace,
+                                            "--ignore-not-found", "-o", "json"], timeout=20)
+                if rc:
+                    raise RuntimeError()
+                existing = bool(output.strip())
+                if existing and json.loads(output).get("metadata", {}).get("name") != "hermes-poweruser-" + slug:
+                    raise RuntimeError()
+            if not existing:
+                rc, _, _ = runner.run(["apply", "-f", "-"], stdin_input=manifest)
+                if rc:
+                    raise RuntimeError()
             rc, _, _ = runner.run(["exec", "-i", "deployment/litellm-proxy", "-n", namespace,
                                    "--", "python3"],
                                   stdin_input="import json\n" + _pat_registration_code(slug, record), timeout=60)

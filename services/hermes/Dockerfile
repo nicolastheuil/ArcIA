@@ -1,17 +1,11 @@
-FROM nousresearch/hermes-agent:v0.2.0
+FROM nousresearch/hermes-agent:v0.22.2
 
 LABEL org.opencontainers.image.title="ArcIA Hermes Agent Runtime"
-LABEL org.opencontainers.image.description="Hermes Agent with ArcIA Tokenmaxing (RTK, Headroom CCR, Graphify, Ponytail) and Presidio DLP"
-LABEL org.opencontainers.image.version="0.4.0"
+LABEL org.opencontainers.image.description="Hermes avec admission DLP obligatoire avant SQLite et inférence"
+LABEL org.opencontainers.image.version="0.6.0"
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl python3-pip jq procps ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Installation de RTK (Rust Token Killer) et Headroom CCR
-RUN curl -fsSL https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-unknown-linux-musl.tar.gz \
-    | tar -xz -C /usr/local/bin rtk && chmod +x /usr/local/bin/rtk || true
-RUN pip install --no-cache-dir headroom-ai || true
-
-COPY plugin.py /opt/hermes/plugins/plugin.py
-RUN chmod +x /opt/hermes/plugins/plugin.py
+COPY plugin.py runtime_guard.py bootstrap.py sitecustomize.py arcia_required.py arcia_governance.pth __init__.py plugin.yaml /opt/arcia-governance/
+COPY arcia_governance.pth /opt/hermes/.venv/lib/python3.14/site-packages/arcia_governance.pth
+ENV ARCIA_GOVERNANCE_REQUIRED=true PYTHONPATH=/opt/arcia-governance
+ENTRYPOINT ["python3", "/opt/arcia-governance/bootstrap.py"]
+CMD ["hermes", "gateway"]

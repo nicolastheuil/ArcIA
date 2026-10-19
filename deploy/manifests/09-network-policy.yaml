@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.2 — Politiques Réseau Kubernetes (NetworkPolicy Isolation)
+# ArcIA v0.6.0 — Politiques Réseau Kubernetes (NetworkPolicy Isolation)
 # ==============================================================================
 # Restreint les communications intra-cluster aux seuls flux légitimes et
 # interdit tout contournement du bouclier DLP Presidio et de LiteLLM.
@@ -87,6 +87,9 @@ spec:
           operator: In
           values: ["open-webui", "hermes-agent", "teams-bot-adapter"]
     - podSelector:
+        matchLabels:
+          arcia.io/component: hermes-files
+    - podSelector:
         matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
@@ -138,6 +141,9 @@ spec:
           operator: In
           values: ["litellm-proxy", "hermes-agent", "teams-bot-adapter"]
     - podSelector:
+        matchLabels:
+          arcia.io/component: hermes-files
+    - podSelector:
         matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
@@ -174,7 +180,7 @@ spec:
     - protocol: TCP
       port: 5432
 ---
-# Flux Open-WebUI : Communication vers LiteLLM et SSO Entra ID
+# Flux Open-WebUI : LiteLLM, relais privés et SSO Entra ID
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -190,10 +196,17 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: hermes-agent
+          arcia.io/component: hermes-files
     ports:
     - protocol: TCP
-      port: 8642
+      port: 8643
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: hermes-poweruser
+    ports:
+    - protocol: TCP
+      port: 8643
   - to:
     - podSelector:
         matchLabels:
@@ -201,6 +214,44 @@ spec:
     ports:
     - protocol: TCP
       port: 4000
+  - ports:
+    - protocol: TCP
+      port: 443
+---
+# Espaces de fichiers privés : seul Open-WebUI peut contacter le relais.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: arcia-hermes-files-policy
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels:
+      arcia.io/component: hermes-files
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: open-webui
+    ports:
+    - protocol: TCP
+      port: 8643
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm-proxy
+    ports:
+    - protocol: TCP
+      port: 4000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: presidio-dlp
+    ports:
+    - protocol: TCP
+      port: 8080
   - ports:
     - protocol: TCP
       port: 443
@@ -224,7 +275,7 @@ spec:
         matchExpressions:
         - key: app
           operator: In
-          values: ["open-webui", "teams-bot-adapter"]
+          values: ["teams-bot-adapter"]
     ports:
     - protocol: TCP
       port: 8642
@@ -319,12 +370,31 @@ spec:
   - Ingress
   - Egress
   ingress:
-  - ports:
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: [traefik, ingress-nginx]
+    ports:
     - protocol: TCP
       port: 9119
+  - from:
+    - podSelector:
+        matchLabels:
+          app: open-webui
+    ports:
     - protocol: TCP
-      port: 8642
+      port: 8643
   egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: presidio-dlp
+    ports:
+    - protocol: TCP
+      port: 8080
   - to:
     - podSelector:
         matchLabels:

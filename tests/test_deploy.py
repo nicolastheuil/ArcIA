@@ -42,7 +42,7 @@ class TestArcIADeploy(unittest.TestCase):
         self.assertNotIn("omniroute", cfg)
         self.assertEqual(cfg["kubernetes"]["namespace"], "arcia")
         self.assertEqual(cfg["network"]["public_fqdn"], "assistant.example.org")
-        self.assertEqual(cfg["llm_gateway"]["default_model"], "simple/auto")
+        self.assertEqual(cfg["llm_gateway"]["default_model"], "conversation")
 
     def test_parse_env_example(self):
         """Vérifie le parsing de arcia.env.example."""

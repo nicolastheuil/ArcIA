@@ -1,0 +1,27 @@
+# Fixture déterministe pour validate_config et --dry-run uniquement.
+# Valeurs inventées : aucun compte, modèle réel, accès réseau ou secret d'instance.
+# Le moteur refuse son déploiement effectif grâce au marqueur synthetic_validation.
+synthetic_validation: true
+infra_target: k8s_existing
+kubernetes:
+  mode: local
+  namespace: arcia-validation
+network:
+  public_fqdn: validation.invalid
+  tls_mode: disabled
+llm_gateway:
+  default_model: conversation-synthetique
+  models_routing:
+    - alias: conversation-synthetique
+      category: simple
+      provider: openai
+      target_model: openai/synthetic-model
+    - alias: mission-synthetique
+      category: agentic
+      provider: openai
+      target_model: openai/synthetic-model
+hermes:
+  admin_password: synthetic-not-a-credential
+  api_token: synthetic-not-a-token
+hermes_workspaces:
+  users: []

@@ -24,7 +24,7 @@ except ImportError:
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-app = FastAPI(title="ArcIA Presidio DLP Sanitizer", version="0.4.0")
+app = FastAPI(title="ArcIA Presidio DLP Sanitizer", version="0.6.0")
 
 # ==============================================================================
 # 1. Ephemeral In-Memory Vault for Reversible & Consistent Pseudonymization
@@ -86,6 +86,7 @@ class EphemeralVault:
                     "raw_to_token": {},
                     "token_to_raw": {},
                     "counters": {},
+                    "epoch": uuid.uuid4().hex.upper().translate(str.maketrans("0123456789", "GHIJKLMNOP")),
                     "created_at": now,
                     "updated_at": now,
                 }
@@ -102,6 +103,7 @@ class EphemeralVault:
                     "raw_to_token": {},
                     "token_to_raw": {},
                     "counters": {},
+                    "epoch": uuid.uuid4().hex.upper().translate(str.maketrans("0123456789", "GHIJKLMNOP")),
                     "created_at": now,
                     "updated_at": now,
                 }
@@ -114,7 +116,7 @@ class EphemeralVault:
             prefix = ENTITY_TOKEN_PREFIXES.get(entity_type, entity_type.upper()[:6])
             idx = session["counters"].get(prefix, 0) + 1
             session["counters"][prefix] = idx
-            token = f"[{prefix}_{idx:02d}]"
+            token = f"[{prefix}_{session['epoch']}_{idx:02d}]"
 
             session["raw_to_token"][raw_value] = token
             session["token_to_raw"][token] = raw_value
@@ -122,6 +124,7 @@ class EphemeralVault:
 
     def deanonymize(self, session_id: Optional[str], text: str, custom_tokens: Optional[Dict[str, str]] = None) -> Tuple[str, int]:
         with self._lock:
+            self._cleanup_unlocked(time.time())
             token_map: Dict[str, str] = {}
             if session_id and session_id in self._sessions:
                 token_map.update(self._sessions[session_id]["token_to_raw"])
@@ -129,12 +132,6 @@ class EphemeralVault:
             if custom_tokens:
                 token_map.update(custom_tokens)
 
-            # Résolution de secours sur les sessions récentes actives si des jetons [TYPE_NN] restent non résolus
-            if "[" in text and "]" in text:
-                for sid, sdata in sorted(self._sessions.items(), key=lambda item: item[1].get("updated_at", 0), reverse=True):
-                    for tok, raw in sdata.get("token_to_raw", {}).items():
-                        if tok not in token_map:
-                            token_map[tok] = raw
 
         if not token_map or not text:
             return text, 0
@@ -354,6 +351,12 @@ class SanitizeResponse(BaseModel):
     vault_tokens_count: int
 
 
+class BatchSanitizeRequest(BaseModel):
+    texts: List[str]
+    language: Optional[str] = "fr"
+    session_id: Optional[str] = None
+
+
 class DeanonymizeRequest(BaseModel):
     text: str
     session_id: Optional[str] = None
@@ -388,14 +391,28 @@ class AnonymizeRequest(BaseModel):
 @app.get("/healthz")
 def health():
     analyzer = get_analyzer()
+    if analyzer is None:
+        raise HTTPException(status_code=503, detail="DLP_ANALYZER_UNAVAILABLE")
     return {
         "status": "ok" if analyzer is not None else "degraded",
         "service": "presidio-dlp",
-        "version": "0.4.0",
+        "version": "0.6.0",
         "analyzer_ready": analyzer is not None,
         "active_vault_sessions": vault.active_sessions_count(),
         "deny_list_configured": bool(get_deny_list())
     }
+
+
+def reject_critical_infrastructure(text: str):
+    """Même rejet en amont Hermes et dans les deux endpoints aval LiteLLM."""
+    signatures = [*RAW_SECRET_DUMP_SIGNATURES, (CIDR_REGEX, "CIDR_NETWORK_DETECTED"),
+                  (MAC_REGEX, "MAC_ADDRESS_DETECTED"), (INTERNAL_HOSTNAME_REGEX, "INTERNAL_HOSTNAME_DETECTED")]
+    reason = next((reason for pattern, reason in signatures if pattern.search(text)), None)
+    if not reason and detect_kubeconfig_dump(text):
+        reason = "KUBECONFIG_DUMP_DETECTED"
+    if reason:
+        raise HTTPException(status_code=422, detail={"error": "FAIL_CLOSED_SECRET_REJECTED", "reason": reason,
+                            "message": "Donnée d’infrastructure interdite. Traitement local requis."})
 
 
 @app.post("/sanitize")
@@ -409,25 +426,7 @@ def sanitize(req: SanitizeRequest):
     # -------------------------------------------------------------------------
     strict_secrets = req.strict_secrets if req.strict_secrets is not None else True
     if strict_secrets and text:
-        for pattern, reason in RAW_SECRET_DUMP_SIGNATURES:
-            if pattern.search(text):
-                raise HTTPException(
-                    status_code=422,
-                    detail={
-                        "error": "FAIL_CLOSED_SECRET_REJECTED",
-                        "reason": reason,
-                        "message": "Fichier secret brut ou clé privée détecté. Requête rejetée pour traitement local."
-                    }
-                )
-        if detect_kubeconfig_dump(text):
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "error": "FAIL_CLOSED_SECRET_REJECTED",
-                    "reason": "KUBECONFIG_DUMP_DETECTED",
-                    "message": "Extraction kubeconfig détectée dans le payload. Requête rejetée pour traitement local."
-                }
-            )
+        reject_critical_infrastructure(text)
 
     # -------------------------------------------------------------------------
     # Couche 1B : Caviardage irréversible des secrets en ligne (Non-réhydratables)
@@ -556,7 +555,9 @@ def sanitize(req: SanitizeRequest):
     # Couche 2 : Analyse PII Sémantique NLP via Presidio (Personnes, etc.)
     # -------------------------------------------------------------------------
     analyzer = get_analyzer()
-    if analyzer and len(text) > 0:
+    if analyzer is None:
+        raise HTTPException(status_code=503, detail="DLP_ANALYZER_UNAVAILABLE")
+    if len(text) > 0:
         lang = req.language if req.language in ["fr", "en"] else "fr"
         try:
             results = analyzer.analyze(text=text, language=lang)
@@ -571,7 +572,7 @@ def sanitize(req: SanitizeRequest):
                     token = vault.get_or_assign_token(session_id, span_text, res.entity_type)
                     text = text[:res.start] + token + text[res.end:]
         except Exception:
-            pass
+            raise HTTPException(status_code=503, detail="DLP_ANALYSIS_FAILED") from None
 
     session_data = vault.get_or_create_session(session_id)
     tokens_count = len(session_data.get("token_to_raw", {}))
@@ -585,6 +586,17 @@ def sanitize(req: SanitizeRequest):
         "entities_detected": list(dict.fromkeys(entities_detected)),
         "vault_tokens_count": tokens_count
     }
+
+
+@app.post("/sanitize_batch")
+def sanitize_batch(req: BatchSanitizeRequest):
+    if len(req.texts) > 4096 or sum(len(text) for text in req.texts) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="DLP_BATCH_LIMIT")
+    if get_analyzer() is None:
+        raise HTTPException(status_code=503, detail="DLP_ANALYZER_UNAVAILABLE")
+    session_id = req.session_id or str(uuid.uuid4())
+    texts = [sanitize(SanitizeRequest(text=text, language=req.language, session_id=session_id, strict_secrets=True))["sanitized_text"] for text in req.texts]
+    return {"sanitized_texts": texts, "session_id": session_id}
 
 
 @app.post("/deanonymize")
@@ -605,7 +617,7 @@ def deanonymize(req: DeanonymizeRequest):
 @app.post("/anonymize")
 def anonymize(req: AnonymizeRequest):
     """Endpoint officiel consommé par LiteLLM Proxy guardrail pre_call."""
-    res = sanitize(SanitizeRequest(text=req.text, language="fr", strict_secrets=False))
+    res = sanitize(SanitizeRequest(text=req.text, language="fr", strict_secrets=True))
     return {"text": res["sanitized_text"], "items": []}
 
 
@@ -613,6 +625,7 @@ def anonymize(req: AnonymizeRequest):
 def analyze(req: AnalyzeRequest):
     """Endpoint standard d'analyse compatible LiteLLM guardrail (inclut regex, infra & NLP)."""
     text = req.text or ""
+    reject_critical_infrastructure(text)
     items: List[Dict[str, Any]] = []
 
     # Secrets
@@ -651,7 +664,9 @@ def analyze(req: AnalyzeRequest):
 
     # Presidio NLP
     analyzer = get_analyzer()
-    if analyzer and text:
+    if analyzer is None:
+        raise HTTPException(status_code=503, detail="DLP_ANALYZER_UNAVAILABLE")
+    if text:
         try:
             lang = req.language if req.language in ["fr", "en"] else "fr"
             results = analyzer.analyze(text=text, language=lang, entities=req.entities)
@@ -665,7 +680,7 @@ def analyze(req: AnalyzeRequest):
                     "score": r.score
                 })
         except Exception:
-            pass
+            raise HTTPException(status_code=503, detail="DLP_ANALYSIS_FAILED") from None
 
     return items
 
@@ -711,8 +726,8 @@ class DeanonymizingStreamBuffer:
         # garder uniquement à partir du dernier '[' si proche de la fin
         if "[" in self.buffer:
             last_bracket = self.buffer.rfind("[")
-            # Si le jeton partiel est plus long que 30 caractères, ce n'est probablement pas un de nos jetons
-            if len(self.buffer) - last_bracket > 30:
+            # Si le jeton partiel est plus long que 96 caractères, ce n'est probablement pas un de nos jetons
+            if len(self.buffer) - last_bracket > 96:
                 out_parts.append(self.buffer)
                 self.buffer = ""
             else:

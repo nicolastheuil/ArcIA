@@ -277,7 +277,7 @@ def sync_file_versions(filepath: Path, target_version: str, apply_changes: bool 
 
 def audit_version_consistency(apply_changes: bool = False) -> int:
     target_version = load_target_version()
-    print(f"[*] Version cible certifiée ArcIA : {target_version} (source : deploy/versions.json)")
+    print(f"[*] Version cible déclarée ArcIA : {target_version} (source : deploy/versions.json)")
 
     total_changes = 0
     mismatched_files = []

@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Automation-PowerShell_&_Python_3.11-6BE7DD?style=flat-square&logoColor=050712" alt="Automation">
   <img src="https://img.shields.io/badge/Updates-Zero--Downtime_Engine-FA7B4E?style=flat-square" alt="Zero-Downtime Engine">
 </p>
@@ -77,3 +77,7 @@ python scripts/arcia_keys.py create --user prenom.nom@example.org --profile powe
 
 * **[validate_docs.py](validate_docs.py)** : Vérifie que 100 % des liens Markdown internes et ancres HTML pointent vers des cibles valides suivies dans Git.
 * **[test-validation.sh](test-validation.sh)** : Exécute la suite de tests unitaires et les vérifications de conformité.
+
+## Isolation WebUI et recette des fichiers
+
+[hermes_files.py](hermes_files.py) réconcilie les associations privées des comptes, crée les espaces standards et raccorde les pods Power Users existants. [qualify_hermes_workspaces.py](qualify_hermes_workspaces.py) lance une recette des images officielles dans un namespace temporaire avec des données synthétiques et sans fournisseur cloud. Voir le [guide fonctionnel](../docs/guides/espaces-utilisateurs-webui.md).

@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.5.2-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🎨_Assets-Design_System-0C2762?style=flat-square" alt="Assets"></a>
   <img src="https://img.shields.io/badge/Teams_App-Manifest_v1.25-5B5FC7?style=flat-square&logo=microsoftteams&logoColor=white" alt="Teams Manifest">
 </p>

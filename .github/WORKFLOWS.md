@@ -16,3 +16,7 @@ Le workflow `validate.yml` garantit l'intégrité et la reproductibilité du soc
 2. **Qualification du moteur de déploiement (Dry-Run)** : Exécution de `scripts/deploy.py --dry-run` sur une configuration synthétique pour vérifier la génération des ressources.
 3. **Contrôle syntaxique des scripts Shell & PowerShell** : Vérification de syntaxe (`bash -n` et `Get-Command / Test-Path`) sur tous les scripts de déploiement.
 4. **Validation de documentation** : Vérification de tous les liens internes et ancres via `scripts/validate_docs.py`.
+
+## Fixture de validation
+
+La CI utilise [tests/fixtures/deploy.synthetic.yaml](../tests/fixtures/deploy.synthetic.yaml), sans réécrire un fichier de configuration à la racine. Les valeurs sont inventées, sans modèle réel ni secret d’instance. Son marqueur `synthetic_validation` interdit un déploiement effectif ; seul `--dry-run` l’accepte. Cette validation ne prouve pas un déploiement Kubernetes ni une recette navigateur.

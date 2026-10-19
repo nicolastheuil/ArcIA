@@ -1,8 +1,8 @@
 # Outillage d'ArcIA : moteur Hermes et compétences intégrées
 
-> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.6.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.5.2**.
+Ce guide décrit l'outillage intégré, les extensions et les compétences agentiques déployées dans l'instance Hermes d'**ArcIA v0.6.0**.
 
 ---
 

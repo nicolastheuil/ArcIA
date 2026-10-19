@@ -1,23 +1,22 @@
-# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.5.2)
+# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.6.0)
 
-> **Statut : Implémenté (v0.5.2)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
+> **Statut : Implémenté (v0.6.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
-LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les composants de la plateforme ArcIA (Open-WebUI en flux directs `simple/*`, Hermes Agent pour les flux `agentic/*`, Bot Teams, ainsi que les pods dédiés des Power Users).
+LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les composants de la plateforme ArcIA (Open-WebUI en flux directs `Simple`, Hermes Agent pour les flux `Agentic`, Bot Teams, ainsi que les pods dédiés des Power Users).
 
 ---
 
-## 1. Rôles et architecture v0.5.2
+## 1. Rôles et architecture v0.6.0
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
    - Applique la **Barrière 2 DLP Presidio** en interception pré-appel (`pre_call`, `default_on: true`) sur 100 % des requêtes.
    - Force la **Zéro Rétention de Données (ZDR)** (`extra_body: {provider: {zdr: true}}`) et l'harmonisation des paramètres (`drop_params: true`).
-2. **Catalogue Unifié des Profils Canoniques** :
-   - **`simple/free`** : Découverte et qualification sans coût via OpenRouter Free (`openrouter/openrouter/free`).
-   - **`simple/auto`** *(Défaut)* : Routage automatique intelligent équilibrant performance et coût (`openrouter/auto`).
-   - **`openrouter/deepseek/deepseek-v4.1-flash`** : Moteur haute performance propulsant le profil **`agentic/expert`** exposé par Hermes Agent.
-   - **`openrouter/*`** : Route générique avec ZDR forcé permettant la sélection dynamique de modèles par les profils autorisés.
-   > **Note d'agnosticisme & Souscriptions :** ArcIA est un harness d'entreprise agnostique. Ces profils constituent un contrat d'interface virtuel que chaque instance mappe vers ses fournisseurs souscrits (OpenRouter, Azure OpenAI, AWS Bedrock, Mistral AI) ou ses serveurs GPU on-premise (`local_vllm_endpoint`).
+2. **Catalogue administré par instance** :
+   - Les noms et les fournisseurs des modèles sont libres et déclarés dans le wizard.
+   - Les modèles **Simple** relient directement Open-WebUI à LiteLLM.
+   - Les modèles **Agentic** sont exécutés dans Hermes ; Hermes utilise ensuite LiteLLM pour ses inférences.
+   - Le champ `category` choisit ce parcours, sans convention de préfixe.
 3. **Persistance Relationnelle & Base Comptable (`litellm-db`)** :
    - Base de données PostgreSQL 16 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
    - Gestion des budgets d'équipes et des **clés virtuelles nominatives (PAT)** ([scripts/arcia_keys.py](../../scripts/arcia_keys.py)).
@@ -35,14 +34,14 @@ Le service est déployé via :
 
 ---
 
-## 3. Configuration du routage v0.5.2
+## 3. Configuration du routage v0.6.0
 
-Le ConfigMap `litellm-config` ([05-litellm.yaml](../../deploy/manifests/05-litellm.yaml)) définit la matrice de modèles et le guardrail Presidio :
+Le déploiement génère le ConfigMap `litellm-config` à partir du catalogue administré. Le manifeste [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) fournit le socle et le guardrail Presidio. Voici un exemple de structure avec des noms libres :
 
 ```yaml
 model_list:
   # 1. Palier Simple Gratuit
-  - model_name: "simple/free"
+  - model_name: "conversation-econome"
     litellm_params:
       model: openrouter/openrouter/free
       api_key: os.environ/OPENROUTER_API_KEY
@@ -51,7 +50,7 @@ model_list:
           zdr: true
 
   # 2. Palier Simple Auto (Défaut)
-  - model_name: "simple/auto"
+  - model_name: "conversation"
     litellm_params:
       model: openrouter/auto
       api_key: os.environ/OPENROUTER_API_KEY
@@ -59,7 +58,7 @@ model_list:
         provider:
           zdr: true
 
-  # 3. Modèle Expert DeepSeek V4.1 Flash (propulse agentic/expert)
+  # 3. Modèle Expert DeepSeek V4.1 Flash (propulse mission-experte)
   - model_name: "openrouter/deepseek/deepseek-v4.1-flash"
     litellm_params:
       model: openrouter/deepseek/deepseek-v4.1-flash
@@ -88,30 +87,30 @@ guardrails:
 
 router_settings:
   fallbacks:
-    - "simple/free": ["simple/auto"]
-    - "simple/auto": ["openrouter/deepseek/deepseek-v4.1-flash"]
-    - "openrouter/deepseek/deepseek-v4.1-flash": ["simple/auto"]
+    - "conversation-econome": ["conversation"]
+    - "conversation": ["openrouter/deepseek/deepseek-v4.1-flash"]
+    - "openrouter/deepseek/deepseek-v4.1-flash": ["conversation"]
   model_group_alias:
     "arcia/free":
-      model: "simple/free"
+      model: "conversation-econome"
       hidden: true
     "arcia/auto":
-      model: "simple/auto"
+      model: "conversation"
       hidden: true
     "arcia/expert":
       model: "openrouter/deepseek/deepseek-v4.1-flash"
       hidden: true
     "arcia/standard":
-      model: "simple/auto"
+      model: "conversation"
       hidden: true
     "arcia/reasoning":
       model: "openrouter/deepseek/deepseek-v4.1-flash"
       hidden: true
     "auto":
-      model: "simple/auto"
+      model: "conversation"
       hidden: true
     "hermes-agent":
-      model: "simple/auto"
+      model: "conversation"
       hidden: true
 
 general_settings:
@@ -228,7 +227,7 @@ LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([service
 | Cause technique sous-jacente | Statut HTTP | Message convivial affiché dans Open-WebUI / Teams |
 | :--- | :---: | :--- |
 | **Quota / Solde épuisé** (`Key limit exceeded`, `daily limit`) | 429 | ⚠️ **Quota d'inférence atteint** : La limite journalière d'utilisation ou le solde de crédits de la clé d'API fournisseur a été atteint. Veuillez contacter votre administrateur ArcIA ou patienter jusqu'à la réinitialisation du quota. |
-| **Incompatibilité ZDR** (`Zero data retention`, modèle gratuit) | 400 | 🔒 **Politique de confidentialité (ZDR)** : Aucun modèle public gratuit ne garantit actuellement le Zéro Rétention de Données (ZDR) exigé par la gouvernance de sécurité ArcIA. Veuillez sélectionner le profil standard `simple/auto` ou un profil agentique qualifié. |
+| **Incompatibilité ZDR** (`Zero data retention`, modèle gratuit) | 400 | 🔒 **Politique de confidentialité (ZDR)** : Aucun modèle public gratuit ne garantit actuellement le Zéro Rétention de Données (ZDR) exigé par la gouvernance de sécurité ArcIA. Veuillez sélectionner le profil standard `conversation` ou un profil agentique qualifié. |
 | **Blocage DLP Presidio** (`FAIL_CLOSED_SECRET_REJECTED`) | 422 | 🛡️ **Bouclier DLP ArcIA (Fail-Closed)** : Votre message a été bloqué par mesure de protection souveraine car il contient des secrets d'infrastructure sensibles (clé privée SSH/PEM, kubeconfig ou token). Aucune donnée n'a été transmise vers l'extérieur. |
 | **Surcharge fournisseur** (`RateLimitError`, `429`) | 429 | ⏳ **Service momentanément surchargé** : Le fournisseur de modèles d'IA fait face à une forte affluence. Veuillez patienter quelques instants avant de relancer votre demande. |
 | **Dépassement de contexte** (`ContextWindowExceededError`) | 400 | 📄 **Message trop volumineux** : Votre échange dépasse la capacité de contexte maximale acceptée par ce modèle. Veuillez raccourcir votre message ou démarrer une nouvelle conversation. |
@@ -241,5 +240,5 @@ LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([service
 Voir également :
 - [Chaîne de routage complète et cycle de vie d'une requête](chaine-de-routage.md)
 - [Gouvernance et confidentialité Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.5.2](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.6.0](../etat-des-fonctionnalites.md)
 - [Quickstart et configuration pratique](../runbooks/quickstart.md)

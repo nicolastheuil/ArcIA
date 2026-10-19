@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/ArcIA-v0.5.2-1659E4.svg" alt="ArcIA Version"></a>
+  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/ArcIA-v0.6.0-1659E4.svg" alt="ArcIA Version"></a>
   <a href="docs/runbooks/quickstart.md"><img src="https://img.shields.io/badge/Setup%20Wizard-3%20Options%20%26%20Zero--Downtime-6BE7DD.svg?style=flat-square&logo=powershell&logoColor=050712" alt="Setup Wizard"></a>
   <a href="docs/guides/deploiement-universel.md"><img src="https://img.shields.io/badge/Kubernetes-Any%20Cluster-326CE5.svg?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
   <a href="docs/guides/portail-webui-entraid.md"><img src="https://img.shields.io/badge/Portail-Open--WebUI-10B981.svg?style=flat-square&logo=chat&logoColor=white" alt="Open-WebUI"></a>
@@ -45,38 +45,38 @@ Chaque brique majeure d'ArcIA fait l'objet d'un guide technique dédié :
 
 ### 💬 1. Interfaces collaborateurs et routage hybride
 * **Portail Web d'entreprise (Open-WebUI)** : Interface conversationnelle avec gestion documentaire RAG (ChromaDB), authentification SSO Microsoft Entra ID (OIDC / OAuth2-Proxy) et double raccordement d'infrastructure :
-  * **Flux directs (`simple/*`)** : connectés à LiteLLM (`:4000/v1`) pour les échanges rapides sans latence de boucle agentique.
-  * **Flux agentiques (`agentic/*`)** : connectés à Hermes Agent (`:8642/v1`) pour les missions complexes nécessitant outils, code, skills et mémoire persistante.
-  * *Gouvernance* : connexions directes navigateur désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), garantissant le passage de 100 % des flux par le bouclier DLP et la passerelle d'entreprise.  
+  * **Modèles Simple** : connectés à LiteLLM (`:4000/v1`) pour les échanges rapides sans latence de boucle agentique.
+  * **Modèles Agentic** : transmis au pod Hermes privé du compte, via le relais `:8643` puis sa gateway locale `:8642/v1` pour les missions complexes nécessitant outils, code, skills et mémoire persistante.
+  * *Gouvernance* : connexions directes navigateur désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), garantissant le passage de 100 % des flux par le bouclier DLP et la passerelle d'entreprise.
   👉 *Détail complet :* [Guide Portail Open-WebUI & Entra ID](docs/guides/portail-webui-entraid.md)
-* **Intégration Microsoft Teams native** : Bot applicatif Bot Framework permettant d'interagir avec ArcIA en conversation privée (DM 1:1) ou par mention `@ArcIA` dans les canaux d'équipe (`simple/auto` en réponse rapide, ou commande `/agent <mission>` routée vers `agentic/auto`).  
+* **Intégration Microsoft Teams native** : Bot applicatif Bot Framework permettant d'interagir avec ArcIA en conversation privée (DM 1:1) ou par mention `@ArcIA` dans les canaux d'équipe (modèle Simple en réponse rapide, ou commande `/agent <mission>` vers Hermes).
   👉 *Détail complet :* [Guide Intégration Microsoft Teams](docs/guides/integration-teams.md)
 
 ### 🤖 2. Moteur d'agents autonomes Hermes et pods dédiés power users
 * **Hermes Studio (Kanban port 9119)** : Tableau de bord visuel protégé par SSO Entra ID pour suivre en direct les réflexions (Chain of Thought), les appels d'outils et la planification multi-étapes.
 * **Hermes Gateway (API et WebSocket port 8642)** : Serveur API compatible OpenAI pour les sessions agentiques Open-WebUI, le bot Teams et le client lourd **Hermes Desktop**.
-* **Pods Hermes dédiés pour power users** (`.\scripts\Spawn-PowerUser.ps1`) : Chaque power user dispose de son propre pod Hermes sur Kubernetes avec un PVC isolé de `10Gi`, sa propre `SOUL.md` et son Studio Kanban personnel (`/poweruser/<slug>/studio`).  
+* **Pods Hermes dédiés pour power users** (`.\scripts\Spawn-PowerUser.ps1`) : Chaque power user dispose de son propre pod Hermes sur Kubernetes avec un PVC isolé de `10Gi`, sa propre `SOUL.md` et son Studio Kanban personnel (`/poweruser/<slug>/studio`).
   👉 *Détail complet :* [Guide Hermes Agent & Mode Power User](docs/guides/hermes-agent.md)
 
 ### ⚡ 3. Passerelle d'inférence et routage dynamique des modèles
-* **Routage universel entièrement configurable** : Aucun modèle n'est figé. L'administrateur définit librement à l'installation ses fournisseurs (OpenRouter, OpenAI, Mistral, Anthropic, Gemini, ou cluster GPU local vLLM/Ollama), ses alias métier (`simple/*`, `agentic/*`) et ses modèles cibles.
+* **Routage universel entièrement configurable** : Aucun modèle n'est figé. L'administrateur définit librement à l'installation ses fournisseurs (OpenRouter, OpenAI, Mistral, Anthropic, Gemini, ou cluster GPU local vLLM/Ollama), ses noms de modèles libres, leurs catégories Simple ou Agentic et ses modèles cibles.
 * **Contrôle granulaire du Zéro Rétention de Données (ZDR)** : Injection ciblée de la directive ZDR (`provider: { zdr: true }`) modèle par modèle.
-* **LiteLLM Proxy (port 4000) et base comptable (`litellm-db`)** : Équilibrage de charge, chaînes de fallback automatiques, quotas par équipe et suivi unifié des coûts.  
+* **LiteLLM Proxy (port 4000) et base comptable (`litellm-db`)** : Équilibrage de charge, chaînes de fallback automatiques, quotas par équipe et suivi unifié des coûts.
   👉 *Détail complet :* [Guide inférence LiteLLM](docs/guides/inference-litellm.md) · [Guide chaîne de routage](docs/guides/chaine-de-routage.md)
 
 ### 🛡️ 4. Gouvernance, double barrière DLP et sécurité
 * **Double barrière Presidio DLP durcie en 4 couches (port 8080)** :
-  * **Barrière 1 (Amont — Hermes Agent)** : Le plugin de gouvernance (`services/hermes/plugin.py`) filtre et pseudonymise via `/sanitize` *avant* écriture dans `state.db` et *avant* appel LLM, avec ré-hydratation inverse transparente (`/deanonymize`).
-  * **Barrière 2 (Aval — LiteLLM Proxy)** : Guardrail natif obligatoire en interception pré-inférence (`pre_call`, `default_on: true`) via `/analyze` et `/anonymize` pour 100 % des flux traversant la passerelle (`simple/*`, Teams, `/v1`).
+  * **Barrière 1 (Amont — Hermes Agent)** : Le code de gouvernance (`services/hermes/plugin.py`) expose les fonctions de filtrage et de pseudonymisation via `/sanitize` *avant* écriture dans `state.db` et *avant* appel LLM, avec ré-hydratation inverse (`/deanonymize`). Le branchement natif avant SQLite reste une condition non satisfaite de qualification de sécurité ; voir l’[état réel](docs/etat-des-fonctionnalites.md).
+  * **Barrière 2 (Aval — LiteLLM Proxy)** : Guardrail natif obligatoire en interception pré-inférence (`pre_call`, `default_on: true`) via `/analyze` et `/anonymize` pour 100 % des flux traversant la passerelle (`Simple`, Teams, `/v1`).
   * **4 couches on-premise CPU** : Couche 1 Déterministe (rejet fail-closed 422 sur clés PEM/SSH et kubeconfig, infra CIDR/MAC/FQDN), Couche 2 NER & Deny-Lists dynamiques (`FR_NIR`, `FR_SIRET`), Couche 3 Pseudonymisation cohérente réversible via Stateful Vault éphémère in-memory (0 écriture disque), Couche 4 Relais LiteLLM verrouillé en Zero Data Retention (`zdr: true`, `data_collection: deny`, `allow_fallbacks: false`).
-* **Mode fail-closed et ZDR forcé** : En cas d'indisponibilité ou d'erreur DLP, la requête est immédiatement bloquée net.  
+* **Mode fail-closed et ZDR forcé** : En cas d'indisponibilité ou d'erreur DLP, la requête est immédiatement bloquée net.
   👉 *Détail complet :* [Guide confidentialité Presidio DLP](docs/guides/confidentialite-presidio.md) · [Politique de sécurité](docs/guides/securite.md)
 
 ### 🗜️ 5. Sobriété tokenmaxing et outillage
 * **CCR (Compress-Cache-Retrieve)** : Compression réversible des fichiers et sorties JSON volumineuses (> 8 Ko) avec cache mémoire SHA-256 privé et restitution paginée à la demande (`arcia_compress_json_file`, `arcia_restore_tool_result`).
 * **RTK (Rust Token Killer)** : Réécriture et compaction bornée des commandes `git log` verbeuses.
 * **Graphify (GraphRAG local déterministe)** : Cartographie structurelle AST de bases de code en local (0 token consommé, 0 fuite de code vers le cloud).
-* **Sobriété Ponytail** : Échelle de décision YAGNI évitant l'over-engineering agentique.  
+* **Sobriété Ponytail** : Échelle de décision YAGNI évitant l'over-engineering agentique.
   👉 *Détail complet :* [Guide tokenmaxing](docs/guides/tokenmaxing.md) · [Guide outillage builder](docs/guides/outillage-builder.md) · [Guide skills](docs/guides/skills.md)
 
 ---
@@ -122,12 +122,12 @@ La plateforme ArcIA repose sur une **séparation stricte en deux profils utilisa
 
 | Profil | Environnements et canaux | Rôle et capacités | Isolation et persistance | Gouvernance et DLP |
 |---|---|---|---|---|
-| **Utilisateur standard** | **Open-WebUI** (`/`) + **Microsoft Teams** | Dialogue interactif, recherche documentaire RAG et exécution de tâches agentiques selon le catalogue configuré par l'admin | Sessions Open-WebUI et agent Hermes partagé | SSO Entra ID + Double barrière DLP fail-closed |
+| **Utilisateur standard** | **Open-WebUI** (`/`) + **Microsoft Teams** | Dialogue interactif, recherche documentaire RAG et exécution de tâches agentiques selon le catalogue configuré par l'admin | Sessions WebUI, pod et PVC Hermes privés par compte (Teams conserve son parcours distinct) | SSO Entra ID + Double barrière DLP fail-closed |
 | **Power user** | **Open-WebUI** (`/`) + **Pod Hermes dédié** (`/poweruser/<slug>/studio`) | Autonomie agentique complète, kanban studio personnel, outillage étendu, code Python et personnalisation de `SOUL.md` | Pod Kubernetes dédié + PVC isolé `10Gi` + mémoire `state.db` propre | SSO Entra ID + Double barrière DLP + Quotas dédiés |
 
 ### Liberté totale de configuration pour l'administrateur
 * **Définition dynamique des modèles** : L'administrateur configure à l'installation ses clés de fournisseurs (OpenRouter, OpenAI, Mistral, Anthropic, Gemini, ou endpoint local vLLM/Ollama).
-* **Cartographie des alias métier** : Les alias canoniques (ex: `simple/auto`, `agentic/auto`, `agentic/expert`) ou personnalisés sont mappés sur les modèles réels choisis par l'organisation, avec validation de connectivité en direct.
+* **Cartographie des alias métier** : Les noms de modèles définis par l’organisation sont mappés sur les modèles réels choisis par l'organisation, avec validation de connectivité en direct.
 * **Gouvernance granulaire ZDR** : La politique Zéro Rétention de Données (`zdr: true`) s'applique indépendamment par modèle.
 
 👉 *Documentation détaillée :* [Guide Chaîne de Routage](docs/guides/chaine-de-routage.md) · [Guide Hermes Agent & Power Users](docs/guides/hermes-agent.md)
@@ -225,8 +225,14 @@ python scripts/validate_docs.py
 
 ## 📄 Licence et crédits
 
-Développé pour la plateforme d'entreprise **ArcIA**.  
-* Moteur d'agents basé sur [Hermes Agent](https://github.com/NousResearch/Hermes-Agent) (NousResearch).  
-* Caviardage DLP propulsé par [Microsoft Presidio](https://github.com/microsoft/presidio).  
-* Passerelle d'inférence propulsée par [LiteLLM](https://github.com/BerriAI/litellm).  
+Développé pour la plateforme d'entreprise **ArcIA**.
+* Moteur d'agents basé sur [Hermes Agent](https://github.com/NousResearch/Hermes-Agent) (NousResearch).
+* Caviardage DLP propulsé par [Microsoft Presidio](https://github.com/microsoft/presidio).
+* Passerelle d'inférence propulsée par [LiteLLM](https://github.com/BerriAI/litellm).
 * Portail collaborateur propulsé par [Open-WebUI](https://github.com/open-webui/open-webui).
+
+## Configuration et validation
+
+Le seul patron de déploiement public est [arcia.config.yaml.example](arcia.config.yaml.example). La configuration réelle `arcia.config.yaml` est privée et ignorée par Git. Les [fixtures synthétiques](tests/fixtures/deploy.synthetic.yaml) vivent avec les tests ; le moteur refuse leur déploiement réel. Elles ne contiennent aucun accès ni choix de modèle d’instance.
+
+Le [guide des espaces utilisateurs WebUI](docs/guides/espaces-utilisateurs-webui.md) décrit l’isolation des sessions et fichiers par compte ainsi que le raccordement d’un Power User à son pod Studio existant. Les niveaux de qualification sont consignés dans l’[état des fonctionnalités](docs/etat-des-fonctionnalites.md).

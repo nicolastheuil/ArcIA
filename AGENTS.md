@@ -4,10 +4,10 @@ Tu construis le harness réel et son déploiement reproducible depuis ce projet.
 ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents, LiteLLM sa passerelle d'inférence unifiée, Microsoft Presidio son bouclier DLP fail-closed et Open-WebUI son portail collaborateur hybride. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance privé.
 
 ## Sources à lire avant de modifier ou déployer
-1. [docs/architecture.md](docs/architecture.md) — Spécification d'architecture v0.4, topologie des pods et flux réseau.
+1. [docs/architecture.md](docs/architecture.md) — Spécification d'architecture v0.6.0, topologie des pods et flux réseau.
 2. [docs/runbooks/quickstart.md](docs/runbooks/quickstart.md) — Guide pas-à-pas de déploiement et parcours du Setup Wizard.
 3. [docs/guides/deploiement-universel.md](docs/guides/deploiement-universel.md) — Déploiement universel sur Kubernetes et paramètres de configuration.
-4. [docs/etat-des-fonctionnalites.md](docs/etat-des-fonctionnalites.md) — Tableau de bord de traçabilité et état réel des fonctionnalités v0.4.
+4. [docs/etat-des-fonctionnalites.md](docs/etat-des-fonctionnalites.md) — Tableau de bord de traçabilité et état réel des fonctionnalités v0.6.0.
 5. [docs/guides/confidentialite-presidio.md](docs/guides/confidentialite-presidio.md) — Double barrière DLP, rejet fail-closed et ZDR.
 
 ## Cibles d'infrastructure et déploiement
@@ -18,11 +18,12 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 
 ## Profils utilisateurs et routage hybride
 - **Deux profils utilisateurs stricts** :
-  - **Utilisateur Standard** : Accès au portail Open-WebUI (`/`) et au bot Microsoft Teams (`simple/auto` en direct, `/agent` vers Hermes `agentic/auto`).
+  - **Utilisateur Standard** : Accès au portail Open-WebUI (`/`) et au bot Microsoft Teams (modèle Simple en direct, `/agent` vers un modèle Agentic dans Hermes).
   - **Power User** : Accès complet à Open-WebUI + instance Hermes Agent en Pod dédié sur Kubernetes (`/poweruser/<slug>/studio` avec volume persistant `10Gi` isolé et `SOUL.md` personnalisée), provisionnée via `.\scripts\Spawn-PowerUser.ps1`.
-- **Catalogue canonique des 5 profils** :
-  - `simple/free` et `simple/auto` : flux directs vers LiteLLM Proxy (`:4000/v1`) sans latence de boucle agentique.
-  - `agentic/free`, `agentic/auto` et `agentic/expert` : sessions agentiques autonomes vers Hermes Agent (`:8642/v1`).
+- **Deux catégories de modèles, avec des noms libres définis par l’instance** :
+  - **Simple** : flux entre Open-WebUI et LiteLLM Proxy (`:4000/v1`).
+  - **Agentic** : tâches transmises depuis Open-WebUI à Hermes privé ; accès direct dans Hermes pour les Power Users.
+  - Le champ `category` détermine le routage ; aucun préfixe de nom ni nombre fixe de modèles n’est requis.
 - **Un seul propriétaire actif par état Hermes** : aucun partage d'écriture de `state.db`.
 
 ## Travail autorisé et progression
@@ -34,7 +35,8 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 
 ## Gouvernance, confidentialité et double barrière DLP
 - **Double Barrière Presidio DLP Fail-Closed obligatoire** :
-  - **Barrière 1 (Amont / Hermes Agent)** : `services/hermes/plugin.py` appelle `/sanitize` sur `presidio-dlp:8080` avant toute persistance SQLite (`state.db`) et avant tout appel LLM, avec ré-hydratation inverse `/deanonymize`.
+  - **Barrière 1 (Amont / Hermes Agent)** : `services/hermes/plugin.py` appelle `/sanitize` et `/sanitize_batch` sur `presidio-dlp:8080` avant toute persistance SQLite (`state.db`) et avant tout appel LLM, avec ré-hydratation inverse `/deanonymize`.
+  - **Chargement obligatoire Hermes** : bootstrap et ancrage `.pth` en lecture seule dans le Python embarqué ; une réinitialisation native de `PYTHONPATH` ne doit jamais supprimer les contrôles. Une évolution de l’image impose de requalifier cet ancrage, SQLite, les outils, le transport LLM et la panne DLP.
   - **Barrière 2 (Aval / LiteLLM Proxy)** : Guardrail `pre_call` systématique (`default_on: true`) interceptant 100 % des flux sortants vers les LLM via `/analyze` et `/anonymize`.
   - **Rejet Fail-Closed** : Rejet immédiat (erreur 422) sur détection de secrets d'infrastructure (clés PEM/SSH, kubeconfig, CIDR/MAC/FQDN) ou en cas d'indisponibilité du service DLP.
 - **Zéro Rétention de Données (ZDR)** : Option `extra_body: { provider: { zdr: true } }` injectée sur toutes les inférences cloud (OpenRouter).
@@ -75,10 +77,10 @@ ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son m
 - Reporter toute correction manuelle dans Git avant livraison.
 - Configs privées et sauvegardes : dépôts séparés protégés.
 - **Contrôles obligatoires avant toute livraison ou commit** :
-  1. **Suite de tests unitaires & DLP** : `python -m unittest discover -s tests -v` (104 tests passants).
+  1. **Suite de tests unitaires & DLP** : `python -m unittest discover -s tests -v` (résultat à relever à chaque exécution).
   2. **Validation documentaire exhaustive** : `python scripts/validate_docs.py` (vérification de 100 % des liens et ancres internes sans erreur).
   3. **Validation syntaxique des scripts** : PowerShell (`scripts/*.ps1`) et Bash (`bash -n scripts/*.sh`).
-  4. **Simulation de déploiement (Dry-Run)** : `python scripts/deploy.py --config ci.config.yaml --dry-run` ou `.\scripts\Deploy-ArcIA.ps1 -DryRun`.
+  4. **Simulation de déploiement (Dry-Run)** : `python scripts/deploy.py --config tests/fixtures/deploy.synthetic.yaml --dry-run` ou `.\scripts\Deploy-ArcIA.ps1 -ConfigFile tests/fixtures/deploy.synthetic.yaml -DryRun`. Cette fixture est non déployable ; seule la configuration privée d'instance vise un environnement réel.
 - **Règle d'or de vérité** : Résultats distingués : proposé, codé, déployé, vérifié. **Ne jamais annoncer un test non exécuté.**
 - Une release installable exige recette et rebuild sur cluster neuf en mode sûr.
 

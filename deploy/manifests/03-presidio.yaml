@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.5.2 — Presidio DLP Sanitizer (Fail-Closed PII & Secrets Shield)
+# ArcIA v0.6.0 — Presidio DLP Sanitizer (Fail-Closed PII & Secrets Shield)
 # Code source unique : services/presidio/app.py (injecté via ConfigMap presidio-code
 # par scripts/deploy.py ou kubectl apply -k deploy/manifests)
 # ==============================================================================
@@ -35,9 +35,7 @@ spec:
         - /bin/sh
         - -c
         - |
-          pip install --no-cache-dir fastapi uvicorn pydantic presidio-analyzer presidio-anonymizer spacy && \
-          python -m spacy download fr_core_news_sm && \
-          python -m spacy download en_core_web_sm && \
+          pip install --no-cache-dir -r /app/requirements.txt && \
           uvicorn app:app --host 0.0.0.0 --port 8080
         ports:
         - containerPort: 8080

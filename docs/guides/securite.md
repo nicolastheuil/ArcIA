@@ -1,24 +1,27 @@
-# Sécurité et gouvernance des données — ArcIA v0.5.2
+# Sécurité et gouvernance des données — ArcIA v0.6.0
 
-Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.5.2**.
+Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.6.0**.
 
 ---
 
 ## 1. Frontières et niveaux de contrôle
 
-| Frontière | Mécanisme de Protection Déployé | Garanties Apportées |
+| Frontière | Mesure du socle | Portée du contrôle |
 |---|---|---|
-| **Périmètre HTTPS** | Certificats Let's Encrypt automatiques via Cert-Manager et Ingress Controller | Chiffrement TLS de bout en bout, renouvellement automatisé |
+| **Périmètre HTTPS** | Certificats Let's Encrypt via Cert-Manager et Ingress Controller | TLS entre navigateur et Ingress ; les flux internes HTTP nécessitent une protection supplémentaire si le chiffrement interne est requis |
 | **Authentification Utilisateurs** | Middleware ForwardAuth couplé à OAuth2-Proxy et Microsoft Entra ID | Accès conditionné au compte d'entreprise, MFA et gestion centralisée des identités |
-| **Gouvernance DLP (Cloud)** | Double barrière Presidio DLP (`presidio-dlp.arcia.svc:8080`) en mode **Fail-Closed** | Caviardage systématique des emails, téléphones, cartes, IPs, IBAN, mots de passe et API keys en amont (Hermes) et en aval (LiteLLM) |
-| **Passerelle d'Inférence** | LiteLLM Proxy (`litellm-proxy.arcia.svc:4000`) adossé à PostgreSQL 16 | Abstraction complète des clés d'API fournisseurs, quotas, équilibrage, 5 profils canoniques et Zero Data Retention (ZDR) forcé |
+| **Gouvernance DLP** | Barrière aval LiteLLM et fonctions Presidio ; barrière interne Hermes exigée | L’interception native avant SQLite n’est pas qualifiée : condition non satisfaite pour une recette de sécurité complète |
+| **Passerelle d'Inférence** | LiteLLM Proxy (`litellm-proxy.arcia.svc:4000`) adossé à PostgreSQL 16 | Abstraction complète des clés d'API fournisseurs, quotas, équilibrage, modèles administrés et Zero Data Retention (ZDR) forcé |
+| **Isolation agentique WebUI** | Identité issue de la session authentifiée, association serveur, pod et PVC distincts par compte | Standard privé ; Power User raccordé à son pod existant ; refus sans association ; aucun accès aux fichiers d’un autre compte par copie de lien |
 | **Isolation Power Users** | Pods Hermes dédiés par Power User (`.\scripts\Spawn-PowerUser.ps1`) + Ingress `/v1` avec RateLimit | Conteneur et PVC `10Gi` isolés par Power User, jeton PAT nominatif et budget mensuel suivi dans PostgreSQL |
 | **Persistance des Agents** | Volumes PVC dédiés `ReadWriteOnce` | Étanchéité des états `state.db` SQLite, aucun partage multi-écrivain non contrôlé |
-| **Clés Privées et Secrets** | Chiffrement natif des Secrets Kubernetes (`arcia-env-secret`, `litellm-secret`) | Aucune clé d'API ni mot de passe n'est stocké dans Git ou injecté en clair dans le code |
+| **Clés privées et Secrets** | Références aux Secrets Kubernetes, sans valeur dans le dépôt public | La protection des Secrets dépend du RBAC et du chiffrement au repos configuré sur le cluster ; leur encodage Kubernetes ne constitue pas un chiffrement |
 
 ---
 
 ## 2. Cycle de traitement des données et préservation de la confidentialité
+
+Le schéma ci-dessous décrit la cible de confidentialité. La barrière native Hermes reste à brancher et à qualifier, comme indiqué dans l’[état réel](../etat-des-fonctionnalites.md). Les [schémas WebUI–Hermes](espaces-utilisateurs-webui.md) décrivent séparément les chemins Simple, Agentic, standards et Power Users.
 
 ```mermaid
 flowchart LR
@@ -46,3 +49,8 @@ flowchart LR
 - **Recette d'Exploitation** : Le script `scripts/test-validation.sh` valide la santé des composants critiques et le bon fonctionnement du caviardage Presidio en conditions réelles.
 
 Voir également : [Gouvernance Presidio DLP](confidentialite-presidio.md) · [Inférence LiteLLM](inference-litellm.md) · [Infrastructure Kubernetes](infrastructure-k3s.md) · [État des Fonctionnalités](../etat-des-fonctionnalites.md).
+
+
+## Droits sur les fichiers et les environnements WebUI
+
+Le [guide des espaces privés](espaces-utilisateurs-webui.md) décrit la frontière d’identité, les ports autorisés, le refus de réaffectation d’un PVC et le téléchargement authentifié. Le navigateur ne reçoit ni chemin local ni clé de gateway. Le rôle administrateur WebUI ne contourne pas les droits du propriétaire. Les pods privés ne montent pas de jeton de ServiceAccount Kubernetes. Les privilèges d’administration du cluster et la qualification DLP restent des frontières distinctes.

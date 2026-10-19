@@ -132,6 +132,18 @@ class TestPoweruserReconciliation(unittest.TestCase):
         self.assertEqual(powerusers.reconcile_powerusers(self.cfg, self.runner, dry_run=True), 1)
         self.runner.run.assert_not_called()
 
+    def test_bound_existing_poweruser_is_not_reapplied_but_missing_one_is_rebuilt(self):
+        powerusers.register_poweruser(self.cfg, fixture())
+        self.cfg["hermes_workspaces"] = {"users": [{"webui_user_id": "alice", "poweruser_slug": "synthetic-user"}]}
+        existing = json.dumps({"metadata": {"name": "hermes-poweruser-synthetic-user"}})
+        self.runner.run.side_effect = [(0, existing, ""), (0, "", "")]
+        powerusers.reconcile_powerusers(self.cfg, self.runner)
+        self.assertFalse(any(call.args[0][0] == "apply" for call in self.runner.run.call_args_list))
+        self.runner.reset_mock()
+        self.runner.run.side_effect = [(0, "", ""), (0, "", ""), (0, "", "")]
+        powerusers.reconcile_powerusers(self.cfg, self.runner)
+        self.assertEqual(sum(call.args[0][0] == "apply" for call in self.runner.run.call_args_list), 1)
+
     def test_apply_or_pat_failures_stop_recovery_without_raw_output(self):
         powerusers.register_poweruser(self.cfg, fixture())
         raw = "synthetic-password sk-synthetic-recovery"

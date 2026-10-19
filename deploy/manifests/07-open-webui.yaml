@@ -56,20 +56,17 @@ spec:
           value: "false"
         - name: ENABLE_PERSISTENT_CONFIG
           value: "false"
+        - name: ARCIA_HERMES_FILES_ENABLED
+          value: "true"
         - name: LITELLM_MASTER_KEY
           valueFrom:
             secretKeyRef:
               name: litellm-secret
               key: master-key
-        - name: HERMES_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: hermes-gateway-secret
-              key: api-server-key
         - name: OPENAI_API_BASE_URLS
-          value: "http://litellm-proxy.arcia.svc:4000/v1;http://hermes-studio.arcia.svc:8642/v1"
+          value: "http://litellm-proxy.arcia.svc:4000/v1;http://127.0.0.1:8080/api/v1/arcia/hermes/v1"
         - name: OPENAI_API_KEYS
-          value: "$(LITELLM_MASTER_KEY);$(HERMES_API_TOKEN)"
+          value: "$(LITELLM_MASTER_KEY);__ARCIA_HERMES_FILES_KEY__"
         - name: OPENAI_API_BASE_URL
           value: "http://litellm-proxy.arcia.svc:4000/v1"
         - name: OPENAI_API_KEY
@@ -164,6 +161,9 @@ spec:
         - name: arcia-webui-code
           mountPath: /opt/arcia-webui
           readOnly: true
+        - name: hermes-files-bindings
+          mountPath: /etc/arcia-hermes-files
+          readOnly: true
       volumes:
       - name: webui-data
         persistentVolumeClaim:
@@ -181,6 +181,10 @@ spec:
       - name: arcia-webui-code
         configMap:
           name: arcia-webui-code
+      - name: hermes-files-bindings
+        secret:
+          secretName: arcia-hermes-files-bindings
+          optional: true
 ---
 apiVersion: v1
 kind: Service

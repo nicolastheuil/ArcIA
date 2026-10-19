@@ -65,43 +65,28 @@ spec:
       app: hermes-poweruser-{{USER_SLUG}}
   template:
     metadata:
+      annotations:
+        checksum/hermes-runtime-guard: "{{GOVERNANCE_REVISION}}"
       labels:
         app: hermes-poweruser-{{USER_SLUG}}
         app.kubernetes.io/name: hermes-poweruser
         app.kubernetes.io/instance: {{USER_SLUG}}
         arcia.io/role: poweruser
     spec:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 10000
       initContainers:
       - name: init-user-state
-        image: nousresearch/hermes-agent:v0.2.0
+        image: nousresearch/hermes-agent:v0.22.2
         command:
         - /bin/sh
         - -c
         - |
           mkdir -p /opt/data/.hermes /opt/data/memories
-          # Synchronisation de la configuration avec préservation des préférences utilisateur
-          if [ ! -f /opt/data/.hermes/config.yaml ]; then
-            cp /etc/hermes-init/config.yaml /opt/data/.hermes/config.yaml
-            cp /etc/hermes-init/config.yaml /opt/data/config.yaml
-          else
-            /opt/hermes/.venv/bin/python -c '
-            import sys; sys.path.insert(0, "/opt/hermes"); import hermes_yaml, os
-            init_p, data_p = "/etc/hermes-init/config.yaml", "/opt/data/.hermes/config.yaml"
-            if os.path.exists(init_p):
-                init_c = hermes_yaml.safe_load(open(init_p)) or {}
-                cur_c = hermes_yaml.safe_load(open(data_p)) if os.path.exists(data_p) else {}
-                if "providers" in init_c:
-                    cur_c.setdefault("providers", {})["custom"] = init_c["providers"]["custom"]
-                if "platforms" in init_c:
-                    cur_c["platforms"] = init_c["platforms"]
-                if "model" not in cur_c:
-                    cur_c["model"] = init_c.get("model", {})
-                with open(data_p, "w") as f: hermes_yaml.safe_dump(cur_c, f)
-                with open("/opt/data/config.yaml", "w") as f: hermes_yaml.safe_dump(cur_c, f)
-            ' 2>/dev/null || true
-          fi
+          # Initialisation uniquement : les réglages Studio restent sur le PVC.
+          [ -f /opt/data/config.yaml ] || cp /etc/hermes-init/config.yaml /opt/data/config.yaml
+          [ -f /opt/data/.hermes/config.yaml ] || cp /opt/data/config.yaml /opt/data/.hermes/config.yaml
           # Copie de la SOUL initiale si absente du volume persistant
           [ ! -f /opt/data/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/SOUL.md
           [ ! -f /opt/data/.hermes/SOUL.md ] && cp /etc/hermes-init/SOUL.md /opt/data/.hermes/SOUL.md
@@ -117,10 +102,12 @@ spec:
           mountPath: /etc/hermes-init
       containers:
       - name: hermes
-        image: nousresearch/hermes-agent:v0.2.0
+        image: nousresearch/hermes-agent:v0.22.2
         imagePullPolicy: IfNotPresent
 {{VPN_CONTAINER_SECURITY_CONTEXT}}
         command:
+        - python3
+        - /opt/arcia-governance/bootstrap.py
         - /bin/sh
         - -c
         - |
@@ -154,6 +141,10 @@ spec:
               key: litellm-pat
         - name: HERMES_HOME
           value: "/opt/data"
+        - name: ARCIA_GOVERNANCE_REQUIRED
+          value: "true"
+        - name: PYTHONPATH
+          value: /opt/arcia-governance
         - name: HERMES_DASHBOARD_BASIC_AUTH_USERNAME
           value: "{{USER_SLUG}}"
         - name: HERMES_DASHBOARD_BASIC_AUTH_PASSWORD
@@ -199,8 +190,51 @@ spec:
         - name: governance-plugin
           mountPath: /etc/hermes-plugin
           readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/arcia-governance
+          readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/hermes/.venv/lib/python3.14/site-packages/arcia_governance.pth
+          subPath: arcia_governance.pth
+          readOnly: true
+        - name: runtime-guard
+          mountPath: /opt/data/plugins/arcia_governance
+          readOnly: true
 {{VPN_CONTAINER_VOLUME_MOUNTS}}
+      - name: arcia-files
+        image: nousresearch/hermes-agent:v0.22.2
+        command: [python3, /opt/arcia-files/files.py]
+        securityContext:
+          runAsUser: 10000
+          runAsGroup: 10000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        env:
+        - {name: ARCIA_FILES_ROOT, value: /opt/data/exports}
+        - name: API_SERVER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: hermes-user-{{USER_SLUG}}-secret
+              key: litellm-pat
+        ports:
+        - {name: files, containerPort: 8643}
+        readinessProbe:
+          httpGet: {path: /health, port: 8643}
+          initialDelaySeconds: 15
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+        volumeMounts:
+        - {name: user-data, mountPath: /opt/data}
+        - {name: arcia-files-code, mountPath: /opt/arcia-files, readOnly: true}
       volumes:
+      - name: runtime-guard
+        configMap:
+          name: hermes-runtime-guard
+      - name: arcia-files-code
+        configMap:
+          name: hermes-files-code
       - name: user-data
         persistentVolumeClaim:
           claimName: hermes-user-{{USER_SLUG}}-pvc
@@ -231,6 +265,9 @@ spec:
   - port: 8642
     targetPort: 8642
     name: gateway
+  - port: 8643
+    targetPort: 8643
+    name: files
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware

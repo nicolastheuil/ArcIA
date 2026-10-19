@@ -434,6 +434,8 @@ class K8sRunner:
 # Validation des Prérequis & Données de Configuration
 # -----------------------------------------------------------------------------
 def validate_config(cfg: Dict[str, Any]) -> None:
+    from hermes_files import declared_users
+    declared_users(cfg)
     errors = []
 
     k8s = cfg.get("kubernetes", {})
@@ -824,6 +826,9 @@ providers:
     discover_models: false
     models:
 {models_lines}
+plugins:
+  enabled:
+    - arcia_governance
 approvals:
   mode: smart
   unattended_mode: approve
@@ -994,6 +999,12 @@ def render_model_manifest(component, manifest, cfg, namespace="arcia", branding_
             rendered = re.sub(pattern, lambda match: match[1] + json.dumps(value, ensure_ascii=False), rendered)
         if branding_revision:
             checksums = {**checksums, "arcia-webui-branding": branding_revision}
+        from hermes_files import declared_users
+        declared_users(cfg)
+        rendered = rendered.replace(f"http://hermes-studio.{namespace}.svc:8642/v1",
+                                    "http://127.0.0.1:8080/api/v1/arcia/hermes/v1")
+        rendered = rendered.replace("$(LITELLM_MASTER_KEY);$(HERMES_API_TOKEN)",
+                                    "$(LITELLM_MASTER_KEY);__ARCIA_HERMES_FILES_KEY__")
     for name, revision in checksums.items():
         rendered = re.sub(rf'(checksum/{re.escape(name)}:\s*)"[^"]*"',
                           lambda match: match[1] + json.dumps(revision), rendered)
@@ -1075,7 +1086,7 @@ def sync_webui_branding(runner: K8sRunner, namespace: str, root_dir: str, cfg: O
     manifest = "\n".join(cm_lines)
     runner.apply_manifest(manifest)
     code = {}
-    for name in ("branding.py", "arcia_webui.py", "start.py"):
+    for name in ("branding.py", "arcia_webui.py", "start.py", "arcia_hermes_files.py"):
         code[name] = read_file_safe(os.path.join(root_dir, "services", "open_webui", name))
     if not all(code.values()):
         raise RuntimeError("Adaptateur d'avatar Open-WebUI absent.")
@@ -1131,6 +1142,7 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
         ("presidio-code", "app.py", os.path.join(root_dir, "services", "presidio", "app.py")),
         ("teams-bot-code", "app.py", os.path.join(root_dir, "services", "teams", "app.py")),
         ("hermes-governance-plugin", "plugin.py", os.path.join(root_dir, "services", "hermes", "plugin.py")),
+        ("hermes-files-code", "files.py", os.path.join(root_dir, "services", "hermes", "files.py")),
         ("litellm-error-handler", "error_handler.py", os.path.join(root_dir, "services", "litellm", "error_handler.py")),
     ]
     checksums: Dict[str, str] = {}
@@ -1152,13 +1164,45 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
             f"  {key_name}: |\n"
             f"{indented}\n"
         )
+        if cm_name == "presidio-code":
+            with open(os.path.join(root_dir, "services", "presidio", "requirements.txt"), encoding="utf-8") as source:
+                requirements = source.read()
+            if not requirements:
+                raise RuntimeError("Dépendances Presidio épinglées absentes")
+            cm_yaml += "  requirements.txt: |\n" + "\n".join("    " + line for line in requirements.splitlines()) + "\n"
+            checksums[cm_name] = hashlib.sha256((code_content + requirements).encode()).hexdigest()[:16]
         runner.apply_manifest(cm_yaml)
-    log_ok("ConfigMaps de code microservices ('presidio-code', 'teams-bot-code', 'hermes-governance-plugin', 'litellm-error-handler') synchronisés depuis services/.")
+    from hermes_files import governance_code, governance_revision
+    runner.apply_manifest(json.dumps({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {
+        "name": "hermes-runtime-guard", "namespace": namespace}, "data": governance_code(root_dir)}))
+    checksums["hermes-runtime-guard"] = governance_revision(root_dir)
+    log_ok("ConfigMaps des microservices et de l'admission DLP obligatoire synchronisés depuis services/.")
     return checksums
 
 # -----------------------------------------------------------------------------
 # Déploiement des Composants & Rendu des Manifestes
 # -----------------------------------------------------------------------------
+def retire_legacy_webui_key(runner, namespace: str, root_dir: str) -> Dict[str, Any]:
+    """Retire uniquement l'identité statique historique après contrôle du portail."""
+    source_path = os.path.join(root_dir, "services", "litellm", "retire_legacy_key.py")
+    with open(source_path, encoding="utf-8") as stream:
+        source = stream.read()
+    rc, out, _ = runner.run(
+        ["exec", "-i", "deployment/open-webui", "-n", namespace, "--", "python3", "-", "--check-consumer"],
+        stdin_input=source, timeout=25)
+    if rc != 0 or "ARCIA_LEGACY_CONSUMER_SAFE=true" not in out.splitlines():
+        return {"retired": False, "verified_absent": False, "consumer_check_passed": False}
+    rc, out, _ = runner.run(
+        ["exec", "-i", "deployment/litellm-proxy", "-n", namespace, "--", "python3", "-"],
+        stdin_input=source, timeout=55)
+    for line in out.splitlines() if rc == 0 else []:
+        if line.startswith("ARCIA_LEGACY_KEY_RESULT="):
+            result = json.loads(line.split("=", 1)[1])
+            if result.get("verified_absent") is True:
+                return result
+    raise RuntimeError("Retrait de la clé LiteLLM historique non vérifié.")
+
+
 def sync_litellm_provider_secrets(cfg: Dict[str, Any], runner, namespace: str) -> None:
     """Met à jour les clés fournisseurs par stdin en préservant l'identité du proxy."""
     updates = {p.replace("_", "-") + "-key": str(cfg.get("llm_gateway", {}).get(p + "_api_key", "")).strip()
@@ -1191,6 +1235,10 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
 
 
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
+    if cfg.get("synthetic_validation"):
+        raise ValueError("Une fixture synthétique ne peut pas être déployée ; utilisez --dry-run.")
+    from hermes_files import declared_users, sync_private_runtimes
+    declared_users(cfg)
     from services.instance_backup.storage import identity_recovery_pending
     if identity_recovery_pending(root_dir, cfg):
         raise ValueError("Identité LiteLLM signalée à récupérer localement avant déploiement ; aucune mutation effectuée.")
@@ -1447,6 +1495,7 @@ metadata:
 
     runner.apply_manifest(render_model_manifest("hermes-agent", hermes_yaml, cfg, namespace))
     log_ok("Configuration agentique Hermes synchronisée avec succès.")
+
 
     # D. Open-WebUI Portal (avec espace persistant RAG, ChromaDB & corpus documentaire)
     log_info(" -> [Branding ArcIA] Injection de l'identité visuelle officielle (SVG & CSS)...")
@@ -1774,8 +1823,15 @@ spec:
         else:
             log_warn(f"Le déploiement '{dep}' met du temps à démarrer ({err.strip() or out.strip()}).")
 
+    legacy_key = retire_legacy_webui_key(runner, namespace, root_dir)
+    if legacy_key.get("verified_absent"):
+        log_ok("Ancienne clé statique Open-WebUI absente ; clés nominatives préservées.")
+    else:
+        log_warn("Retrait de l'ancienne clé statique différé : connexion du portail non vérifiée.")
+
     # 6b. Réconciliation et synchronisation universelle des instances Power Users
     restored_powerusers = reconcile_powerusers(cfg, runner)
+    sync_private_runtimes(cfg, runner, namespace, root_dir)
     if restored_powerusers:
         log_ok(f"{restored_powerusers} déclaration(s) Power User réappliquée(s) ; données PVC à restaurer séparément.")
     log_info(" -> [Power Users] Synchronisation du catalogue de modèles sur l'ensemble des instances...")
@@ -1785,7 +1841,8 @@ spec:
         def _deploy_runner(cmd_args, input_data=None):
             rc, out, err = runner.run(cmd_args, stdin_input=input_data)
             return subprocess.CompletedProcess(cmd_args, rc, out, err)
-        synced = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_deploy_runner)
+        protected_slugs = {user["poweruser_slug"] for user in declared_users(cfg) if user.get("poweruser_slug")}
+        synced = sync_all_powerusers(namespace=namespace, fqdn=public_fqdn, runner_func=_deploy_runner, preserve_slugs=protected_slugs)
         if synced > 0:
             log_ok(f"{synced} instance(s) Power User synchronisée(s) avec le catalogue de modèles.")
     except Exception as exc:

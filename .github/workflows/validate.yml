@@ -1,4 +1,4 @@
-name: Validate ArcIA Platform
+name: Validate ArcIA platform
 
 on:
   push:
@@ -12,11 +12,11 @@ permissions:
 
 jobs:
   validate-linux:
-    name: Validate Suite (Ubuntu Linux)
+    name: Validate suite (Ubuntu Linux)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -26,29 +26,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Validation Dependencies
+      - name: Install validation dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-validation.txt
 
-      - name: Run Unit Tests & Privacy Boundary Gate
+      - name: Run unit tests and documentation checks
         run: |
           python -m unittest discover -s tests -v
+          python scripts/validate_docs.py
 
-      - name: Test Deployment Engine with Valid Configuration (Dry-Run)
-        run: |
-          python -c "
-          with open('arcia.config.yaml.example', 'r', encoding='utf-8') as f:
-              c = f.read()
-          c = c.replace('sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'sk-or-v1-ci-test-key-1234567890')
-          c = c.replace('assistant.example.org', 'ci.example.org')
-          with open('ci.config.yaml', 'w', encoding='utf-8') as f:
-              f.write(c)
-          "
-          python scripts/deploy.py --config ci.config.yaml --dry-run
-          rm -f ci.config.yaml
+      - name: Validate deployment configuration (dry-run)
+        run: python scripts/deploy.py --config tests/fixtures/deploy.synthetic.yaml --dry-run
 
-      - name: Validate Shell Scripts Syntax
+      - name: Validate shell script syntax
         run: |
           bash -n scripts/deploy-arcia.sh
           bash -n scripts/apply-secrets.sh
@@ -56,11 +47,11 @@ jobs:
           bash -n skills/sync-skills.sh
 
   validate-windows:
-    name: Validate PowerShell & Windows (Windows Server 2025)
+    name: Validate PowerShell and Windows (Windows Server 2025)
     runs-on: windows-2025
     timeout-minutes: 5
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -70,7 +61,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Parse PowerShell Scripts Syntax
+      - name: Parse PowerShell script syntax
         shell: pwsh
         run: |
           Get-ChildItem -Path scripts/*.ps1 | ForEach-Object {
@@ -83,16 +74,7 @@ jobs:
             Write-Host "OK: $($_.Name)" -ForegroundColor Green
           }
 
-      - name: Test Deploy-ArcIA PowerShell Wrapper (Dry-Run)
+      - name: Test Deploy-ArcIA PowerShell wrapper (dry-run)
         shell: pwsh
         run: |
-          python -c "
-          with open('arcia.config.yaml.example', 'r', encoding='utf-8') as f:
-              c = f.read()
-          c = c.replace('sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'sk-or-v1-ci-test-key-1234567890')
-          c = c.replace('assistant.example.org', 'ci.example.org')
-          with open('ci.config.yaml', 'w', encoding='utf-8') as f:
-              f.write(c)
-          "
-          .\scripts\Deploy-ArcIA.ps1 -ConfigFile ci.config.yaml -DryRun
-          Remove-Item -Force ci.config.yaml
+          .\scripts\Deploy-ArcIA.ps1 -ConfigFile tests/fixtures/deploy.synthetic.yaml -DryRun
