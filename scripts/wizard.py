@@ -2231,7 +2231,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "manifest": "services/ & skills/",
         "k8s_resource": "configmap/presidio-code,hermes-governance-plugin,teams-bot-code,arcia-native-skills",
         "default_image": "nicolastheuil/ArcIA",
-        "default_version": "v0.5.2",
+        "default_version": "v0.7.0",
         "strategy": "Hot-Sync ConfigMaps & Skills (0 coupure)",
         "wave": 1,
         "is_bumpable_image": False,
@@ -2245,7 +2245,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "microsoft/presidio",
         "manifest": "deploy/manifests/03-presidio.yaml",
         "k8s_resource": "deployment/presidio-dlp",
-        "default_image": "python:3.11-slim",
+        "default_image": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
         "default_version": "2.2.364",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 2,
@@ -2260,8 +2260,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "oauth2-proxy/oauth2-proxy",
         "manifest": "deploy/manifests/02-oauth2-proxy.yaml",
         "k8s_resource": "deployment/oauth2-proxy",
-        "default_image": "quay.io/oauth2-proxy/oauth2-proxy:v7.8.1",
-        "default_version": "v7.8.1",
+        "default_image": "quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916",
+        "default_version": "v7.15.5",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /ping",
         "wave": 2,
         "is_bumpable_image": True,
@@ -2275,8 +2275,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "BerriAI/litellm",
         "manifest": "deploy/manifests/05-litellm.yaml",
         "k8s_resource": "deployment/litellm-proxy",
-        "default_image": "ghcr.io/berriai/litellm:main-v1.72.6-stable",
-        "default_version": "v1.72.6-stable",
+        "default_image": "ghcr.io/berriai/litellm:v1.106.0@sha256:2e4c0371f3a8c28e4da131d77abaa8341cd3b0c2fcc4d34d7c5900431af7b9d0",
+        "default_version": "v1.106.0",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /health/liveliness",
         "wave": 3,
         "is_bumpable_image": True,
@@ -2290,7 +2290,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "NousResearch/Hermes-Agent",
         "manifest": "deploy/manifests/06-hermes-agent.yaml",
         "k8s_resource": "deployment/hermes-agent",
-        "default_image": "nousresearch/hermes-agent:v0.22.2",
+        "default_image": "nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919",
         "default_version": "v0.22.2",
         "strategy": "Mise à jour atomique + Préservation verrou SQLite state.db + Sync Power Users",
         "wave": 4,
@@ -2305,8 +2305,8 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "microsoft/botbuilder-python",
         "manifest": "deploy/manifests/08-teams-bot.yaml",
         "k8s_resource": "deployment/teams-bot-adapter",
-        "default_image": "python:3.11-slim",
-        "default_version": "v4.16.0",
+        "default_image": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+        "default_version": "v4.17.1",
         "strategy": "RollingUpdate (maxUnavailable: 0, maxSurge: 1) + Sonde /healthz",
         "wave": 4,
         "is_bumpable_image": False,
@@ -2320,7 +2320,7 @@ ARCIA_UPDATABLE_COMPONENTS = [
         "github_repo": "open-webui/open-webui",
         "manifest": "deploy/manifests/07-open-webui.yaml",
         "k8s_resource": "deployment/open-webui",
-        "default_image": "ghcr.io/open-webui/open-webui:v0.12.3",
+        "default_image": "ghcr.io/open-webui/open-webui:v0.12.3@sha256:a537bbe1e6b428820f52ed4a029d7fff97062e24d5cf32c365fba36fd0542def",
         "default_version": "v0.12.3",
         "strategy": "Recreate (interruption prévue, volume RWO) + Sonde /health",
         "wave": 5,
@@ -2375,7 +2375,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
     repo = local_data.get("repository", "nicolastheuil/ArcIA")
     remote_url = f"https://raw.githubusercontent.com/{repo}/main/deploy/versions.json"
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.6.0",
+        "User-Agent": "ArcIA-Update-Checker/0.7.0",
         "Accept": "application/json"
     }
     try:
@@ -2396,7 +2396,7 @@ def load_arcia_official_versions(check_online: bool = False) -> Dict[str, Any]:
 def fetch_github_latest_release(repo: str, fallback_version: str) -> Dict[str, Any]:
     """Interroge l'API GitHub publique pour connaître la dernière version publiée d'un composant."""
     headers = {
-        "User-Agent": "ArcIA-Update-Checker/0.6.0",
+        "User-Agent": "ArcIA-Update-Checker/0.7.0",
         "Accept": "application/vnd.github.v3+json"
     }
     # 1. Essayer /releases/latest
@@ -2521,7 +2521,7 @@ def scan_production_versions(cfg: Optional[Dict[str, Any]] = None, timeout: int 
                         labels = meta.get("labels", {})
                         app_ver = annotations.get("app.kubernetes.io/version") or labels.get("app.kubernetes.io/version")
 
-                        # Pour les microservices reposant sur python:3.11-slim, conserver la version logicielle identifiée
+                        # Pour les microservices reposant sur python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83, conserver la version logicielle identifiée
                         if img_no_digest.startswith("python:") or img_no_digest == "python" or comp_id in ("presidio-dlp", "teams-bot"):
                             if app_ver and app_ver not in ("3.11-slim", "slim", "latest"):
                                 final_ver = app_ver
@@ -2628,7 +2628,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
             curr_img, curr_ver = extract_manifest_image_version(
                 comp["manifest"], comp["default_image"], comp["default_version"]
             )
-            # Pour presidio et teams-bot dont l'image de base est python:3.11-slim, afficher la version logicielle
+            # Pour presidio et teams-bot dont l'image de base est python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83, afficher la version logicielle
             if comp["id"] in ("presidio-dlp", "teams-bot", "arcia-core"):
                 curr_ver = comp["default_version"]
             source_label = "Manifeste local"
@@ -2637,7 +2637,7 @@ def check_components_updates(check_online: bool = True, cfg: Optional[Dict[str, 
         arcia_comp_ref = (arcia_catalog.get("components") or {}).get(cid, {})
         target_version = arcia_comp_ref.get("version") or comp["default_version"]
         target_image = arcia_comp_ref.get("image") or comp["default_image"]
-        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.6.0"
+        published_at = arcia_catalog.get("published_at") or "Catalogue ArcIA v0.7.0"
         release_notes = arcia_comp_ref.get("release_notes", "")
         repo = arcia_catalog.get("repository", "nicolastheuil/ArcIA")
         release_url = f"https://github.com/{repo}/releases"
@@ -2782,7 +2782,7 @@ def repair_corrupted_manifest_images() -> List[str]:
             with open(presidio_path, "r", encoding="utf-8") as f:
                 c = f.read()
             if re.search(r'^\s*image:\s*python:(?:2\.|[^\s#]*2\.2)', c, re.MULTILINE):
-                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.11-slim', c, flags=re.MULTILINE)
+                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83', c, flags=re.MULTILINE)
                 with open(presidio_path, "w", encoding="utf-8") as f:
                     f.write(repaired)
                 repaired_files.append("deploy/manifests/03-presidio.yaml")
@@ -2795,7 +2795,7 @@ def repair_corrupted_manifest_images() -> List[str]:
             with open(teams_path, "r", encoding="utf-8") as f:
                 c = f.read()
             if re.search(r'^\s*image:\s*python:(?:4\.|[^\s#]*4\.1)', c, re.MULTILINE):
-                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.11-slim', c, flags=re.MULTILINE)
+                repaired = re.sub(r'^(\s*image:\s*)python:[^\s#]+', r'\1python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83', c, flags=re.MULTILINE)
                 with open(teams_path, "w", encoding="utf-8") as f:
                     f.write(repaired)
                 repaired_files.append("deploy/manifests/08-teams-bot.yaml")
@@ -2804,47 +2804,32 @@ def repair_corrupted_manifest_images() -> List[str]:
     return repaired_files
 
 def update_manifest_image_tag(manifest_rel_path: str, new_tag: str) -> Optional[str]:
-    """Met à jour proprement le tag d'image dans un manifeste Kubernetes si demandé."""
+    """Restaure uniquement une image approuvée dans le registre, digest conservé."""
     if not manifest_rel_path or not manifest_rel_path.endswith(".yaml") or not new_tag:
         return None
-    # Protection formelle : les microservices internes reposent sur python:3.11-slim
-    # Leurs versions logicielles upstream ne doivent JAMAIS écraser l'image Python du conteneur.
     if any(m in manifest_rel_path for m in ("03-presidio.yaml", "08-teams-bot.yaml")):
         return None
-
-    full_path = os.path.join(ROOT_DIR, manifest_rel_path.replace("/", os.sep))
-    if not os.path.isfile(full_path):
-        return None
     try:
-        with open(full_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        def _repl(match):
-            prefix = match.group(1)
-            img_full = match.group(2)
-            base_repo = img_full.split("@")[0].split(":")[0]
-            # Protection absolue : ne jamais altérer l'interpréteur Python standard
-            if base_repo in ("python", "library/python") or base_repo.endswith("/python"):
-                return match.group(0)
-
-            if "berriai/litellm" in base_repo:
-                # Si le tag commence par v (ex: v1.105.1) ou main-, respecter le tag direct
-                if new_tag.startswith("main-") or new_tag.startswith("v"):
-                    final_tag = new_tag
-                else:
-                    final_tag = f"main-{new_tag}"
-            else:
-                final_tag = new_tag
-            return f"{prefix}{base_repo}:{final_tag}"
-
-        new_content = re.sub(r'^(\s*image:\s*)([^\s#]+)', _repl, content, flags=re.MULTILINE)
+        registry_path = Path(ROOT_DIR) / "deploy" / "versions.json"
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        component = next((item for item in registry["components"].values()
+                          if item.get("manifest") == manifest_rel_path), None)
+        if not component or new_tag != component["version"]:
+            return None
+        image = component["image"]
+        if not re.search(r"@sha256:[0-9a-f]{64}$", image):
+            return None
+        full_path = Path(ROOT_DIR) / manifest_rel_path
+        content = full_path.read_text(encoding="utf-8")
+        new_content = re.sub(r'^(\s*image:\s*)([^\s#]+)',
+                             lambda match: match[1] + image, content, flags=re.MULTILINE)
         if new_content != content:
-            with open(full_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
-            return full_path
-    except Exception:
-        pass
+            full_path.write_text(new_content, encoding="utf-8")
+            return str(full_path)
+    except (OSError, KeyError, ValueError):
+        return None
     return None
+
 
 def _set_update_phase(phase_idx: int, status: str, log_msg: Optional[str] = None):
     with update_lock:
@@ -2939,15 +2924,15 @@ def run_update_worker(selected_components: List[str], bump_image_tags: bool = Fa
         _set_update_phase(1, "running", "\n[PHASE 2/6] Synchronisation à chaud des ConfigMaps, Skills et tags d'images...")
         repaired = repair_corrupted_manifest_images()
         for r_file in repaired:
-            _append_update_log(f"[INFO] Réparation automatique du manifeste '{r_file}' vers l'image python:3.11-slim.")
+            _append_update_log(f"[INFO] Réparation automatique du manifeste '{r_file}' vers l'image python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83.")
 
         if bump_image_tags and last_update_check_cache.get("components"):
             for comp_info in last_update_check_cache["components"]:
                 cid = comp_info["id"]
                 if cid in selected_components and comp_info.get("update_available"):
-                    # Protection stricte : les microservices internes sur python:3.11-slim ne bumpent pas leur image
+                    # Protection stricte : les microservices internes sur python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83 ne bumpent pas leur image
                     if not comp_info.get("is_bumpable_image", True) or cid in ("presidio-dlp", "teams-bot", "arcia-core"):
-                        _append_update_log(f"[INFO] {comp_info['name']} : microservice interne (code synchronisé via ConfigMap, image python:3.11-slim préservée).")
+                        _append_update_log(f"[INFO] {comp_info['name']} : microservice interne (code synchronisé via ConfigMap, image python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83 préservée).")
                         continue
 
                     new_tag = comp_info.get("raw_latest_tag") or comp_info.get("latest_version")
@@ -5404,7 +5389,7 @@ def main():
     wizard_url = f"http://{args.host}:{port}/"
 
     print("\033[1m\033[96m=================================================================\033[0m")
-    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.6.0            \033[0m")
+    print("\033[1m\033[96m          ArcIA — Setup & Configuration Wizard v0.7.0            \033[0m")
     print("\033[1m\033[96m=================================================================\033[0m")
     print(f"\n[+] Serveur graphique de configuration démarré avec succès !")
     print(f"[*] Accédez au Wizard dans votre navigateur à l'adresse :")

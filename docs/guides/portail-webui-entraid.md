@@ -1,4 +1,4 @@
-# Portail collaborateur Open-WebUI et SSO Microsoft Entra ID (v0.6.0)
+# Portail collaborateur Open-WebUI et SSO Microsoft Entra ID (v0.7.0)
 
 > **Statut : Implémenté (v0.6.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
@@ -6,7 +6,7 @@ Open-WebUI est l'interface utilisateur de référence pour l'ensemble des collab
 
 ---
 
-## 1. Caractéristiques principales et verrouillage d'accès v0.6.0
+## 1. Caractéristiques principales et verrouillage d'accès v0.7.0
 
 - **Accès Verrouillé & Zéro Auto-Inscription Publique** :
   - `WEBUI_AUTH=true` : Authentification obligatoire pour tout accès à l'interface.
@@ -66,7 +66,7 @@ Voir également :
 - [Chaîne de routage et cycle de vie](chaine-de-routage.md)
 - [Passerelle d'inférence LiteLLM](inference-litellm.md)
 - [Gouvernance Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.6.0](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.7.0](../etat-des-fonctionnalites.md)
 
 
 ## Sessions privées et téléchargement des fichiers

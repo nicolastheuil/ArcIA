@@ -19,6 +19,7 @@ import argparse
 import subprocess
 import textwrap
 import tempfile
+from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.open_webui.branding import build_mapping
 from typing import Dict, Any, Optional, List, Tuple
@@ -967,6 +968,9 @@ guardrails:
       guardrail: presidio
       mode: "pre_call"
       default_on: true
+      timeout: 5
+      pii_entities_config:
+        EMAIL_ADDRESS: MASK
       presidio_analyzer_api_base: "http://presidio-dlp.{namespace}.svc:8080"
       presidio_anonymizer_api_base: "http://presidio-dlp.{namespace}.svc:8080"
 """
@@ -1164,11 +1168,12 @@ def sync_service_configmaps(runner: K8sRunner, namespace: str, root_dir: str) ->
             f"  {key_name}: |\n"
             f"{indented}\n"
         )
-        if cm_name == "presidio-code":
-            with open(os.path.join(root_dir, "services", "presidio", "requirements.txt"), encoding="utf-8") as source:
+        if cm_name in ("presidio-code", "teams-bot-code"):
+            service = "presidio" if cm_name == "presidio-code" else "teams"
+            with open(os.path.join(root_dir, "services", service, "requirements.txt"), encoding="utf-8") as source:
                 requirements = source.read()
             if not requirements:
-                raise RuntimeError("Dépendances Presidio épinglées absentes")
+                raise RuntimeError("Dépendances du microservice épinglées absentes")
             cm_yaml += "  requirements.txt: |\n" + "\n".join("    " + line for line in requirements.splitlines()) + "\n"
             checksums[cm_name] = hashlib.sha256((code_content + requirements).encode()).hexdigest()[:16]
         runner.apply_manifest(cm_yaml)
@@ -1234,6 +1239,35 @@ def get_existing_cluster_secret(runner, namespace: str, secret_name: str, key_na
     return None
 
 
+def assert_database_upgrade_safe(runner, namespace: str, target_image: str) -> None:
+    """Refuse avant mutation un changement majeur ou un volume sans propriétaire."""
+    def major(image):
+        match = re.search(r"(?:^|/)postgres:(\d+)(?:[.\-@]|$)", image)
+        if not match:
+            raise ValueError("Version PostgreSQL indéterminée ; migration et vérification du volume requises.")
+        return int(match[1])
+
+    target_major = major(target_image)
+    objects = {}
+    for kind, name in (("statefulset", "litellm-db"), ("pvc", "litellm-db-pvc")):
+        rc, output, _ = runner.run(["get", kind, name, "-n", namespace,
+                                    "--ignore-not-found=true", "-o", "json"])
+        if rc:
+            raise ValueError("Vérification PostgreSQL impossible ; aucune migration automatique autorisée.")
+        try:
+            objects[kind] = json.loads(output) if output.strip() else None
+        except (ValueError, TypeError):
+            raise ValueError("État PostgreSQL illisible ; aucune migration automatique autorisée.") from None
+    existing = objects["statefulset"]
+    if existing:
+        containers = existing.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
+        images = [item.get("image", "") for item in containers if item.get("name") == "postgres"]
+        if len(images) != 1 or major(images[0]) != target_major:
+            raise ValueError("Changement majeur PostgreSQL : migration sauvegardée et restaurée requise avant réapplication.")
+    elif objects["pvc"]:
+        raise ValueError("Un volume PostgreSQL existe sans StatefulSet ; vérifier sa version et sa restauration avant réapplication.")
+
+
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
     if cfg.get("synthetic_validation"):
         raise ValueError("Une fixture synthétique ne peut pas être déployée ; utilisez --dry-run.")
@@ -1274,6 +1308,11 @@ def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
         ssh_key=ssh_key,
         known_hosts=ssh_info.get("known_hosts_file", "")
     )
+
+    registry_path = Path(root_dir) / "deploy" / "versions.json"
+    with registry_path.open(encoding="utf-8") as registry_file:
+        target_db_image = json.load(registry_file)["components"]["litellm-db"]["image"]
+    assert_database_upgrade_safe(runner, namespace, target_db_image)
 
     total_steps = 7
 

@@ -26,6 +26,11 @@ import plugin as hermes_plugin
 
 class TestLiteLLMErrorHandler(unittest.TestCase):
 
+    def test_presidio_unavailable_is_a_closed_422_without_native_diagnostic(self):
+        code, message = format_user_friendly_error("Presidio PII analysis failed: ClientConnectorError", 500)
+        self.assertEqual(code, 422)
+        self.assertNotIn("ClientConnectorError", message)
+
     def setUp(self):
         self.raw_user_reported_error = (
             'litellm.NotFoundError: NotFoundError: OpenrouterException - {"error":{"message":"No endpoints found '

@@ -556,19 +556,19 @@ llm_gateway:
         self.assertTrue(components_map["litellm-proxy"]["is_bumpable_image"])
         self.assertTrue(components_map["open-webui"]["is_bumpable_image"])
 
-        # Vérifier que update_manifest_image_tag protège formellement les manifests python:3.11-slim
+        # Vérifier que update_manifest_image_tag protège formellement les manifests python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
         self.assertIsNone(wizard.update_manifest_image_tag("deploy/manifests/03-presidio.yaml", "2.2.364"))
         self.assertIsNone(wizard.update_manifest_image_tag("deploy/manifests/08-teams-bot.yaml", "4.17.1"))
 
     def test_repair_corrupted_manifest_images(self):
-        """Vérifie que repair_corrupted_manifest_images restaure python:3.11-slim si un tag upstream a été injecté."""
+        """Vérifie que repair_corrupted_manifest_images restaure python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83 si un tag upstream a été injecté."""
         presidio_path = os.path.join(self.root_dir, "deploy", "manifests", "03-presidio.yaml")
         with open(presidio_path, "r", encoding="utf-8") as f:
             original_content = f.read()
 
         try:
             # Simuler une corruption par un ancien wizard
-            corrupted = original_content.replace("python:3.11-slim", "python:2.2.364")
+            corrupted = original_content.replace("python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83", "python:2.2.364")
             with open(presidio_path, "w", encoding="utf-8") as f:
                 f.write(corrupted)
 
@@ -577,7 +577,7 @@ llm_gateway:
 
             with open(presidio_path, "r", encoding="utf-8") as f:
                 restored = f.read()
-            self.assertIn("image: python:3.11-slim", restored)
+            self.assertIn("image: python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83", restored)
             self.assertNotIn("python:2.2.364", restored)
         finally:
             with open(presidio_path, "w", encoding="utf-8") as f:

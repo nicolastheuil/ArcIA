@@ -41,7 +41,7 @@ class TestArcIADLP(unittest.TestCase):
         self.addCleanup(fake.stop)
 
     # =========================================================================
-    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.6.0)
+    # Tests Historiques & Base PII (Adaptés aux tokens typés v0.7.0)
     # =========================================================================
 
     def test_ip_address_redaction(self):

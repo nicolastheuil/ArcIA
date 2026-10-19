@@ -1,8 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
 
 LABEL org.opencontainers.image.title="ArcIA Presidio DLP Sanitizer"
 LABEL org.opencontainers.image.description="Admission PII et secrets avec rejet fermé"
-LABEL org.opencontainers.image.version="0.6.0"
+LABEL org.opencontainers.image.version="0.7.0"
 
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt

@@ -35,7 +35,8 @@ def load_tracked_files() -> list:
                 data = json.load(f)
                 files = data.get("version_registry", {}).get("tracked_files")
                 if files and isinstance(files, list):
-                    return files
+                    historical = data.get("version_registry", {}).get("historical_files", [])
+                    return [name for name in files if name not in historical]
         except Exception:
             pass
     return DEFAULT_TARGET_FILES
@@ -64,10 +65,6 @@ VERSION_TARGET_PATTERNS = [
     (
         r"\bSetup & Configuration Wizard v0\.[0-9]+(?:\.[0-9]+)?\b",
         lambda v: f"Setup & Configuration Wizard {v}",
-    ),
-    (
-        r"\bStatut(?:\s+en)?\s*:\s*(?:Implémenté|Actif)?\s*\(?v0\.[0-9]+(?:\.[0-9]+)?\)?",
-        lambda v: f"Statut : Implémenté ({v})",
     ),
     (
         r"\barcia_version\s*=\s*['\"]v?[0-9.]+['\"]",
@@ -174,10 +171,6 @@ VERSION_TARGET_PATTERNS = [
         lambda v: f"flux d'inférence en {v}.",
     ),
     (
-        r">\s*\*\*Statut en v0\.[0-9.]+\s*:\s*Implémenté et Actif\.\*\*",
-        lambda v: f"> **Statut en {v} : Implémenté et Actif.**",
-    ),
-    (
         r"arcia-governance-tokenmaxing\s*v0\.[0-9.]+",
         lambda v: f"arcia-governance-tokenmaxing {v}",
     ),
@@ -188,10 +181,6 @@ VERSION_TARGET_PATTERNS = [
     (
         r"Governance & Tokenmaxing Plugin \(v0\.[0-9.]+\)",
         lambda v: f"Governance & Tokenmaxing Plugin ({v})",
-    ),
-    (
-        r"Adaptateur Teams Bot\s*:\s*🟢\s*Opérationnel\s*\(v0\.[0-9.]+\)",
-        lambda v: f"Adaptateur Teams Bot : 🟢 Opérationnel ({v})",
     ),
     (
         r"tokens typés v0\.[0-9.]+",

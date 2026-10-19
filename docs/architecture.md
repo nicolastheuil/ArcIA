@@ -1,4 +1,7 @@
-# Architecture ArcIA v0.6.0
+# Architecture ArcIA v0.7.0
+
+> Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](guides/versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.
+
 
 > La barrière Hermes est imposée au démarrage par le bootstrap ArcIA et aux frontières HTTP, SQLite et transport LLM. Son statut de recette, distinct du déploiement de production et du rebuild complet, figure dans l’[état des fonctionnalités](etat-des-fonctionnalites.md).
 
@@ -8,7 +11,7 @@ ArcIA est la plateforme d'IA agentique d'entreprise conçue pour concilier auton
 
 ---
 
-## 1. Principes fondateurs v0.6.0
+## 1. Principes fondateurs v0.7.0
 
 1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
 2. **Routage par catégorie de modèle** :
@@ -109,7 +112,7 @@ flowchart TD
 ---
 
 <a id="carte-du-dépôt"></a>
-## 3. Cartographie des composants et ports (v0.6.0)
+## 3. Cartographie des composants et ports (v0.7.0)
 
 | Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
 |---|---|---|---|---|---|
@@ -118,12 +121,12 @@ flowchart TD
 | **Hermes Gateway** | `nousresearch/hermes-agent:v0.22.2` | `8642` | `/gateway` (Protégé PAT) | Partagé PVC 20Gi (`state.db`) | Serveur API `/v1` (`Agentic`) avec plugin DLP/CCR/RTK & WebSocket Desktop |
 | **Espaces WebUI standards** | `nousresearch/hermes-agent:v0.22.2` | `8643` (relais), `8642` (local) | Aucune | PVC privé 10Gi par compte | Sessions, outils et fichiers isolés ; aucun repli partagé |
 | **Pods Power Users** | `nousresearch/hermes-agent:v0.22.2` | `9119` / `8642` | `/poweruser/<slug>/studio` | PVC 10Gi (`hermes-user-<slug>-pvc`) | Instance Hermes dédiée réutilisée depuis WebUI, avec relais de fichiers `:8643`, par Power User (`.\scripts\Spawn-PowerUser.ps1`) |
-| **Teams Bot Adapter** | `python:3.11-slim` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle Microsoft Teams (modèle Simple par défaut, `/agent` vers un modèle Agentic dans Hermes) |
-| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:main-v1.72.6-stable` | `4000` | `/v1` (PAT + RateLimit) | Stateless | Passerelle LLM, catalogue profils, fallbacks, guardrail DLP, gestionnaire d'erreurs convivial et clés virtuelles |
-| **LiteLLM DB** | `postgres:16-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
-| **Presidio DLP** | `python:3.11-slim` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII (`/sanitize`, `/analyze`, `/anonymize`) |
+| **Teams Bot Adapter** | `python:3.14.8-slim-bookworm` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle Microsoft Teams (modèle Simple par défaut, `/agent` vers un modèle Agentic dans Hermes) |
+| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:v1.106.0` | `4000` | `/v1` (PAT + RateLimit) | Stateless | Passerelle LLM, catalogue profils, fallbacks, guardrail DLP, gestionnaire d'erreurs convivial et clés virtuelles |
+| **LiteLLM DB** | `postgres:18.6-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
+| **Presidio DLP** | `python:3.14.8-slim-bookworm` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII (`/sanitize`, `/analyze`, `/anonymize`) |
 | **NetworkPolicy** | `networking.k8s.io/v1` | N/A | Interne cluster | N/A | Isolation réseau périmétrique et intra-cluster (Default DenyAll) |
-| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
+| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.15.5` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
 
 ---
 

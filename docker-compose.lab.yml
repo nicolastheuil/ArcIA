@@ -16,7 +16,7 @@
 services:
   # 1. Portail Utilisateur Open-WebUI
   open-webui:
-    image: ghcr.io/open-webui/open-webui:v0.5.10
+    image: ghcr.io/open-webui/open-webui:v0.12.3@sha256:a537bbe1e6b428820f52ed4a029d7fff97062e24d5cf32c365fba36fd0542def
     container_name: arcia-webui-lab
     restart: unless-stopped
     ports:
@@ -53,7 +53,7 @@ services:
 
   # 2. Passerelle d'Inférence IA LiteLLM Proxy
   litellm-proxy:
-    image: ghcr.io/berriai/litellm:main-v1.72.6-stable
+    image: ghcr.io/berriai/litellm:v1.106.0@sha256:2e4c0371f3a8c28e4da131d77abaa8341cd3b0c2fcc4d34d7c5900431af7b9d0
     container_name: arcia-litellm-lab
     restart: unless-stopped
     ports:
@@ -68,7 +68,7 @@ services:
 
   # 3. Guardrail DLP Microsoft Presidio Anonymizer
   presidio-anonymizer:
-    image: mcr.microsoft.com/presidio-anonymizer:2.2.358
+    image: mcr.microsoft.com/presidio-anonymizer:2.2.362@sha256:a10a12a2a613d13cf29d3ad3641e3258444dd8c90403dd644a0a114c472c2483
     container_name: arcia-presidio-anonymizer-lab
     restart: unless-stopped
     ports:
@@ -76,7 +76,7 @@ services:
 
   # 4. Guardrail DLP Microsoft Presidio Analyzer
   presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:2.2.358
+    image: mcr.microsoft.com/presidio-analyzer:2.2.362@sha256:286e3fa7f3a7426e775e8564fe1870f1ba8f999d3ab8bbb8cc46a44355d9d6e9
     container_name: arcia-presidio-analyzer-lab
     restart: unless-stopped
     ports:

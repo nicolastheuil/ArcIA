@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Manifest validation test: checks all deploy/manifests/*.yaml files,
-including behavioral consistency, model tiers, and security constraints for v0.6.0
+including behavioral consistency, model tiers, and security constraints for v0.7.0
 """
 
 import os
@@ -46,7 +46,7 @@ class TestKubernetesManifests(unittest.TestCase):
             self.assertIn("metadata:", content, f"metadata manquant dans {yf}")
 
     def test_litellm_v03_configuration(self):
-        """Vérifie la présence des 5 profils canoniques v0.6.0, des fallbacks valides, du guardrail Presidio et de la sécurité."""
+        """Vérifie la présence des 5 profils canoniques v0.7.0, des fallbacks valides, du guardrail Presidio et de la sécurité."""
         litellm_path = os.path.join(self.manifests_dir, "05-litellm.yaml")
         with open(litellm_path, "r", encoding="utf-8") as f:
             content = f.read()

@@ -10,7 +10,7 @@ Architecture : [conception et flux](conception.md). Contraintes et écarts : [au
 - Sources applicatives exclusivement sous `services/`. Le moteur `sync_service_configmaps` projette les sources ; pas de Python incorporé dans les YAML.
 - Pas de secret de coffre, kubeconfig, token ou mot de passe dans les prompts, traces, exports publics ou réponses d'API. Valeurs saisies uniquement dans les programmes locaux/formulaires protégés.
 - Cluster partagé renforcé en référence, dédié optionnel. Aucun agent n'a de jeton Kubernetes ou privilège de provisionnement. Un propriétaire actif de chaque `state.db`.
-- Open-WebUI conservé ; catégorie `simple|agentic` et noms libres. Une seule connexion d'inférence vers LiteLLM après parité A2A ; l'API sécurisée des artefacts reste distincte.
+- Open-WebUI conservé ; catalogue de modèles et agents aux noms libres, sans champ `category`. Une seule connexion d'inférence vers LiteLLM après parité A2A ; l'API sécurisée des artefacts reste distincte.
 - DLP/ZDR intégralement désactivables par modèle sur politique explicite ; garde obligatoire, absence de politique refusée, panne DLP fail-closed sur les routes protégées, aucun relâchement implicite par fallback.
 - Source de vérité des versions : `deploy/versions.json`. Digests vérifiés, pas de tags flottants, licences et migrations qualifiées. Une évolution d'un composant impose l'incrément mineur de plateforme prévu par la gouvernance. La cible commerciale v0.7 n'autorise pas à figer artificiellement le numéro pendant plusieurs évolutions incompatibles : livrer un bundle de versions qualifié, et réviser le numéro au besoin.
 - Chaque lot code ajoute ses manifests, config d'exemple, wizard/headless, tests, runbook et déclarations de sauvegarde. Les voies de récupération demeurent disponibles.
@@ -70,6 +70,8 @@ Livrable : ce dossier, les décisions confirmées et une carte des responsabilit
 Ouverture : documentation seulement. Sortie : plan traçable et aucun changement de comportement du socle. Retour arrière : retirer uniquement les documents de conception de cette branche.
 
 ## Lot 01 — Qualification des capacités natives et versions
+
+Avancement : cibles stables compatibles et digests verrouillés dans `deploy/versions.json`, avec garde PostgreSQL et exceptions documentées. Les qualifications exécutées sont consignées dans [verification.md](verification.md). Le lot reste ouvert : un transport LLM via LiteLLM réel ne qualifie pas encore le pont A2A, les licences, l’annulation, les budgets ni le MCP Gateway.
 
 Fichiers à créer : `tests/fixtures/a2a_synthetic_agent.py`, `scripts/qualify_gateway_stack.py`, `tests/test_gateway_qualification.py` et une matrice sous `docs/reference/` lors de la restructuration. Réutiliser `scripts/qualify_hermes_workspaces.py`, `tests/test_runtime_governance.py`, `tests/test_routing_pipeline.py` et `deploy/versions.json`.
 
@@ -138,7 +140,7 @@ Ouverture : console en lecture seule au départ. Retour arrière : flag console 
 
 Créer `services/control_plane/{models,policies,litellm_adapter}.py`, `schemas/arcia-inference-policy.schema.json`, `tests/test_execution_policies.py`. Adapter `services/hermes/runtime_guard.py`, `services/presidio/app.py`, le guardrail LiteLLM et les projections WebUI uniquement après tests.
 
-- [ ] Exposer le catalogue administré avec aliases libres, catégories, hébergement et fournisseurs ; préserver les clés et identifiants existants.
+- [ ] Exposer le catalogue administré avec aliases libres, destinations LiteLLM (inférence ou agent A2A), hébergement et fournisseurs ; préserver les clés et identifiants existants.
 - [ ] Implémenter `resolve_execution_policy` et son contexte signé ; modes `enforce/off` et `required/not_required` sans variable globale de requête.
 - [ ] Tester l'exception complète sur canaris synthétiques, la route protégée concurrente, l'absence de politique, la révocation et la panne Presidio.
 - [ ] Interdire déclassement d'historique/corpus, fallback non admissible, override client de fournisseur/ZDR et réactivation involontaire de logs bruts.

@@ -1,6 +1,6 @@
-# Sauvegarde et reconstruction de la plateforme ArcIA v0.6.0
+# Sauvegarde et reconstruction de la plateforme ArcIA v0.7.0
 
-Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.6.0**.
+Ce runbook détaille les procédures de sauvegarde, de restauration et de reprise après sinistre pour l'ensemble des composants d'**ArcIA v0.7.0**.
 
 ---
 

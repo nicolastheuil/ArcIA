@@ -1,2 +1,2 @@
 # Dépendance du coffre AES-256-GCM (Python 3.9+).
-cryptography==50.0.1
+cryptography==50.0.2

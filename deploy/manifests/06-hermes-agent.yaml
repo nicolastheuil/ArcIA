@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.6.0 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
+# ArcIA v0.7.0 — Hermes Agent Runtime, Tokenmaxing (CCR/RTK/Graphify/Ponytail) & Studio
 # ==============================================================================
 apiVersion: v1
 kind: ConfigMap
@@ -80,7 +80,7 @@ spec:
         fsGroup: 10000
       initContainers:
       - name: init-config-and-perms
-        image: nousresearch/hermes-agent:v0.22.2
+        image: nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
         command:
         - /bin/sh
         - -c
@@ -113,7 +113,7 @@ spec:
           mountPath: /opt/governance-plugin-cm
       containers:
       - name: hermes
-        image: nousresearch/hermes-agent:v0.22.2
+        image: nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
         imagePullPolicy: IfNotPresent
         command:
         - python3

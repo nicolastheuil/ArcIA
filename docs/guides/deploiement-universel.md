@@ -1,15 +1,18 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+
+> Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.
+
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Kubernetes-Déploiement_Universel-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
   <img src="https://img.shields.io/badge/Setup_Wizard-3_Parcours_Dédiés-6BE7DD?style=flat-square&logoColor=050712" alt="Setup Wizard">
 </p>
 
-# Guide de déploiement universel d'ArcIA v0.6.0 sur Kubernetes
+# Guide de déploiement universel d'ArcIA v0.7.0 sur Kubernetes
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **[📘 Guides](README.md)** › **Déploiement universel**
 
-Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.6.0** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
+Ce guide décrit comment déployer l'intégralité de la plateforme d'entreprise **ArcIA v0.7.0** sur **n'importe quel cluster Kubernetes** (EKS, AKS, GKE, K3s, vanilla Kubernetes / kubeadm, KinD, Minikube...) à partir du **Centre de Pilotage Graphique (Setup Wizard)** ou d'un **seul et unique fichier de configuration** (`arcia.config.yaml`).
 
 ---
 
@@ -144,7 +147,7 @@ Le moteur universel de déploiement ([scripts/deploy.py](../../scripts/deploy.py
 3. **Crée le namespace** cible (`arcia`).
 4. **Provisionne les secrets** Kubernetes sécurisés (`arcia-env-secret`, `litellm-secret`, `hermes-gateway-secret`, `presidio-secret`...) directement en mémoire via `stdin`.
 5. **Synchronise les ConfigMaps des microservices** (`sync_service_configmaps` : `presidio-code`, `teams-bot-code`, `hermes-governance-plugin`, `hermes-runtime-guard`, `hermes-files-code`) et des compétences natives (`arcia-native-skills`).
-6. **Rend et applique les manifestes** adaptés à votre FQDN et à votre classe d'Ingress (incluant la base relationnelle PostgreSQL 16 `litellm-db`, LiteLLM avec Zero Data Retention et le middleware SSO `/studio`).
+6. **Rend et applique les manifestes** adaptés à votre FQDN et à votre classe d'Ingress (incluant la base relationnelle PostgreSQL 18.6 `litellm-db`, LiteLLM avec Zero Data Retention et le middleware SSO `/studio`).
 7. **Active ou désactive** automatiquement les composants optionnels (Teams Bot, SSO Entra ID) selon votre configuration.
 8. **Surveille le rollout** et la santé de tous les Pods jusqu'à leur mise en service.
 9. **Affiche la synthèse d'accès** avec les URL prêtes à l'emploi.

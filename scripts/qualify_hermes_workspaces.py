@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True)
     parser.add_argument("--report", default="artifacts/hermes-workspaces-qualification.json")
+    parser.add_argument("--real-gateway", action="store_true", help="Intercaler LiteLLM et PostgreSQL réels avant le fournisseur synthétique")
     args = parser.parse_args()
     cfg = deploy.parse_yaml_or_env(args.config)
     k, s = cfg.get("kubernetes", {}), cfg.get("kubernetes", {}).get("remote_ssh", {})
@@ -36,9 +37,12 @@ def main():
     namespace = "arcia-qual-files-" + nonce[:12]
     versions = json.loads((ROOT / "deploy/versions.json").read_text(encoding="utf-8"))["components"]
     hermes_image, portal_image = versions["hermes-agent"]["image"], versions["open-webui"]["image"]
+    provider_name = "synthetic-provider" if args.real_gateway else "litellm-proxy"
+    inference_key = "sk-" + secrets.token_urlsafe(32) if args.real_gateway else "synthetic"
     report = {"namespace": namespace, "hermes_image": hermes_image, "portal_image": portal_image,
               "cloud_provider": False, "production_modified": False, "passed": False,
               "scope": "isolated_hermes_files_api", "security_release_ready": False,
+              "real_litellm": args.real_gateway,
               "excluded": ["native_dlp_before_sqlite", "authenticated_browser", "fresh_cluster_rebuild"]}
     stage = "bootstrap"
 
@@ -59,6 +63,17 @@ def main():
         prefix = "ARCIA_ACCOUNTS=" if mode == "create" else "ARCIA_QUALIFICATION="
         return json.loads(next(line[len(prefix):] for line in output.splitlines() if line.startswith(prefix)))
 
+    def gateway_guard(mode):
+        if not args.real_gateway:
+            return {}
+        source = (ROOT / "tests/fixtures/gateway_guard_probe.py").read_text(encoding="utf-8")
+        source = "import io,sys\nsys.stdin=io.StringIO(" + repr(json.dumps({"mode": mode, "key": inference_key})) + ")\n" + source
+        rc, output, _ = runner.run(["exec", "-i", "deployment/litellm-proxy", "-n", namespace, "--", "python3", "-"],
+                                   stdin_input=source, timeout=180)
+        if rc:
+            raise RuntimeError("Canaris du guardrail aval en échec")
+        return json.loads(next(line[len("ARCIA_GATEWAY_GUARD="):] for line in output.splitlines() if line.startswith("ARCIA_GATEWAY_GUARD=")))
+
     try:
         print("Création du namespace de qualification isolé.", flush=True)
         apply({"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": namespace, "annotations": {"arcia.io/qualification": nonce}}})
@@ -68,7 +83,8 @@ def main():
                         "egress": [{"to": [{"podSelector": {}}]}, {"to": [{"namespaceSelector": {}, "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}],
                                                                     "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]}]}})
         code = {"files.py": (ROOT / "services/hermes/files.py").read_text(encoding="utf-8"),
-                "provider.py": (ROOT / "tests/fixtures/hermes_e2e_provider.py").read_text(encoding="utf-8")}
+                "provider.py": (ROOT / "tests/fixtures/hermes_e2e_provider.py").read_text(encoding="utf-8"),
+                "error_handler.py": (ROOT / "services/litellm/error_handler.py").read_text(encoding="utf-8")}
         apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "qualification-code", "namespace": namespace}, "data": code})
         apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hermes-files-code", "namespace": namespace}, "data": {"files.py": code["files.py"]}})
         apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "hermes-runtime-guard", "namespace": namespace}, "data": hermes_files.governance_code(ROOT)})
@@ -87,10 +103,54 @@ def main():
         provider_pod = {"automountServiceAccountToken": False, "containers": [{"name": "provider", "image": hermes_image,
             "command": ["python3", "/code/provider.py"], "ports": [{"containerPort": 4000}],
             "volumeMounts": [{"name": "code", "mountPath": "/code", "readOnly": True}]}], "volumes": [{"name": "code", "configMap": {"name": "qualification-code"}}]}
-        apply({"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "litellm-proxy", "namespace": namespace},
-               "spec": {"replicas": 1, "selector": {"matchLabels": {"app": "litellm-proxy"}}, "template": {"metadata": {"labels": {"app": "litellm-proxy"}}, "spec": provider_pod}}})
-        apply({"apiVersion": "v1", "kind": "Service", "metadata": {"name": "litellm-proxy", "namespace": namespace},
-               "spec": {"selector": {"app": "litellm-proxy"}, "ports": [{"port": 4000, "targetPort": 4000}]}})
+        apply({"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": provider_name, "namespace": namespace},
+               "spec": {"replicas": 1, "selector": {"matchLabels": {"app": provider_name}}, "template": {"metadata": {"labels": {"app": provider_name}}, "spec": provider_pod}}})
+        apply({"apiVersion": "v1", "kind": "Service", "metadata": {"name": provider_name, "namespace": namespace},
+               "spec": {"selector": {"app": provider_name}, "ports": [{"port": 4000, "targetPort": 4000}]}})
+        if args.real_gateway:
+            stage = "real_gateway_startup"
+            db_password = secrets.token_urlsafe(32)
+            apply(deploy.make_secret_manifest("qualification-gateway", namespace, {"master-key": inference_key,
+                "db-password": db_password, "database-url": "postgresql://litellm:" + db_password + "@litellm-db:5432/litellm"}))
+            gateway_config = {"model_list": [{"model_name": "mission-synthetique", "litellm_params": {
+                "model": "openai/synthetic-model", "api_base": "http://synthetic-provider:4000/v1", "api_key": "synthetic"}}],
+                "general_settings": {"master_key": "os.environ/LITELLM_MASTER_KEY", "database_url": "os.environ/DATABASE_URL"},
+                "litellm_settings": {"callbacks": "error_handler.proxy_handler_instance"},
+                "guardrails": [{"guardrail_name": "presidio-guard", "litellm_params": {"guardrail": "presidio", "mode": "pre_call",
+                    "pii_entities_config": {"EMAIL_ADDRESS": "MASK"}, "timeout": 5,
+                    "default_on": True, "presidio_analyzer_api_base": "http://presidio-dlp:8080", "presidio_anonymizer_api_base": "http://presidio-dlp:8080"}}]}
+            apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "qualification-gateway", "namespace": namespace},
+                   "data": {"config.yaml": yaml.safe_dump(gateway_config)}})
+            db_env = [{"name": "POSTGRES_DB", "value": "litellm"}, {"name": "POSTGRES_USER", "value": "litellm"},
+                      {"name": "POSTGRES_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "qualification-gateway", "key": "db-password"}}}]
+            for name, image, container in (
+                ("litellm-db", versions["litellm-db"]["image"], {"env": db_env,
+                    "volumeMounts": [{"name": "data", "mountPath": "/var/lib/postgresql"}]}),
+                ("litellm-proxy", versions["litellm-proxy"]["image"], {"args": ["--config", "/config/config.yaml", "--port", "4000"],
+                    "env": [{"name": "PYTHONPATH", "value": "/code"}] + [{"name": name, "valueFrom": {"secretKeyRef": {"name": "qualification-gateway", "key": key}}}
+                            for name, key in (("LITELLM_MASTER_KEY", "master-key"), ("DATABASE_URL", "database-url"))],
+                    "volumeMounts": [{"name": "config", "mountPath": "/config", "readOnly": True},
+                                     {"name": "code", "mountPath": "/code", "readOnly": True}],
+                    "readinessProbe": {"httpGet": {"path": "/health/liveliness", "port": 4000}, "periodSeconds": 5}})):
+                container.update(name=name, image=image, resources={"requests": {"cpu": "100m", "memory": "256Mi"},
+                    "limits": {"cpu": "1", "memory": "2Gi"}})
+                pod = {"automountServiceAccountToken": False, "containers": [container], "volumes": [
+                    {"name": "data", "emptyDir": {}}, {"name": "config", "configMap": {"name": "qualification-gateway"}},
+                    {"name": "code", "configMap": {"name": "qualification-code"}}]}
+                apply({"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": name, "namespace": namespace},
+                    "spec": {"replicas": 1, "selector": {"matchLabels": {"app": name}}, "template": {"metadata": {"labels": {"app": name}}, "spec": pod}}})
+                port = 5432 if name == "litellm-db" else 4000
+                apply({"apiVersion": "v1", "kind": "Service", "metadata": {"name": name, "namespace": namespace},
+                    "spec": {"selector": {"app": name}, "ports": [{"port": port, "targetPort": port}]}})
+            print("Qualification du véritable LiteLLM et de PostgreSQL ; données exclusivement synthétiques.", flush=True)
+            rc, _, _ = runner.run(["rollout", "status", "deployment/litellm-proxy", "-n", namespace, "--timeout=600s"], timeout=620)
+            if rc:
+                raise RuntimeError("Passerelle réelle de qualification indisponible")
+            report["litellm_image"] = versions["litellm-proxy"]["image"]
+            report["postgres_image"] = versions["litellm-db"]["image"]
+            report["gateway_guard_checks"] = gateway_guard("online")
+            if not all(report["gateway_guard_checks"].values()):
+                raise RuntimeError("La barrière LiteLLM ne refuse pas correctement les canaris ; arrêt avant la recette longue")
         portal_code = {name: (ROOT / "services/open_webui" / name).read_text(encoding="utf-8") for name in ("start.py", "arcia_webui.py", "branding.py", "arcia_hermes_files.py")}
         apply({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "portal-code", "namespace": namespace}, "data": portal_code})
         portal_env = {"WEBUI_AUTH": "true", "ENABLE_SIGNUP": "true", "DEFAULT_USER_ROLE": "user", "ENABLE_OLLAMA_API": "false",
@@ -136,7 +196,7 @@ def main():
                 template = template.replace("{{" + variable + "}}", value)
             documents = list(yaml.safe_load_all(template))
             # La même image et le vrai outil terminal, avec une clé fournisseur factice.
-            apply(deploy.make_secret_manifest(service, namespace, {"api-server-key": key, "virtual-key": "synthetic"}))
+            apply(deploy.make_secret_manifest(service, namespace, {"api-server-key": key, "virtual-key": inference_key}))
             if name == "bob":
                 command = documents[1]["spec"]["template"]["spec"]["initContainers"][0]["command"]
                 command[2] += "; test -f /opt/data/SOUL.md || echo ARCIA_SYNTHETIC_POWERUSER_PERSONALIZATION > /opt/data/SOUL.md"
@@ -181,6 +241,25 @@ def main():
         # Retirer l'autorisation de bootstrap et tester les véritables politiques du socle.
         policy = (ROOT / "deploy/manifests/09-network-policy.yaml").read_text(encoding="utf-8")
         runner.apply_manifest(deploy.adapt_manifest_namespace(policy, namespace))
+        if args.real_gateway:
+            for app, direction, peer in (("litellm-proxy", "Egress", "synthetic-provider"), ("synthetic-provider", "Ingress", "litellm-proxy")):
+                rule = "egress" if direction == "Egress" else "ingress"
+                to_from = "to" if direction == "Egress" else "from"
+                apply({"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {
+                    "name": "qualification-" + app, "namespace": namespace}, "spec": {"podSelector": {"matchLabels": {"app": app}},
+                    "policyTypes": [direction], rule: [{to_from: [{"podSelector": {"matchLabels": {"app": peer}}}],
+                    "ports": [{"protocol": "TCP", "port": 4000}]}]}})
+            # Diagnostic en lecture seule du fournisseur déterministe, réservé
+            # aux trois runtimes de cette recette ; aucune destination cloud.
+            runtime_selector = {"matchExpressions": [{"key": "app", "operator": "In", "values": [b["service"] for b in bindings.values()]}]}
+            apply({"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {
+                "name": "qualification-provider-counter-ingress", "namespace": namespace}, "spec": {
+                "podSelector": {"matchLabels": {"app": "synthetic-provider"}}, "policyTypes": ["Ingress"],
+                "ingress": [{"from": [{"podSelector": runtime_selector}], "ports": [{"protocol": "TCP", "port": 4000}]}]}})
+            apply({"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {
+                "name": "qualification-provider-counter-egress", "namespace": namespace}, "spec": {
+                "podSelector": runtime_selector, "policyTypes": ["Egress"], "egress": [{"to": [{"podSelector": {
+                    "matchLabels": {"app": "synthetic-provider"}}}], "ports": [{"protocol": "TCP", "port": 4000}]}]}})
         runner.run(["delete", "networkpolicy", "qualification-isolation", "-n", namespace], timeout=20)
         runner.run(["delete", "networkpolicy", "qualification-presidio-bootstrap", "-n", namespace], timeout=20)
         print("Recette authentifiée : génération réelle, téléchargement et droits croisés.", flush=True)
@@ -253,13 +332,17 @@ print(json.dumps({'own_history_persisted': markers[owner] in contents,
 
         def governance(mode):
             source = (ROOT / "services/hermes/qualify_governance.py").read_text(encoding="utf-8")
+            if args.real_gateway:
+                source = "import os\nos.environ['ARCIA_QUAL_PROVIDER_HEALTH_URL']='http://synthetic-provider:4000/health'\n" + source
             rc, output, _ = runner.run(["exec", "-i", "deployment/" + alice_binding["service"], "-c", "hermes", "-n", namespace,
                                        "--", "python3", "-", mode], stdin_input=source, timeout=180)
             if rc:
                 raise RuntimeError("Client de qualification DLP en échec")
             return json.loads(next(line[len("ARCIA_GOVERNANCE="):] for line in output.splitlines() if line.startswith("ARCIA_GOVERNANCE=")))
 
+
         report["governance_checks"] = governance("online")
+        report["gateway_guard_checks"] = gateway_guard("online")
         # Simuler une coupure réseau du service sans perdre le Vault en RAM.
         unavailable_service = {"apiVersion": "v1", "kind": "Service", "metadata": {"name": "presidio-dlp", "namespace": namespace},
                                "spec": {"selector": {"app": "arcia-synthetic-dlp-unavailable"}, "ports": [{"port": 8080, "targetPort": 8080}]}}
@@ -267,19 +350,23 @@ print(json.dumps({'own_history_persisted': markers[owner] in contents,
         time.sleep(3)
         try:
             report["governance_checks"].update(governance("outage"))
+            report["gateway_guard_checks"].update(gateway_guard("outage"))
         finally:
             for document in yaml.safe_load_all(presidio_manifest):
                 if document and document.get("kind") == "Service":
                     apply(document)
         time.sleep(3)
         report["governance_checks"].update(governance("recovery"))
-        rc, output, _ = runner.run(["exec", "-i", "deployment/litellm-proxy", "-n", namespace, "--", "python3", "-"],
+        report["gateway_guard_checks"].update(gateway_guard("recovery"))
+        rc, output, _ = runner.run(["exec", "-i", "deployment/" + provider_name, "-n", namespace, "--", "python3", "-"],
             stdin_input="import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:4000/health').read().decode())", timeout=20)
         report["provider_checks"] = json.loads(output) if rc == 0 else {}
         provider = report["provider_checks"]
         report["governance_checks"]["tool_pii_not_sent_to_provider"] = provider.get("raw_tool_pii_seen") is False and provider.get("tool_result_token_seen") is True
         report["native_dlp_qualified"] = all(value is True for value in report["governance_checks"].values())
         report["passed"] = all(value is True or type(value) is int and value == 200 for value in report["checks"].values()) and bool(provider.get("personalization_seen")) and report.get("poweruser_launch_preserved", False) and report.get("poweruser_config_unchanged", False) and report["native_dlp_qualified"]
+        if args.real_gateway:
+            report["passed"] = report["passed"] and bool(report["gateway_guard_checks"]) and all(report["gateway_guard_checks"].values())
         if report["native_dlp_qualified"]:
             report["excluded"].remove("native_dlp_before_sqlite")
         print("Résultat de qualification : " + ("réussi" if report["passed"] else "échec"), flush=True)

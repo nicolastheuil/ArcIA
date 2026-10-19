@@ -67,7 +67,7 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
   - Volumes créés :
     - `open-webui-pvc` : `20Gi` (extensible selon tranche RAG)
     - `hermes-user-pvc` : `20Gi` (instance Hermes partagée)
-    - `litellm-db-pvc` : `10Gi` (base PostgreSQL 16)
+    - `litellm-db-pvc` : `10Gi` (base PostgreSQL 18.6)
     - `hermes-user-<slug>-pvc` (par Power User dédié) : `10Gi`
 
 ---
@@ -78,7 +78,7 @@ Pour évaluer ArcIA ou développer localement sans cluster Kubernetes :
    - Route les flux HTTP (`80`) et HTTPS (`443`).
    - Gère les middlewares (`entra-id-auth` via `oauth2-proxy` et `litellm-ratelimit` sur `/v1`).
 2. **Cert-Manager & Let's Encrypt** :
-   - Version : `v1.16.1`.
+   - Version : `v1.21.2`.
    - `ClusterIssuer` : `letsencrypt-prod` ([deploy/manifests/01-cert-manager-issuer.yaml](../../deploy/manifests/01-cert-manager-issuer.yaml)).
    - Challenge ACME HTTP-01 automatique dès que le nom DNS public configuré (ex: `assistant.example.org`) pointe sur le cluster.
 

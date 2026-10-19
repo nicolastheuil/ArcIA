@@ -16,7 +16,8 @@ base = os.environ["OPENAI_BASE_URL"].removesuffix("/v1")
 
 
 def provider_count():
-    return json.load(urllib.request.urlopen(base + "/health", timeout=10))["llm_requests"]
+    url = os.environ.get("ARCIA_QUAL_PROVIDER_HEALTH_URL", base + "/health")
+    return json.load(urllib.request.urlopen(url, timeout=10))["llm_requests"]
 
 
 def turn(text):

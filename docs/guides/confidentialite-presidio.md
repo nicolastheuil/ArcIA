@@ -1,4 +1,4 @@
-# Presidio DLP — gouvernance et double barrière de confidentialité (v0.6.0)
+# Presidio DLP — gouvernance et double barrière de confidentialité (v0.7.0)
 
 > La barrière Hermes est imposée au démarrage par le bootstrap ArcIA et aux frontières HTTP, SQLite et transport LLM. Son statut de recette, distinct du déploiement de production et du rebuild complet, figure dans l’[état des fonctionnalités](../etat-des-fonctionnalites.md).
 
@@ -118,3 +118,10 @@ Cette suite couvre :
 4. Le chargement dynamique des Deny-Lists d'instance sans fuite dans le harness générique.
 5. L'aller-retour réversible complet (`sanitize` → `deanonymize`) et le buffer streaming.
 6. Le verrouillage non-surchargeable des paramètres OpenRouter ZDR (`data_collection: deny`, `zdr: true`, `allow_fallbacks: false`).
+
+
+## Contrat du guardrail LiteLLM 1.106.0
+
+`default_on: true` impose l’exécution du guardrail, mais ne suffit pas à prouver son refus en cas d’erreur. Dans cette version, le [code officiel Presidio](https://github.com/BerriAI/litellm/blob/v1.106.0/litellm/proxy/guardrails/guardrail_hooks/presidio.py) peut transformer une réponse d’analyse HTTP 422 en résultat vide si aucune politique PII explicite n’est configurée. ArcIA fixe `pii_entities_config: { EMAIL_ADDRESS: MASK }` dans le manifeste, le rendu de `deploy.py` et le laboratoire. Cette configuration active le refus des réponses invalides ; elle ne désactive pas les autres détecteurs du service Presidio ArcIA.
+
+Le gestionnaire d’erreurs ArcIA conserve le refus HTTP 422 pour les secrets et l’indisponibilité de cette barrière. Le qualifier `--real-gateway` vérifie directement le proxy, sans l’assainissement préalable de Hermes : message bénin, streaming, PEM/CIDR/MAC/FQDN, absence d’appel au fournisseur en cas de refus, panne et reprise. Un échec interdit de qualifier la cible ; les résultats effectifs sont consignés dans le [complément v0.7](../v0.7/verification.md).

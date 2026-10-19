@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/📖_Docs-Hub_Central-0C2762?style=flat-square" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/Guides-Références_techniques-6BE7DD?style=flat-square&logoColor=050712" alt="Guides techniques">
 </p>
@@ -8,7 +8,7 @@
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[📖 Documentation](../README.md)** › **Guides Techniques**
 
-Ce répertoire rassemble les guides thématiques qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.6.0**.
+Ce répertoire rassemble les guides thématiques qui détaillent chaque brique fonctionnelle, les flux de sécurité et les composants d'infrastructure de la plateforme **ArcIA v0.7.0**.
 
 ---
 
@@ -34,7 +34,7 @@ Ce répertoire rassemble les guides thématiques qui détaillent chaque brique f
 | Guide | Résumé |
 |---|---|
 | **[chaine-de-routage.md](chaine-de-routage.md)** | Routage hybride (`Simple` & `Agentic`), catalogue administré des modèles Simple et Agentic et diagrammes de séquence complets. |
-| **[inference-litellm.md](inference-litellm.md)** | Configuration du proxy LiteLLM (`:4000`), *Zero Data Retention* (`zdr: true`), fallback et base comptable PostgreSQL 16. |
+| **[inference-litellm.md](inference-litellm.md)** | Configuration du proxy LiteLLM (`:4000`), *Zero Data Retention* (`zdr: true`), fallback et base comptable PostgreSQL 18.6. |
 | **[confidentialite-presidio.md](confidentialite-presidio.md)** | Double barrière d'anonymisation DLP Microsoft Presidio (Hermes amont + LiteLLM aval) en mode *fail-closed*. |
 
 ### 💬 4. Interfaces collaborateurs et canaux d'équipe

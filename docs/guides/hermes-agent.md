@@ -1,4 +1,4 @@
-# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users (v0.6.0)
+# Hermes Agent — moteur d'agents, Studio et pods dédiés Power Users (v0.7.0)
 
 > La barrière Hermes est imposée au démarrage par le bootstrap ArcIA et aux frontières HTTP, SQLite et transport LLM. Son statut de recette, distinct du déploiement de production et du rebuild complet, figure dans l’[état des fonctionnalités](../etat-des-fonctionnalites.md).
 
@@ -8,7 +8,7 @@ Hermes est le moteur d'exécution agentique d'entreprise d'ArcIA. Il permet d'ex
 
 ---
 
-## 1. Fonctionnalités clés v0.6.0
+## 1. Fonctionnalités clés v0.7.0
 
 - **Hermes Studio Dashboard (port 9119)** :
   - Interface visuelle de pilotage de missions en mode **Kanban**.
@@ -100,9 +100,9 @@ Le script [scripts/Spawn-PowerUser.ps1](../../scripts/Spawn-PowerUser.ps1) (ados
 
 Voir également :
 - [Chaîne de Routage & Cycle de Vie](chaine-de-routage.md)
-- [Sobriété Tokenmaxing v0.6.0 (CCR & RTK)](tokenmaxing.md)
+- [Sobriété Tokenmaxing v0.7.0 (CCR & RTK)](tokenmaxing.md)
 - [Passerelle d'Inférence LiteLLM](inference-litellm.md)
-- [État des fonctionnalités v0.6.0](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.7.0](../etat-des-fonctionnalites.md)
 
 
 ## Accès depuis Open-WebUI et conservation des personnalisations

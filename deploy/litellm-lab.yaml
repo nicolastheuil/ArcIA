@@ -1,5 +1,5 @@
 # ==============================================================================
-# Configuration LiteLLM Proxy pour ArcIA v0.6.0 (Mode Lab / Docker Local)
+# Configuration LiteLLM Proxy pour ArcIA v0.7.0 (Mode Lab / Docker Local)
 # ==============================================================================
 model_list:
   # 1. simple/free : direct LiteLLM vers OpenRouter Free
@@ -90,6 +90,9 @@ guardrails:
       guardrail: presidio
       mode: "pre_call"
       default_on: true
+      timeout: 5
+      pii_entities_config:
+        EMAIL_ADDRESS: MASK
       presidio_analyzer_api_base: "http://presidio-analyzer:3000"
       presidio_anonymizer_api_base: "http://presidio-anonymizer:3000"
 

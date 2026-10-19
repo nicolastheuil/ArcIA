@@ -1,11 +1,11 @@
 # Conception de la plateforme ArcIA v0.7
 
-Statut : **proposé**, sur la branche `v0.7`, depuis le socle `09dd2a5`. Ce dossier prépare l'évolution ; il ne décrit pas des services déjà installés. Le registre [versions.json](../../deploy/versions.json) reste celui du socle réellement livré.
+Statut : **proposé**, sur la branche `v0.7`, depuis le socle `09dd2a5`. Ce dossier prépare l'évolution ; il ne décrit pas des services déjà installés. Le registre [versions.json](../../deploy/versions.json) fixe désormais la cible v0.7.0 en développement ; les [versions et exceptions de compatibilité](../guides/versions-officielles.md) distinguent cible, qualification et installation réelle.
 
 ## Décisions du cadrage
 
 - Open-WebUI est conservé. Une connexion de chat vers LiteLLM doit couvrir inférence directe et agents A2A, après qualification de bout en bout.
-- `category: simple|agentic` reste une métadonnée explicite, avec des noms libres ; la catégorie ne crée pas deux backends dans Open-WebUI.
+- Aucun champ `category` dans le catalogue cible : les noms sont libres, et la destination configurée dans LiteLLM désigne une inférence ou un agent A2A. Open-WebUI utilise une seule connexion de chat vers LiteLLM.
 - Le wizard local conserve installation et restauration. Les autres fonctions passent progressivement dans la console, sans suppression avant parité vérifiée.
 - Console unique : `/provider/` et `/tenant/<slug>/`. Le slug est une présentation, jamais une identité d'autorisation.
 - Deux niveaux d'administration : opérateur du provider et administrateur de tenant. Les profils Standard et Power User sont conservés.

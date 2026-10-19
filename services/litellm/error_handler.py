@@ -105,6 +105,11 @@ def format_user_friendly_error(raw_error_text: str, default_status_code: int = 5
         )
         return 422, msg
 
+    if "presidio" in lower and any(marker in lower for marker in (
+        "analysis failed", "anonymization failed", "invalid response", "dlp_analyzer_unavailable", "dlp_analysis_failed"
+    )):
+        return 422, "🛡️ Le contrôle de confidentialité est indisponible. La requête a été bloquée avant l’inférence ; veuillez réessayer."
+
     # 4. Surcharge fournisseur / Rate Limit (Trop de requêtes)
     if any(k in lower for k in [
         "ratelimit",

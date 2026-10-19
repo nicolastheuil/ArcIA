@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.6.0 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
+# ArcIA v0.7.0 — LiteLLM Proxy (Passerelle d'Inférence Unifiée & Guardrail Presidio)
 # Catalogue canonique :
 #   - Direct LiteLLM : simple/free, simple/auto
 #   - Moteur Hermes  : agentic/free, agentic/auto, agentic/expert
@@ -78,6 +78,11 @@ data:
           guardrail: presidio
           mode: "pre_call"
           default_on: true
+          # Une politique explicite active le refus des réponses Presidio invalides
+          # dans LiteLLM 1.106.0 ; sans elle un HTTP 422 devient une analyse vide.
+          timeout: 5
+          pii_entities_config:
+            EMAIL_ADDRESS: MASK
           presidio_analyzer_api_base: "http://presidio-dlp:8080"
           presidio_anonymizer_api_base: "http://presidio-dlp:8080"
 ---
@@ -102,7 +107,7 @@ spec:
     spec:
       containers:
       - name: litellm
-        image: ghcr.io/berriai/litellm:main-v1.72.6-stable@sha256:2c3f50ed1ea59ec9e175711c808c3bf15f023643fe50fb1ba1d0f9dc827a356d
+        image: ghcr.io/berriai/litellm:v1.106.0@sha256:2e4c0371f3a8c28e4da131d77abaa8341cd3b0c2fcc4d34d7c5900431af7b9d0
         args:
         - "--config"
         - "/app/config.yaml"

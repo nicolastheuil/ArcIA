@@ -1,44 +1,74 @@
 {
-  "arcia_release": "v0.6.0",
-  "arcia_version": "v0.6.0",
+  "arcia_release": "v0.7.0",
+  "arcia_version": "v0.7.0",
   "published_at": "2026-10-19",
   "channel": "development",
   "repository": "nicolastheuil/ArcIA",
   "components": {
     "arcia-core": {
-      "version": "v0.6.0",
+      "version": "v0.7.0",
       "image": "nicolastheuil/ArcIA",
-      "release_notes": "Isolation des sessions WebUI par utilisateur, réutilisation des pods Power Users et téléchargement authentifié des fichiers Hermes."
+      "release_notes": "Cible v0.7 en développement ; verrouillage des versions, qualification progressive sur cluster existant."
     },
     "presidio-dlp": {
       "version": "2.2.364",
-      "image": "python:3.11-slim",
-      "release_notes": "Règles PII françaises enrichies et rejet fail-closed des secrets PEM/SSH."
+      "image": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+      "release_notes": "Règles PII françaises enrichies et rejet fail-closed des secrets PEM/SSH.",
+      "manifest": "deploy/manifests/03-presidio.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19"
     },
     "oauth2-proxy": {
-      "version": "v7.8.1",
-      "image": "quay.io/oauth2-proxy/oauth2-proxy:v7.8.1",
-      "release_notes": "ForwardAuth Traefik pour l'authentification Microsoft Entra ID."
+      "version": "v7.15.5",
+      "image": "quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916",
+      "release_notes": "ForwardAuth Traefik pour l'authentification Microsoft Entra ID.",
+      "manifest": "deploy/manifests/02-oauth2-proxy.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19"
     },
     "litellm-proxy": {
-      "version": "v1.72.6-stable",
-      "image": "ghcr.io/berriai/litellm:main-v1.72.6-stable",
-      "release_notes": "Passerelle d'inférence unifiée avec ZDR granulaire par modèle et guardrail Presidio."
+      "version": "v1.106.0",
+      "image": "ghcr.io/berriai/litellm:v1.106.0@sha256:2e4c0371f3a8c28e4da131d77abaa8341cd3b0c2fcc4d34d7c5900431af7b9d0",
+      "release_notes": "Passerelle d'inférence unifiée avec ZDR granulaire par modèle et guardrail Presidio.",
+      "manifest": "deploy/manifests/05-litellm.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19"
     },
     "hermes-agent": {
       "version": "v0.22.2",
-      "image": "nousresearch/hermes-agent:v0.22.2",
-      "release_notes": "Moteur d'agents autonomes, Studio Kanban et mémoire SQLite state.db isolée."
+      "image": "nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919",
+      "release_notes": "Moteur d'agents autonomes, Studio Kanban et mémoire SQLite state.db isolée.",
+      "manifest": "deploy/manifests/06-hermes-agent.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19"
     },
     "teams-bot": {
-      "version": "v4.16.0",
-      "image": "python:3.11-slim",
-      "release_notes": "Adaptateur Bot Framework Microsoft Teams avec délégation /agent vers Hermes."
+      "version": "v4.17.1",
+      "image": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+      "release_notes": "Adaptateur Bot Framework Microsoft Teams avec délégation /agent vers Hermes.",
+      "manifest": "deploy/manifests/08-teams-bot.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19",
+      "maintenance": "Bot Framework SDK archivé ; migration SDK Microsoft 365 à planifier."
     },
     "open-webui": {
       "version": "v0.12.3",
-      "image": "ghcr.io/open-webui/open-webui:v0.12.3",
-      "release_notes": "Portail collaborateur hybride avec chiffrement de bout en bout (MLS), routage des modèles et RAG."
+      "image": "ghcr.io/open-webui/open-webui:v0.12.3@sha256:a537bbe1e6b428820f52ed4a029d7fff97062e24d5cf32c365fba36fd0542def",
+      "release_notes": "Portail collaborateur hybride avec chiffrement de bout en bout (MLS), routage des modèles et RAG.",
+      "manifest": "deploy/manifests/07-open-webui.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19"
+    },
+    "litellm-db": {
+      "version": "18.6",
+      "image": "postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+      "manifest": "deploy/manifests/05-litellm-db.yaml",
+      "qualification": "pending",
+      "checked_at": "2026-10-19",
+      "migration_required_from": [
+        "16",
+        "17"
+      ]
     }
   },
   "version_registry": {
@@ -106,6 +136,66 @@
       "scripts/arcia_keys.py",
       "scripts/arcia_poweruser.py",
       "scripts/test-validation.sh"
+    ],
+    "historical_files": [
+      "docs/etat-des-fonctionnalites.md"
     ]
+  },
+  "runtime": {
+    "python": {
+      "version": "3.14.8",
+      "image": "python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+      "latest_upstream": "3.15.0",
+      "constraint": "Presidio 2.2.364 et spaCy 3.8.16 exigent Python <3.15."
+    },
+    "numpy": {
+      "version": "2.4.6",
+      "latest_upstream": "2.5.4",
+      "constraint": "Presidio exige numpy <2.5."
+    }
+  },
+  "infrastructure_targets": {
+    "k3s": {
+      "version": "v1.37.1+k3s1",
+      "scope": "existing_cluster",
+      "observed_matching": true,
+      "observed_scope": "kubernetes_server_version"
+    },
+    "traefik": {
+      "version": "v3.7.15",
+      "image": "traefik:v3.7.15@sha256:0f6150202bc1fed72a7bd2107460eaa510e5b8a905f3fdb5b84f2c8619c33368",
+      "scope": "cluster_managed_not_applied"
+    },
+    "cert-manager": {
+      "version": "v1.21.2",
+      "scope": "cluster_managed_not_applied",
+      "images": [
+        "quay.io/jetstack/cert-manager-controller:v1.21.2@sha256:70f532fd9cfde0b09d55687200942399d89838bc2d5d5b45152eb799a15912b8",
+        "quay.io/jetstack/cert-manager-cainjector:v1.21.2@sha256:c85268c64f2e0e76684bf5fe8906caff34b82523561c6affe0fae3546bd87562",
+        "quay.io/jetstack/cert-manager-webhook:v1.21.2@sha256:a60e2dac46dbb8a7f3df95c54ce941012f54c2fe022f0ee55aaa1ab40ed957ae"
+      ]
+    },
+    "prometheus": {
+      "version": "v3.15.0",
+      "image": "prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
+      "scope": "planned_not_installed"
+    },
+    "grafana": {
+      "version": "13.2.4",
+      "image": "grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f",
+      "scope": "planned_not_installed"
+    }
+  },
+  "lab_images": {
+    "presidio-analyzer": {
+      "version": "2.2.362",
+      "image": "mcr.microsoft.com/presidio-analyzer:2.2.362@sha256:286e3fa7f3a7426e775e8564fe1870f1ba8f999d3ab8bbb8cc46a44355d9d6e9",
+      "note": "Dernière image MCR publiée, distincte du paquet PyPI 2.2.364."
+    },
+    "presidio-anonymizer": {
+      "version": "2.2.362",
+      "image": "mcr.microsoft.com/presidio-anonymizer:2.2.362@sha256:a10a12a2a613d13cf29d3ad3641e3258444dd8c90403dd644a0a114c472c2483",
+      "note": "Dernière image MCR publiée, distincte du paquet PyPI 2.2.364."
+    }
   }
 }

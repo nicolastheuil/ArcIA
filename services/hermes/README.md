@@ -1,5 +1,5 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/🧩_Services-Microservices-0C2762?style=flat-square" alt="Services"></a>
   <img src="https://img.shields.io/badge/Plugin-DLP_+_CCR_+_RTK-6BE7DD?style=flat-square&logoColor=050712" alt="Plugin Hermes">
 </p>
@@ -38,4 +38,4 @@ Voir le [contrat DLP et sa qualification](../../docs/guides/confidentialite-pres
 
 ### 🔗 Références associées
 * 📘 [Guide Hermes Agent & Mode Power User](../../docs/guides/hermes-agent.md)
-* 🗜️ [Guide Tokenmaxing & CCR v0.6.0](../../docs/guides/tokenmaxing.md)
+* 🗜️ [Guide Tokenmaxing & CCR v0.7.0](../../docs/guides/tokenmaxing.md)

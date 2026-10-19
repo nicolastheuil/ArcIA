@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-ArcIA Governance & Tokenmaxing Plugin (v0.6.0) for Hermes Agent
+ArcIA Governance & Tokenmaxing Plugin (v0.7.0) for Hermes Agent
 =============================================================
 Assure deux fonctions critiques en amont dans le moteur Hermes :
 1. Barrière DLP Presidio Fail-Closed (avant persistance SQLite et envoi LiteLLM).
-2. Économie de tokens (Tokenmaxing v0.6.0) :
+2. Économie de tokens (Tokenmaxing v0.7.0) :
    - CCR (Compress-Cache-Retrieve) réversible inspiré de Headroom : sauvegarde
      systématique de l'original par hash SHA-256 dans le cache privé borné et
      préservation stricte de la structure JSON/AST.
@@ -452,7 +452,7 @@ def on_tool_result(tool_name: str, command: str, result: str) -> str:
 def get_system_governance_prompt() -> str:
     """Orientation injectée dans la session Hermes pour activer Ponytail, Graphify et CCR."""
     return (
-        "[ArcIA Tokenmaxing v0.6.0 Actif] "
+        "[ArcIA Tokenmaxing v0.7.0 Actif] "
         "1) Applique l'échelle de sobriété Ponytail (YAGNI, réutilisation de l'existant). "
         "2) Pour cartographier un dépôt de code sans consommer de tokens, utilise Graphify (`python3 /opt/arcia/scripts/arcia_graphify.py`). "
         "3) Lorsqu'une sortie d'outil affiche `[CCR_HASH: <hash>]` ou `_arcia_ccr`, récupère les détails exacts à la demande via `python3 /opt/hermes/plugins/plugin.py retrieve <hash>`."

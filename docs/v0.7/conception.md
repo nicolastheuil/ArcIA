@@ -109,7 +109,7 @@ sequenceDiagram
     F-->>U: Octets vérifiés ou refus
 ```
 
-La cible est une connexion de chat WebUI vers LiteLLM. Les catégories Simple/Agentic restent des métadonnées du catalogue ; les aliases visibles sont libres. Le transport technique A2A peut avoir son identifiant propre. Les auto-routages et fallbacks restent dans le même périmètre d'autorisation et de confidentialité et ne peuvent boucler vers l'alias A2A de l'agent.
+La cible est une connexion de chat WebUI vers LiteLLM. Le catalogue cible ne possède aucun champ `category` ; les aliases visibles sont libres. LiteLLM utilise la destination de chaque entrée pour appeler un fournisseur d’inférence ou un agent A2A. Le champ historique reste accepté uniquement pendant la migration du déploiement actuel. Le transport technique A2A peut avoir son identifiant propre. Les auto-routages et fallbacks restent dans le même périmètre d'autorisation et de confidentialité et ne peuvent boucler vers l'alias A2A de l'agent.
 
 Le binding n'est pas un second moteur d'agents : c'est la sélection authentifiée de l'endpoint privé. Priorité aux permissions et headers natifs LiteLLM ; si leur contrat ne suffit pas, extension serveur minimale de résolution tenant/compte/agent. Aucun endpoint Hermes choisi par le navigateur. Évaluer des enregistrements A2A par runtime si nécessaire, sans exposer les entrées privées aux autres comptes.
 

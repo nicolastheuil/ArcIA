@@ -1,4 +1,4 @@
-# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.6.0)
+# LiteLLM Proxy — passerelle d'inférence d'entreprise (v0.7.0)
 
 > **Statut : Implémenté (v0.6.0)** · [Consulter l'état des fonctionnalités](../etat-des-fonctionnalites.md)
 
@@ -6,7 +6,7 @@ LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les 
 
 ---
 
-## 1. Rôles et architecture v0.6.0
+## 1. Rôles et architecture v0.7.0
 
 1. **Abstraction & Pivot Unique Sécurisé** :
    - Expose une API standardisée compatible OpenAI (`/v1/chat/completions`, `/v1/models`).
@@ -18,7 +18,7 @@ LiteLLM sert de point de passage unique vers les fournisseurs LLM pour tous les 
    - Les modèles **Agentic** sont exécutés dans Hermes ; Hermes utilise ensuite LiteLLM pour ses inférences.
    - Le champ `category` choisit ce parcours, sans convention de préfixe.
 3. **Persistance Relationnelle & Base Comptable (`litellm-db`)** :
-   - Base de données PostgreSQL 16 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
+   - Base de données PostgreSQL 18.6 dédiée ([05-litellm-db.yaml](../../deploy/manifests/05-litellm-db.yaml)).
    - Gestion des budgets d'équipes et des **clés virtuelles nominatives (PAT)** ([scripts/arcia_keys.py](../../scripts/arcia_keys.py)).
    - Suivi unifié des coûts et de la consommation par utilisateur (`X-OpenWebUI-User-Email`).
 
@@ -34,7 +34,7 @@ Le service est déployé via :
 
 ---
 
-## 3. Configuration du routage v0.6.0
+## 3. Configuration du routage v0.7.0
 
 Le déploiement génère le ConfigMap `litellm-config` à partir du catalogue administré. Le manifeste [05-litellm.yaml](../../deploy/manifests/05-litellm.yaml) fournit le socle et le guardrail Presidio. Voici un exemple de structure avec des noms libres :
 
@@ -240,5 +240,5 @@ LiteLLM intègre un gestionnaire d'interception d'erreurs d'inférence ([service
 Voir également :
 - [Chaîne de routage complète et cycle de vie d'une requête](chaine-de-routage.md)
 - [Gouvernance et confidentialité Presidio DLP](confidentialite-presidio.md)
-- [État des fonctionnalités v0.6.0](../etat-des-fonctionnalites.md)
+- [État des fonctionnalités v0.7.0](../etat-des-fonctionnalites.md)
 - [Quickstart et configuration pratique](../runbooks/quickstart.md)

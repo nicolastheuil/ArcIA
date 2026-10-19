@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.6.0 — Presidio DLP Sanitizer (Fail-Closed PII & Secrets Shield)
+# ArcIA v0.7.0 — Presidio DLP Sanitizer (Fail-Closed PII & Secrets Shield)
 # Code source unique : services/presidio/app.py (injecté via ConfigMap presidio-code
 # par scripts/deploy.py ou kubectl apply -k deploy/manifests)
 # ==============================================================================
@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: presidio
-        image: python:3.11-slim
+        image: python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
         workingDir: /app
         command:
         - /bin/sh

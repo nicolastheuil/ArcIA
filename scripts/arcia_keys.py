@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ArcIA v0.6.0 — Gestionnaire des Clés Virtuelles et Budgets LiteLLM (PAT)
+ArcIA v0.7.0 — Gestionnaire des Clés Virtuelles et Budgets LiteLLM (PAT)
 Permet d'émettre, renouveler, lister et révoquer les clés d'API nominatives
 pour les Utilisateurs Standards et les Power Users.
 """
@@ -125,7 +125,7 @@ def _add_create_arguments(subparser):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Gestionnaire des Clés Virtuelles ArcIA v0.6.0")
+    parser = argparse.ArgumentParser(description="Gestionnaire des Clés Virtuelles ArcIA v0.7.0")
     parser.add_argument("--url", default=DEFAULT_LITELLM_URL, help="URL de la passerelle LiteLLM")
     parser.add_argument("--master-key", default=DEFAULT_MASTER_KEY, help="Master Key LiteLLM")
 

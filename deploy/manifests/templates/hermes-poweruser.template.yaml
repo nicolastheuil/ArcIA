@@ -78,7 +78,7 @@ spec:
         fsGroup: 10000
       initContainers:
       - name: init-user-state
-        image: nousresearch/hermes-agent:v0.22.2
+        image: nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
         command:
         - /bin/sh
         - -c
@@ -102,7 +102,7 @@ spec:
           mountPath: /etc/hermes-init
       containers:
       - name: hermes
-        image: nousresearch/hermes-agent:v0.22.2
+        image: nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
         imagePullPolicy: IfNotPresent
 {{VPN_CONTAINER_SECURITY_CONTEXT}}
         command:
@@ -202,7 +202,7 @@ spec:
           readOnly: true
 {{VPN_CONTAINER_VOLUME_MOUNTS}}
       - name: arcia-files
-        image: nousresearch/hermes-agent:v0.22.2
+        image: nousresearch/hermes-agent:v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
         command: [python3, /opt/arcia-files/files.py]
         securityContext:
           runAsUser: 10000

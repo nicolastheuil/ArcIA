@@ -24,7 +24,7 @@ except ImportError:
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-app = FastAPI(title="ArcIA Presidio DLP Sanitizer", version="0.6.0")
+app = FastAPI(title="ArcIA Presidio DLP Sanitizer", version="0.7.0")
 
 # ==============================================================================
 # 1. Ephemeral In-Memory Vault for Reversible & Consistent Pseudonymization
@@ -396,7 +396,7 @@ def health():
     return {
         "status": "ok" if analyzer is not None else "degraded",
         "service": "presidio-dlp",
-        "version": "0.6.0",
+        "version": "0.7.0",
         "analyzer_ready": analyzer is not None,
         "active_vault_sessions": vault.active_sessions_count(),
         "deny_list_configured": bool(get_deny_list())

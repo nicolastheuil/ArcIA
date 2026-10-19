@@ -1,6 +1,6 @@
-# Sécurité et gouvernance des données — ArcIA v0.6.0
+# Sécurité et gouvernance des données — ArcIA v0.7.0
 
-Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.6.0**.
+Ce document définit les frontières de sécurité, les mécanismes d'isolation et la gouvernance des flux de données dans **ArcIA v0.7.0**.
 
 ---
 
@@ -11,7 +11,7 @@ Ce document définit les frontières de sécurité, les mécanismes d'isolation 
 | **Périmètre HTTPS** | Certificats Let's Encrypt via Cert-Manager et Ingress Controller | TLS entre navigateur et Ingress ; les flux internes HTTP nécessitent une protection supplémentaire si le chiffrement interne est requis |
 | **Authentification Utilisateurs** | Middleware ForwardAuth couplé à OAuth2-Proxy et Microsoft Entra ID | Accès conditionné au compte d'entreprise, MFA et gestion centralisée des identités |
 | **Gouvernance DLP** | Barrière aval LiteLLM et fonctions Presidio ; barrière interne Hermes exigée | L’interception native avant SQLite n’est pas qualifiée : condition non satisfaite pour une recette de sécurité complète |
-| **Passerelle d'Inférence** | LiteLLM Proxy (`litellm-proxy.arcia.svc:4000`) adossé à PostgreSQL 16 | Abstraction complète des clés d'API fournisseurs, quotas, équilibrage, modèles administrés et Zero Data Retention (ZDR) forcé |
+| **Passerelle d'Inférence** | LiteLLM Proxy (`litellm-proxy.arcia.svc:4000`) adossé à PostgreSQL 18.6 | Abstraction complète des clés d'API fournisseurs, quotas, équilibrage, modèles administrés et Zero Data Retention (ZDR) forcé |
 | **Isolation agentique WebUI** | Identité issue de la session authentifiée, association serveur, pod et PVC distincts par compte | Standard privé ; Power User raccordé à son pod existant ; refus sans association ; aucun accès aux fichiers d’un autre compte par copie de lien |
 | **Isolation Power Users** | Pods Hermes dédiés par Power User (`.\scripts\Spawn-PowerUser.ps1`) + Ingress `/v1` avec RateLimit | Conteneur et PVC `10Gi` isolés par Power User, jeton PAT nominatif et budget mensuel suivi dans PostgreSQL |
 | **Persistance des Agents** | Volumes PVC dédiés `ReadWriteOnce` | Étanchéité des états `state.db` SQLite, aucun partage multi-écrivain non contrôlé |
@@ -30,7 +30,7 @@ flowchart LR
     B --> C["SSO Entra ID / OAuth2-Proxy"]
     C --> D["Moteur ArcIA (Hermes / WebUI)"]
     D --> E["Presidio DLP (Double Barrière Fail-Closed)"]
-    E --> F["LiteLLM Gateway (PostgreSQL 16)"]
+    E --> F["LiteLLM Gateway (PostgreSQL 18.6)"]
     F --> G["Modèles d'Inférence Cloud Sécurisés (Zero Data Retention)"]
 ```
 

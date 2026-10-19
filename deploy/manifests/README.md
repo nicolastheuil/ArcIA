@@ -1,14 +1,14 @@
 <p align="left">
-  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.6.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
+  <a href="../../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <a href="../README.md"><img src="https://img.shields.io/badge/☸️_Deploy-IaC_Root-0C2762?style=flat-square" alt="Deploy"></a>
   <img src="https://img.shields.io/badge/Namespace-arcia-6BE7DD?style=flat-square&logoColor=050712" alt="Namespace arcia">
 </p>
 
-# 📦 Manifestes Kubernetes — ArcIA v0.6.0
+# 📦 Manifestes Kubernetes — ArcIA v0.7.0
 
 > **[🏠 Accueil ArcIA](../../README.md)** › **[☸️ Déploiement](../README.md)** › **Manifestes Kubernetes**
 
-Ce dossier regroupe les manifestes Kubernetes ordonnés permettant de déployer et de mettre à jour sans coupure (`RollingUpdate`) l'intégralité de la plateforme **ArcIA v0.6.0** sur n'importe quel cluster Kubernetes dans le namespace unifié `arcia`.
+Ce dossier regroupe les manifestes Kubernetes ordonnés permettant de déployer et de mettre à jour sans coupure (`RollingUpdate`) l'intégralité de la plateforme **ArcIA v0.7.0** sur n'importe quel cluster Kubernetes dans le namespace unifié `arcia`.
 
 ---
 
@@ -23,8 +23,8 @@ Les manifestes sont préfixés de `00` à `09` afin de garantir un déploiement 
 | **02** | **[02-oauth2-proxy.yaml](02-oauth2-proxy.yaml)** | `Deployment`, `Service`, `Middleware` | Passerelle d'authentification SSO OpenID Connect (OIDC) Microsoft Entra ID (`/oauth2/auth`, `:4180`). |
 | **03** | **[03-presidio.yaml](03-presidio.yaml)** | `Deployment`, `Service` | Bouclier DLP souverain *fail-closed* (secrets, IP, PII `fr`+`en`) monté depuis `presidio-code` (`:8080`). |
 | **04** | **[04-ingress.yaml](04-ingress.yaml)** | `Ingress`, `Middleware` | Routage HTTPS unifié (`/`, `/v1`, `/studio`, `/gateway`, `/api/teams/messages`) avec ForwardAuth et RateLimit. |
-| **05a** | **[05-litellm-db.yaml](05-litellm-db.yaml)** | `StatefulSet`, `Service`, `PVC` | Base PostgreSQL 16 dédiée à la comptabilité LiteLLM, aux budgets d'équipe et aux clés PAT (`:5432`). |
-| **05b** | **[05-litellm.yaml](05-litellm.yaml)** | `Deployment`, `Service`, `ConfigMap` | Passerelle d'inférence LiteLLM v0.6.0 (5 profils canoniques, `zdr: true`, guardrail Presidio aval, `:4000`). |
+| **05a** | **[05-litellm-db.yaml](05-litellm-db.yaml)** | `StatefulSet`, `Service`, `PVC` | Base PostgreSQL 18.6 dédiée à la comptabilité LiteLLM, aux budgets d'équipe et aux clés PAT (`:5432`). |
+| **05b** | **[05-litellm.yaml](05-litellm.yaml)** | `Deployment`, `Service`, `ConfigMap` | Passerelle d'inférence LiteLLM v0.7.0 (5 profils canoniques, `zdr: true`, guardrail Presidio aval, `:4000`). |
 | **06** | **[06-hermes-agent.yaml](06-hermes-agent.yaml)** | `Deployment`, `Service`, `PVC`, `ConfigMap` | Moteur Hermes pour les modèles Agentic, Studio (`:9119`), Gateway (`:8642`) et protection native DLP obligatoire. |
 | **07** | **[07-open-webui.yaml](07-open-webui.yaml)** | `Deployment`, `Service`, `PVC` | Portail collaborateur hybride (modèles Simple et Agentic), SSO Entra ID, RAG ChromaDB et BYOK désactivé (`:8080`). |
 | **08** | **[08-teams-bot.yaml](08-teams-bot.yaml)** | `Deployment`, `Service` | Adaptateur Bot Framework Microsoft Teams (modèle Simple par défaut, `/agent` vers Hermes, `:3978`). |

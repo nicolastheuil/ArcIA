@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "=========================================="
-echo "   ArcIA v0.6.0 Platform Validation Tests  "
+echo "   ArcIA v0.7.0 Platform Validation Tests  "
 echo "=========================================="
 
 echo -e "\n[0/6] Exécution de la suite de tests unitaires et documentaires :"

@@ -1,5 +1,7 @@
 # Audit critique préalable à ArcIA v0.7
 
+Photographie initiale, antérieure au verrouillage des versions et aux nouvelles recettes Kubernetes : voir [versions actuelles](../guides/versions-officielles.md) et [complément de vérification](verification.md). Les constats ci-dessous décrivent la base de départ.
+
 Date : 19 octobre 2026. Périmètre : sources génériques locales au commit `09dd2a5` et documentation officielle publique. Aucun kubeconfig, secret d'instance, cluster privé ou contenu métier réel n'a été consulté. Les recettes historiques ci-dessous sont des attestations du dépôt, pas des exécutions répétées pendant cette étude.
 
 ## Socle réutilisable

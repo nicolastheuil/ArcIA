@@ -1,5 +1,5 @@
 # ==============================================================================
-# ArcIA v0.6.0 — Microsoft Teams Bot Adapter
+# ArcIA v0.7.0 — Microsoft Teams Bot Adapter
 # Code source unique : services/teams/app.py (injecté via ConfigMap teams-bot-code
 # par scripts/deploy.py ou kubectl apply -k deploy/manifests)
 # ==============================================================================
@@ -11,9 +11,9 @@ metadata:
   labels:
     app: teams-bot-adapter
     app.kubernetes.io/name: teams-bot-adapter
-    app.kubernetes.io/version: "v4.16.0"
+    app.kubernetes.io/version: "v4.17.1"
   annotations:
-    app.kubernetes.io/version: "v4.16.0"
+    app.kubernetes.io/version: "v4.17.1"
 spec:
   replicas: 1
   selector:
@@ -23,20 +23,20 @@ spec:
     metadata:
       labels:
         app: teams-bot-adapter
-        app.kubernetes.io/version: "v4.16.0"
+        app.kubernetes.io/version: "v4.17.1"
       annotations:
-        app.kubernetes.io/version: "v4.16.0"
+        app.kubernetes.io/version: "v4.17.1"
         checksum/teams-bot-code: "default"
     spec:
       containers:
       - name: adapter
-        image: python:3.11-slim
+        image: python:3.14.8-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83
         workingDir: /app
         command:
         - /bin/sh
         - -c
         - |
-          pip install --no-cache-dir botbuilder-core botbuilder-schema aiohttp && \
+          pip install --no-cache-dir -r /app/requirements.txt && \
           python app.py
         env:
         - name: MICROSOFT_APP_ID

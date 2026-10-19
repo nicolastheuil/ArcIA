@@ -1,6 +1,9 @@
-# Quickstart ArcIA v0.6.0
+# Quickstart ArcIA v0.7.0
 
-Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.6.0** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+> Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](../guides/versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.
+
+
+Ce guide vous accompagne pas-à-pas pour déployer, configurer et utiliser la plateforme d'entreprise **ArcIA v0.7.0** sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
 
 ---
 
@@ -166,7 +169,7 @@ L’administrateur choisit les valeurs de `llm_gateway.default_model` et `hermes
 Toutes les requêtes sortant vers des modèles cloud bénéficient de :
 1. **Zero Data Retention (ZDR)** : Forcé au niveau de LiteLLM via `extra_body: {provider: {zdr: true}}`.
 2. **Double Barrière Presidio DLP Fail-Closed** : Caviardage préalable en amont dans Hermes (`/sanitize`) et en aval dans LiteLLM (`/analyze` + `/anonymize`).
-3. **Comptabilité et Budgets PostgreSQL** : Chaque requête est tracée dans la base PostgreSQL 16 (`litellm-db`).
+3. **Comptabilité et Budgets PostgreSQL** : Chaque requête est tracée dans la base PostgreSQL 18.6 (`litellm-db`).
 
 ---
 

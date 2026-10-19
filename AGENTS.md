@@ -4,7 +4,7 @@ Tu construis le harness réel et son déploiement reproducible depuis ce projet.
 ArcIA est le nom de la plateforme IA agentique d’entreprise ; Hermes est son moteur d’agents, LiteLLM sa passerelle d'inférence unifiée, Microsoft Presidio son bouclier DLP fail-closed et Open-WebUI son portail collaborateur hybride. `ArcIA` porte uniquement le socle générique. Les usages, corpus, connecteurs spécifiques, identités et domaines d’une organisation appartiennent à son dépôt d’instance privé.
 
 ## Sources à lire avant de modifier ou déployer
-1. [docs/architecture.md](docs/architecture.md) — Spécification d'architecture v0.6.0, topologie des pods et flux réseau.
+1. [docs/architecture.md](docs/architecture.md) — Spécification d'architecture cible v0.7.0 (développement), topologie des pods et flux réseau.
 2. [docs/runbooks/quickstart.md](docs/runbooks/quickstart.md) — Guide pas-à-pas de déploiement et parcours du Setup Wizard.
 3. [docs/guides/deploiement-universel.md](docs/guides/deploiement-universel.md) — Déploiement universel sur Kubernetes et paramètres de configuration.
 4. [docs/etat-des-fonctionnalites.md](docs/etat-des-fonctionnalites.md) — Tableau de bord de traçabilité et état réel des fonctionnalités v0.6.0.

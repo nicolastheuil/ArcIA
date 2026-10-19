@@ -348,7 +348,7 @@ class ProvisionTests(unittest.TestCase):
 
     def test_poweruser_patch_preserves_actual_hermes_container_and_personalization(self):
         from copy import deepcopy
-        existing = {"name": "hermes", "image": "nousresearch/hermes-agent:v0.22.2", "command": ["custom-existing-launch"],
+        existing = {"name": "hermes", "image": json.loads((ROOT / "deploy/versions.json").read_text(encoding="utf-8"))["components"]["hermes-agent"]["image"], "command": ["custom-existing-launch"],
                     "env": [{"name": "HERMES_HOME", "value": "/opt/data"}, {"name": "CUSTOM_SOUL", "value": "synthetic-personalization"}, {"name": "PYTHONPATH", "value": "/custom-agent-code"}],
                     "volumeMounts": [{"name": "user-data", "mountPath": "/opt/data"}]}
         original = deepcopy(existing)
