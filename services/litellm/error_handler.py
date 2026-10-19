@@ -335,6 +335,25 @@ try:
 
     ProxyException.__init__ = _arcia_proxy_exception_init
 
+    _orig_proxy_exception_setattr = ProxyException.__setattr__
+
+    def _arcia_proxy_exception_setattr(self, name: str, value: Any):
+        # user_api_key_auth réécrit message après __init__ dans la version épinglée.
+        # Filtrer aussi cette réassignation sans changer le code ou les règles d'accès.
+        if name == "message" and "message" in getattr(self, "__dict__", {}):
+            try:
+                status_code = int(getattr(self, "code", 500))
+            except (ValueError, TypeError):
+                status_code = 500
+            error_type = getattr(self, "type", "")
+            error_type = getattr(error_type, "value", error_type)
+            _, value = format_user_friendly_error(
+                f"{error_type}: {value}", default_status_code=status_code
+            )
+        _orig_proxy_exception_setattr(self, name, value)
+
+    ProxyException.__setattr__ = _arcia_proxy_exception_setattr
+
     async def _arcia_openai_exception_handler(request: Request, exc: ProxyException):
         headers = getattr(exc, "headers", None) or {}
         try:
