@@ -1,3 +1,5 @@
+> Audit historique du socle au 19 octobre. Le [contrat du 20 octobre](contrat-applicatif.md) remplace LiteLLM par agentgateway dans la cible ; les constats ci-dessous ne sont pas une évaluation d’agentgateway.
+
 # Audit critique préalable à ArcIA v0.7
 
 Photographie initiale, antérieure au verrouillage des versions et aux nouvelles recettes Kubernetes : voir [versions actuelles](../guides/versions-officielles.md) et [complément de vérification](verification.md). Les constats ci-dessous décrivent la base de départ.

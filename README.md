@@ -1,3 +1,5 @@
+> **Décision v0.7 du 20 octobre 2026 : agentgateway OSS remplace LiteLLM dans la cible.** Voir le [contrat applicatif](docs/v0.7/contrat-applicatif.md). Les descriptions LiteLLM ci-dessous concernent le socle historique, conservé pour migration et retour arrière ; aucune qualification agentgateway n’en découle.
+
 > Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](docs/guides/versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.
 
 <p align="center">

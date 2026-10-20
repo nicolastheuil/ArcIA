@@ -1,6 +1,13 @@
 # ==============================================================================
-# ArcIA v0.6.0 — Configuration unique de déploiement universel
+# ArcIA v0.7.0 — Cible agentgateway et compatibilité de migration
 # ==============================================================================
+
+# Contrat cible : docs/v0.7/contrat-applicatif.md
+# La qualification ne migre pas l'instance ; le déploiement complet reste fermé
+# jusqu'à recette JWT/CEL, Presidio, Hermes/A2A, fichiers et restauration.
+gateway:
+  implementation: agentgateway
+  mode: qualification_only
 # Ce fichier est le point d'entrée UNIQUE pour déployer la plateforme ArcIA sur
 # N'IMPORTE QUEL cluster Kubernetes (K3s, EKS, AKS, GKE, Minikube, KinD, etc.).
 #
@@ -90,9 +97,11 @@ network:
   tls_secret_name: "arcia-tls-cert"
 
 # ==============================================================================
-# 3. PASSERELLE IA & FOURNISSEURS LLM [OBLIGATOIRE]
+# 3. COMPATIBILITÉ HISTORIQUE LITELLM — MIGRATION UNIQUEMENT
 # ==============================================================================
 llm_gateway:
+  # Conservé pour restaurer/recetter l'ancien transport. Ces clés et tables ne
+  # configurent pas agentgateway. Le contrat cible ne possède pas de category.
   # [OBLIGATOIRE] Clé d'API du fournisseur d'inférence Cloud (OpenRouter)
   # Obtenez votre clé sur : https://openrouter.ai/
   openrouter_api_key: "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

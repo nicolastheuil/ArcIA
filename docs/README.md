@@ -9,7 +9,7 @@
 > **[🏠 Accueil ArcIA](../README.md)** › **Documentation**
 
 Bienvenue dans la base documentaire officielle de la plateforme **ArcIA**.
-Le [README principal](../README.md) offre une vue synthétique des macro-concepts, tandis que la spécification d’[Architecture](architecture.md) constitue la **source de vérité technique unique** du socle générique.
+Le [README principal](../README.md) présente le socle générique. La [conception v0.7](v0.7/README.md) définit la cible multi-tenant ; l'[architecture existante](architecture.md) décrit aussi les chemins historiques à préserver pendant la migration. La [matrice des gateways](reference/gateway-capabilities.md) distingue capacités natives et qualifications réellement acquises.
 
 ---
 

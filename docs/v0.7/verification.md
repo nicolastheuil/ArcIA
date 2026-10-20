@@ -95,3 +95,20 @@ Ces essais ne qualifient pas le pont A2A, MCP Gateway, Auto Router, les licences
 Les 23 indicateurs natifs de ces rapports ne doivent pas être rebaptisés « 24 » à partir d’un ancien texte : ce complément reprend les clés réellement émises. Les comptes et préférences du Power User synthétique sont préservés ; les fichiers restent exacts et les droits croisés sont refusés, y compris après redémarrage. Le compteur du fournisseur confirme l’absence de PII brute du canari d’outil dans les inférences.
 
 Une revue indépendante a conduit à corriger les anciennes versions encore affichées dans l’architecture et la promotion automatique d’une attestation tokenmaxing vers v0.7. Les régressions du synchroniseur, du verrouillage des images et de la confidentialité sont couvertes par des tests observés en échec avant correction puis en réussite. Le passage PostgreSQL de l’instance, les capacités A2A et les autres limites énumérées plus haut restent à recetter avant le rollout correspondant.
+
+## Choix agentgateway et première porte native — 20 octobre 2026
+
+Décision utilisateur : agentgateway OSS remplace LiteLLM dans la cible, selon le [contrat applicatif](contrat-applicatif.md). Les recettes LiteLLM précédentes restent historiques ; elles ne certifient pas cette nouvelle gateway.
+
+- Stable officielle v1.6.0 (2 octobre), commit source `ea5608642b9d5c94c5baf5fd9f2f9849b808e963` et digest OCI vérifiés ; registre et manifeste verrouillés.
+- Tests de sélection/guard observés en échec avant implémentation, puis réussite : aucune activation non qualifiée ni conversion implicite d’une ancienne configuration. Nouveau défaut du wizard : cible explicite ; ancien fichier préservé.
+- Commande réelle : `python scripts/qualify_gateway_stack.py --config arcia.config.yaml --report artifacts/agentgateway-qualification.json`, avec l’environnement temporaire de validation.
+- **Bootstrap fermé puis 13 cas HTTP JWT/CEL réussis** : deux identités acceptées (200), mauvais tenant/utilisateur et droit absent refusés (403), absence/falsification de token, mauvais émetteur/audience, expiration et claims requis absents refusés (401). Headers WebUI forgés insuffisants.
+- Image officielle exécutée sur le cluster existant, émetteur/JWKS RSA synthétiques, témoin HTTP sans LLM ; aucune donnée d’instance, appel cloud ou PVC. Namespace possédé par nonce, suppression et absence vérifiées.
+- Le rapport possède `passed=true`, `cleanup_verified=true`, mais **`activation_allowed=false` et `security_release_ready=false`**.
+
+La recette a été exécutée sur un arbre de travail basé sur `c5c104f`, avec le nouveau code non encore committé. L’empreinte SHA-256 du qualificateur exécuté est `ade2a62263fce201f55e6d1f89c25e9eb8f235a0b9ce00018b5c29e026918aa6`. Rapport et log complets restent locaux sous `artifacts/`.
+
+**Limites** : autorisation de claims sur deux identités synthétiques, pas isolation de deux tenants Kubernetes. Entra réel, inférence LLM, Presidio/webhook, outils, MCP, conversion Chat/A2A, sessions/fichiers Hermes, budgets, reprise et HA restent à qualifier. Aucune instance réelle migrée ; aucun résultat historique réétiqueté.
+
+Contrôles finaux du changement de cible : **329 tests, 16,595 s, OK** ; validation **60 documents, 513 liens locaux**, aucune erreur ; synchroniseur de versions et `git diff --check` réussis ; LintLang 0.8.2 **PASS** sans diagnostic structurel ; parseurs PowerShell (7 fichiers) et Bash (5 fichiers) sans erreur. Dry-run de la fixture historique et de `tests/fixtures/deploy.agentgateway.synthetic.yaml` : sortie 0, aucun déploiement. Les essais spécifiques LiteLLM non livrés sont écartés ; seul son qualificateur déjà livré reste maintenu pour migration.

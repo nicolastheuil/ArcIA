@@ -1,8 +1,8 @@
 # Plan de réalisation progressive d'ArcIA v0.7
 
-Objectif : fournir une plateforme multi-tenant isolée avec Open-WebUI, LiteLLM AI/MCP/Agent Gateways, Hermes privé, consoles provider/tenant et supervision intégrée.
+Objectif : fournir une plateforme multi-tenant isolée avec Open-WebUI, agentgateway OSS pour LLM/MCP/A2A, Hermes privé, consoles provider/tenant et supervision intégrée.
 
-Architecture : [conception et flux](conception.md). Contraintes et écarts : [audit](audit.md). Tous les lots ci-dessous sont **proposés et non exécutés**. Les tests déjà exécutés sur le socle sont consignés dans [la vérification](verification.md). Ce document est le plan directeur ; chaque lot donne les unités de code, interfaces et assertions à détailler avant son implémentation. Aucun code produit ni changement de version n'est livré avec ce plan.
+Architecture : [conception et flux](conception.md). Contrat : [choix agentgateway et migration](contrat-applicatif.md). Les états sont suivis lot par lot ; le lot 00 est établi et le lot 01 partiellement exécuté. Les [preuves](verification.md) distinguent le socle historique, la première porte native agentgateway et les recettes encore à réaliser. Les lots dépendants restent soumis à leurs critères, sans activation implicite.
 
 ## Contraintes globales
 
@@ -10,7 +10,7 @@ Architecture : [conception et flux](conception.md). Contraintes et écarts : [au
 - Sources applicatives exclusivement sous `services/`. Le moteur `sync_service_configmaps` projette les sources ; pas de Python incorporé dans les YAML.
 - Pas de secret de coffre, kubeconfig, token ou mot de passe dans les prompts, traces, exports publics ou réponses d'API. Valeurs saisies uniquement dans les programmes locaux/formulaires protégés.
 - Cluster partagé renforcé en référence, dédié optionnel. Aucun agent n'a de jeton Kubernetes ou privilège de provisionnement. Un propriétaire actif de chaque `state.db`.
-- Open-WebUI conservé ; catalogue de modèles et agents aux noms libres, sans champ `category`. Une seule connexion d'inférence vers LiteLLM après parité A2A ; l'API sécurisée des artefacts reste distincte.
+- Open-WebUI conservé ; catalogue de modèles et agents aux noms libres, sans champ `category`. Une seule connexion d'inférence vers agentgateway après parité A2A ; l'API sécurisée des artefacts reste distincte.
 - DLP/ZDR intégralement désactivables par modèle sur politique explicite ; garde obligatoire, absence de politique refusée, panne DLP fail-closed sur les routes protégées, aucun relâchement implicite par fallback.
 - Source de vérité des versions : `deploy/versions.json`. Digests vérifiés, pas de tags flottants, licences et migrations qualifiées. Une évolution d'un composant impose l'incrément mineur de plateforme prévu par la gouvernance. La cible commerciale v0.7 n'autorise pas à figer artificiellement le numéro pendant plusieurs évolutions incompatibles : livrer un bundle de versions qualifié, et réviser le numéro au besoin.
 - Chaque lot code ajoute ses manifests, config d'exemple, wizard/headless, tests, runbook et déclarations de sauvegarde. Les voies de récupération demeurent disponibles.
@@ -28,14 +28,14 @@ Architecture : [conception et flux](conception.md). Contraintes et écarts : [au
 | Catalogue | `AgentRelease(id, digest, parent_release_id, tool_refs, connection_refs, grants, tests_digest, policy_ref)` ; paquet immuable et attributions réévaluées |
 | Projection | `reconcile_projection(desired_revision, observed_revision) -> ReconcileResult` ; propriété de chaque champ documentée, absence de réécriture globale des objets natifs |
 
-Objets de gestion en PostgreSQL : tenants, memberships, operations, policy_revisions, agent_releases, grants et projections. Schémas de migrations et rôles séparés des tables LiteLLM. Contenu métier, transcripts natifs, corpus et binaires dans leur stockage propriétaire ; garder des références évite une troisième copie des conversations. Résultats d'opération et audit assainis, rétention explicite.
+Objets de gestion en PostgreSQL : tenants, memberships, operations, policy_revisions, agent_releases, grants et projections. Schémas de migrations et rôles séparés des tables des applications natives. Contenu métier, transcripts natifs, corpus et binaires dans leur stockage propriétaire ; garder des références évite une troisième copie des conversations. Résultats d'opération et audit assainis, rétention explicite.
 
 ## Risques de revue obligatoires
 
 1. Deux onglets changent de tenant pendant une requête : tenant lié à chaque requête, aucune variable globale « tenant actif » ne sélectionne un backend.
 2. Un utilisateur est révoqué pendant un run : prochain outil, accès documentaire, téléchargement et approbation refusés ; pas seulement disparition du menu.
 3. Un timeout survient après une écriture externe : `uncertain`, consultation de l'état distant et pas de rejeu automatique.
-4. Un chat change de modèle ou de politique : la classification des anciens contenus reste applicable ; pas de fuite par relecture, cache, Auto Router ou fallback.
+4. Un chat change de modèle ou de politique : la classification des anciens contenus reste applicable ; pas de fuite par relecture, cache, routage conditionnel ou fallback.
 5. Le worker, le proxy, Grafana ou le coffre redémarre : propriétaire d'état conservé, credentials non régénérés, archive restaurable et état de l'opération réconcilié.
 
 ## Portes de recette communes
@@ -62,7 +62,7 @@ Une preuve indique commit, versions/digests, environnement, données synthétiqu
 Livrable : ce dossier, les décisions confirmées et une carte des responsabilités.
 
 - [x] Récupérer `origin`, vérifier le contenu de travail, conserver une sauvegarde de l'ancien index et créer `v0.7` depuis `09dd2a5`.
-- [x] Lire architecture, état réel, installation, déploiement et confidentialité ; inventorier DLP, LiteLLM, sauvegarde et surfaces du wizard.
+- [x] Lire architecture, état réel, installation, déploiement et confidentialité ; inventorier le socle historique DLP, LiteLLM, sauvegarde et surfaces du wizard.
 - [x] Confirmer cluster partagé renforcé et exception DLP/ZDR complète par modèle.
 - [x] Relire la conception et enregistrer les corrections de la revue indépendante.
 - [x] Vérifier les nouveaux liens, schémas et commandes locales avant livraison du dossier.
@@ -71,12 +71,12 @@ Ouverture : documentation seulement. Sortie : plan traçable et aucun changement
 
 ## Lot 01 — Qualification des capacités natives et versions
 
-Avancement : cibles stables compatibles et digests verrouillés dans `deploy/versions.json`, avec garde PostgreSQL et exceptions documentées. Les qualifications exécutées sont consignées dans [verification.md](verification.md). Le lot reste ouvert : un transport LLM via LiteLLM réel ne qualifie pas encore le pont A2A, les licences, l’annulation, les budgets ni le MCP Gateway.
+Avancement : choix agentgateway OSS, v1.6.0 et digest verrouillés. Bootstrap fermé et 13 cas HTTP JWT/CEL réussis sur l’image réelle dans le cluster existant ; namespace nettoyé et vérifié absent. Voir [preuves](verification.md) et [matrice native](../reference/gateway-capabilities.md). Le lot reste ouvert : transport LLM, webhook Presidio, MCP, pont Chat/A2A, annulation, budgets et artefacts restent à qualifier. Ancienne recette LiteLLM séparée pour la migration.
 
 Fichiers à créer : `tests/fixtures/a2a_synthetic_agent.py`, `scripts/qualify_gateway_stack.py`, `tests/test_gateway_qualification.py` et une matrice sous `docs/reference/` lors de la restructuration. Réutiliser `scripts/qualify_hermes_workspaces.py`, `tests/test_runtime_governance.py`, `tests/test_routing_pipeline.py` et `deploy/versions.json`.
 
-- [ ] Construire une matrice version/API/licence pour LiteLLM AI, MCP, A2A Chat bridge, authentification, budgets, Auto Router et métriques ; vérifier tags, digests et migrations de la base.
-- [ ] Ajouter un scénario synthétique avec deux comptes, deux chats par compte, vrais LiteLLM/Hermes/Presidio et modèles déterministes ; aucun fournisseur cloud requis.
+- [ ] Construire une matrice OSS version/API/licence pour agentgateway LLM, MCP, A2A, JWT/CEL, budgets et métriques ; verrouiller schéma, tag et digest ; qualifier le webhook Presidio et le pont de chat.
+- [ ] Ajouter un scénario synthétique avec deux comptes, deux chats par compte, vrais agentgateway/Hermes/Presidio et modèles déterministes ; aucun fournisseur cloud requis.
 - [ ] Vérifier catalogue `/models`, aliases libres, streaming, reprise de contexte, erreurs, annulation et contrôle de l'agent pour chaque identité technique.
 - [ ] Générer un CSV avec l'outil terminal, télécharger les octets depuis un chat WebUI, refuser les accès croisés et conserver le fichier après redémarrage.
 - [ ] Requalifier `.pth`, entrées, sorties d'outils, SQLite, transport LLM, panne/reprise DLP, réhydratation et limites de vault.
@@ -84,7 +84,7 @@ Fichiers à créer : `tests/fixtures/a2a_synthetic_agent.py`, `scripts/qualify_g
 
 Interface produite : `GatewayCapabilityReport` avec capacités observées et `qualified: bool` par fonction. Une simple présence dans Swagger ne donne pas `qualified=true`.
 
-Recette : vrais chemins réseau de la stack, aucun appel fournisseur lors d'un refus ; 404/403 croisés, 422 protégé en panne ; CSV exact et absence de contenu brut des canaris protégés dans toutes les persistances examinées. Vérifier explicitement si la version minimale A2A supporte aussi le pont et l'authentification requis : ne pas supposer que `v1.80.8` suffit.
+Recette : vrais chemins réseau de la stack, aucun appel fournisseur lors d'un refus ; 404/403 croisés, 422 protégé en panne ; CSV exact et absence de contenu brut des canaris protégés dans toutes les persistances examinées. Le support A2A natif ne prouve pas un pont Chat Completions : vérifier le schéma agentgateway épinglé et les chemins réseau réels.
 
 Ouverture : aucun changement de production. Retour arrière : supprimer seulement le namespace jetable après contrôle de son nonce. En cas de capacité native manquante, préciser le petit adaptateur nécessaire ou différer la bascule ; conserver le chemin historique.
 
@@ -107,7 +107,7 @@ Ouverture : API en lecture seule pour l'opérateur de qualification puis opérat
 
 Créer `services/control_plane/{tenants,provisioning}.py`, `deploy/manifests/provider/`, `deploy/manifests/tenant/`, `tests/test_tenant_isolation.py`, `scripts/qualify_tenant_isolation.py`. Adapter le rendu namespace de `scripts/deploy.py` ; pas de copie des sources par tenant.
 
-- [ ] Rendre une instance par tenant : WebUI, LiteLLM, Presidio, bases/rôles, PVC, secrets, clé de sauvegarde et identités de service distincts.
+- [ ] Rendre une instance par tenant : WebUI, agentgateway, Presidio, bases/rôles, PVC, secrets, clé de sauvegarde et identités de service distincts.
 - [ ] Qualifier CNI, runtime sandbox et admission ; refuser le profil outillé partagé quand une exigence manque. Ajouter l'option cluster dédié sans changer les contrats applicatifs.
 - [ ] Déployer des NetworkPolicies fermées, budgets/quota, proxy de sortie et contrôle DNS ; supprimer les règles « port 443 partout » du profil cible.
 - [ ] Tester tentatives de connexion inter-tenant/inter-Power User, API K8s, métadonnées cloud, réseaux privés, DNS rebinding, IPv6 et endpoint privé présenté comme URL publique.
@@ -138,14 +138,14 @@ Ouverture : console en lecture seule au départ. Retour arrière : flag console 
 
 ## Lot 05 — Modèles, politiques et AI Gateway
 
-Créer `services/control_plane/{models,policies,litellm_adapter}.py`, `schemas/arcia-inference-policy.schema.json`, `tests/test_execution_policies.py`. Adapter `services/hermes/runtime_guard.py`, `services/presidio/app.py`, le guardrail LiteLLM et les projections WebUI uniquement après tests.
+Créer `services/control_plane/{models,policies,gateway_adapter}.py`, `schemas/arcia-inference-policy.schema.json`, `tests/test_execution_policies.py`. Adapter `services/hermes/runtime_guard.py`, `services/presidio/app.py`, le guardrail agentgateway et les projections WebUI uniquement après tests.
 
-- [ ] Exposer le catalogue administré avec aliases libres, destinations LiteLLM (inférence ou agent A2A), hébergement et fournisseurs ; préserver les clés et identifiants existants.
+- [ ] Exposer le catalogue administré avec aliases libres, destinations agentgateway (inférence ou agent A2A), hébergement et fournisseurs ; préserver les clés et identifiants existants.
 - [ ] Implémenter `resolve_execution_policy` et son contexte signé ; modes `enforce/off` et `required/not_required` sans variable globale de requête.
 - [ ] Tester l'exception complète sur canaris synthétiques, la route protégée concurrente, l'absence de politique, la révocation et la panne Presidio.
 - [ ] Interdire déclassement d'historique/corpus, fallback non admissible, override client de fournisseur/ZDR et réactivation involontaire de logs bruts.
 - [ ] Implémenter le cumul route Agentic/modèle réel/classification et le contexte de pseudonymisation propriétaire commun aux transports ; vérifier réhydratation locale et absence de réhydratation dans les logs ou vers le cloud.
-- [ ] Ajouter Auto Router uniquement si la fonction et sa licence sont disponibles ; classifier et candidates dans le même périmètre de données, budget et habilitations. Sinon conserver le routage explicite natif sans inventer un routeur parallèle.
+- [ ] Utiliser les primitives natives OSS de sélection, quotas et budgets seulement après qualification ; mêmes contraintes de données, budget et habilitations pour chaque destination. Aucun portage implicite de l’Auto Router LiteLLM ni routeur parallèle.
 
 Recette : la route `off` se comporte réellement comme annoncée sur payload synthétique ; elle n'affecte pas `enforce` ; les secrets du coffre ne sont jamais injectés ; l'UI affiche la politique effective. Une politique ZDR impossible échoue au lieu de revenir vers une route plus permissive. Les droits documentaires restent applicables en mode `off`.
 
@@ -155,7 +155,7 @@ Ouverture : catalogue en lecture, puis édition pour admin pilote ; exceptions d
 
 Créer `services/control_plane/{agent_bindings,a2a_adapter}.py` si les fonctions natives ne suffisent pas, `tests/test_a2a_workspaces.py`. Réutiliser `services/hermes/files.py`, `services/open_webui/arcia_hermes_files.py`, `scripts/hermes_files.py` et les fixtures du lot 01.
 
-- [ ] Projeter les agents et droits vers LiteLLM ; l'identité nominative sélectionne uniquement les bindings autorisés. Les IDs de trace ne servent jamais d'habilitation.
+- [ ] Projeter les agents et droits vers agentgateway ; l'identité nominative sélectionne uniquement les bindings autorisés. Les IDs de trace ne servent jamais d'habilitation.
 - [ ] Mapper conversation WebUI → contexte A2A → session privée sans employer le prompt ou l'email comme autorité. Qualifier propriété, annulation et reprise.
 - [ ] Tester identité/enveloppe non transformées, chat mixte `enforce/off`, modèles internes, perte du vault et CSV contenant des marqueurs ; refuser la transformation de formats binaires non qualifiés.
 - [ ] Préserver l'API d'artefacts authentifiée et publier uniquement les fichiers existants d'un tour terminé ; adapter la présentation des références dans le chat.
@@ -186,7 +186,7 @@ Ouverture : provider puis tenant pilote ; lecture seule pour les tableaux intég
 Créer `services/control_plane/{knowledge,connections,mcp_adapter}.py`, `services/knowledge/adapter.py` si nécessaire, `tests/test_tenant_knowledge_acl.py`, `tests/test_mcp_delegation.py` et un corpus synthétique.
 
 - [ ] Qualifier les API RAG natives Open-WebUI pour recherche, citations et droits ; exposer leur contrat commun via `arcia_knowledge` pour Hermes et applications.
-- [ ] Gérer les MCP avec la passerelle native LiteLLM ; identités personnelles et connexions de service distinctes, scopes minimaux et révocation.
+- [ ] Gérer les MCP avec la passerelle native agentgateway ; identités personnelles et connexions de service distinctes, scopes minimaux et révocation.
 - [ ] Déployer les programmes MCP dans des workloads séparés ; interdire les commandes stdio arbitraires dans la passerelle partagée et les téléchargements de dépendances non qualifiées.
 - [ ] Ajouter un premier connecteur documentaire et les mocks CRM/PGI ; synchronisation à checkpoints, suppressions, cache borné et provenance des artefacts dérivés.
 - [ ] Tester injection documentaire, accès d'un autre groupe, révocation pendant un run, disparition source et résultat périmé ; filtrer avant extrait et avant transfert externe.
@@ -203,7 +203,7 @@ Créer `services/control_plane/{agents,releases,directory}.py`, `schemas/arcia-a
 - [ ] Produire un paquet versionné avec digest, dépendances fixées, tests, données synthétiques et permissions demandées. Distinguer définition et état personnel.
 - [ ] Implémenter brouillon → qualification → prêt → publié → retiré ; publier vers IDs de comptes, rôles ou IDs de groupes M365.
 - [ ] Résoudre les destinataires sans ambiguïté, gérer overage de groupes, départ de l'organisation et version précédente ; aucune délégation implicite d'une connexion personnelle.
-- [ ] Projeter la publication dans les catalogues natifs WebUI/LiteLLM/Hermes et montrer les échecs partiels jusqu'à réconciliation.
+- [ ] Projeter la publication dans les catalogues natifs WebUI/agentgateway/Hermes et montrer les échecs partiels jusqu'à réconciliation.
 
 Recette : deux versions d'un agent synthétique, publication à un groupe puis retrait ; un non-membre ne peut l'appeler par ID direct ; le package ne contient ni mémoire Power User ni credential ; changer SOUL ne modifie pas les permissions serveur.
 

@@ -1,3 +1,5 @@
+> **Transition v0.7 : agentgateway remplace LiteLLM dans la cible.** Lire le [contrat applicatif](../v0.7/contrat-applicatif.md). Le nouveau profil `qualification_only` se valide en dry-run et se qualifie en namespace jetable ; son déploiement complet reste bloqué avant parité. Les chemins LiteLLM ci-dessous documentent la continuité historique.
+
 <p align="left">
 
 > Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.

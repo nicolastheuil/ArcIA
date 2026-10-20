@@ -2,6 +2,10 @@
 
 Le registre [deploy/versions.json](../../deploy/versions.json) fixe les **cibles en développement**, vérifiées auprès des sources officielles le **19 octobre 2026**. Il ne certifie ni leur déploiement sur l’instance ni la recette de la plateforme complète. Les tags sont accompagnés du digest OCI exact dans les manifestes, Dockerfile et le laboratoire.
 
+## Passerelle cible et composants historiques
+
+Décision du 20 octobre : **agentgateway v1.6.0**, commit `ea5608642b9d5c94c5baf5fd9f2f9849b808e963`, image OCI par digest dans le registre, est la cible OSS. Bootstrap fermé et HTTP JWT/CEL partiellement qualifiés ; les parcours métier restent à recetter. LiteLLM et sa base restent des dépendances de migration, sans changement automatique de l’instance. Voir le [contrat applicatif](../v0.7/contrat-applicatif.md).
+
 ## Composants gérés par ArcIA
 
 | Composant | Version cible | Image (digest dans le registre) |

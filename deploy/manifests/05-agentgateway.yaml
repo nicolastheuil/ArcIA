@@ -1,0 +1,64 @@
+# Cible v0.7 : qualification isolée uniquement, aucune substitution implicite.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentgateway
+  namespace: arcia
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: agentgateway}
+  template:
+    metadata:
+      labels: {app: agentgateway}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: agentgateway
+          image: ghcr.io/agentgateway/agentgateway:v1.6.0@sha256:9d3e6044ddcdc0878b1787f77bd401252b95e22684203fb5e874c4c42d2ed90c
+          args: [-f, /etc/agentgateway/config.yaml]
+          ports:
+            - {name: gateway, containerPort: 3000}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe:
+            tcpSocket: {port: gateway}
+            initialDelaySeconds: 2
+            periodSeconds: 3
+          volumeMounts:
+            - {name: config, mountPath: /etc/agentgateway, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: agentgateway-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentgateway
+  namespace: arcia
+spec:
+  selector: {app: agentgateway}
+  ports:
+    - {name: gateway, port: 3000, targetPort: gateway}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentgateway-default-deny
+  namespace: arcia
+spec:
+  podSelector:
+    matchLabels: {app: agentgateway}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []

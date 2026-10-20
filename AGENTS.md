@@ -6,10 +6,10 @@ ArcIA porte le socle générique. Les usages, corpus, connecteurs spécifiques, 
 
 ## Référentiel et état du programme
 
-- Les décisions utilisateur du programme v0.7 gouvernent la cible. Lire d'abord le [cadrage v0.7](docs/v0.7/README.md), la [conception et les flux](docs/v0.7/conception.md), puis le [plan par lots](docs/v0.7/lots.md). Ces documents font référence pour la nouvelle structure.
+- Les décisions utilisateur du programme v0.7 gouvernent la cible. Lire d'abord le [contrat applicatif agentgateway](docs/v0.7/contrat-applicatif.md), le [cadrage](docs/v0.7/README.md), la [conception et les flux](docs/v0.7/conception.md), puis le [plan par lots](docs/v0.7/lots.md).
 - Consulter l'[audit de l'existant](docs/v0.7/audit.md), les [preuves de qualification](docs/v0.7/verification.md) et les [versions déclarées](deploy/versions.json) pour déterminer ce qui existe réellement.
 - L'[architecture historique et sa transition](docs/architecture.md), l'[état des fonctions v0.6](docs/etat-des-fonctionnalites.md), le [quickstart](docs/runbooks/quickstart.md), le [déploiement universel](docs/guides/deploiement-universel.md) et la [confidentialité Presidio](docs/guides/confidentialite-presidio.md) décrivent aussi des chemins existants. Ils ne prouvent pas que la cible multi-tenant est livrée.
-- État de référence à l'ouverture du programme : cadrage établi, versions verrouillées et qualification partielle de la stack existante. Le lot 01 reste ouvert ; console, API de gestion, isolation multi-tenant cible et bascule A2A restent à développer et à recetter. Actualiser cet état seulement avec les preuves du lot.
+- État de référence à l'ouverture du programme : cadrage établi, versions verrouillées et qualification partielle de la stack existante. agentgateway est la nouvelle cible ; bootstrap fermé et HTTP JWT/CEL ont leur preuve synthétique. Le lot 01 reste ouvert ; LLM/Presidio, MCP/A2A et les lots de gestion/isolation restent à développer et à recetter. Actualiser cet état seulement avec les preuves du lot.
 - Travailler sur la branche `v0.7`, sans merge implicite vers `main`. Le cluster existant est la cible désignée de qualification ; aucune migration de production ne découle d'une validation synthétique.
 - Une contradiction entre ancien document et cible doit être signalée et corrigée dans le lot concerné ; ne pas réintroduire silencieusement une décision abandonnée.
 
@@ -22,12 +22,12 @@ ArcIA porte le socle générique. Les usages, corpus, connecteurs spécifiques, 
 | Tenant | Gestion de son instance, modèles, politiques, utilisateurs, Power Users, groupes, sources, connexions, agents, sauvegardes et observabilité |
 | API et worker ArcIA | Identité canonique, autorisations, déclarations et réconciliation d'opérations typées ; code modulaire commun, déploiements et permissions séparés |
 | Open-WebUI par tenant | Chat collaborateur, conversations, pièces jointes, fichiers et fonctions collaboratives natives qualifiées |
-| LiteLLM par tenant | Point d'entrée de chat unique : inférence directe ou agent A2A ; AI Gateway, MCP Gateway, Agent Gateway, budgets et Auto Router selon capacités et licences qualifiées |
+| agentgateway OSS par tenant | Passerelle cible LLM/MCP/A2A, JWT strict et autorisation CEL ; fonctions natives de la version épinglée, sans licence Enterprise supposée |
 | Hermes privé par compte | Sessions, outils, mémoire et code ; un propriétaire actif de chaque état, jamais un `state.db` partagé en écriture |
 | Presidio par tenant | DLP, pseudonymisation et réhydratation dans le périmètre autorisé, suivant la politique effective |
 | Prometheus et Grafana | Dashboards intégrés derrière authentification ; supervision provider séparée des données et métriques des tenants |
 
-- Le catalogue cible a des noms libres et **aucun champ `category: simple|agentic`**. La destination configurée dans LiteLLM sélectionne l'inférence ou l'agent A2A ; ne pas créer un second backend Open-WebUI pour exprimer cette distinction.
+- Le catalogue cible a des noms libres et **aucun champ `category: simple|agentic`**. La destination déclarée sélectionne l'inférence ou l'agent A2A via agentgateway ; qualifier le pont de chat avant activation, sans second backend Open-WebUI.
 - Qualifier les API, licences, identité, sessions, streaming, annulation, erreurs et artefacts de chaque fonction native avant activation. Si nécessaire, construire uniquement le petit adaptateur manquant ; ne pas réimplémenter une gateway, un moteur de workflow ou le chat.
 - Les objets de gestion durables résident en PostgreSQL, avec migrations et rôles distincts des applications natives. Conserver conversations, corpus et fichiers dans leurs stockages propriétaires ; référencer plutôt que créer une troisième copie.
 - Le code applicatif appartient à `services/`, notamment au futur `services/control_plane/` ; la console cible appartient à `console/`. Ces répertoires cibles ne doivent pas être présentés comme livrés avant leur lot.
@@ -54,7 +54,7 @@ ArcIA porte le socle générique. Les usages, corpus, connecteurs spécifiques, 
 
 ## Confidentialité et politiques d'exécution
 
-- **Par défaut**, maintenir les deux barrières Presidio : garde Hermes avant persistance SQLite et appel LLM, puis guardrail LiteLLM avant transport vers le fournisseur. Une route protégée refuse si Presidio est indisponible ; requalifier refus, pseudonymisation et réhydratation.
+- **Par défaut**, maintenir les deux barrières Presidio : garde Hermes avant persistance SQLite et appel LLM, puis webhook guardrail agentgateway avant transport fournisseur. Adapter et qualifier ce protocole, distinct des callbacks LiteLLM historiques. Panne, erreur ou format non qualifié refusent une route protégée ; préserver pseudonymisation et réhydratation.
 - Préserver le bootstrap et l'ancrage `.pth` en lecture seule de Hermes. Toute évolution de son image exige une nouvelle qualification SQLite, outils, transport LLM et panne DLP.
 - La cible autorise une **désactivation complète de DLP et/ou ZDR par modèle**, par politique explicite administrée, révisée et auditée côté serveur. Aucune option client ni instruction de prompt ne crée cette exception ; ne pas l'annoncer disponible avant recette.
 - Le garde de politique, les autorisations, l'isolation et la protection des secrets détenus par la plateforme restent obligatoires. L'exception ne déclassifie ni sources ni historique ; cumuler les contraintes de la route, du modèle réellement appelé et des données.
@@ -76,6 +76,7 @@ ArcIA porte le socle générique. Les usages, corpus, connecteurs spécifiques, 
 
 - Avancer selon les dépendances et portes de recette du plan. Le wizard cible conserve **installation et restauration** ; déplacer le reste vers la console seulement après parité vérifiée. Préserver pendant la transition les voies de récupération et les appels existants.
 - L'ancien routage `category`, le relais Hermes et les scripts historiques sont des compatibilités temporaires. Les conserver jusqu'à recette d'identité, sessions, gouvernance et fichiers A2A ; ne pas les étendre comme contrat cible.
+- LiteLLM, sa base, ses clés et ses callbacks sont historiques : préserver restauration et preuves sans les projeter dans le nouveau contrat. agentgateway n'hérite ni d'une API de clés virtuelles, ni des tables LiteLLM, ni de son Auto Router. Aucun remplacement d'une instance existante sans recette et migration explicites.
 - Les wrappers wizard/headless, `scripts/deploy.py`, manifests et `arcia.config.yaml.example` doivent permettre installation, réapplication, migration et restauration reproductibles. Toute évolution les met à jour avec tests, sauvegarde et runbook dans le même lot.
 - Préserver identités, clés et volumes à la réapplication. Protéger les migrations PostgreSQL majeures, vérifier l'état actuel même si une ancienne étape était réussie ; aucun effacement ou remplacement implicite de PVC.
 - Les opérations de gestion sont typées, durables, idempotentes et réconciliées. Un timeout après écriture externe devient un état incertain à vérifier, jamais un rejeu aveugle au redémarrage.

@@ -1,3 +1,5 @@
+> **Cible v0.7 : agentgateway OSS.** Le [contrat](../v0.7/contrat-applicatif.md) et la [recette native](../reference/gateway-capabilities.md) précèdent toute migration. Le nouveau profil est fermé à l’installation complète avant parité. Les commandes LiteLLM ci-dessous concernent uniquement une instance historique explicitement reconnue ; ne pas les appliquer pour contourner cette porte.
+
 # Quickstart ArcIA v0.7.0
 
 > Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](../guides/versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.

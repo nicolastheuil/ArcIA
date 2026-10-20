@@ -1,3 +1,5 @@
+> Cible v0.7 : **agentgateway OSS**, [contrat et portes de migration](../docs/v0.7/contrat-applicatif.md). Le bootstrap fermé est `manifests/05-agentgateway.yaml` avec `agentgateway/config.yaml` ; les manifests LiteLLM restent historiques et ne constituent pas la nouvelle cible.
+
 <p align="left">
   <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/IaC-Kubernetes_&_Docker_Lab-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="IaC Kubernetes">

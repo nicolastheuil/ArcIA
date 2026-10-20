@@ -1,3 +1,5 @@
+> Cible v0.7 : [contrat agentgateway](../docs/v0.7/contrat-applicatif.md). Les suites historiques restent des non-régressions ; les nouveaux tests `test_agentgateway_target.py` et `test_agentgateway_qualification.py` n’héritent d’aucune attestation LiteLLM.
+
 <p align="left">
   <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Tests-Unitaires_et_intégration-10B981?style=flat-square" alt="Tests automatisés">

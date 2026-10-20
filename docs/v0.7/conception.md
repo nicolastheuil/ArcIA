@@ -1,13 +1,13 @@
 # Conception de la plateforme ArcIA v0.7
 
-Statut : proposé. Décisions utilisateur dans [le cadrage](README.md), écarts dans [l'audit](audit.md), exécution dans [les lots](lots.md). La séparation infrastructure / tenant / applications de Galene inspire les responsabilités ; aucun choix de composant n'est déduit d'une capture marketing.
+Statut : cible adoptée en développement ; capacités activées uniquement après recette. Décision agentgateway et interfaces dans le [contrat applicatif](contrat-applicatif.md), cadrage dans [le dossier](README.md), écarts dans [l'audit](audit.md), exécution dans [les lots](lots.md). La séparation infrastructure / tenant / applications de Galene inspire les responsabilités ; aucun choix de composant n'est déduit d'une capture marketing.
 
 ## Responsabilités et composants
 
 | Composant | Responsabilité conservée ou ajoutée |
 |---|---|
 | Open-WebUI par tenant | Chat, historique, partage natif autorisé, pièces jointes et connaissances natives qualifiées |
-| LiteLLM par tenant | AI Gateway, clés nominatives, budgets, MCP Gateway et Agent Gateway ; Auto Router optionnel selon version/licence |
+| agentgateway par tenant | Routage LLM/MCP/A2A, JWT et CEL natifs OSS ; quotas, budgets et métriques selon capacités qualifiées |
 | Hermes privé par compte | Outils, mémoire, code et sessions ; un propriétaire d'état ; même environnement pour portail et Desktop/IDE |
 | Presidio par tenant | Contrôle DLP et correspondances de pseudonymisation privées ; garde natif Hermes conservé |
 | API ArcIA | Identité canonique, droits, catalogue métier, politiques, déclarations et orchestration des API natives |
@@ -27,7 +27,7 @@ flowchart TB
     subgraph A["Tenant A : namespace et stockage isolés"]
         TA --> CA["Console /tenant/a et API tenant"]
         U["Collaborateurs"] --> OW["Open-WebUI A"]
-        CA --> LL["LiteLLM A : AI, Agent et MCP Gateways"]
+        CA --> LL["agentgateway A : LLM, MCP et A2A"]
         OW --> LL
         LL --> AB["Entrée A2A liée au propriétaire"]
         AB --> H["Hermes privé et runtime sandbox"]
@@ -59,7 +59,7 @@ Entra ID est le premier fournisseur entreprise ; conserver un accès de récupé
 
 Permissions complémentaires aux deux profils produit : `provider_operator`, `tenant_admin`, `agent_publisher`, `approver`, `member`. Le provider ne s'octroie pas la lecture des contenus par son rôle applicatif. Les groupes Microsoft 365 sont identifiés par leur ID ; claims incomplets/overage nécessitent une résolution serveur autorisée, un cache borné et une gestion des révocations. Les droits sont recontrôlés avant accès à une source, exécution d'un outil, téléchargement et tâche planifiée. Une approbation ne délègue aucun droit que l'exécutant ne possède pas.
 
-Les correspondances LiteLLM keys/teams, groupes WebUI et rôles ArcIA sont des projections réconciliées. Une déclaration ArcIA versionnée fixe les attributions ; les identités et données natives restent propriétaires des applications. Les changements natifs administratifs sont importés ou signalés en dérive, jamais écrasés sans réconciliation. Pas de création de comptes au simple passage d'un email dans un header.
+Les politiques JWT/CEL agentgateway, groupes WebUI et rôles ArcIA sont des projections réconciliées. Une déclaration ArcIA versionnée fixe les attributions ; les identités et données natives restent propriétaires des applications. Les changements administratifs sont importés ou signalés en dérive, jamais écrasés sans réconciliation. Les clés/teams LiteLLM appartiennent uniquement à la migration historique. Pas de compte créé depuis un email dans un header.
 
 Pour les champs d'autorisation administrés, ArcIA est l'autorité : une dérive native expansive est refusée ou suspendue avant usage, pas simplement affichée. Son import produit une proposition de nouvelle révision soumise à validation. Une révocation coupe les nouvelles opérations concernées même si la projection native n'est pas encore à jour ; en cas de réconciliateur indisponible, pas d'élargissement implicite. Les préférences natives non liées aux droits restent sous autorité de leur application. Les accès natifs d'administration sont bornés en conséquence.
 
@@ -69,7 +69,7 @@ Pour les champs d'autorisation administrés, ArcIA est l'autorité : une dérive
 sequenceDiagram
     actor U as Collaborateur
     participant W as Backend Open-WebUI
-    participant L as LiteLLM du tenant
+    participant L as agentgateway du tenant
     participant D as Presidio du tenant
     participant P as Fournisseur autorisé
     U->>W: Session authentifiée et modèle publié
@@ -79,7 +79,7 @@ sequenceDiagram
     L->>D: Appliquer DLP si politique active
     D-->>L: Contenu admis ou refus
     L->>P: Inférence avec contrainte ZDR effective
-    P-->>W: Réponse via LiteLLM et streaming
+    P-->>W: Réponse via agentgateway et streaming
     W-->>U: Réponse dans le chat
 ```
 
@@ -91,7 +91,7 @@ Le backend WebUI ne distribue pas de clé fournisseur au navigateur. Son histori
 sequenceDiagram
     actor U as Collaborateur
     participant W as Open-WebUI
-    participant L as LiteLLM Agent Gateway
+    participant L as agentgateway A2A
     participant B as Binding A2A privé
     participant H as Hermes privé
     participant F as Service des artefacts
@@ -100,7 +100,7 @@ sequenceDiagram
     L->>L: Contrôler agent autorisé et politique
     L->>B: Message A2A, contexte et propriétaire vérifiés
     B->>H: Session propre au compte et au chat
-    H->>H: Garde DLP, outils bornés et inférences via LiteLLM
+    H->>H: Garde DLP, outils bornés et inférences via agentgateway
     H->>F: Publier les octets autorisés avec propriétaire et empreinte
     F-->>W: Référence opaque authentifiée dans la réponse
     W-->>U: Résultat et lien de téléchargement
@@ -109,9 +109,9 @@ sequenceDiagram
     F-->>U: Octets vérifiés ou refus
 ```
 
-La cible est une connexion de chat WebUI vers LiteLLM. Le catalogue cible ne possède aucun champ `category` ; les aliases visibles sont libres. LiteLLM utilise la destination de chaque entrée pour appeler un fournisseur d’inférence ou un agent A2A. Le champ historique reste accepté uniquement pendant la migration du déploiement actuel. Le transport technique A2A peut avoir son identifiant propre. Les auto-routages et fallbacks restent dans le même périmètre d'autorisation et de confidentialité et ne peuvent boucler vers l'alias A2A de l'agent.
+La cible est une connexion de chat WebUI vers agentgateway, avec aliases libres et sans champ `category`. Les routes déclarent une destination d’inférence ou A2A. Le pont Chat Completions vers A2A reste à qualifier : le support des deux protocoles ne prouve pas leur conversion. Conserver le relais historique jusqu’à parité ; ajouter uniquement un adaptateur minimal pour un écart démontré.
 
-Le binding n'est pas un second moteur d'agents : c'est la sélection authentifiée de l'endpoint privé. Priorité aux permissions et headers natifs LiteLLM ; si leur contrat ne suffit pas, extension serveur minimale de résolution tenant/compte/agent. Aucun endpoint Hermes choisi par le navigateur. Évaluer des enregistrements A2A par runtime si nécessaire, sans exposer les entrées privées aux autres comptes.
+Le binding n'est pas un second moteur d'agents : c'est la sélection authentifiée de l'endpoint privé. Priorité aux permissions et headers natifs agentgateway ; si leur contrat ne suffit pas, extension serveur minimale de résolution tenant/compte/agent. Aucun endpoint Hermes choisi par le navigateur. Évaluer des enregistrements A2A par runtime si nécessaire, sans exposer les entrées privées aux autres comptes.
 
 Le pont Chat Completions n'assure pas automatiquement toutes les opérations A2A. Réattachement, annulation, validations et artefacts nécessitent une recette séparée. Réutiliser le catalogue du relais actuel pour les fichiers ; garder une API d'artefacts authentifiée est compatible avec une seule connexion d'inférence. Les liens inventés par le modèle ne publient rien. Conserver d'abord les limites existantes : 10 fichiers/tour, 20 Mio/fichier, 200 Mio/runtime et 7 jours ; les rendre configurables après équivalence prouvée. Un chat partagé ne partage pas automatiquement ses fichiers.
 
@@ -129,7 +129,7 @@ La politique est évaluée avant persistance et avant chaque transport. Changer 
 
 ### Contrat de confidentialité des transports
 
-Le premier passage LiteLLM est une soumission d'agent, le second une inférence : appliquer aveuglément deux pseudonymisations indépendantes casserait les outils et les réponses. L'enveloppe d'identité signée, l'ID de conversation, les identifiants de tâche et les digests sont hors contenu transformable. Un contexte de pseudonymisation du service Presidio de tenant, lié au propriétaire et à la conversation, est utilisé aux différentes barrières ; seuls les services autorisés peuvent le référencer, jamais un identifiant de session choisi librement par le client.
+Le premier passage agentgateway est une soumission d'agent, le second une inférence : appliquer aveuglément deux pseudonymisations indépendantes casserait les outils et les réponses. L'enveloppe d'identité signée, l'ID de conversation, les identifiants de tâche et les digests sont hors contenu transformable. Un contexte de pseudonymisation du service Presidio de tenant, lié au propriétaire et à la conversation, est utilisé aux différentes barrières ; seuls les services autorisés peuvent le référencer, jamais un identifiant de session choisi librement par le client.
 
 La politique effective est l'intersection des permissions et des destinations admissibles, et le cumul des protections exigées par la route Agentic, le modèle d'inférence réellement appelé et la classification des données. DLP reste active si l'un de ces périmètres l'exige ; ZDR reste requise si l'un l'exige. Un ensemble vide de destinations refuse. Une désactivation complète suppose que chaque contrainte applicable permette la route : elle n'est pas une déclassification de l'ancien historique. Le modèle Simple a son propre contrat identique sans périmètre d'agent.
 
@@ -141,7 +141,7 @@ La DLP d'inférence ne garantit pas l'absence d'exfiltration par un programme au
 
 Réutiliser d'abord le RAG et les API de connaissances d'Open-WebUI, après qualification des ACL. Un adaptateur `arcia_knowledge` expose la recherche et le téléchargement aux autres consommateurs ; aucune seconde indexation n'est lancée par défaut. Si les ACL requises ne sont pas démontrables sur cette API, le lot fournit un contrat de remplacement et une migration de corpus, sans double moteur permanent.
 
-LiteLLM MCP Gateway centralise les serveurs et leurs droits techniques. Les MCP s'exécutent comme services séparés bornés ; ne pas lancer des programmes stdio arbitraires dans le pod de la passerelle d'inférence. Les identités personnelles, la délégation et les comptes de service explicites restent distincts. Les destinations, scopes et dépendances sont versionnés et contrôlés. Une allowlist d'outils n'est pas une politique d'accès ligne par ligne au CRM ou au PGI : cette dernière est appliquée par l'adaptateur de données.
+agentgateway MCP Gateway centralise les serveurs et leurs droits techniques. Les MCP s'exécutent comme services séparés bornés ; ne pas lancer des programmes stdio arbitraires dans le pod de la passerelle d'inférence. Les identités personnelles, la délégation et les comptes de service explicites restent distincts. Les destinations, scopes et dépendances sont versionnés et contrôlés. Une allowlist d'outils n'est pas une politique d'accès ligne par ligne au CRM ou au PGI : cette dernière est appliquée par l'adaptateur de données.
 
 Un agent publié est un paquet immuable : instructions structurées, rendu SOUL/AGENTS, compétences versionnées, outils, programmes construits en image, sources, permissions, politique d'inférence, tests et digest. Les fichiers de personnalité ne peuvent modifier les contrôles d'accès. Publication par utilisateur, groupe M365 ou rôle ; données et identité de l'organisation dans le dépôt d'instance privé.
 
@@ -166,7 +166,7 @@ sequenceDiagram
     B->>S: Construire une nouvelle version depuis la précédente
 ```
 
-Le builder n'a pas de kubeconfig, clé master LiteLLM ou pouvoir de publication arbitraire. Il produit une proposition d'agent d'instance et utilise des outils d'administration typés. Une modification du harness générique passe par une proposition de code revue et ses tests ; jamais par l'édition en direct de la plateforme en production. L'accès réel HubSpot/PGI dépend de connexions administrées ; les fixtures de build restent synthétiques. Un utilisateur nommé ambigu entraîne une clarification, pas une attribution approximative.
+Le builder n'a pas de kubeconfig, credential privilégié de gateway ou pouvoir de publication arbitraire. Il produit une proposition d'agent d'instance et utilise des outils d'administration typés. Une modification du harness générique passe par une proposition de code revue et ses tests ; jamais par l'édition en direct de la plateforme en production. L'accès réel HubSpot/PGI dépend de connexions administrées ; les fixtures de build restent synthétiques. Un utilisateur nommé ambigu entraîne une clarification, pas une attribution approximative.
 
 Les programmes d'agents publiés s'exécutent dans une sandbox séparée avec seules les entrées de travail autorisées montées, sans `HERMES_HOME`, `state.db`, environnement de credentials ou fichiers personnels complets. Les capacités de données sont bornées à tenant + utilisateur + agent + version + run, à usage et durée limités, avec résolution des secrets par un broker hors sandbox. Le shell personnel étendu du Power User reste un pouvoir explicite de son environnement ; il n'est pas accordé à tout programme publié. Si la restriction des outils par run n'est pas démontrable dans le runtime Hermes sélectionné, l'invocation publiée utilise un runtime séparé sans montage de l'état personnel ; aucun contexte de permissions déclaré dans un prompt ne remplace cette frontière.
 

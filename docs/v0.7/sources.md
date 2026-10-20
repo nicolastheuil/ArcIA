@@ -1,4 +1,16 @@
+> Cible actualisée : [contrat agentgateway](contrat-applicatif.md) et [matrice native](../reference/gateway-capabilities.md). Les références LiteLLM ci-dessous documentent l’existant et la migration, sans imposer ses API à la nouvelle cible.
+
 # Sources et capacités à qualifier pour ArcIA v0.7
+
+## Références de la cible agentgateway
+
+- [Release v1.6.0](https://github.com/agentgateway/agentgateway/releases/tag/v1.6.0) et [schéma du commit épinglé](https://github.com/agentgateway/agentgateway/blob/ea5608642b9d5c94c5baf5fd9f2f9849b808e963/schema/config.json).
+- [Autorisation MCP native](https://agentgateway.dev/docs/standalone/latest/reference/cel/yaml-and-examples/) et [autorisation HTTP](https://agentgateway.dev/docs/standalone/latest/documentation/configuration/security/http-authz/) : vérifier chaque option contre le schéma v1.6.0 avant usage.
+- [Identité transmise par Open-WebUI v0.12.3](https://github.com/open-webui/open-webui/blob/v0.12.3/backend/open_webui/utils/headers.py) : OAuth et JWT signé interne ne sont pas interchangeables sans vérifier audience, claims et appartenance ArcIA.
+
+## Références historiques LiteLLM
+
+Complément du 20 octobre : [matrice des capacités et recette reproductible](../reference/gateway-capabilities.md), avec sources des composants épinglées et limites du pont A2A.
 
 Consultation publique du 19 octobre 2026. Ces sources donnent des contrats et pistes de réutilisation ; elles ne certifient pas l'installation ArcIA. Les liens de documentation courante peuvent évoluer : le lot 01 fixe les versions et commits correspondant au code réellement qualifié.
 

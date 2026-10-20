@@ -435,6 +435,8 @@ class K8sRunner:
 # Validation des Prérequis & Données de Configuration
 # -----------------------------------------------------------------------------
 def validate_config(cfg: Dict[str, Any]) -> None:
+    from services.agentgateway.configuration import deployment_profile
+    deployment_profile(cfg)
     from hermes_files import declared_users
     declared_users(cfg)
     errors = []
@@ -1269,6 +1271,8 @@ def assert_database_upgrade_safe(runner, namespace: str, target_image: str) -> N
 
 
 def deploy_arcia(cfg: Dict[str, Any], root_dir: str):
+    from services.agentgateway.configuration import require_qualified_deployment
+    require_qualified_deployment(cfg)
     if cfg.get("synthetic_validation"):
         raise ValueError("Une fixture synthétique ne peut pas être déployée ; utilisez --dry-run.")
     from hermes_files import declared_users, sync_private_runtimes

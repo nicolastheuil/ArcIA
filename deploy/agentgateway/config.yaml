@@ -1,0 +1,15 @@
+# Bootstrap fermé : la recette remplace cette configuration dans son namespace
+# synthétique. Aucun fournisseur, clé ou chemin métier n'est ouvert par défaut.
+config:
+  logging:
+    format: json
+binds:
+  - port: 3000
+    listeners:
+      - routes:
+          - policies:
+              authorization:
+                rules:
+                  - require: 'false'
+            backends:
+              - host: 127.0.0.1:1

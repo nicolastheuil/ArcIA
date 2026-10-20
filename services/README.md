@@ -1,3 +1,5 @@
+> Cible v0.7 : **agentgateway OSS** ([contrat](../docs/v0.7/contrat-applicatif.md), [intégration](agentgateway/README.md)). Les services LiteLLM ci-dessous appartiennent au socle historique et à sa migration.
+
 <p align="left">
   <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Microservices-Python_3.11-6BE7DD?style=flat-square&logo=python&logoColor=050712" alt="Python 3.14.8">

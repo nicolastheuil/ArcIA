@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:arcia:gateway:v0.7",
+  "title": "Sélection de la passerelle cible",
+  "description": "Bootstrap v0.7 ; la migration active reste fermée jusqu'à qualification du contrat applicatif.",
+  "type": "object",
+  "required": ["implementation", "mode"],
+  "additionalProperties": false,
+  "properties": {
+    "implementation": {"const": "agentgateway"},
+    "mode": {"const": "qualification_only"}
+  }
+}

@@ -1,3 +1,5 @@
+> Cible v0.7 : [contrat agentgateway](../docs/v0.7/contrat-applicatif.md). `qualify_gateway_stack.py` éprouve le nouveau binaire ; le chemin historique de `qualify_hermes_workspaces.py` ne qualifient pas agentgateway.
+
 <p align="left">
   <a href="../README.md"><img src="https://img.shields.io/badge/🏠_Accueil-ArcIA_v0.7.0-1659E4?style=flat-square" alt="Accueil ArcIA"></a>
   <img src="https://img.shields.io/badge/Automation-PowerShell_&_Python_3.14-6BE7DD?style=flat-square&logoColor=050712" alt="Automation">

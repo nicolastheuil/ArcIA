@@ -1,3 +1,5 @@
+> **Transition v0.7 : agentgateway OSS.** Le [contrat](../v0.7/contrat-applicatif.md) exige l’adaptation du webhook natif Presidio et sa recette fail-closed. Les callbacks LiteLLM décrits ci-dessous sont historiques ; leurs résultats ne qualifient pas le nouveau transport.
+
 # Presidio DLP — gouvernance et double barrière de confidentialité (v0.7.0)
 
 > La barrière Hermes est imposée au démarrage par le bootstrap ArcIA et aux frontières HTTP, SQLite et transport LLM. Son statut de recette, distinct du déploiement de production et du rebuild complet, figure dans l’[état des fonctionnalités](../etat-des-fonctionnalites.md).

@@ -1310,6 +1310,7 @@ def get_default_config_dict() -> Dict[str, Any]:
             pass
 
     return {
+        "gateway": {"implementation": "agentgateway", "mode": "qualification_only"},
         "kubernetes": {
             "mode": "remote-ssh" if ident_key else "local",
             "kubeconfig": "",
@@ -1416,6 +1417,8 @@ def ensure_config_defaults(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """S'assure que toutes les sections et clés sont présentes avec des valeurs valides."""
     defaults = get_default_config_dict()
     for section, sec_data in defaults.items():
+        if section == "gateway" and section not in cfg:
+            continue  # Un ancien fichier ne constitue pas une demande de migration.
         if section not in cfg or not isinstance(cfg[section], dict):
             cfg[section] = sec_data
         else:

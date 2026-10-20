@@ -1,148 +1,43 @@
-# Architecture ArcIA v0.7.0
+# Architecture cible ArcIA v0.7.0
 
-> Cible v0.7.0 en développement : [versions verrouillées et migration PostgreSQL](guides/versions-officielles.md). Qualification isolée sur le cluster existant ; aucune mise à jour de production attestée. La migration A2A et la console restent des lots à réaliser.
+Décision du 20 octobre 2026 : **agentgateway OSS remplace LiteLLM**. Le [contrat applicatif](v0.7/contrat-applicatif.md) gouverne les interfaces ; la [conception détaillée](v0.7/conception.md) contient les schémas et parcours. Les [lots](v0.7/lots.md) et leurs [preuves](v0.7/verification.md) distinguent cible et état réel.
 
+## Provider, tenants et composants
 
-> La barrière Hermes est imposée au démarrage par le bootstrap ArcIA et aux frontières HTTP, SQLite et transport LLM. Son statut de recette, distinct du déploiement de production et du rebuild complet, figure dans l’[état des fonctionnalités](etat-des-fonctionnalites.md).
+La console expose `/provider/` pour le cycle de vie des tenants et l'infrastructure, puis `/tenant/<slug>/` pour administrer une instance. Le slug est une présentation ; un UUID immuable porte l'autorisation. Le provider ne reçoit aucun droit applicatif implicite sur les contenus privés.
 
-> **Statut : code et qualification partielle (v0.6.0, canal development)** · [Consulter le tableau de bord des fonctionnalités](etat-des-fonctionnalites.md)
+| Composant cible | Responsabilité |
+|---|---|
+| Open-WebUI par tenant | Chat, collaboration et SSO ; une connexion de chat vers agentgateway après parité |
+| agentgateway par tenant | Routage LLM/MCP/A2A, JWT strict, autorisation CEL et métriques ; mode standalone avec configuration déclarative, sans remplacement de Traefik |
+| API et worker ArcIA | Identité canonique, droits, politiques, catalogue, publication et opérations réconciliées ; permissions séparées |
+| Hermes privé par compte | Sessions, mémoire et outils, PVC privé et un propriétaire actif par état ; même environnement pour le Power User et son canal Desktop/IDE |
+| Presidio par tenant | DLP/pseudonymisation avant persistance Hermes et transport fournisseur ; adaptation du webhook natif à qualifier |
+| PostgreSQL de gestion | État administratif ArcIA, indépendant des tables LiteLLM ; les données natives restent dans leurs stockages propriétaires |
+| Prometheus/Grafana | Supervision intégrée et authentifiée ; métriques tenant et provider séparées |
 
-ArcIA est la plateforme d'IA agentique d'entreprise conçue pour concilier autonomie des agents, gouvernance stricte des données et expérience utilisateur unifiée sur n'importe quel cluster Kubernetes (ou en mode Lab Docker).
+Le cluster existant est la cible désignée. Le profil multi-tenant exige namespaces, identités, bases/rôles, secrets, PVC et sauvegardes distincts ; un cluster dédié reste une option. RAG, connexions MCP et définitions d'agents sont partagés selon les ACL du tenant, jamais l'état personnel Hermes.
 
----
+## Identité et parcours
 
-## 1. Principes fondateurs v0.7.0
+- Entra authentifie l'utilisateur. Son `tid` désigne l'annuaire, pas le tenant ArcIA ; les appartenances sont vérifiées côté serveur.
+- Open-WebUI transmet une identité vérifiable avec une audience adaptée. La gateway valide le jeton et applique CEL ; les headers en clair ou prompts ne créent aucun droit.
+- L'inférence appelle le fournisseur autorisé après application de la politique de données. Les inférences internes Hermes passent par la même gateway.
+- Le parcours agentique sélectionne un binding privé. Conversation, contexte A2A, session et artefacts restent liés ; le support de deux protocoles ne prouve pas leur conversion.
+- Les accès MCP, sources, outils et téléchargements recontrôlent les droits. Le builder propose des versions testables ; les services vérifient publication et attributions.
 
-1. **Namespace Unifié (`arcia`)** : Déploiement centralisé dans un namespace unique simplifiant la découverte réseau (`*.arcia.svc`), le contrôle d'accès RBAC et les politiques de sécurité.
-2. **Routage par catégorie de modèle** :
-   - **Simple** : échanges entre Open-WebUI et LiteLLM (`:4000/v1`), sans boucle Hermes.
-   - **Agentic** : transmission depuis Open-WebUI au runtime Hermes privé du compte, via le relais `:8643` et sa gateway locale `:8642/v1`.
-   - Les noms des modèles sont libres ; le champ `category` du catalogue administré détermine le moteur.
-3. **Deux profils utilisateurs** :
-   - **Standards** : portail partagé avec identité vérifiée, mais pod Hermes, PVC, historique et fichiers privés par compte pour les tâches Agentic.
-   - **Power Users** : même accès WebUI, plus Studio sur leur pod Hermes dédié ; les tâches Agentic WebUI réutilisent ce pod, son PVC et ses personnalisations.
-   - Les [schémas détaillés des espaces utilisateurs](guides/espaces-utilisateurs-webui.md) montrent les contrôles à chaque étape et le lien avec Studio.
-4. **Double Barrière DLP Presidio Fail-Closed** :
-   - **Barrière 1 (Amont dans Hermes)** : Le code `services/hermes/plugin.py` doit être branché au runtime pour assainir les prompts et les sorties d’outils via `http://presidio-dlp.arcia.svc:8080/sanitize` avant toute sauvegarde SQLite et avant tout appel LLM.
-   - **Barrière 2 (Aval dans LiteLLM)** : Le guardrail `pre_call` (`default_on: true`) filtre systématiquement 100 % des requêtes sortant vers les fournisseurs cloud via `/analyze` et `/anonymize`. En cas d'indisponibilité du module DLP, la requête est rejetée net.
-5. **Sobriété Tokenmaxing Active (CCR + RTK + Graphify + Ponytail)** :
-   - **CCR (Compress-Cache-Retrieve)** : Compression réversible des fichiers et résultats JSON volumineux (> 8 Ko) avec cache mémoire SHA-256 privé et restitution paginée (`arcia_compress_json_file`, `arcia_restore_tool_result`).
-   - **RTK** : Réécriture et compaction bornée des commandes `git log`.
-   - **Graphify & Ponytail** : Cartographie AST locale sans consommation de tokens et échelle de décision YAGNI.
-6. **Packaging Microservices Sans Duplication** :
-   - Le code source de référence vit exclusivement dans `services/presidio/app.py`, `services/teams/app.py` et `services/hermes/plugin.py` (accompagnés de leurs `Dockerfile` respectifs).
-   - Le moteur `scripts/deploy.py` (`sync_service_configmaps`) synchronise dynamiquement ces fichiers dans les ConfigMaps Kubernetes (`presidio-code`, `teams-bot-code`, `hermes-governance-plugin`).
-7. **Verrouillage Strict du Portail Open-WebUI & Zéro Fuite BYOK** :
-   - Connexions directes navigateur-fournisseur désactivées (`ENABLE_DIRECT_CONNECTIONS=false`), auto-inscription publique fermée (`ENABLE_SIGNUP=false`), rôle par défaut `user` (`DEFAULT_USER_ROLE=user`), contrôle d'accès aux modèles activé (`BYPASS_MODEL_ACCESS_CONTROL=false`) et authentification obligatoire (`WEBUI_AUTH=true`).
-8. **Isolation Réseau (NetworkPolicies) & RateLimiting** :
-   - Politique `DenyAll` par défaut dans le namespace `arcia` n'autorisant que les flux légitimes (WebUI vers LiteLLM `:4000` et les relais Hermes privés `:8643`, Teams Bot vers LiteLLM `:4000` et Hermes `:8642`, Hermes vers Presidio `:8080`, LiteLLM `:4000` et HTTPS `:443`, LiteLLM vers Presidio `:8080` et PostgreSQL `:5432`).
-   - Route `/v1` protégée par middleware Traefik de limitation de débit (`RateLimit`).
+## Confidentialité et isolation
 
----
+DLP active et ZDR requise par défaut. Leur désactivation complète par modèle/route doit être explicite, administrée, auditée et compatible avec les contraintes de l'agent et des données. Elle ne déclasse pas l'historique et n'accorde aucun accès aux secrets.
 
-## 2. Diagramme d'architecture globale
+Le webhook guardrail agentgateway n'est pas l'API Presidio historique. Conversion, fail-closed, réhydratation, outils, streaming et formats sont des portes de recette. L'ancrage Hermes `.pth` reste obligatoire ; il ne remplace pas la sandbox d'un programme hostile.
 
-```mermaid
-flowchart TD
-    subgraph Utilisateurs ["👥 Profils Utilisateurs"]
-        StdUser["Utilisateur Standard<br/>(Open-WebUI Simple + Agentic & Teams)"]
-        PowerUser["Power User<br/>(Open-WebUI + Pod Hermes dédié K8s)"]
-        HermesDesk["Hermes Studio Central<br/>(Kanban :9119 via SSO)"]
-    end
+Refus réseau par défaut, sorties bornées, interdiction inter-tenants et inter-runtimes. L'exécution de code exige sandbox, CNI et admission qualifiés ; un namespace seul ne suffit pas. Aucun agent ne reçoit de jeton Kubernetes, montage hôte, PodSpec arbitraire ou droit de provisionnement. Une écriture externe incertaine n'est pas rejouée au restart.
 
-    subgraph IngressLayer ["🌐 Ingress & Sécurité Périmétrique (assistant.example.org)"]
-        Traefik["Ingress Controller<br/>(Cert-Manager TLS)"]
-        ForwardAuth["ForwardAuth Middleware<br/>(OAuth2-Proxy / Entra ID)"]
-        RateLimit["Middleware RateLimit (/v1)"]
-    end
+## État réel et migration
 
-    subgraph ArcIANamespace ["☸️ Cluster Kubernetes — Namespace: arcia"]
-        WebUI["Open-WebUI<br/>(Port 8080 / PVC 20Gi)<br/>• Modèles Simple et Agentic<br/>• Routage hybride LiteLLM + Hermes"]
-        TeamsBot["Teams Bot Adapter<br/>(Port 3978)<br/>• Modèle Simple par défaut<br/>• /agent vers Hermes"]
-        HermesCore["Hermes Agent Runtime<br/>Studio (9119) & Gateway (8642)<br/>(PVC 20Gi / Plugin DLP + CCR + RTK)"]
-        HermesStd["Pods Hermes standards privés<br/>(un pod et un PVC par compte, relais :8643)"]
-        HermesPU["Pods Hermes Power Users<br/>(/poweruser/slug/studio + PVC 10Gi)"]
-        Presidio["Presidio DLP (Fail-Closed)<br/>(Port 8080 - Double Barrière Secrets, IP, PII)"]
-        LiteLLM["LiteLLM Proxy<br/>(Port 4000 - Catalogue administré, ZDR et quotas)"]
-        LiteLLMDB[("LiteLLM DB PostgreSQL<br/>(Port 5432 - Clés virtuelles & Budgets)")]
-    end
+agentgateway v1.6.0 et son image sont [épinglés](../deploy/versions.json). Bootstrap fermé et 13 cas HTTP JWT/CEL qualifiés sur le cluster existant ; namespace jetable vérifié supprimé. Cet émetteur synthétique ne qualifie ni Entra réel, ni LLM/Presidio, ni MCP/A2A, ni artefacts, ni HA.
 
-    subgraph CloudLayer ["☁️ Services Externes Sécurisés"]
-        OpenRouter["OpenRouter API<br/>(Free, Auto, DeepSeek V4.1 Flash - ZDR)"]
-        EntraID["Microsoft Entra ID<br/>(SSO & MFA)"]
-        AzureBot["Azure Bot Framework<br/>(DirectLine / Graph)"]
-    end
+`gateway.implementation: agentgateway`, `mode: qualification_only` sélectionne la cible. Son déploiement global reste refusé avant migration recettée, sans repli vers LiteLLM. L'[architecture historique](architecture-legacy.md), ses clés et sa base restent uniquement pour continuité et retour arrière ; aucune preuve antérieure n'est renommée.
 
-    StdUser -->|HTTPS /| Traefik
-    PowerUser -->|HTTPS /poweruser/slug/studio| Traefik
-    HermesDesk -->|HTTPS /studio| Traefik
-    StdUser -->|Webhook Teams| AzureBot
-    AzureBot -->|HTTPS /api/teams/messages| Traefik
-
-    Traefik --> ForwardAuth
-    ForwardAuth -.->|Validation OIDC| EntraID
-    ForwardAuth -->|Autorisé /studio| HermesCore
-    ForwardAuth -->|Autorisé /poweruser/slug| HermesPU
-
-    Traefik --> RateLimit
-    RateLimit -->|Inférence /v1| LiteLLM
-
-    Traefik -->|Accès Portail /| WebUI
-    Traefik -->|Bypass Auth Webhook| TeamsBot
-
-    WebUI -->|Chat Direct Simple :4000| LiteLLM
-    WebUI -->|Session agentique privée :8643| HermesStd
-    WebUI -->|Compte Power User :8643| HermesPU
-    TeamsBot -->|Modèle Simple :4000| LiteLLM
-    TeamsBot -->|Mission /agent :8642| HermesCore
-
-    HermesCore -->|Barrière 1 DLP /sanitize| Presidio
-    HermesCore -->|Inférence LLM :4000| LiteLLM
-    HermesCore -->|Outils Web HTTPS :443| CloudLayer
-    HermesStd -->|Inférence :4000| LiteLLM
-    HermesStd -->|DLP /sanitize| Presidio
-    HermesPU -->|Barrière 1 DLP /sanitize| Presidio
-    HermesPU -->|Inférence LLM :4000| LiteLLM
-
-    LiteLLM <--> LiteLLMDB
-    LiteLLM -->|Barrière 2 DLP /analyze + /anonymize| Presidio
-    LiteLLM -->|Inférence Cloud Sécurisée ZDR| OpenRouter
-```
-
----
-
-<a id="carte-du-dépôt"></a>
-## 3. Cartographie des composants et ports (v0.7.0)
-
-| Composant | Image Docker / Runtime | Port Interne | Exposition Ingress | Persistance | Rôle |
-|---|---|---|---|---|---|
-| **Open-WebUI** | `ghcr.io/open-webui/open-webui:v0.12.3` | `8080` | `/` (SSO O365 / Admin local) | PVC 20Gi (`open-webui-pvc`) | Portail hybride : LiteLLM (`:4000`) et routage serveur vers le runtime privé du compte (`:8643`) |
-| **Hermes Studio** | `nousresearch/hermes-agent:v0.22.2` | `9119` | `/studio` (Protégé SSO) | PVC 20Gi (`hermes-user-pvc`) | Observabilité Kanban, sessions, multi-agents |
-| **Hermes Gateway** | `nousresearch/hermes-agent:v0.22.2` | `8642` | `/gateway` (Protégé PAT) | Partagé PVC 20Gi (`state.db`) | Serveur API `/v1` (`Agentic`) avec plugin DLP/CCR/RTK & WebSocket Desktop |
-| **Espaces WebUI standards** | `nousresearch/hermes-agent:v0.22.2` | `8643` (relais), `8642` (local) | Aucune | PVC privé 10Gi par compte | Sessions, outils et fichiers isolés ; aucun repli partagé |
-| **Pods Power Users** | `nousresearch/hermes-agent:v0.22.2` | `9119` / `8642` | `/poweruser/<slug>/studio` | PVC 10Gi (`hermes-user-<slug>-pvc`) | Instance Hermes dédiée réutilisée depuis WebUI, avec relais de fichiers `:8643`, par Power User (`.\scripts\Spawn-PowerUser.ps1`) |
-| **Teams Bot Adapter** | `python:3.14.8-slim-bookworm` + BotBuilder | `3978` | `/api/teams/messages` | Stateless | Passerelle Microsoft Teams (modèle Simple par défaut, `/agent` vers un modèle Agentic dans Hermes) |
-| **LiteLLM Proxy** | `ghcr.io/berriai/litellm:v1.106.0` | `4000` | `/v1` (PAT + RateLimit) | Stateless | Passerelle LLM, catalogue profils, fallbacks, guardrail DLP, gestionnaire d'erreurs convivial et clés virtuelles |
-| **LiteLLM DB** | `postgres:18.6-alpine` | `5432` | Interne cluster | PVC 10Gi (`litellm-db-pvc`) | Base relationnelle des clés virtuelles, des équipes et de la comptabilité |
-| **Presidio DLP** | `python:3.14.8-slim-bookworm` + spaCy fr/en | `8080` | Interne cluster | Stateless | Caviardage systématique fail-closed des secrets, IP et PII (`/sanitize`, `/analyze`, `/anonymize`) |
-| **NetworkPolicy** | `networking.k8s.io/v1` | N/A | Interne cluster | N/A | Isolation réseau périmétrique et intra-cluster (Default DenyAll) |
-| **OAuth2-Proxy** | `quay.io/oauth2-proxy/oauth2-proxy:v7.15.5` | `4180` | Middleware Traefik | Stateless | Validation SSO OIDC avec Entra ID (`/oauth2/auth`) |
-
----
-
-## 4. Documentation par domaine
-
-Pour approfondir chaque brique :
-- [État des Fonctionnalités & Traçabilité](etat-des-fonctionnalites.md)
-- [Espaces utilisateurs WebUI et fichiers Hermes](guides/espaces-utilisateurs-webui.md)
-- [Moteur d'Agents Hermes, Studio & Power Users](guides/hermes-agent.md)
-- [Chaîne de Routage IA & Cycle de Vie d'une Requête](guides/chaine-de-routage.md)
-- [Passerelle d'Inférence d'Entreprise LiteLLM](guides/inference-litellm.md)
-- [Gouvernance & Confidentialité Presidio DLP](guides/confidentialite-presidio.md)
-- [Sobriété Tokenmaxing (CCR & RTK)](guides/tokenmaxing.md)
-- [Portail Collaborateur Open-WebUI & SSO Entra ID](guides/portail-webui-entraid.md)
-- [Intégration Microsoft Teams](guides/integration-teams.md)
-- [Catalogue de Compétences Partagées (Skills)](guides/skills.md)
-- [Outillage Agentique & Sobriété (Ponytail, Graphify, Public-APIs)](guides/outillage-builder.md)
-- [Moteur de Déploiement Universel Kubernetes](guides/deploiement-universel.md)
-- [Infrastructure Kubernetes & Exploitation](guides/infrastructure-k3s.md)
+Le wizard cible garde installation/restauration ; le reste passe dans la console après parité. Chaque lot synchronise code, manifests, migrations, sauvegardes, tests et runbooks. Une recette synthétique n'est ni une mise à jour de production, ni un rebuild sur cluster neuf.
